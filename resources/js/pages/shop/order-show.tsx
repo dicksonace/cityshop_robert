@@ -1,0 +1,198 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { AlertTriangle, Star } from 'lucide-react';
+import { FormEventHandler, useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import ShopLayout from '@/layouts/shop-layout';
+import { formatPrice, formatOrderStatus, Order, OrderItem } from '@/types/marketplace';
+
+interface OrderShowProps {
+    order: Order & { items?: (OrderItem & { dispute?: { id: number; status: string; reason: string } })[] };
+    reviews: Record<number, { rating: number; comment?: string }>;
+}
+
+const disputeReasons = [
+    { value: 'wrong_item', label: 'Wrong item received' },
+    { value: 'damaged_item', label: 'Damaged item' },
+    { value: 'not_delivered', label: 'Not delivered' },
+    { value: 'other', label: 'Other' },
+];
+
+function ReviewForm({ orderId, item }: { orderId: number; item: OrderItem }) {
+    const { data, setData, post, processing } = useForm({
+        order_item_id: item.id,
+        rating: 5,
+        comment: '',
+    });
+
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        post(route('orders.reviews.store', orderId));
+    };
+
+    return (
+        <form onSubmit={submit} className="mt-3 rounded-lg border border-orange-100 bg-orange-50 p-4">
+            <p className="text-sm font-medium text-gray-900">Rate this product</p>
+            <div className="mt-2 flex gap-1">
+                {[1, 2, 3, 4, 5].map((n) => (
+                    <button key={n} type="button" onClick={() => setData('rating', n)}>
+                        <Star className={`h-5 w-5 ${n <= data.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                    </button>
+                ))}
+            </div>
+            <Input
+                placeholder="Write a review (optional)"
+                value={data.comment}
+                onChange={(e) => setData('comment', e.target.value)}
+                className="mt-2"
+            />
+            <Button type="submit" size="sm" disabled={processing} className="mt-2 bg-orange-500 hover:bg-orange-600">
+                Submit Review
+            </Button>
+        </form>
+    );
+}
+
+function DisputeForm({ orderId, item }: { orderId: number; item: OrderItem }) {
+    const [open, setOpen] = useState(false);
+    const { data, setData, post, processing } = useForm({
+        order_item_id: item.id,
+        reason: 'wrong_item',
+        description: '',
+    });
+
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        post(route('orders.disputes.store', orderId), { onSuccess: () => setOpen(false) });
+    };
+
+    if (!open) {
+        return (
+            <button type="button" onClick={() => setOpen(true)} className="mt-2 flex items-center gap-1 text-sm text-red-500 hover:underline">
+                <AlertTriangle className="h-4 w-4" />
+                Open Dispute
+            </button>
+        );
+    }
+
+    return (
+        <form onSubmit={submit} className="mt-3 rounded-lg border border-red-100 bg-red-50 p-4">
+            <p className="text-sm font-medium text-gray-900">Open a dispute</p>
+            <select
+                value={data.reason}
+                onChange={(e) => setData('reason', e.target.value)}
+                className="mt-2 w-full rounded-md border px-3 py-2 text-sm"
+            >
+                {disputeReasons.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+            </select>
+            <textarea
+                required
+                placeholder="Describe the issue..."
+                value={data.description}
+                onChange={(e) => setData('description', e.target.value)}
+                className="mt-2 w-full rounded-md border px-3 py-2 text-sm"
+                rows={3}
+            />
+            <div className="mt-2 flex gap-2">
+                <Button type="submit" size="sm" variant="destructive" disabled={processing}>Submit Dispute</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            </div>
+        </form>
+    );
+}
+
+export default function OrderShow({ order, reviews }: OrderShowProps) {
+    const paymentPending = order.payment_status === 'pending';
+
+    return (
+        <ShopLayout>
+            <Head title={`Order ${order.order_number}`} />
+            <div className="mx-auto max-w-3xl px-4 py-8">
+                <Link href={route('orders.index')} className="text-sm text-orange-500 hover:underline">
+                    &larr; Back to Orders
+                </Link>
+
+                {paymentPending && order.payment_method !== 'cash' && (
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <p className="font-medium text-amber-800">Payment pending</p>
+                        <Link href={route('checkout.payment', order.id)} className="mt-2 inline-block text-sm text-orange-600 hover:underline">
+                            Complete payment &rarr;
+                        </Link>
+                    </div>
+                )}
+
+                <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <h1 className="text-xl font-bold text-gray-900">{order.order_number}</h1>
+                            <p className="text-sm text-gray-500">Placed on {new Date(order.created_at).toLocaleString()}</p>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-sm font-medium capitalize ${
+                            order.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                            {order.payment_status}
+                        </span>
+                    </div>
+
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-900">Deliver To</h3>
+                            <p className="mt-1 text-sm text-gray-600">{order.receiver_name}</p>
+                            <p className="text-sm text-gray-600">{order.receiver_phone}</p>
+                            <p className="text-sm text-gray-600">{order.city}, {order.region}</p>
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-semibold text-gray-900">Payment</h3>
+                            <p className="mt-1 text-sm text-gray-600 capitalize">{order.payment_method}</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 border-t pt-4">
+                        <h3 className="font-semibold text-gray-900">Items</h3>
+                        {order.items?.map((item) => (
+                            <div key={item.id} className="mt-4 border-b border-gray-50 pb-4 last:border-0">
+                                <div className="flex justify-between text-sm">
+                                    <div>
+                                        <span className="font-medium">{item.product_name} x {item.quantity}</span>
+                                        <p className="text-xs text-gray-500">Status: {formatOrderStatus(item.status)}</p>
+                                        {item.tracking_number && (
+                                            <p className="text-xs text-gray-500">{item.courier_name}: {item.tracking_number}</p>
+                                        )}
+                                    </div>
+                                    <span className="font-medium">{formatPrice(item.unit_price * item.quantity)}</span>
+                                </div>
+
+                                {item.dispute && (
+                                    <p className="mt-2 text-xs text-red-600">Dispute: {item.dispute.reason} ({item.dispute.status})</p>
+                                )}
+
+                                {item.status === 'delivered' && !reviews[item.product_id ?? 0] && (
+                                    <ReviewForm orderId={order.id} item={item} />
+                                )}
+
+                                {reviews[item.product_id ?? 0] && (
+                                    <p className="mt-2 flex items-center gap-1 text-sm text-gray-600">
+                                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                        You rated {reviews[item.product_id ?? 0].rating}/5
+                                    </p>
+                                )}
+
+                                {['shipped', 'delivered'].includes(item.status) && !item.dispute && (
+                                    <DisputeForm orderId={order.id} item={item} />
+                                )}
+                            </div>
+                        ))}
+                        <div className="mt-4 flex justify-between border-t pt-4 text-lg font-bold">
+                            <span>Total</span>
+                            <span className="text-orange-500">{formatPrice(order.total)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </ShopLayout>
+    );
+}

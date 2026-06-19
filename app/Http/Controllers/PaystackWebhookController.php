@@ -1,0 +1,48 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Order;
+use App\Services\OrderService;
+use App\Services\PaystackService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
+
+class PaystackWebhookController extends Controller
+{
+    public function __construct(
+        private PaystackService $paystack,
+        private OrderService $orderService,
+    ) {}
+
+    public function handle(Request $request): Response
+    {
+        $signature = $request->header('x-paystack-signature');
+        $payload = $request->getContent();
+
+        if (! $this->paystack->verifyWebhookSignature($payload, $signature)) {
+            return response('Invalid signature', 400);
+        }
+
+        $event = $request->input('event');
+        $data = $request->input('data');
+
+        if ($event === 'charge.success' && $data) {
+            try {
+                $orderId = $data['metadata']['order_id'] ?? null;
+                $order = $orderId
+                    ? Order::find($orderId)
+                    : Order::where('payment_reference', $data['reference'])->first();
+
+                if ($order) {
+                    $this->orderService->fulfillPaidOrder($order, $data['reference']);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Paystack webhook error', ['error' => $e->getMessage()]);
+            }
+        }
+
+        return response('OK', 200);
+    }
+}

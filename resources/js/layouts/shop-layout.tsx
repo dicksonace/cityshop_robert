@@ -1,0 +1,66 @@
+import { Link } from '@inertiajs/react';
+import { ReactNode } from 'react';
+
+import ShopHeader from '@/components/shop/shop-header';
+
+interface ShopLayoutProps {
+    children: ReactNode;
+}
+
+export default function ShopLayout({ children }: ShopLayoutProps) {
+    return (
+        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+            <ShopHeader />
+            <main>{children}</main>
+            <footer className="mt-12 border-t border-gray-200 bg-white py-8">
+                <div className="mx-auto max-w-7xl px-4">
+                    <div className="grid gap-8 md:grid-cols-4">
+                        <div>
+                            <h3 className="text-lg font-bold">
+                                City<span className="text-orange-500">Shop</span>
+                            </h3>
+                            <p className="mt-2 text-sm text-gray-500">Ghana&apos;s trusted online marketplace.</p>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-gray-900">Buy</h4>
+                            <ul className="mt-2 space-y-1 text-sm text-gray-500">
+                                <li>
+                                    <Link href={route('home')}>Shop</Link>
+                                </li>
+                                <li>
+                                    <Link href={route('register.buyer')}>Create Account</Link>
+                                </li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-gray-900">Sell</h4>
+                            <ul className="mt-2 space-y-1 text-sm text-gray-500">
+                                <li>
+                                    <Link href={route('register.seller')}>Become a Seller</Link>
+                                </li>
+                                <li>
+                                    <Link href={route('login')}>Seller Login</Link>
+                                </li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-gray-900">Support</h4>
+                            <ul className="mt-2 space-y-1 text-sm text-gray-500">
+                                <li>
+                                    <Link href={route('contact')}>Contact Us</Link>
+                                </li>
+                                <li>
+                                    <Link href={route('faq')}>FAQ</Link>
+                                </li>
+                                <li>
+                                    <Link href={route('faq')}>Buyer Protection</Link>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p className="mt-8 text-center text-xs text-gray-400">&copy; {new Date().getFullYear()} CityShop. All rights reserved.</p>
+                </div>
+            </footer>
+        </div>
+    );
+}
