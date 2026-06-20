@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Shop;
 
-use App\Enums\ProductStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Wishlist;

@@ -2,10 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\OrderStatus;
-use App\Enums\PaymentStatus;
 use App\Enums\WalletTransactionType;
-use App\Enums\WithdrawalStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 

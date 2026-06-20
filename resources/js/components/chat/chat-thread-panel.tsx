@@ -16,6 +16,7 @@ import {
 import { FormEvent, useEffect, useRef, useState } from 'react';
 
 import OnlineIndicator from '@/components/shop/online-indicator';
+import ChatCallLogItem from '@/components/chat/chat-call-log-item';
 import { useChat } from '@/contexts/chat-context';
 import { useToastOptional } from '@/contexts/toast-context';
 import { useChatVoiceCall } from '@/hooks/use-chat-voice-call';
@@ -30,8 +31,8 @@ function formatTime(value?: string): string {
     return new Date(value).toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' });
 }
 
-function isDisplayMessage(msg: ChatMessage): boolean {
-    return msg.type === 'text' || msg.type === 'image';
+function isTimelineMessage(msg: ChatMessage): boolean {
+    return msg.type === 'text' || msg.type === 'image' || msg.type === 'call_log';
 }
 
 export default function ChatThreadPanel() {
@@ -53,6 +54,17 @@ export default function ChatThreadPanel() {
     const { callState, remoteAudioRef, startCall, acceptCall, endCall, handleCallMessage } = useChatVoiceCall(
         activeConversation?.id,
         auth.user?.id,
+        {
+            callerName: auth.user?.name,
+            onCallLog: (msg) => {
+                setMessages((prev) => {
+                    if (prev.some((m) => m.id === msg.id)) return prev;
+                    return [...prev, msg];
+                });
+                lastIdRef.current = Math.max(lastIdRef.current, msg.id);
+                refreshConversations();
+            },
+        },
     );
 
     const otherName =
@@ -239,7 +251,7 @@ export default function ChatThreadPanel() {
         );
     }
 
-    const displayMessages = messages.filter(isDisplayMessage);
+    const timelineMessages = messages.filter(isTimelineMessage);
 
     const replyPreview = (msg: ChatMessage) => {
         if (msg.type === 'image') return msg.body?.trim() || 'Photo';
@@ -281,7 +293,15 @@ export default function ChatThreadPanel() {
                 ) : (
                     <button
                         type="button"
-                        onClick={endCall}
+                        onClick={() =>
+                            endCall(
+                                callState === 'active'
+                                    ? 'completed'
+                                    : callState === 'calling'
+                                      ? 'missed'
+                                      : 'declined',
+                            )
+                        }
                         className="rounded-lg p-1.5 text-red-600 hover:bg-red-50"
                         title="End call"
                     >
@@ -315,7 +335,7 @@ export default function ChatThreadPanel() {
                             </button>
                             <button
                                 type="button"
-                                onClick={endCall}
+                                onClick={() => endCall('declined')}
                                 className="rounded-full bg-red-500 px-3 py-1 text-xs font-medium text-white hover:bg-red-600"
                             >
                                 Decline
@@ -329,12 +349,24 @@ export default function ChatThreadPanel() {
             )}
 
             <div className="flex-1 overflow-y-auto bg-gray-50 px-3 py-3" onClick={() => setMenuMessageId(null)}>
-                {displayMessages.length === 0 ? (
+                {timelineMessages.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center text-center text-gray-400">
                         <p className="text-xs">Say hi to {otherName}</p>
                     </div>
                 ) : (
-                    displayMessages.map((msg) => {
+                    timelineMessages.map((msg) => {
+                        if (msg.type === 'call_log' && msg.call_log) {
+                            return (
+                                <ChatCallLogItem
+                                    key={msg.id}
+                                    log={msg.call_log}
+                                    viewerId={auth.user?.id ?? 0}
+                                    otherName={otherName}
+                                    createdAt={msg.created_at}
+                                />
+                            );
+                        }
+
                         const mine = msg.sender_id === auth.user?.id;
                         const showMenu = menuMessageId === msg.id;
                         const isImage = msg.type === 'image' && msg.image_url && !msg.is_deleted;

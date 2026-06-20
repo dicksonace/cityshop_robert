@@ -22,7 +22,7 @@ class MessageController extends Controller
             'reply_to_id' => ['nullable', 'integer', 'exists:messages,id'],
         ]);
 
-            $replyTo = null;
+        $replyTo = null;
         if (! empty($validated['reply_to_id'])) {
             $replyTo = Message::where('conversation_id', $conversation->id)
                 ->where('id', $validated['reply_to_id'])
@@ -125,6 +125,25 @@ class MessageController extends Controller
             $validated['metadata'] ?? null,
         );
 
-        return response()->json(['ok' => true, 'message_id' => $message->id]);
+        $callLogMessage = null;
+        if ($type === MessageType::CallEnd && ! empty($validated['metadata']['call_log'])) {
+            $log = $validated['metadata']['call_log'];
+            $callLogMessage = ChatService::recordCallLog(
+                $conversation,
+                $request->user(),
+                $log['status'] ?? 'cancelled',
+                (int) ($log['caller_id'] ?? $request->user()->id),
+                (string) ($log['caller_name'] ?? $request->user()->name),
+                (int) ($log['duration_seconds'] ?? 0),
+            );
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message_id' => $message->id,
+            'call_log' => $callLogMessage
+                ? ChatService::formatMessage($callLogMessage->load('sender:id,name'), $request->user())
+                : null,
+        ]);
     }
 }

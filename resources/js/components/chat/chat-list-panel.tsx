@@ -1,8 +1,11 @@
 import { MapPin, MessageCircle } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
 
 import OnlineIndicator from '@/components/shop/online-indicator';
 import { useChat } from '@/contexts/chat-context';
+import { getCallLogListPreview } from '@/lib/call-log';
 import type { ChatConversation } from '@/types/chat';
+import { SharedData } from '@/types';
 
 function formatTime(value?: string): string {
     if (!value) return '';
@@ -19,6 +22,7 @@ function conversationName(c: ChatConversation): string {
 }
 
 export default function ChatListPanel() {
+    const { auth } = usePage<SharedData>().props;
     const { conversations, loading, openConversation } = useChat();
 
     if (loading) {
@@ -49,9 +53,11 @@ export default function ChatListPanel() {
                         ? c.latest_message.body
                         : c.latest_message?.type === 'image'
                           ? 'Photo'
-                          : c.latest_message?.type?.startsWith('call')
-                            ? 'Voice call'
-                            : '';
+                          : c.latest_message?.type === 'call_log' && c.latest_message.call_log
+                            ? getCallLogListPreview(c.latest_message.call_log, auth.user?.id ?? 0)
+                            : c.latest_message?.type?.startsWith('call')
+                              ? 'Voice call'
+                              : '';
 
                 return (
                     <button

@@ -244,7 +244,7 @@ export default function ProductFilters({ filters, categories, brands, priceRange
     );
 }
 
-export function ActiveFilterChips({ filters, categories, brands }: ProductFiltersProps) {
+export function ActiveFilterChips({ filters, categories }: Pick<ProductFiltersProps, 'filters' | 'categories'>) {
     const chips: { label: string; onRemove: () => void }[] = [];
 
     if (filters.search) {

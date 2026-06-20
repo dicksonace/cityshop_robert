@@ -9,7 +9,6 @@ use App\Enums\WithdrawalStatus;
 use App\Models\OrderItem;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
-use Illuminate\Support\Collection;
 
 class WalletTransactionService
 {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Chat;
 
+use App\Enums\MessageType;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Product;
@@ -186,6 +187,9 @@ class ConversationController extends Controller
                 'type' => $latest->type->value,
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'sender_id' => $latest->sender_id,
+                'call_log' => $latest->type === MessageType::CallLog
+                    ? ($latest->metadata['call_log'] ?? null)
+                    : null,
             ] : null,
             'unread_count' => $unread,
             'last_message_at' => $conversation->last_message_at?->toIso8601String(),

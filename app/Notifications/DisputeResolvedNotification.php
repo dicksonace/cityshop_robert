@@ -26,7 +26,7 @@ class DisputeResolvedNotification extends Notification implements ShouldQueue
             ->subject('Dispute resolved')
             ->greeting('Hello '.$notifiable->name.',')
             ->line("Your dispute for order {$this->dispute->order->order_number} has been resolved.")
-            ->line("Outcome: ".str_replace('_', ' ', $this->dispute->status->value))
+            ->line('Outcome: '.str_replace('_', ' ', $this->dispute->status->value))
             ->when($this->dispute->resolution_notes, fn ($m) => $m->line($this->dispute->resolution_notes));
     }
 

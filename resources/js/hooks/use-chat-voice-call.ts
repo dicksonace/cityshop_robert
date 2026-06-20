@@ -5,13 +5,27 @@ import type { ChatMessage } from '@/types/chat';
 
 export type CallState = 'idle' | 'calling' | 'incoming' | 'active';
 
-export function useChatVoiceCall(conversationId: number | undefined, currentUserId: number | undefined) {
+export type EndCallReason = 'declined' | 'completed' | 'missed' | 'cancelled';
+
+interface UseChatVoiceCallOptions {
+    callerName?: string;
+    onCallLog?: (message: ChatMessage) => void;
+}
+
+export function useChatVoiceCall(
+    conversationId: number | undefined,
+    currentUserId: number | undefined,
+    options: UseChatVoiceCallOptions = {},
+) {
     const [callState, setCallState] = useState<CallState>('idle');
     const pcRef = useRef<RTCPeerConnection | null>(null);
     const localStreamRef = useRef<MediaStream | null>(null);
     const remoteAudioRef = useRef<HTMLAudioElement>(null);
     const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
     const processedCallIds = useRef<Set<number>>(new Set());
+    const callerIdRef = useRef<number | null>(null);
+    const callerNameRef = useRef<string>('');
+    const callStartedAtRef = useRef<number | null>(null);
 
     const cleanup = useCallback(() => {
         pcRef.current?.close();
@@ -22,27 +36,57 @@ export function useChatVoiceCall(conversationId: number | undefined, currentUser
             remoteAudioRef.current.srcObject = null;
         }
         pendingOfferRef.current = null;
+        callStartedAtRef.current = null;
         setCallState('idle');
     }, []);
 
     const sendSignal = useCallback(
         async (type: string, body = '', metadata?: Record<string, unknown>) => {
-            if (!conversationId) return;
-            await chatApi.sendCallSignal(conversationId, type, body, metadata);
+            if (!conversationId) return null;
+            return chatApi.sendCallSignal(conversationId, type, body, metadata);
         },
         [conversationId],
     );
 
-    const endCall = useCallback(async () => {
-        if (callState !== 'idle' && conversationId) {
-            try {
-                await sendSignal('call_end');
-            } catch {
-                // ignore signal errors on hang up
+    const endCall = useCallback(
+        async (reason?: EndCallReason) => {
+            if (callState !== 'idle' && conversationId && currentUserId) {
+                const status: 'completed' | 'missed' | 'declined' | 'cancelled' = reason
+                    ? reason === 'completed'
+                        ? 'completed'
+                        : reason
+                    : callState === 'active'
+                      ? 'completed'
+                      : callState === 'incoming'
+                        ? 'declined'
+                        : callState === 'calling'
+                          ? 'missed'
+                          : 'cancelled';
+                const durationSeconds =
+                    callState === 'active' && callStartedAtRef.current
+                        ? Math.max(0, Math.floor((Date.now() - callStartedAtRef.current) / 1000))
+                        : 0;
+
+                try {
+                    const result = await sendSignal('call_end', '', {
+                        call_log: {
+                            status,
+                            caller_id: callerIdRef.current ?? currentUserId,
+                            caller_name: callerNameRef.current || options.callerName || 'User',
+                            duration_seconds: durationSeconds,
+                        },
+                    });
+                    if (result?.call_log) {
+                        options.onCallLog?.(result.call_log);
+                    }
+                } catch {
+                    // ignore signal errors on hang up
+                }
             }
-        }
-        cleanup();
-    }, [callState, cleanup, conversationId, sendSignal]);
+            cleanup();
+        },
+        [callState, cleanup, conversationId, currentUserId, options, sendSignal],
+    );
 
     const createPeerConnection = useCallback(() => {
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
@@ -60,8 +104,11 @@ export function useChatVoiceCall(conversationId: number | undefined, currentUser
     }, [sendSignal]);
 
     const startCall = useCallback(async () => {
-        if (!conversationId) return;
+        if (!conversationId || !currentUserId) return;
         try {
+            callerIdRef.current = currentUserId;
+            callerNameRef.current = options.callerName ?? 'You';
+
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             localStreamRef.current = stream;
             const pc = createPeerConnection();
@@ -76,7 +123,7 @@ export function useChatVoiceCall(conversationId: number | undefined, currentUser
             cleanup();
             throw new Error('Could not access microphone. Please allow microphone access.');
         }
-    }, [cleanup, conversationId, createPeerConnection, sendSignal]);
+    }, [cleanup, conversationId, createPeerConnection, currentUserId, options.callerName, sendSignal]);
 
     const acceptCall = useCallback(async () => {
         if (!conversationId || !pendingOfferRef.current) return;
@@ -92,6 +139,7 @@ export function useChatVoiceCall(conversationId: number | undefined, currentUser
             await pc.setLocalDescription(answer);
             await sendSignal('call_answer', '', { sdp: answer });
             pendingOfferRef.current = null;
+            callStartedAtRef.current = Date.now();
             setCallState('active');
         } catch {
             cleanup();
@@ -101,7 +149,7 @@ export function useChatVoiceCall(conversationId: number | undefined, currentUser
 
     const handleCallMessage = useCallback(
         async (msg: ChatMessage) => {
-            if (!msg.type.startsWith('call') || !currentUserId) return;
+            if (!msg.type.startsWith('call') || msg.type === 'call_log' || !currentUserId) return;
             if (processedCallIds.current.has(msg.id)) return;
             processedCallIds.current.add(msg.id);
 
@@ -111,6 +159,8 @@ export function useChatVoiceCall(conversationId: number | undefined, currentUser
             }
 
             if (msg.type === 'call_offer' && msg.sender_id !== currentUserId) {
+                callerIdRef.current = msg.sender_id;
+                callerNameRef.current = msg.sender?.name ?? 'Caller';
                 pendingOfferRef.current = msg.metadata?.sdp as RTCSessionDescriptionInit;
                 setCallState('incoming');
                 return;
@@ -122,6 +172,7 @@ export function useChatVoiceCall(conversationId: number | undefined, currentUser
                 await pcRef.current.setRemoteDescription(
                     new RTCSessionDescription(msg.metadata.sdp as RTCSessionDescriptionInit),
                 );
+                callStartedAtRef.current = Date.now();
                 setCallState('active');
             }
 

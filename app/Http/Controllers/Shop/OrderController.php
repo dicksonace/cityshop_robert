@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Review;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -28,7 +29,7 @@ class OrderController extends Controller
 
         $order->load(['items.product.images', 'items.dispute']);
 
-        $reviews = \App\Models\Review::where('order_id', $order->id)
+        $reviews = Review::where('order_id', $order->id)
             ->where('user_id', $request->user()->id)
             ->get()
             ->keyBy('product_id');

@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Enums\DisputeStatus;
-use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Dispute;
 use App\Models\Order;
 use App\Models\OrderItem;
-use App\Notifications\DisputeOpenedNotification;
 use App\Models\User;
+use App\Notifications\DisputeOpenedNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;

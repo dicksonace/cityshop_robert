@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\OrderStatus;
 use App\Enums\ProductStatus;
 use App\Enums\SellerStatus;
 use App\Enums\WithdrawalStatus;
@@ -12,8 +11,6 @@ use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Models\Withdrawal;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 

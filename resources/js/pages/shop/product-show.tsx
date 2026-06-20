@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { MessageSquare, ShoppingBag } from 'lucide-react';
 
 import ProductCard from '@/components/shop/product-card';

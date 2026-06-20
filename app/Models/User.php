@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     protected $fillable = [
@@ -94,6 +95,24 @@ class User extends Authenticatable
     public function isBuyer(): bool
     {
         return $this->role === UserRole::Buyer;
+    }
+
+    public function defaultRedirectRoute(): string
+    {
+        if ($this->isSeller()) {
+            $profile = $this->sellerProfile;
+
+            if (! $profile || $profile->status->value !== 'approved') {
+                return route('seller.pending', absolute: false);
+            }
+
+            return route('seller.dashboard', absolute: false);
+        }
+
+        return match (true) {
+            $this->isAdmin() => route('admin.dashboard', absolute: false),
+            default => route('home', absolute: false),
+        };
     }
 
     public function getFullNameAttribute(): string

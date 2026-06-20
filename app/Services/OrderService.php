@@ -2,22 +2,20 @@
 
 namespace App\Services;
 
+use App\Enums\DisputeStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
-use App\Enums\DisputeStatus;
 use App\Models\CartItem;
 use App\Models\Dispute;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\Review;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Notifications\OrderPlacedNotification;
 use App\Notifications\OrderStatusUpdatedNotification;
 use App\Notifications\PaymentConfirmedNotification;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification;
 
 class OrderService
 {

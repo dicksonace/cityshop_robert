@@ -28,13 +28,13 @@ class ChatService
         $wasOnline = static::isOnline($user);
         $user->update(['last_seen_at' => now()]);
 
-            if (! $wasOnline) {
-                try {
-                    broadcast(new UserPresenceChanged($user->fresh()))->toOthers();
-                } catch (\Throwable) {
-                    //
-                }
+        if (! $wasOnline) {
+            try {
+                broadcast(new UserPresenceChanged($user->fresh()))->toOthers();
+            } catch (\Throwable) {
+                //
             }
+        }
     }
 
     public static function findOrCreateConversation(User $buyer, User $seller, ?Product $product = null): Conversation
@@ -80,25 +80,47 @@ class ChatService
 
             $recipient = $conversation->otherParticipant($sender);
 
-            $isCall = str_starts_with($type->value, 'call');
-            $notificationBody = match (true) {
-                $type === MessageType::Text => $body,
-                $type === MessageType::Image => 'Sent a photo',
-                $isCall => "{$sender->name} is calling you",
-                default => 'New activity',
-            };
+            $isCallSignal = in_array($type, [
+                MessageType::CallOffer,
+                MessageType::CallAnswer,
+                MessageType::CallIce,
+                MessageType::CallEnd,
+            ], true);
 
-            AppNotification::create([
-                'user_id' => $recipient->id,
-                'type' => $isCall ? 'call' : 'message',
-                'title' => $isCall ? 'Incoming call' : 'New message',
-                'body' => $notificationBody,
-                'data' => [
-                    'conversation_id' => $conversation->id,
-                    'sender_id' => $sender->id,
-                    'sender_name' => $sender->name,
-                ],
-            ]);
+            if (! $isCallSignal && $type !== MessageType::CallLog) {
+                $isCall = str_starts_with($type->value, 'call');
+                $notificationBody = match (true) {
+                    $type === MessageType::Text => $body,
+                    $type === MessageType::Image => 'Sent a photo',
+                    default => 'New activity',
+                };
+
+                AppNotification::create([
+                    'user_id' => $recipient->id,
+                    'type' => 'message',
+                    'title' => 'New message',
+                    'body' => $notificationBody,
+                    'data' => [
+                        'conversation_id' => $conversation->id,
+                        'sender_id' => $sender->id,
+                        'sender_name' => $sender->name,
+                    ],
+                ]);
+            }
+
+            if ($type === MessageType::CallOffer) {
+                AppNotification::create([
+                    'user_id' => $recipient->id,
+                    'type' => 'call',
+                    'title' => 'Incoming call',
+                    'body' => "{$sender->name} is calling you",
+                    'data' => [
+                        'conversation_id' => $conversation->id,
+                        'sender_id' => $sender->id,
+                        'sender_name' => $sender->name,
+                    ],
+                ]);
+            }
 
             try {
                 broadcast(new ChatMessageSent($message->load('sender')))->toOthers();
@@ -148,7 +170,7 @@ class ChatService
         return $message->fresh(['sender:id,name']);
     }
 
-    public static function formatMessage(Message $message): array
+    public static function formatMessage(Message $message, ?User $viewer = null): array
     {
         $metadata = $message->metadata ?? [];
         $deleted = ! empty($metadata['deleted_at']);
@@ -160,18 +182,54 @@ class ChatService
             'body' => $deleted ? null : $message->body,
             'metadata' => $message->metadata,
             'image_url' => $metadata['image_url'] ?? null,
+            'call_log' => $metadata['call_log'] ?? null,
             'read_at' => $message->read_at?->toIso8601String(),
             'reply_to' => $metadata['reply_to'] ?? null,
             'edited_at' => $metadata['edited_at'] ?? null,
             'is_deleted' => $deleted,
-            'can_edit' => $message->read_at === null && ! $deleted && $message->type === MessageType::Text,
-            'can_delete' => $message->read_at === null && ! $deleted && $message->type === MessageType::Text,
+            'can_edit' => $viewer ? static::canModifyMessage($message, $viewer) : false,
+            'can_delete' => $viewer ? static::canModifyMessage($message, $viewer) : false,
             'created_at' => $message->created_at?->toIso8601String(),
             'sender' => [
                 'id' => $message->sender->id,
                 'name' => $message->sender->name,
             ],
         ];
+    }
+
+    public static function recordCallLog(
+        Conversation $conversation,
+        User $endedBy,
+        string $status,
+        int $callerId,
+        string $callerName,
+        int $durationSeconds = 0,
+    ): Message {
+        $message = Message::create([
+            'conversation_id' => $conversation->id,
+            'sender_id' => $endedBy->id,
+            'type' => MessageType::CallLog,
+            'body' => 'Voice call',
+            'metadata' => [
+                'call_log' => [
+                    'status' => $status,
+                    'caller_id' => $callerId,
+                    'caller_name' => $callerName,
+                    'ended_by_id' => $endedBy->id,
+                    'duration_seconds' => $durationSeconds,
+                ],
+            ],
+        ]);
+
+        $conversation->update(['last_message_at' => now()]);
+
+        try {
+            broadcast(new ChatMessageSent($message->load('sender')))->toOthers();
+        } catch (\Throwable) {
+            //
+        }
+
+        return $message;
     }
 
     public static function markConversationRead(Conversation $conversation, User $user): void

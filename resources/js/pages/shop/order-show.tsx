@@ -4,7 +4,6 @@ import { FormEventHandler, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
 import { formatPrice, formatOrderStatus, Order, OrderItem } from '@/types/marketplace';
 

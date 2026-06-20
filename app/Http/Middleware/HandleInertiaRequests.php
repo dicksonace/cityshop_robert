@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\CartItem;
+use App\Models\Wishlist;
 use App\Services\ChatService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
@@ -45,8 +47,8 @@ class HandleInertiaRequests extends Middleware
         $wishlistCount = 0;
 
         if ($user) {
-            $cartCount = \App\Models\CartItem::where('user_id', $user->id)->sum('quantity');
-            $wishlistProductIds = \App\Models\Wishlist::where('user_id', $user->id)->pluck('product_id')->all();
+            $cartCount = CartItem::where('user_id', $user->id)->sum('quantity');
+            $wishlistProductIds = Wishlist::where('user_id', $user->id)->pluck('product_id')->all();
             $wishlistCount = count($wishlistProductIds);
         }
 

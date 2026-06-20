@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Middleware\EnsureApprovedSeller;
+use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\TrackUserPresence;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,14 +22,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'role' => \App\Http\Middleware\EnsureRole::class,
-            'seller.approved' => \App\Http\Middleware\EnsureApprovedSeller::class,
+            'role' => EnsureRole::class,
+            'seller.approved' => EnsureApprovedSeller::class,
         ]);
 
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
-            \App\Http\Middleware\TrackUserPresence::class,
+            TrackUserPresence::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

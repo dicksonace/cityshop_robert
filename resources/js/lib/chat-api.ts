@@ -62,14 +62,14 @@ export async function sendCallSignal(
     type: string,
     body = '',
     metadata?: Record<string, unknown>,
-): Promise<void> {
+): Promise<{ call_log?: ChatMessage }> {
     const res = await fetch(route('chat.signal', conversationId), {
         method: 'POST',
         headers: jsonHeaders(),
         credentials: 'same-origin',
         body: JSON.stringify({ type, body, metadata }),
     });
-    await parseJsonResponse(res);
+    return parseJsonResponse(res);
 }
 
 export async function uploadChatImage(

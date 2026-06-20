@@ -7,12 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\OrderService;
 use App\Services\PaystackService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class CheckoutController extends Controller
 {
@@ -111,7 +111,7 @@ class CheckoutController extends Controller
         }
     }
 
-    public function initializePayment(Request $request, Order $order): \Illuminate\Http\JsonResponse
+    public function initializePayment(Request $request, Order $order): JsonResponse
     {
         abort_unless($order->buyer_id === $request->user()->id, 403);
 

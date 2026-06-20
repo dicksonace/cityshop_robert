@@ -3,7 +3,6 @@ import { Minus, Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
-import { addProductToCart } from '@/lib/shop-actions';
 import { CartItem, formatPrice, productImageUrl } from '@/types/marketplace';
 
 interface CartProps {
