@@ -69,6 +69,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/messages/{conversation}', [ChatConversationController::class, 'show'])->name('chat.show');
     Route::get('/messages/{conversation}/poll', [ChatConversationController::class, 'poll'])->name('chat.poll');
     Route::post('/messages/{conversation}/send', [ChatMessageController::class, 'store'])->name('chat.messages.store');
+    Route::post('/messages/{conversation}/image', [ChatMessageController::class, 'uploadImage'])->name('chat.messages.image');
+    Route::patch('/messages/{conversation}/messages/{message}', [ChatMessageController::class, 'update'])->name('chat.messages.update');
+    Route::delete('/messages/{conversation}/messages/{message}', [ChatMessageController::class, 'destroy'])->name('chat.messages.destroy');
     Route::post('/messages/{conversation}/signal', [ChatMessageController::class, 'signal'])->name('chat.signal');
 
     Route::get('/notifications', [ChatNotificationController::class, 'index'])->name('notifications.index');

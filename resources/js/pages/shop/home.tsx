@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Filter, Grid3X3, LayoutList, SlidersHorizontal } from 'lucide-react';
+import { Grid3X3, LayoutList, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
 
 import HeroBanner from '@/components/shop/hero-banner';
@@ -73,7 +73,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                 </div>
             </div>
 
-            <div className="mx-auto max-w-7xl px-4 py-6">
+            <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">
                 <div className="flex gap-6">
                     {/* Desktop sidebar filters */}
                     <div className="hidden w-64 shrink-0 lg:block">
@@ -85,30 +85,30 @@ export default function Home({ products, categories, brands, priceRange, filters
                     {/* Main content */}
                     <div className="min-w-0 flex-1">
                         {/* Toolbar */}
-                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                            <div className="flex items-center gap-3">
-                                <Sheet>
-                                    <SheetTrigger asChild>
-                                        <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 lg:hidden">
-                                            <SlidersHorizontal className="h-4 w-4" />
-                                            Filters
-                                        </button>
-                                    </SheetTrigger>
-                                    <SheetContent side="left" className="w-80 overflow-y-auto">
-                                        <SheetHeader>
-                                            <SheetTitle>Filters</SheetTitle>
-                                        </SheetHeader>
-                                        <ProductFilters {...filterProps} className="mt-4 border-0 shadow-none" />
-                                    </SheetContent>
-                                </Sheet>
+                        <div className="mb-4 flex flex-col gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    <Sheet>
+                                        <SheetTrigger asChild>
+                                            <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 lg:hidden">
+                                                <SlidersHorizontal className="h-4 w-4" />
+                                                Filters
+                                            </button>
+                                        </SheetTrigger>
+                                        <SheetContent side="left" className="w-[min(100vw-2rem,20rem)] overflow-y-auto">
+                                            <SheetHeader>
+                                                <SheetTitle>Filters</SheetTitle>
+                                            </SheetHeader>
+                                            <ProductFilters {...filterProps} className="mt-4 border-0 shadow-none" />
+                                        </SheetContent>
+                                    </Sheet>
 
-                                <p className="text-sm text-gray-600">
-                                    <span className="font-semibold text-gray-900">{products.total}</span> results
-                                    {filters.search && <span> for &ldquo;{filters.search}&rdquo;</span>}
-                                </p>
-                            </div>
+                                    <p className="text-xs text-gray-600 sm:text-sm">
+                                        <span className="font-semibold text-gray-900">{products.total}</span> results
+                                        {filters.search && <span className="hidden sm:inline"> for &ldquo;{filters.search}&rdquo;</span>}
+                                    </p>
+                                </div>
 
-                            <div className="flex items-center gap-2">
                                 <div className="hidden items-center rounded-xl border border-gray-200 p-0.5 sm:flex">
                                     <button
                                         type="button"
@@ -125,20 +125,17 @@ export default function Home({ products, categories, brands, priceRange, filters
                                         <LayoutList className="h-4 w-4" />
                                     </button>
                                 </div>
-
-                                <div className="flex items-center gap-2">
-                                    <Filter className="hidden h-4 w-4 text-gray-400 sm:block" />
-                                    <select
-                                        value={filters.sort ?? 'recommended'}
-                                        onChange={(e) => applyFilters({ sort: e.target.value }, filters)}
-                                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-100"
-                                    >
-                                        {sortOptions.map((opt) => (
-                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
                             </div>
+
+                            <select
+                                value={filters.sort ?? 'recommended'}
+                                onChange={(e) => applyFilters({ sort: e.target.value }, filters)}
+                                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-100 sm:w-auto"
+                            >
+                                {sortOptions.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
                         </div>
 
                         {/* Quick filter pills */}
@@ -150,7 +147,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                                         key={qf.key}
                                         type="button"
                                         onClick={() => applyFilters({ [qf.key]: !active }, filters)}
-                                        className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-all ${
+                                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-all sm:px-4 sm:py-1.5 sm:text-sm ${
                                             active
                                                 ? 'border-blue-500 bg-blue-500 text-white shadow-sm'
                                                 : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:shadow-sm'
@@ -177,7 +174,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                                 </button>
                             </div>
                         ) : viewMode === 'grid' ? (
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-3">
+                            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 md:grid-cols-3">
                                 {products.data.map((product) => (
                                     <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
                                 ))}
@@ -191,7 +188,8 @@ export default function Home({ products, categories, brands, priceRange, filters
                         )}
 
                         {products.last_page > 1 && (
-                            <div className="mt-8 flex justify-center gap-1">
+                            <div className="mt-8 overflow-x-auto pb-2">
+                                <div className="flex min-w-min justify-center gap-1 px-1">
                                 {products.links.map((link, i) =>
                                     link.url ? (
                                         <Link
@@ -206,6 +204,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                                         />
                                     ) : null,
                                 )}
+                                </div>
                             </div>
                         )}
                     </div>

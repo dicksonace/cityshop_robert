@@ -21,7 +21,7 @@ export default function Wishlist({ items }: WishlistProps) {
     return (
         <ShopLayout>
             <Head title="My Wishlist" />
-            <div className="mx-auto max-w-7xl px-4 py-8">
+            <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
                 <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
                         <Heart className="h-5 w-5 fill-red-500 text-red-500" />
@@ -44,7 +44,7 @@ export default function Wishlist({ items }: WishlistProps) {
                     </div>
                 ) : (
                     <>
-                        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                        <div className="mt-6 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 sm:grid-cols-3 lg:grid-cols-4">
                             {products.map((product) => (
                                 <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
                             ))}

@@ -49,7 +49,7 @@ export default function MessageSellerButton({
             <button
                 type="button"
                 onClick={startChat}
-                className={`inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600 ${className ?? ''}`}
+                className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-orange-600 sm:w-auto sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${className ?? ''}`}
             >
                 <MessageCircle className="h-4 w-4" />
                 {label}

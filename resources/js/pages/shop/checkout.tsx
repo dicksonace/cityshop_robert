@@ -35,7 +35,7 @@ export default function Checkout({ items, subtotal, user }: CheckoutProps) {
     return (
         <ShopLayout>
             <Head title="Checkout" />
-            <div className="mx-auto max-w-4xl px-4 py-8">
+            <div className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-8">
                 <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
 
                 <form onSubmit={submit} className="mt-6 grid gap-8 lg:grid-cols-2">
@@ -52,7 +52,7 @@ export default function Checkout({ items, subtotal, user }: CheckoutProps) {
                             <Input value={data.receiver_phone} onChange={(e) => setData('receiver_phone', e.target.value)} required className="mt-1" />
                             <InputError message={errors.receiver_phone} />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <Label>Region</Label>
                                 <Input value={data.region} onChange={(e) => setData('region', e.target.value)} required className="mt-1" />

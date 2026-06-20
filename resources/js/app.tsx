@@ -1,6 +1,6 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -9,7 +9,9 @@ import { initializeTheme } from './hooks/use-appearance';
 import { ChatProvider } from './contexts/chat-context';
 import { ToastProvider } from './contexts/toast-context';
 import FloatingChatWidget from './components/chat/floating-chat-widget';
+import ChatSoundListener from './components/chat/chat-sound-listener';
 import FlashToastListener from './components/shop/flash-toast-listener';
+import { setCsrfToken } from './lib/csrf';
 
 declare global {
     const route: typeof routeFn;
@@ -26,6 +28,7 @@ createInertiaApp({
                 return (
                     <>
                         <FlashToastListener />
+                        <ChatSoundListener />
                         <Page {...props} />
                         <FloatingChatWidget />
                     </>
@@ -34,6 +37,10 @@ createInertiaApp({
         }),
     setup({ el, App, props }) {
         const root = createRoot(el);
+        const initialToken = (props.initialPage.props as { csrfToken?: string }).csrfToken;
+        if (initialToken) {
+            setCsrfToken(initialToken);
+        }
 
         root.render(
             <ChatProvider>
@@ -46,6 +53,13 @@ createInertiaApp({
     progress: {
         color: '#4B5563',
     },
+});
+
+router.on('success', (event) => {
+    const token = (event.detail.page.props as { csrfToken?: string }).csrfToken;
+    if (token) {
+        setCsrfToken(token);
+    }
 });
 
 // This will set light / dark mode on load...

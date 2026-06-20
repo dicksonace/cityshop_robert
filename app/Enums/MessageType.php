@@ -9,5 +9,6 @@ enum MessageType: string
     case CallAnswer = 'call_answer';
     case CallIce = 'call_ice';
     case CallEnd = 'call_end';
+    case Image = 'image';
     case System = 'system';
 }

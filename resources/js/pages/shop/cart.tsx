@@ -20,7 +20,7 @@ export default function Cart({ items, subtotal }: CartProps) {
     return (
         <ShopLayout>
             <Head title="Shopping Cart" />
-            <div className="mx-auto max-w-4xl px-4 py-8">
+            <div className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-8">
                 <h1 className="text-2xl font-bold text-gray-900">Shopping Cart</h1>
 
                 {items.length === 0 ? (
@@ -33,15 +33,15 @@ export default function Cart({ items, subtotal }: CartProps) {
                 ) : (
                     <div className="mt-6 space-y-4">
                         {items.map((item) => (
-                            <div key={item.id} className="flex gap-4 rounded-xl bg-white p-4 shadow-sm">
+                            <div key={item.id} className="flex flex-col gap-3 rounded-xl bg-white p-3 shadow-sm sm:flex-row sm:gap-4 sm:p-4">
                                 <img
                                     src={productImageUrl(item.product.images?.[0]?.path)}
                                     alt={item.product.name}
-                                    className="h-24 w-24 rounded-lg object-contain"
+                                    className="mx-auto h-28 w-28 rounded-lg object-contain sm:mx-0 sm:h-24 sm:w-24"
                                 />
-                                <div className="flex flex-1 flex-col justify-between">
+                                <div className="flex min-w-0 flex-1 flex-col justify-between">
                                     <div>
-                                        <Link href={route('products.show', item.product.slug)} className="font-medium text-gray-900 hover:text-orange-500">
+                                        <Link href={route('products.show', item.product.slug)} className="line-clamp-2 font-medium text-gray-900 hover:text-orange-500">
                                             {item.product.name}
                                         </Link>
                                         <p className="text-lg font-bold text-orange-500">

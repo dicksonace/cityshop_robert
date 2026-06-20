@@ -55,7 +55,7 @@ class ConversationController extends Controller
             ->orderBy('created_at')
             ->limit(100)
             ->get()
-            ->map(fn ($m) => $this->formatMessage($m));
+            ->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -100,7 +100,7 @@ class ConversationController extends Controller
                 ->orderBy('created_at')
                 ->limit(100)
                 ->get()
-                ->map(fn ($m) => $this->formatMessage($m));
+                ->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
             return response()->json([
                 'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
@@ -122,7 +122,7 @@ class ConversationController extends Controller
             ->when($afterId > 0, fn ($q) => $q->where('id', '>', $afterId))
             ->orderBy('created_at')
             ->get()
-            ->map(fn ($m) => $this->formatMessage($m));
+            ->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
         if ($messages->isNotEmpty()) {
             ChatService::markConversationRead($conversation, $request->user());
@@ -192,18 +192,5 @@ class ConversationController extends Controller
         ];
 
         return $data;
-    }
-
-    private function formatMessage($message): array
-    {
-        return [
-            'id' => $message->id,
-            'sender_id' => $message->sender_id,
-            'type' => $message->type->value,
-            'body' => $message->body,
-            'metadata' => $message->metadata,
-            'created_at' => $message->created_at?->toIso8601String(),
-            'sender' => ['id' => $message->sender->id, 'name' => $message->sender->name],
-        ];
     }
 }

@@ -45,8 +45,8 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
     return (
         <ShopLayout>
             <Head title={product.name} />
-            <div className="mx-auto max-w-7xl px-4 py-8">
-                <div className="grid gap-8 lg:grid-cols-2">
+            <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
+                <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
                     <ProductImageGallery images={product.images ?? []} productName={product.name} />
 
                     <div>
@@ -97,8 +97,8 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                             </div>
                         )}
 
-                        <div className="mt-6 flex flex-wrap items-center gap-3">
-                            <Button onClick={handleAddToCart} className="bg-orange-500 py-6 text-lg hover:bg-orange-600 sm:px-12">
+                        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                            <Button onClick={handleAddToCart} className="w-full bg-orange-500 py-5 text-base hover:bg-orange-600 sm:w-auto sm:py-6 sm:text-lg sm:px-12">
                                 <ShoppingBag className="mr-2 h-5 w-5" />
                                 Add to Cart
                             </Button>
@@ -107,10 +107,12 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                                     sellerId={product.seller.id}
                                     productId={product.id}
                                     variant="outline"
-                                    className="py-6 text-lg"
+                                    className="w-full py-5 text-base sm:w-auto sm:py-6 sm:text-lg"
                                 />
                             )}
-                            <WishlistButton productId={product.id} size="md" />
+                            <div className="flex justify-center sm:justify-start">
+                                <WishlistButton productId={product.id} size="md" />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -129,7 +131,7 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                 {related.length > 0 && (
                     <section className="mt-12">
                         <h2 className="text-xl font-bold text-gray-900">Related Products</h2>
-                        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                        <div className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 md:grid-cols-4">
                             {related.map((p) => (
                                 <ProductCard key={p.id} product={p} onAddToCart={handleRelatedAddToCart} />
                             ))}

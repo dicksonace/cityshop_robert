@@ -45,9 +45,29 @@ class ChatService
         );
     }
 
-    public static function sendMessage(Conversation $conversation, User $sender, string $body, MessageType $type = MessageType::Text, ?array $metadata = null): Message
-    {
-        return DB::transaction(function () use ($conversation, $sender, $body, $type, $metadata) {
+    public static function sendMessage(
+        Conversation $conversation,
+        User $sender,
+        string $body,
+        MessageType $type = MessageType::Text,
+        ?array $metadata = null,
+        ?Message $replyTo = null,
+    ): Message {
+        return DB::transaction(function () use ($conversation, $sender, $body, $type, $metadata, $replyTo) {
+            if ($replyTo) {
+                abort_unless($replyTo->conversation_id === $conversation->id, 422, 'Invalid reply target.');
+                $replyBody = $replyTo->type === MessageType::Image
+                    ? ($replyTo->body ?: 'Photo')
+                    : ($replyTo->body ?? '');
+                $metadata = array_merge($metadata ?? [], [
+                    'reply_to' => [
+                        'id' => $replyTo->id,
+                        'body' => $replyBody,
+                        'sender_name' => $replyTo->sender->name ?? 'User',
+                    ],
+                ]);
+            }
+
             $message = Message::create([
                 'conversation_id' => $conversation->id,
                 'sender_id' => $sender->id,
@@ -60,11 +80,19 @@ class ChatService
 
             $recipient = $conversation->otherParticipant($sender);
 
+            $isCall = str_starts_with($type->value, 'call');
+            $notificationBody = match (true) {
+                $type === MessageType::Text => $body,
+                $type === MessageType::Image => 'Sent a photo',
+                $isCall => "{$sender->name} is calling you",
+                default => 'New activity',
+            };
+
             AppNotification::create([
                 'user_id' => $recipient->id,
-                'type' => $type === MessageType::Text ? 'message' : 'call',
-                'title' => $type === MessageType::Text ? 'New message' : 'Incoming call',
-                'body' => $type === MessageType::Text ? $body : "{$sender->name} is calling you",
+                'type' => $isCall ? 'call' : 'message',
+                'title' => $isCall ? 'Incoming call' : 'New message',
+                'body' => $notificationBody,
                 'data' => [
                     'conversation_id' => $conversation->id,
                     'sender_id' => $sender->id,
@@ -80,6 +108,70 @@ class ChatService
 
             return $message;
         });
+    }
+
+    public static function canModifyMessage(Message $message, User $user): bool
+    {
+        return $message->sender_id === $user->id
+            && $message->type === MessageType::Text
+            && $message->read_at === null
+            && empty($message->metadata['deleted_at']);
+    }
+
+    public static function updateMessage(Message $message, User $user, string $body): Message
+    {
+        abort_unless(static::canModifyMessage($message, $user), 422, 'This message can no longer be edited.');
+
+        $metadata = $message->metadata ?? [];
+        $metadata['edited_at'] = now()->toIso8601String();
+
+        $message->update([
+            'body' => $body,
+            'metadata' => $metadata,
+        ]);
+
+        return $message->fresh(['sender:id,name']);
+    }
+
+    public static function deleteMessage(Message $message, User $user): Message
+    {
+        abort_unless(static::canModifyMessage($message, $user), 422, 'This message can no longer be deleted.');
+
+        $metadata = $message->metadata ?? [];
+        $metadata['deleted_at'] = now()->toIso8601String();
+
+        $message->update([
+            'body' => null,
+            'metadata' => $metadata,
+        ]);
+
+        return $message->fresh(['sender:id,name']);
+    }
+
+    public static function formatMessage(Message $message): array
+    {
+        $metadata = $message->metadata ?? [];
+        $deleted = ! empty($metadata['deleted_at']);
+
+        return [
+            'id' => $message->id,
+            'sender_id' => $message->sender_id,
+            'type' => $message->type->value,
+            'body' => $deleted ? null : $message->body,
+            'metadata' => $message->metadata,
+            'image_url' => $metadata['image_url'] ?? null,
+            'read_at' => $message->read_at?->toIso8601String(),
+            'reply_to' => $metadata['reply_to'] ?? null,
+            'edited_at' => $metadata['edited_at'] ?? null,
+            'is_deleted' => $deleted,
+            'can_edit' => $message->read_at === null && ! $deleted && $message->type === MessageType::Text,
+            'can_delete' => $message->read_at === null && ! $deleted && $message->type === MessageType::Text,
+            'created_at' => $message->created_at?->toIso8601String(),
+            'sender' => [
+                'id' => $message->sender->id,
+                'name' => $message->sender->name,
+            ],
+        ];
     }
 
     public static function markConversationRead(Conversation $conversation, User $user): void

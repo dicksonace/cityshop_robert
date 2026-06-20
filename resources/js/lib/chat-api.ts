@@ -1,15 +1,11 @@
+import { csrfHeaders } from '@/lib/csrf';
 import type { ChatConversation, ChatMessage } from '@/types/chat';
-
-function csrfToken(): string {
-    return (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '';
-}
 
 function jsonHeaders(): HeadersInit {
     return {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken(),
-        'X-Requested-With': 'XMLHttpRequest',
+        ...csrfHeaders(),
     };
 }
 
@@ -61,12 +57,84 @@ export async function startConversation(sellerId: number, productId?: number): P
     return parseJsonResponse(res);
 }
 
-export async function sendChatMessage(conversationId: number, body: string): Promise<ChatMessage> {
+export async function sendCallSignal(
+    conversationId: number,
+    type: string,
+    body = '',
+    metadata?: Record<string, unknown>,
+): Promise<void> {
+    const res = await fetch(route('chat.signal', conversationId), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify({ type, body, metadata }),
+    });
+    await parseJsonResponse(res);
+}
+
+export async function uploadChatImage(
+    conversationId: number,
+    file: File,
+    caption?: string,
+): Promise<ChatMessage> {
+    const form = new FormData();
+    form.append('image', file);
+    if (caption?.trim()) {
+        form.append('caption', caption.trim());
+    }
+
+    const res = await fetch(route('chat.messages.image', conversationId), {
+        method: 'POST',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...csrfHeaders(),
+        },
+        credentials: 'same-origin',
+        body: form,
+    });
+    const data = await parseJsonResponse<{ message: ChatMessage }>(res);
+    return data.message;
+}
+
+export async function sendChatMessage(
+    conversationId: number,
+    body: string,
+    replyToId?: number,
+): Promise<ChatMessage> {
     const res = await fetch(route('chat.messages.store', conversationId), {
         method: 'POST',
         headers: jsonHeaders(),
         credentials: 'same-origin',
+        body: JSON.stringify({
+            body,
+            ...(replyToId ? { reply_to_id: replyToId } : {}),
+        }),
+    });
+    const data = await parseJsonResponse<{ message: ChatMessage }>(res);
+    return data.message;
+}
+
+export async function updateChatMessage(
+    conversationId: number,
+    messageId: number,
+    body: string,
+): Promise<ChatMessage> {
+    const res = await fetch(route('chat.messages.update', { conversation: conversationId, message: messageId }), {
+        method: 'PATCH',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
         body: JSON.stringify({ body }),
+    });
+    const data = await parseJsonResponse<{ message: ChatMessage }>(res);
+    return data.message;
+}
+
+export async function deleteChatMessage(conversationId: number, messageId: number): Promise<ChatMessage> {
+    const res = await fetch(route('chat.messages.destroy', { conversation: conversationId, message: messageId }), {
+        method: 'DELETE',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
     });
     const data = await parseJsonResponse<{ message: ChatMessage }>(res);
     return data.message;

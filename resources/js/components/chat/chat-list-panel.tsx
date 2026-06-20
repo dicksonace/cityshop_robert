@@ -47,9 +47,11 @@ export default function ChatListPanel() {
                 const preview =
                     c.latest_message?.type === 'text'
                         ? c.latest_message.body
-                        : c.latest_message?.type?.startsWith('call')
-                          ? 'Voice call'
-                          : '';
+                        : c.latest_message?.type === 'image'
+                          ? 'Photo'
+                          : c.latest_message?.type?.startsWith('call')
+                            ? 'Voice call'
+                            : '';
 
                 return (
                     <button

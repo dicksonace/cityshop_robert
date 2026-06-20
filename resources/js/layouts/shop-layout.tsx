@@ -9,12 +9,12 @@ interface ShopLayoutProps {
 
 export default function ShopLayout({ children }: ShopLayoutProps) {
     return (
-        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-50 to-white pb-20 sm:pb-0">
             <ShopHeader />
             <main>{children}</main>
             <footer className="mt-12 border-t border-gray-200 bg-white py-8">
                 <div className="mx-auto max-w-7xl px-4">
-                    <div className="grid gap-8 md:grid-cols-4">
+                    <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-4">
                         <div>
                             <h3 className="text-lg font-bold">
                                 City<span className="text-orange-500">Shop</span>
