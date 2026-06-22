@@ -20,7 +20,7 @@ const tabs = ['pending', 'approved', 'suspended', 'rejected', 'all'];
 
 export default function SellersIndex({ sellers, status }: SellersIndexProps) {
     return (
-        <PanelLayout title="Manage Sellers" nav={nav} brandColor="text-blue-500">
+        <PanelLayout title="Manage Sellers" nav={nav}>
             <Head title="Sellers" />
             <div className="mb-4 flex gap-2">
                 {tabs.map((tab) => (

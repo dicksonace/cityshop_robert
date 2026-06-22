@@ -1,19 +1,15 @@
 import { HTMLAttributes } from 'react';
 
+import { APP_LOGO_ALT, APP_LOGO_SRC } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 
-/** CityShop icon mark — replaces the default Laravel logo everywhere. */
-export default function AppLogoIcon({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export default function AppLogoIcon({ className, ...props }: HTMLAttributes<HTMLImageElement>) {
     return (
-        <div
+        <img
             {...props}
-            className={cn(
-                'flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-orange-500 shadow-sm',
-                !className?.match(/\b(h-|w-|size-)/) && 'h-9 w-9',
-                className,
-            )}
-        >
-            <span className="text-lg font-bold text-white">C</span>
-        </div>
+            src={APP_LOGO_SRC}
+            alt={APP_LOGO_ALT}
+            className={cn('h-9 w-auto shrink-0 object-contain object-left', className)}
+        />
     );
 }

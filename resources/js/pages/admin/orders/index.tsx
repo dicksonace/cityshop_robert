@@ -17,7 +17,7 @@ const nav = [
 
 export default function AdminOrdersIndex({ orders }: OrdersIndexProps) {
     return (
-        <PanelLayout title="Orders" nav={nav} brandColor="text-blue-500">
+        <PanelLayout title="Orders" nav={nav}>
             <Head title="Orders" />
             <div className="overflow-hidden rounded-xl bg-white shadow-sm">
                 <table className="w-full text-sm">

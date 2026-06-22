@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { HTMLAttributes } from 'react';
 
+import { APP_LOGO_ALT, APP_LOGO_SRC } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 
 interface CityShopBrandProps extends HTMLAttributes<HTMLDivElement> {
@@ -10,22 +11,10 @@ interface CityShopBrandProps extends HTMLAttributes<HTMLDivElement> {
     inverted?: boolean;
 }
 
-const iconSize = {
-    sm: 'h-8 w-8',
-    md: 'h-9 w-9',
-    lg: 'h-11 w-11',
-};
-
-const letterSize = {
-    sm: 'text-sm',
-    md: 'text-lg',
-    lg: 'text-xl',
-};
-
-const textSize = {
-    sm: 'text-lg',
-    md: 'text-xl',
-    lg: 'text-2xl',
+const logoHeight = {
+    sm: 'h-8 max-w-[7rem]',
+    md: 'h-10 max-w-[9rem]',
+    lg: 'h-14 max-w-[11rem]',
 };
 
 export default function CityShopBrand({
@@ -33,23 +22,20 @@ export default function CityShopBrand({
     showText = false,
     asLink = true,
     size = 'md',
-    inverted = false,
+    inverted: _inverted = false,
     ...props
 }: CityShopBrandProps) {
+    const heightClass = showText ? logoHeight.lg : logoHeight[size];
+
     const content = (
-        <>
-            <div className={cn('flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-orange-500 shadow-sm', iconSize[size])}>
-                <span className={cn('font-bold text-white', letterSize[size])}>C</span>
-            </div>
-            {showText && (
-                <span className={cn('font-bold', textSize[size], inverted ? 'text-white' : 'text-gray-900')}>
-                    City<span className={inverted ? 'text-orange-200' : 'text-orange-500'}>Shop</span>
-                </span>
-            )}
-        </>
+        <img
+            src={APP_LOGO_SRC}
+            alt={APP_LOGO_ALT}
+            className={cn('w-auto shrink-0 object-contain object-left', heightClass)}
+        />
     );
 
-    const wrapperClass = cn('flex items-center gap-2.5', className);
+    const wrapperClass = cn('flex items-center', className);
 
     if (asLink) {
         return (

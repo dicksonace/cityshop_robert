@@ -43,7 +43,7 @@ export default function AdminDashboard({ stats, recentOrders, pendingSellers }: 
     ];
 
     return (
-        <PanelLayout title="Admin Panel" nav={nav} brandColor="text-blue-500">
+        <PanelLayout title="Admin Panel" nav={nav}>
             <Head title="Admin Dashboard" />
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {cards.map((card) => (

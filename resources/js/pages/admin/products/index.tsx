@@ -26,7 +26,7 @@ export default function AdminProductsIndex({ products, status }: ProductsIndexPr
     const tabs = ['pending', 'approved', 'rejected', 'all'];
 
     return (
-        <PanelLayout title="Manage Products" nav={nav} brandColor="text-blue-500">
+        <PanelLayout title="Manage Products" nav={nav}>
             <Head title="Products" />
             <div className="mb-4 flex gap-2">
                 {tabs.map((tab) => (

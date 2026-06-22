@@ -41,7 +41,7 @@ const subjectLabels: Record<string, string> = {
 
 export default function ContactMessagesIndex({ messages }: ContactMessagesProps) {
     return (
-        <PanelLayout title="Contact Messages" nav={nav} brandColor="text-blue-500">
+        <PanelLayout title="Contact Messages" nav={nav}>
             <Head title="Contact Messages" />
             <div className="space-y-4">
                 {messages.data.length === 0 ? (

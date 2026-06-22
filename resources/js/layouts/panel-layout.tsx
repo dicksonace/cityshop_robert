@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
+import CityShopBrand from '@/components/cityshop-brand';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -14,22 +15,17 @@ interface PanelLayoutProps {
     children: ReactNode;
     title: string;
     nav: NavItem[];
-    brand?: string;
-    brandColor?: string;
 }
 
-export default function PanelLayout({ children, title, nav, brand = 'CityShop', brandColor = 'text-orange-500' }: PanelLayoutProps) {
+export default function PanelLayout({ children, title, nav }: PanelLayoutProps) {
     return (
         <div className="min-h-screen bg-gray-50">
             <Head title={title} />
             <div className="flex">
                 <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex">
                     <div className="border-b border-gray-100 p-6">
-                        <Link href={route('home')} className="text-xl font-bold text-gray-900">
-                            {brand.split('Shop')[0]}
-                            <span className={brandColor}>Shop</span>
-                        </Link>
-                        <p className="mt-1 text-xs text-gray-500 uppercase tracking-wider">{title}</p>
+                        <CityShopBrand showText size="md" />
+                        <p className="mt-3 text-xs text-gray-500 uppercase tracking-wider">{title}</p>
                     </div>
                     <nav className="flex-1 space-y-1 p-4">
                         {nav.map((item) => (

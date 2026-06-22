@@ -55,7 +55,7 @@ export default function SellerShow({ seller }: SellerShowProps) {
     const unblock = () => router.post(route('admin.sellers.unblock', seller.id));
 
     return (
-        <PanelLayout title="Review Seller" nav={nav} brandColor="text-blue-500">
+        <PanelLayout title="Review Seller" nav={nav}>
             <Head title="Review Seller" />
             <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl bg-white p-6 shadow-sm">

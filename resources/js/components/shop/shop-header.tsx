@@ -3,6 +3,7 @@ import { Heart, LogIn, Menu, MessageCircle, Search, ShoppingCart, Store, User, X
 import { FormEvent, useState } from 'react';
 
 import NotificationBell from '@/components/shop/notification-bell';
+import CityShopBrand from '@/components/cityshop-brand';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useChatOptional } from '@/contexts/chat-context';
@@ -54,14 +55,7 @@ export default function ShopHeader() {
         <header className="sticky top-0 z-50 border-b border-gray-100/80 bg-white/95 shadow-sm backdrop-blur-md">
             <div className="mx-auto max-w-7xl px-3 py-2 sm:px-4 sm:py-3">
                 <div className="flex items-center gap-2 sm:gap-4">
-                    <Link href={route('home')} className="flex shrink-0 items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-orange-500 sm:h-9 sm:w-9">
-                            <span className="text-base font-bold text-white sm:text-lg">C</span>
-                        </div>
-                        <span className="hidden text-xl font-bold text-gray-900 sm:inline">
-                            City<span className="text-orange-500">Shop</span>
-                        </span>
-                    </Link>
+                    <CityShopBrand size="sm" className="shrink-0" />
 
                     <form onSubmit={handleSearch} className="mx-auto hidden max-w-2xl flex-1 md:flex">
                         <div className="flex w-full overflow-hidden rounded-2xl border-2 border-orange-100 bg-gray-50 transition-colors focus-within:border-orange-300 focus-within:bg-white">

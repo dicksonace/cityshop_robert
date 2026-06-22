@@ -26,7 +26,7 @@ export default function WithdrawalsIndex({ withdrawals, status }: WithdrawalsInd
     const tabs = ['pending', 'paid', 'rejected', 'all'];
 
     return (
-        <PanelLayout title="Withdrawals" nav={nav} brandColor="text-blue-500">
+        <PanelLayout title="Withdrawals" nav={nav}>
             <Head title="Withdrawals" />
             <div className="mb-4 flex gap-2">
                 {tabs.map((tab) => (

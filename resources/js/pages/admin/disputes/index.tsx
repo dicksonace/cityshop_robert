@@ -46,7 +46,7 @@ export default function DisputesIndex({ disputes, status }: DisputesIndexProps) 
     };
 
     return (
-        <PanelLayout title="Disputes" nav={nav} brandColor="text-blue-500">
+        <PanelLayout title="Disputes" nav={nav}>
             <Head title="Disputes" />
             <div className="mb-4 flex flex-wrap gap-2">
                 {tabs.map((tab) => (
