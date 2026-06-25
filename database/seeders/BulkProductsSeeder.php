@@ -124,28 +124,28 @@ class BulkProductsSeeder extends Seeder
             $suffix = $existing + $i + 1;
             $name = "{$baseName} #{$suffix}";
 
-            $price = fake()->randomFloat(2, 25, 15000);
-            $hasDiscount = fake()->boolean(35);
+            $price = $this->randomFloat(25, 15000);
+            $hasDiscount = $this->randomBool(35);
 
             $product = Product::create([
                 'seller_id' => $seller->id,
                 'category_id' => $category->id,
                 'name' => $name,
-                'description' => fake()->paragraph(3).' Available on CityShop with verified seller guarantee.',
+                'description' => $this->randomDescription().' Available on CityShop with verified seller guarantee.',
                 'specifications' => CategorySpecService::generateSpecs($category->slug),
-                'brand' => fake()->randomElement($this->brands[$category->slug] ?? ['Generic']),
+                'brand' => $this->randomElement($this->brands[$category->slug] ?? ['Generic']),
                 'price' => $price,
-                'discount_price' => $hasDiscount ? round($price * fake()->randomFloat(2, 0.75, 0.95), 2) : null,
-                'quantity' => fake()->numberBetween(1, 80),
+                'discount_price' => $hasDiscount ? round($price * $this->randomFloat(0.75, 0.95), 2) : null,
+                'quantity' => $this->randomInt(1, 80),
                 'status' => ProductStatus::Approved,
-                'is_preorder' => fake()->boolean(20),
-                'free_shipping' => fake()->boolean(45),
-                'in_ghana' => fake()->boolean(70),
-                'rating' => fake()->randomFloat(1, 3.5, 5.0),
-                'review_count' => fake()->numberBetween(0, 120),
+                'is_preorder' => $this->randomBool(20),
+                'free_shipping' => $this->randomBool(45),
+                'in_ghana' => $this->randomBool(70),
+                'rating' => $this->randomFloat(3.5, 5.0, 1),
+                'review_count' => $this->randomInt(0, 120),
             ]);
 
-            $imageCount = fake()->numberBetween(2, 4);
+            $imageCount = $this->randomInt(2, 4);
             for ($img = 0; $img < $imageCount; $img++) {
                 $seed = Str::slug($product->slug)."-{$img}";
                 ProductImage::create([
@@ -171,7 +171,7 @@ class BulkProductsSeeder extends Seeder
 
             if ($product->images->count() < 2) {
                 $start = $product->images->count();
-                $needed = fake()->numberBetween(2, 4) - $start;
+                $needed = $this->randomInt(2, 4) - $start;
                 for ($img = 0; $img < $needed; $img++) {
                     $index = $start + $img;
                     ProductImage::create([
@@ -209,5 +209,43 @@ class BulkProductsSeeder extends Seeder
             'phones-tablets' => 'Phones & Tablets',
             default => Str::title(str_replace('-', ' ', $slug)),
         };
+    }
+
+    private function randomFloat(float $min, float $max, int $decimals = 2): float
+    {
+        $value = $min + (mt_rand() / mt_getrandmax()) * ($max - $min);
+
+        return round($value, $decimals);
+    }
+
+    private function randomInt(int $min, int $max): int
+    {
+        return random_int($min, $max);
+    }
+
+    private function randomBool(int $percentTrue = 50): bool
+    {
+        return random_int(1, 100) <= $percentTrue;
+    }
+
+    /**
+     * @param  array<int, string>  $items
+     */
+    private function randomElement(array $items): string
+    {
+        return $items[array_rand($items)];
+    }
+
+    private function randomDescription(): string
+    {
+        $sentences = [
+            'High quality product with excellent reviews from Ghanaian buyers.',
+            'Trusted seller with fast delivery across Greater Accra and nationwide.',
+            'Built to last with dependable performance for everyday use.',
+            'Popular choice on CityShop with strong value for money.',
+        ];
+        shuffle($sentences);
+
+        return implode(' ', array_slice($sentences, 0, 3));
     }
 }
