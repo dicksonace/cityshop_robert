@@ -1,0 +1,1065 @@
+{
+  "_app-layout-DWY84GJW.js": {
+    "file": "assets/app-layout-DWY84GJW.js",
+    "name": "app-layout",
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_index-B79RgKB8.js",
+      "_sheet-Mp8xLRlV.js",
+      "_chevron-right-CJANg50v.js",
+      "_check-BMQv3uNZ.js",
+      "_shopping-bag-P3OnKIpG.js"
+    ]
+  },
+  "_auth-layout-CLac6hdS.js": {
+    "file": "assets/auth-layout-CLac6hdS.js",
+    "name": "auth-layout",
+    "imports": [
+      "resources/js/app.tsx",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "_brand-5tBA4jnY.js": {
+    "file": "assets/brand-5tBA4jnY.js",
+    "name": "brand",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_category-spec-fields-BXYd3_4A.js": {
+    "file": "assets/category-spec-fields-BXYd3_4A.js",
+    "name": "category-spec-fields",
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_marketplace-j4_dbxvc.js",
+      "_check-BMQv3uNZ.js",
+      "_label-hQ6kFWWP.js",
+      "_input-BkvzaZGA.js"
+    ]
+  },
+  "_check-BMQv3uNZ.js": {
+    "file": "assets/check-BMQv3uNZ.js",
+    "name": "check",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_chevron-right-CJANg50v.js": {
+    "file": "assets/chevron-right-CJANg50v.js",
+    "name": "chevron-right",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_cityshop-brand-CnE7GRI3.js": {
+    "file": "assets/cityshop-brand-CnE7GRI3.js",
+    "name": "cityshop-brand",
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js"
+    ]
+  },
+  "_clock-C8sNuiG5.js": {
+    "file": "assets/clock-C8sNuiG5.js",
+    "name": "clock",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_index-B79RgKB8.js": {
+    "file": "assets/index-B79RgKB8.js",
+    "name": "index",
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js"
+    ]
+  },
+  "_input-BkvzaZGA.js": {
+    "file": "assets/input-BkvzaZGA.js",
+    "name": "input",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_label-hQ6kFWWP.js": {
+    "file": "assets/label-hQ6kFWWP.js",
+    "name": "label",
+    "imports": [
+      "resources/js/app.tsx",
+      "_index-B79RgKB8.js",
+      "_brand-5tBA4jnY.js"
+    ]
+  },
+  "_layout-DNOUlgw4.js": {
+    "file": "assets/layout-DNOUlgw4.js",
+    "name": "layout",
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_app-layout-DWY84GJW.js"
+    ]
+  },
+  "_loader-circle-BlnMdsI8.js": {
+    "file": "assets/loader-circle-BlnMdsI8.js",
+    "name": "loader-circle",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_mail-DdBkyOCC.js": {
+    "file": "assets/mail-DdBkyOCC.js",
+    "name": "mail",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_marketplace-j4_dbxvc.js": {
+    "file": "assets/marketplace-j4_dbxvc.js",
+    "name": "marketplace"
+  },
+  "_message-seller-button-BRTBH9LF.js": {
+    "file": "assets/message-seller-button-BRTBH9LF.js",
+    "name": "message-seller-button",
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js"
+    ]
+  },
+  "_message-square-CZkNws_T.js": {
+    "file": "assets/message-square-CZkNws_T.js",
+    "name": "message-square",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_package-m2U19cIk.js": {
+    "file": "assets/package-m2U19cIk.js",
+    "name": "package",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_panel-layout-BB7ZxVp1.js": {
+    "file": "assets/panel-layout-BB7ZxVp1.js",
+    "name": "panel-layout",
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "_plus-Xjb7kzCP.js": {
+    "file": "assets/plus-Xjb7kzCP.js",
+    "name": "plus",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_seller-store-link-D1pxKykk.js": {
+    "file": "assets/seller-store-link-D1pxKykk.js",
+    "name": "seller-store-link",
+    "imports": [
+      "resources/js/app.tsx",
+      "_store-swu95QKF.js",
+      "_chevron-right-CJANg50v.js"
+    ]
+  },
+  "_share-2-DmeguxJx.js": {
+    "file": "assets/share-2-DmeguxJx.js",
+    "name": "share-2",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_sheet-Mp8xLRlV.js": {
+    "file": "assets/sheet-Mp8xLRlV.js",
+    "name": "sheet",
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_index-B79RgKB8.js"
+    ]
+  },
+  "_shield-check-KuUIQfkK.js": {
+    "file": "assets/shield-check-KuUIQfkK.js",
+    "name": "shield-check",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_shop-actions-DiHyHV-Z.js": {
+    "file": "assets/shop-actions-DiHyHV-Z.js",
+    "name": "shop-actions",
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_star-D9Q5arUO.js",
+      "_seller-store-link-D1pxKykk.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_marketplace-j4_dbxvc.js",
+      "_shopping-bag-P3OnKIpG.js",
+      "_plus-Xjb7kzCP.js"
+    ]
+  },
+  "_shop-layout-BvrIZQzO.js": {
+    "file": "assets/shop-layout-BvrIZQzO.js",
+    "name": "shop-layout",
+    "imports": [
+      "resources/js/app.tsx",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "_shopping-bag-P3OnKIpG.js": {
+    "file": "assets/shopping-bag-P3OnKIpG.js",
+    "name": "shopping-bag",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_star-D9Q5arUO.js": {
+    "file": "assets/star-D9Q5arUO.js",
+    "name": "star",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_store-swu95QKF.js": {
+    "file": "assets/store-swu95QKF.js",
+    "name": "store",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_text-link-BTSyaxMB.js": {
+    "file": "assets/text-link-BTSyaxMB.js",
+    "name": "text-link",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_transition-D1TmwIHR.js": {
+    "file": "assets/transition-D1TmwIHR.js",
+    "name": "transition",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "_wallet-Dpi_WIgq.js": {
+    "file": "assets/wallet-Dpi_WIgq.js",
+    "name": "wallet",
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-Bsa4MGOF.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/js/app.tsx": {
+    "file": "assets/app-kaANlZth.js",
+    "name": "app",
+    "src": "resources/js/app.tsx",
+    "isEntry": true,
+    "dynamicImports": [
+      "resources/js/pages/admin/contact-messages/index.tsx",
+      "resources/js/pages/admin/dashboard.tsx",
+      "resources/js/pages/admin/disputes/index.tsx",
+      "resources/js/pages/admin/orders/index.tsx",
+      "resources/js/pages/admin/products/index.tsx",
+      "resources/js/pages/admin/sellers/index.tsx",
+      "resources/js/pages/admin/sellers/show.tsx",
+      "resources/js/pages/admin/withdrawals/index.tsx",
+      "resources/js/pages/auth/buyer-register.tsx",
+      "resources/js/pages/auth/confirm-password.tsx",
+      "resources/js/pages/auth/forgot-password.tsx",
+      "resources/js/pages/auth/login.tsx",
+      "resources/js/pages/auth/register.tsx",
+      "resources/js/pages/auth/reset-password.tsx",
+      "resources/js/pages/auth/seller-register.tsx",
+      "resources/js/pages/auth/verify-email.tsx",
+      "resources/js/pages/chat/index.tsx",
+      "resources/js/pages/chat/notifications.tsx",
+      "resources/js/pages/chat/show.tsx",
+      "resources/js/pages/dashboard.tsx",
+      "resources/js/pages/seller/blocked.tsx",
+      "resources/js/pages/seller/dashboard.tsx",
+      "resources/js/pages/seller/orders/index.tsx",
+      "resources/js/pages/seller/pending.tsx",
+      "resources/js/pages/seller/products/create.tsx",
+      "resources/js/pages/seller/products/edit.tsx",
+      "resources/js/pages/seller/products/index.tsx",
+      "resources/js/pages/seller/products/reviews.tsx",
+      "resources/js/pages/seller/wallet.tsx",
+      "resources/js/pages/settings/appearance.tsx",
+      "resources/js/pages/settings/password.tsx",
+      "resources/js/pages/settings/profile.tsx",
+      "resources/js/pages/shop/cart.tsx",
+      "resources/js/pages/shop/checkout.tsx",
+      "resources/js/pages/shop/contact.tsx",
+      "resources/js/pages/shop/faq.tsx",
+      "resources/js/pages/shop/home.tsx",
+      "resources/js/pages/shop/order-show.tsx",
+      "resources/js/pages/shop/orders.tsx",
+      "resources/js/pages/shop/payment.tsx",
+      "resources/js/pages/shop/product-show.tsx",
+      "resources/js/pages/shop/store.tsx",
+      "resources/js/pages/shop/wallet.tsx",
+      "resources/js/pages/shop/wishlist.tsx",
+      "resources/js/pages/welcome.tsx"
+    ],
+    "css": [
+      "assets/app-Bsa4MGOF.css"
+    ]
+  },
+  "resources/js/pages/admin/contact-messages/index.tsx": {
+    "file": "assets/index-BcAFAAfH.js",
+    "name": "index",
+    "src": "resources/js/pages/admin/contact-messages/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_panel-layout-BB7ZxVp1.js",
+      "_mail-DdBkyOCC.js",
+      "_brand-5tBA4jnY.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/admin/dashboard.tsx": {
+    "file": "assets/dashboard-BOTsTzOu.js",
+    "name": "dashboard",
+    "src": "resources/js/pages/admin/dashboard.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_panel-layout-BB7ZxVp1.js",
+      "_marketplace-j4_dbxvc.js",
+      "_store-swu95QKF.js",
+      "_package-m2U19cIk.js",
+      "_brand-5tBA4jnY.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/admin/disputes/index.tsx": {
+    "file": "assets/index-DZ-QXKW3.js",
+    "name": "index",
+    "src": "resources/js/pages/admin/disputes/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/admin/orders/index.tsx": {
+    "file": "assets/index-C_K6CJDu.js",
+    "name": "index",
+    "src": "resources/js/pages/admin/orders/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_panel-layout-BB7ZxVp1.js",
+      "_marketplace-j4_dbxvc.js",
+      "_brand-5tBA4jnY.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/admin/products/index.tsx": {
+    "file": "assets/index-CnEojEnZ.js",
+    "name": "index",
+    "src": "resources/js/pages/admin/products/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_marketplace-j4_dbxvc.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/admin/sellers/index.tsx": {
+    "file": "assets/index-A2UQDCwb.js",
+    "name": "index",
+    "src": "resources/js/pages/admin/sellers/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_panel-layout-BB7ZxVp1.js",
+      "_brand-5tBA4jnY.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/admin/sellers/show.tsx": {
+    "file": "assets/show-5-1pQTGo.js",
+    "name": "show",
+    "src": "resources/js/pages/admin/sellers/show.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/admin/withdrawals/index.tsx": {
+    "file": "assets/index-D8ldLLza.js",
+    "name": "index",
+    "src": "resources/js/pages/admin/withdrawals/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_marketplace-j4_dbxvc.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/auth/buyer-register.tsx": {
+    "file": "assets/buyer-register-BYImVrDx.js",
+    "name": "buyer-register",
+    "src": "resources/js/pages/auth/buyer-register.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_text-link-BTSyaxMB.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/auth/confirm-password.tsx": {
+    "file": "assets/confirm-password-D4tZnmER.js",
+    "name": "confirm-password",
+    "src": "resources/js/pages/auth/confirm-password.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_auth-layout-CLac6hdS.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/auth/forgot-password.tsx": {
+    "file": "assets/forgot-password-CNQUzU1G.js",
+    "name": "forgot-password",
+    "src": "resources/js/pages/auth/forgot-password.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_text-link-BTSyaxMB.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_auth-layout-CLac6hdS.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/auth/login.tsx": {
+    "file": "assets/login-CnX4Aqgv.js",
+    "name": "login",
+    "src": "resources/js/pages/auth/login.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_text-link-BTSyaxMB.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/auth/register.tsx": {
+    "file": "assets/register-B6g7foJ0.js",
+    "name": "register",
+    "src": "resources/js/pages/auth/register.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_text-link-BTSyaxMB.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_auth-layout-CLac6hdS.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/auth/reset-password.tsx": {
+    "file": "assets/reset-password-BSWBWkqD.js",
+    "name": "reset-password",
+    "src": "resources/js/pages/auth/reset-password.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_auth-layout-CLac6hdS.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/auth/seller-register.tsx": {
+    "file": "assets/seller-register-5tgn9rPK.js",
+    "name": "seller-register",
+    "src": "resources/js/pages/auth/seller-register.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_text-link-BTSyaxMB.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/auth/verify-email.tsx": {
+    "file": "assets/verify-email-ZK_YpbQP.js",
+    "name": "verify-email",
+    "src": "resources/js/pages/auth/verify-email.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_text-link-BTSyaxMB.js",
+      "_brand-5tBA4jnY.js",
+      "_auth-layout-CLac6hdS.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/chat/index.tsx": {
+    "file": "assets/index-B2VODqJ6.js",
+    "name": "index",
+    "src": "resources/js/pages/chat/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shop-layout-BvrIZQzO.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/chat/notifications.tsx": {
+    "file": "assets/notifications-D5T8IIaA.js",
+    "name": "notifications",
+    "src": "resources/js/pages/chat/notifications.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shop-layout-BvrIZQzO.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/chat/show.tsx": {
+    "file": "assets/show-C7tP87uP.js",
+    "name": "show",
+    "src": "resources/js/pages/chat/show.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shop-layout-BvrIZQzO.js",
+      "_store-swu95QKF.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js"
+    ]
+  },
+  "resources/js/pages/dashboard.tsx": {
+    "file": "assets/dashboard-ChSGd8Ww.js",
+    "name": "dashboard",
+    "src": "resources/js/pages/dashboard.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_app-layout-DWY84GJW.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_index-B79RgKB8.js",
+      "_sheet-Mp8xLRlV.js",
+      "_chevron-right-CJANg50v.js",
+      "_check-BMQv3uNZ.js",
+      "_shopping-bag-P3OnKIpG.js"
+    ]
+  },
+  "resources/js/pages/seller/blocked.tsx": {
+    "file": "assets/blocked-B8a-CXPs.js",
+    "name": "blocked",
+    "src": "resources/js/pages/seller/blocked.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shop-layout-BvrIZQzO.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/seller/dashboard.tsx": {
+    "file": "assets/dashboard-CKNasdyl.js",
+    "name": "dashboard",
+    "src": "resources/js/pages/seller/dashboard.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_seller-store-link-D1pxKykk.js",
+      "_check-BMQv3uNZ.js",
+      "_share-2-DmeguxJx.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_marketplace-j4_dbxvc.js",
+      "_package-m2U19cIk.js",
+      "_store-swu95QKF.js",
+      "_wallet-Dpi_WIgq.js",
+      "_clock-C8sNuiG5.js",
+      "_chevron-right-CJANg50v.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/seller/orders/index.tsx": {
+    "file": "assets/index-BwsBJtpt.js",
+    "name": "index",
+    "src": "resources/js/pages/seller/orders/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_marketplace-j4_dbxvc.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/seller/pending.tsx": {
+    "file": "assets/pending-DpnH1cnZ.js",
+    "name": "pending",
+    "src": "resources/js/pages/seller/pending.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shop-layout-BvrIZQzO.js",
+      "_clock-C8sNuiG5.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/seller/products/create.tsx": {
+    "file": "assets/create-so4um417.js",
+    "name": "create",
+    "src": "resources/js/pages/seller/products/create.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_category-spec-fields-BXYd3_4A.js",
+      "_label-hQ6kFWWP.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_marketplace-j4_dbxvc.js",
+      "_check-BMQv3uNZ.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/seller/products/edit.tsx": {
+    "file": "assets/edit-BzybWX6-.js",
+    "name": "edit",
+    "src": "resources/js/pages/seller/products/edit.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_category-spec-fields-BXYd3_4A.js",
+      "_label-hQ6kFWWP.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_marketplace-j4_dbxvc.js",
+      "_check-BMQv3uNZ.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/seller/products/index.tsx": {
+    "file": "assets/index-CVq_DZKZ.js",
+    "name": "index",
+    "src": "resources/js/pages/seller/products/index.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_marketplace-j4_dbxvc.js",
+      "_plus-Xjb7kzCP.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/seller/products/reviews.tsx": {
+    "file": "assets/reviews-B6oIulbW.js",
+    "name": "reviews",
+    "src": "resources/js/pages/seller/products/reviews.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_panel-layout-BB7ZxVp1.js",
+      "_message-square-CZkNws_T.js",
+      "_star-D9Q5arUO.js",
+      "_brand-5tBA4jnY.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/seller/wallet.tsx": {
+    "file": "assets/wallet-9b_GccFE.js",
+    "name": "wallet",
+    "src": "resources/js/pages/seller/wallet.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_panel-layout-BB7ZxVp1.js",
+      "_marketplace-j4_dbxvc.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/settings/appearance.tsx": {
+    "file": "assets/appearance-Dt0qQby7.js",
+    "name": "appearance",
+    "src": "resources/js/pages/settings/appearance.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_layout-DNOUlgw4.js",
+      "_app-layout-DWY84GJW.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_index-B79RgKB8.js",
+      "_sheet-Mp8xLRlV.js",
+      "_chevron-right-CJANg50v.js",
+      "_check-BMQv3uNZ.js",
+      "_shopping-bag-P3OnKIpG.js"
+    ]
+  },
+  "resources/js/pages/settings/password.tsx": {
+    "file": "assets/password-B7j0OI3C.js",
+    "name": "password",
+    "src": "resources/js/pages/settings/password.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_app-layout-DWY84GJW.js",
+      "_layout-DNOUlgw4.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_transition-D1TmwIHR.js",
+      "_index-B79RgKB8.js",
+      "_sheet-Mp8xLRlV.js",
+      "_chevron-right-CJANg50v.js",
+      "_check-BMQv3uNZ.js",
+      "_shopping-bag-P3OnKIpG.js"
+    ]
+  },
+  "resources/js/pages/settings/profile.tsx": {
+    "file": "assets/profile-oSTF8hVd.js",
+    "name": "profile",
+    "src": "resources/js/pages/settings/profile.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_layout-DNOUlgw4.js",
+      "_sheet-Mp8xLRlV.js",
+      "_app-layout-DWY84GJW.js",
+      "_transition-D1TmwIHR.js",
+      "_index-B79RgKB8.js",
+      "_chevron-right-CJANg50v.js",
+      "_check-BMQv3uNZ.js",
+      "_shopping-bag-P3OnKIpG.js"
+    ]
+  },
+  "resources/js/pages/shop/cart.tsx": {
+    "file": "assets/cart-B8ArpxSB.js",
+    "name": "cart",
+    "src": "resources/js/pages/shop/cart.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_marketplace-j4_dbxvc.js",
+      "_plus-Xjb7kzCP.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_input-BkvzaZGA.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/shop/checkout.tsx": {
+    "file": "assets/checkout-vS2py5Vb.js",
+    "name": "checkout",
+    "src": "resources/js/pages/shop/checkout.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_marketplace-j4_dbxvc.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/shop/contact.tsx": {
+    "file": "assets/contact-COZyFM6l.js",
+    "name": "contact",
+    "src": "resources/js/pages/shop/contact.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_mail-DdBkyOCC.js",
+      "_clock-C8sNuiG5.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/shop/faq.tsx": {
+    "file": "assets/faq-B4_JTr9r.js",
+    "name": "faq",
+    "src": "resources/js/pages/shop/faq.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_mail-DdBkyOCC.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_input-BkvzaZGA.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/shop/home.tsx": {
+    "file": "assets/home-B5fsmUX0.js",
+    "name": "home",
+    "src": "resources/js/pages/shop/home.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shield-check-KuUIQfkK.js",
+      "_shop-actions-DiHyHV-Z.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_marketplace-j4_dbxvc.js",
+      "_star-D9Q5arUO.js",
+      "_sheet-Mp8xLRlV.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_seller-store-link-D1pxKykk.js",
+      "_store-swu95QKF.js",
+      "_chevron-right-CJANg50v.js",
+      "_shopping-bag-P3OnKIpG.js",
+      "_plus-Xjb7kzCP.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js"
+    ]
+  },
+  "resources/js/pages/shop/order-show.tsx": {
+    "file": "assets/order-show-DVLONBxN.js",
+    "name": "order-show",
+    "src": "resources/js/pages/shop/order-show.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_marketplace-j4_dbxvc.js",
+      "_star-D9Q5arUO.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/shop/orders.tsx": {
+    "file": "assets/orders-CF7cOcV4.js",
+    "name": "orders",
+    "src": "resources/js/pages/shop/orders.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shop-layout-BvrIZQzO.js",
+      "_marketplace-j4_dbxvc.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/shop/payment.tsx": {
+    "file": "assets/payment-BGX9S7HY.js",
+    "name": "payment",
+    "src": "resources/js/pages/shop/payment.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_brand-5tBA4jnY.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_marketplace-j4_dbxvc.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_input-BkvzaZGA.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/shop/product-show.tsx": {
+    "file": "assets/product-show-KnBMqD-N.js",
+    "name": "product-show",
+    "src": "resources/js/pages/shop/product-show.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shop-actions-DiHyHV-Z.js",
+      "_message-seller-button-BRTBH9LF.js",
+      "_marketplace-j4_dbxvc.js",
+      "_chevron-right-CJANg50v.js",
+      "_brand-5tBA4jnY.js",
+      "_message-square-CZkNws_T.js",
+      "_star-D9Q5arUO.js",
+      "_seller-store-link-D1pxKykk.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_shopping-bag-P3OnKIpG.js",
+      "_plus-Xjb7kzCP.js",
+      "_store-swu95QKF.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_input-BkvzaZGA.js"
+    ]
+  },
+  "resources/js/pages/shop/store.tsx": {
+    "file": "assets/store-CUvtkCvk.js",
+    "name": "store",
+    "src": "resources/js/pages/shop/store.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shop-actions-DiHyHV-Z.js",
+      "_message-seller-button-BRTBH9LF.js",
+      "_sheet-Mp8xLRlV.js",
+      "_marketplace-j4_dbxvc.js",
+      "_star-D9Q5arUO.js",
+      "_shield-check-KuUIQfkK.js",
+      "_package-m2U19cIk.js",
+      "_store-swu95QKF.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_share-2-DmeguxJx.js",
+      "_brand-5tBA4jnY.js",
+      "_seller-store-link-D1pxKykk.js",
+      "_chevron-right-CJANg50v.js",
+      "_shopping-bag-P3OnKIpG.js",
+      "_plus-Xjb7kzCP.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_input-BkvzaZGA.js"
+    ]
+  },
+  "resources/js/pages/shop/wallet.tsx": {
+    "file": "assets/wallet-LeICgkUr.js",
+    "name": "wallet",
+    "src": "resources/js/pages/shop/wallet.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_label-hQ6kFWWP.js",
+      "_brand-5tBA4jnY.js",
+      "_input-BkvzaZGA.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_marketplace-j4_dbxvc.js",
+      "_wallet-Dpi_WIgq.js",
+      "_loader-circle-BlnMdsI8.js",
+      "_index-B79RgKB8.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_store-swu95QKF.js"
+    ]
+  },
+  "resources/js/pages/shop/wishlist.tsx": {
+    "file": "assets/wishlist-xA5aWUOh.js",
+    "name": "wishlist",
+    "src": "resources/js/pages/shop/wishlist.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_shop-actions-DiHyHV-Z.js",
+      "_brand-5tBA4jnY.js",
+      "_shop-layout-BvrIZQzO.js",
+      "_shopping-bag-P3OnKIpG.js",
+      "_star-D9Q5arUO.js",
+      "_seller-store-link-D1pxKykk.js",
+      "_store-swu95QKF.js",
+      "_chevron-right-CJANg50v.js",
+      "_marketplace-j4_dbxvc.js",
+      "_plus-Xjb7kzCP.js",
+      "_cityshop-brand-CnE7GRI3.js",
+      "_input-BkvzaZGA.js"
+    ]
+  },
+  "resources/js/pages/welcome.tsx": {
+    "file": "assets/welcome-DF5tNrCy.js",
+    "name": "welcome",
+    "src": "resources/js/pages/welcome.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx"
+    ]
+  }
+}
