@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Review;
+use App\Services\ProductAnalyticsService;
 use App\Services\ReviewService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,6 +13,8 @@ use Inertia\Response;
 
 class ProductController extends Controller
 {
+    public function __construct(private ProductAnalyticsService $analytics) {}
+
     public function show(Request $request, string $slug): Response
     {
         $product = Product::with(['images', 'seller.sellerProfile', 'category'])
@@ -19,7 +22,7 @@ class ProductController extends Controller
             ->where('slug', $slug)
             ->firstOrFail();
 
-        $product->increment('views');
+        $this->analytics->recordView($product);
 
         $reviews = Review::with('user')
             ->where('product_id', $product->id)

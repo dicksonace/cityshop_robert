@@ -23,11 +23,13 @@ interface SellerDefaults {
 }
 
 interface SellerRegisterProps {
+    token: string;
+    expiresAt: string;
     isExistingUser?: boolean;
     defaults?: SellerDefaults;
 }
 
-export default function SellerRegister({ isExistingUser = false, defaults }: SellerRegisterProps) {
+export default function SellerRegister({ token, expiresAt, isExistingUser = false, defaults }: SellerRegisterProps) {
     const { data, setData, post, processing, errors, reset } = useForm({
         first_name: defaults?.first_name ?? '',
         last_name: defaults?.last_name ?? '',
@@ -57,7 +59,7 @@ export default function SellerRegister({ isExistingUser = false, defaults }: Sel
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('register.seller'), {
+        post(route('register.seller', { token }), {
             forceFormData: true,
             onFinish: () => reset('password', 'password_confirmation'),
         });
@@ -82,11 +84,14 @@ export default function SellerRegister({ isExistingUser = false, defaults }: Sel
             <Head title="Become a Seller" />
             <div className="mx-auto max-w-2xl px-4 py-12">
                 <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
-                    <h1 className="text-2xl font-bold text-gray-900">Sell on CityShop</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Seller Application</h1>
                     <p className="mt-1 text-sm text-gray-500">
                         {isExistingUser
-                            ? 'Complete your seller application using your existing account. Admin will review within 24–48 hours.'
-                            : 'Complete your application. Admin will review within 24–48 hours.'}
+                            ? 'Complete your seller application using your existing account. This link expires in 24 hours and can only be used once.'
+                            : 'Complete your application using your private invitation link. Admin will review within 24–48 hours.'}
+                    </p>
+                    <p className="mt-2 text-xs text-amber-700">
+                        Link expires: {new Date(expiresAt).toLocaleString()}. Phone, WhatsApp, email, and location are shown to buyers.
                     </p>
 
                     <form className="mt-6 space-y-8" onSubmit={submit}>
@@ -110,8 +115,9 @@ export default function SellerRegister({ isExistingUser = false, defaults }: Sel
                                 </div>
                                 <div>
                                     <Label>WhatsApp Number</Label>
-                                    <Input value={data.whatsapp} onChange={(e) => setData('whatsapp', e.target.value)} className="mt-1" />
+                                    <Input value={data.whatsapp} onChange={(e) => setData('whatsapp', e.target.value)} required className="mt-1" />
                                     <InputError message={errors.whatsapp} />
+                                    <p className="mt-1 text-xs text-gray-500">Shown to buyers on your product pages.</p>
                                 </div>
                                 <div className="sm:col-span-2">
                                     <Label>Email Address</Label>

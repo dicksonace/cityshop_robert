@@ -77,6 +77,11 @@ class User extends Authenticatable
         return $this->hasMany(Order::class, 'buyer_id');
     }
 
+    public function payoutMethods(): HasMany
+    {
+        return $this->hasMany(SellerPayoutMethod::class);
+    }
+
     public function withdrawals(): HasMany
     {
         return $this->hasMany(Withdrawal::class, 'user_id');
@@ -104,6 +109,10 @@ class User extends Authenticatable
 
             if (! $profile || $profile->status->value !== 'approved') {
                 return route('seller.pending', absolute: false);
+            }
+
+            if (! $profile->storeCustomization || ! $profile->storeCustomization->isSetupComplete()) {
+                return route('seller.store-setup', absolute: false);
             }
 
             return route('seller.dashboard', absolute: false);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\CartItem;
 use App\Models\Product;
+use App\Services\ProductAnalyticsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,6 +13,8 @@ use Inertia\Response;
 
 class CartController extends Controller
 {
+    public function __construct(private ProductAnalyticsService $analytics) {}
+
     public function index(Request $request): Response
     {
         $items = CartItem::with(['product.images', 'product.seller.sellerProfile'])
@@ -46,6 +49,8 @@ class CartController extends Controller
 
         $cartItem->quantity = ($cartItem->exists ? $cartItem->quantity : 0) + $quantity;
         $cartItem->save();
+
+        $this->analytics->recordCartAdd($product, $quantity);
 
         return back()->with('success', 'Added to cart!');
     }

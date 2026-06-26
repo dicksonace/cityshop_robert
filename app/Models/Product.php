@@ -17,20 +17,36 @@ class Product extends Model
         'name',
         'slug',
         'description',
+        'meta_title',
+        'meta_description',
+        'meta_keywords',
         'specifications',
         'sku',
         'brand',
+        'condition',
         'price',
         'discount_price',
+        'wholesale_price',
+        'minimum_order_quantity',
+        'is_negotiable',
         'quantity',
+        'low_stock_alert',
         'weight',
         'status',
         'is_preorder',
         'free_shipping',
+        'delivery_fee',
+        'delivery_days',
+        'cash_on_delivery',
+        'pickup_available',
+        'ships_nationwide',
         'in_ghana',
         'rating',
         'review_count',
         'views',
+        'cart_adds',
+        'wishlist_adds',
+        'purchase_count',
         'rejection_reason',
     ];
 
@@ -39,6 +55,12 @@ class Product extends Model
         return [
             'price' => 'decimal:2',
             'discount_price' => 'decimal:2',
+            'delivery_fee' => 'decimal:2',
+            'wholesale_price' => 'decimal:2',
+            'is_negotiable' => 'boolean',
+            'cash_on_delivery' => 'boolean',
+            'pickup_available' => 'boolean',
+            'ships_nationwide' => 'boolean',
             'weight' => 'decimal:2',
             'status' => ProductStatus::class,
             'is_preorder' => 'boolean',
@@ -106,6 +128,16 @@ class Product extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    public function statDaily(): HasMany
+    {
+        return $this->hasMany(ProductStatDaily::class);
     }
 
     public function scopeApproved($query)

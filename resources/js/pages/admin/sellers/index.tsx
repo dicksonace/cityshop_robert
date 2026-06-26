@@ -11,6 +11,7 @@ interface SellersIndexProps {
 const nav = [
     { label: 'Dashboard', href: route('admin.dashboard') },
     { label: 'Sellers', href: route('admin.sellers.index'), active: true },
+    { label: 'Invites', href: route('admin.seller-invites.index') },
     { label: 'Products', href: route('admin.products.index') },
     { label: 'Orders', href: route('admin.orders.index') },
     { label: 'Withdrawals', href: route('admin.withdrawals.index') },

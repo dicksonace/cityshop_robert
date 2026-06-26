@@ -14,7 +14,16 @@ class Review extends Model
         'order_id',
         'rating',
         'comment',
+        'seller_reply',
+        'seller_replied_at',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'seller_replied_at' => 'datetime',
+        ];
+    }
 
     public function product(): BelongsTo
     {

@@ -25,8 +25,9 @@ Route::middleware('guest')->group(function () {
     Route::post('reset-password', [NewPasswordController::class, 'store'])->name('password.store');
 });
 
-Route::get('register/seller', [SellerRegisterController::class, 'create'])->name('register.seller');
-Route::post('register/seller', [SellerRegisterController::class, 'store']);
+Route::get('register/seller', [SellerRegisterController::class, 'redirectToContact']);
+Route::get('register/seller/{token}', [SellerRegisterController::class, 'create'])->name('register.seller');
+Route::post('register/seller/{token}', [SellerRegisterController::class, 'store']);
 
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)->name('verification.notice');

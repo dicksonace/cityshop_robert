@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureApprovedSeller;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\EnsureStoreSetupComplete;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\TrackUserPresence;
 use Illuminate\Foundation\Application;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureRole::class,
             'seller.approved' => EnsureApprovedSeller::class,
+            'seller.store-setup' => EnsureStoreSetupComplete::class,
         ]);
 
         $middleware->web(append: [

@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Channels\SmsChannel;
+use App\Models\Checkout;
 use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,7 +14,11 @@ class OrderPlacedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public Order $order, public bool $cashOnDelivery = false) {}
+    public function __construct(
+        public Order $order,
+        public bool $cashOnDelivery = false,
+        public ?Checkout $checkout = null,
+    ) {}
 
     public function via(object $notifiable): array
     {
@@ -22,20 +27,28 @@ class OrderPlacedNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
+        $checkout = $this->checkout ?? $this->order->checkout;
+        $number = $checkout?->checkout_number ?? $this->order->order_number;
+        $total = $checkout?->total ?? $this->order->total;
+
         $message = $this->cashOnDelivery
             ? 'Your cash-on-delivery order has been placed.'
             : 'Your order has been placed. Complete payment to confirm.';
 
         return (new MailMessage)
-            ->subject("Order {$this->order->order_number} placed")
+            ->subject("Order {$number} placed")
             ->greeting('Hello '.$notifiable->name.'!')
             ->line($message)
-            ->line('Order total: GH₵'.number_format($this->order->total, 2))
-            ->action('View Order', route('orders.show', $this->order));
+            ->line('Order total: GH₵'.number_format((float) $total, 2))
+            ->action('View Order', $checkout ? route('checkouts.show', $checkout) : route('orders.show', $this->order));
     }
 
     public function toSms(object $notifiable): string
     {
-        return "CityShop: Order {$this->order->order_number} placed. Total GH₵".number_format($this->order->total, 2).'.';
+        $checkout = $this->checkout ?? $this->order->checkout;
+        $number = $checkout?->checkout_number ?? $this->order->order_number;
+        $total = $checkout?->total ?? $this->order->total;
+
+        return "CityShop: Order {$number} placed. Total GH₵".number_format((float) $total, 2).'.';
     }
 }

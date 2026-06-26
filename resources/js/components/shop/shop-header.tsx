@@ -1,11 +1,10 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Heart, LogIn, Menu, MessageCircle, Search, ShoppingCart, Store, User, X } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { Heart, LogIn, Menu, MessageCircle, ShoppingCart, Store, User, X } from 'lucide-react';
+import { useState } from 'react';
 
 import NotificationBell from '@/components/shop/notification-bell';
+import SearchBox from '@/components/shop/search-box';
 import CityShopBrand from '@/components/cityshop-brand';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useChatOptional } from '@/contexts/chat-context';
 import { SharedData } from '@/types';
 
@@ -15,13 +14,7 @@ export default function ShopHeader() {
     const chat = useChatOptional();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const params = new URLSearchParams(page.url.split('?')[1] ?? '');
-    const [search, setSearch] = useState(params.get('search') ?? '');
-
-    const handleSearch = (e: FormEvent) => {
-        e.preventDefault();
-        router.get(route('home'), { search });
-        setMobileMenuOpen(false);
-    };
+    const initialSearch = params.get('q') ?? params.get('search') ?? '';
 
     const navLinks = [
         { label: 'Shop', href: route('home') },
@@ -29,7 +22,6 @@ export default function ShopHeader() {
         { label: 'Wishlist', href: route('wishlist.index'), auth: true },
         { label: 'My Orders', href: route('orders.index'), auth: true },
         { label: 'Messages', href: route('chat.index'), auth: true, chat: true },
-        { label: 'Sell on CityShop', href: route('register.seller') },
         { label: 'Contact', href: route('contact') },
         { label: 'FAQ', href: route('faq') },
     ];
@@ -57,21 +49,9 @@ export default function ShopHeader() {
                 <div className="flex items-center gap-2 sm:gap-4">
                     <CityShopBrand size="sm" className="shrink-0" />
 
-                    <form onSubmit={handleSearch} className="mx-auto hidden max-w-2xl flex-1 md:flex">
-                        <div className="flex w-full overflow-hidden rounded-2xl border-2 border-orange-100 bg-gray-50 transition-colors focus-within:border-orange-300 focus-within:bg-white">
-                            <Input
-                                type="search"
-                                placeholder="Search products, brands, categories..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="border-0 bg-transparent focus-visible:ring-0"
-                            />
-                            <Button type="submit" className="rounded-none rounded-r-2xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 hover:from-orange-600 hover:to-orange-700">
-                                <Search className="h-4 w-4" />
-                                <span className="ml-1 hidden sm:inline">Search</span>
-                            </Button>
-                        </div>
-                    </form>
+                    <div className="mx-auto hidden max-w-2xl flex-1 md:flex">
+                        <SearchBox initialQuery={initialSearch} className="w-full" />
+                    </div>
 
                     <div className="ml-auto flex items-center gap-0.5 sm:gap-2">
                         {auth.user ? (
@@ -145,6 +125,11 @@ export default function ShopHeader() {
                     </div>
                 </div>
 
+                {/* Mobile search — always visible */}
+                <div className="mt-2 md:hidden">
+                    <SearchBox initialQuery={initialSearch} compact onSubmitted={() => setMobileMenuOpen(false)} />
+                </div>
+
                 <nav className="mt-2 hidden items-center gap-6 border-t border-gray-50 pt-2 md:mt-3 md:flex md:pt-3">
                     {navLinks.map((link) =>
                         link.auth && !auth.user ? null : link.chat ? (
@@ -175,18 +160,7 @@ export default function ShopHeader() {
             </div>
 
             {mobileMenuOpen && (
-                <div className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-gray-100 bg-white px-3 py-3 md:hidden">
-                    <form onSubmit={handleSearch} className="mb-3 flex gap-2">
-                        <Input
-                            placeholder="Search products..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="flex-1"
-                        />
-                        <Button type="submit" size="icon" className="shrink-0 bg-orange-500 hover:bg-orange-600">
-                            <Search className="h-4 w-4" />
-                        </Button>
-                    </form>
+                <div className="max-h-[calc(100dvh-8rem)] overflow-y-auto border-t border-gray-100 bg-white px-3 py-3 md:hidden">
                     {auth.user && (
                         <Link
                             href={dashboardLink()}

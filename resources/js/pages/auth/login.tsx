@@ -85,7 +85,8 @@ export default function Login({ canResetPassword, status }: LoginProps) {
                             New buyer? <TextLink href={route('register.buyer')}>Create account</TextLink>
                         </p>
                         <p>
-                            Want to sell? <TextLink href={route('register.seller')}>Register as seller</TextLink>
+                            Want to sell on CityShop?{' '}
+                            <TextLink href={route('contact')}>Contact support</TextLink>
                         </p>
                     </div>
                 </div>

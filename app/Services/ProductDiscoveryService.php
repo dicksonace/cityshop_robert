@@ -26,6 +26,24 @@ class ProductDiscoveryService
         )
         SQL;
 
+    public function applySearch(Builder $query, ?string $search): Builder
+    {
+        if (! $search || trim($search) === '') {
+            return $query;
+        }
+
+        $term = trim($search);
+
+        return $query->where(function ($q) use ($term) {
+            $q->where('name', 'like', "%{$term}%")
+                ->orWhere('description', 'like', "%{$term}%")
+                ->orWhere('brand', 'like', "%{$term}%")
+                ->orWhere('sku', 'like', "%{$term}%")
+                ->orWhere('meta_keywords', 'like', "%{$term}%")
+                ->orWhereHas('category', fn ($cq) => $cq->where('name', 'like', "%{$term}%"));
+        });
+    }
+
     public function applySort(Builder $query, string $sort, ?string $seed = null): Builder
     {
         return match ($sort) {
@@ -35,6 +53,7 @@ class ProductDiscoveryService
             'popular' => $query->orderByDesc('views')->orderByDesc('review_count'),
             'random' => $query->inRandomOrder($seed ?? (string) random_int(100_000, 999_999_999)),
             'newest' => $query->latest(),
+            'relevance' => $query->orderByDesc('views')->orderByDesc('review_count'),
             default => $query
                 ->orderByRaw(self::RECOMMENDED_SCORE.' DESC')
                 ->orderByDesc('review_count')

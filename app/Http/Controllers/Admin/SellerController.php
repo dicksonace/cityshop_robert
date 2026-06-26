@@ -8,6 +8,8 @@ use App\Models\SellerProfile;
 use App\Notifications\SellerApprovedNotification;
 use App\Notifications\SellerRejectedNotification;
 use App\Notifications\SellerSuspendedNotification;
+use App\Services\SellerRegistrationInviteService;
+use App\Services\StoreCustomizationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -40,7 +42,7 @@ class SellerController extends Controller
         ]);
     }
 
-    public function approve(Request $request, SellerProfile $seller): RedirectResponse
+    public function approve(Request $request, SellerProfile $seller, StoreCustomizationService $customizations): RedirectResponse
     {
         $seller->update([
             'status' => SellerStatus::Approved,
@@ -49,16 +51,25 @@ class SellerController extends Controller
             'rejection_reason' => null,
         ]);
 
+        $customization = $customizations->forProfile($seller);
+        $customization->update(['setup_completed_at' => null]);
+
         $seller->user->notify(new SellerApprovedNotification($seller));
 
         return back()->with('success', 'Seller approved successfully.');
     }
 
-    public function reject(Request $request, SellerProfile $seller): RedirectResponse
-    {
+    public function reject(
+        Request $request,
+        SellerProfile $seller,
+        SellerRegistrationInviteService $invites,
+    ): RedirectResponse {
         $validated = $request->validate([
             'rejection_reason' => ['required', 'string', 'max:1000'],
+            'send_registration_link' => ['boolean'],
         ]);
+
+        $seller->load('user');
 
         $seller->update([
             'status' => SellerStatus::Rejected,
@@ -67,7 +78,22 @@ class SellerController extends Controller
 
         $seller->user->notify(new SellerRejectedNotification($validated['rejection_reason']));
 
-        return back()->with('success', 'Seller application rejected.');
+        $flash = ['success' => 'Seller application rejected.'];
+
+        if ($validated['send_registration_link'] ?? false) {
+            $invite = $invites->create(
+                $request->user(),
+                $seller->user->email,
+                $seller->user->name,
+                'Issued after application rejection.',
+                $seller,
+            );
+
+            $flash['sellerInviteUrl'] = $invite->registrationUrl();
+            $flash['success'] = 'Seller application rejected. A new registration link has been created.';
+        }
+
+        return back()->with($flash);
     }
 
     public function block(Request $request, SellerProfile $seller): RedirectResponse

@@ -18,6 +18,7 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
         public Order $order,
         public ?OrderItem $orderItem = null,
         public bool $cashOnDelivery = false,
+        public bool $pendingOrder = false,
     ) {}
 
     public function via(object $notifiable): array
@@ -28,10 +29,15 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         if ($this->orderItem) {
+            $subject = $this->pendingOrder ? 'New order received' : 'New order received';
+            $line = $this->pendingOrder
+                ? "You have a new order awaiting payment: {$this->orderItem->product_name}"
+                : "You have a new order: {$this->orderItem->product_name}";
+
             return (new MailMessage)
-                ->subject('New order received')
+                ->subject($subject)
                 ->greeting('Hello '.$notifiable->name.'!')
-                ->line("You have a new order: {$this->orderItem->product_name}")
+                ->line($line)
                 ->line("Order: {$this->order->order_number}")
                 ->action('View Orders', route('seller.orders.index'));
         }
@@ -44,7 +50,7 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
             ->subject("Payment confirmed — {$this->order->order_number}")
             ->greeting('Hello '.$notifiable->name.'!')
             ->line($line)
-            ->action('Track Order', route('orders.show', $this->order));
+            ->action('Track Order', route('checkouts.show', $this->order->checkout_id ?? $this->order));
     }
 
     public function toSms(object $notifiable): string

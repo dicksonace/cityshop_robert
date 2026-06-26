@@ -43,10 +43,10 @@ export default function HeroBanner({ slides }: HeroBannerProps) {
                                     Shop Now <ArrowRight className="h-4 w-4" />
                                 </Link>
                                 <Link
-                                    href={route('register.seller')}
+                                    href={route('contact')}
                                     className="inline-flex items-center gap-2 rounded-full border-2 border-white/40 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/10 sm:px-6 sm:py-3"
                                 >
-                                    Become a Seller
+                                    Contact Support
                                 </Link>
                             </div>
                         </div>

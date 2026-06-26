@@ -1,10 +1,12 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
+import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PanelLayout from '@/layouts/panel-layout';
 import { SellerProfile } from '@/types/marketplace';
+import { SharedData } from '@/types';
 
 interface SellerShowProps {
     seller: SellerProfile & {
@@ -31,6 +33,7 @@ interface SellerShowProps {
 const nav = [
     { label: 'Dashboard', href: route('admin.dashboard') },
     { label: 'Sellers', href: route('admin.sellers.index'), active: true },
+    { label: 'Invites', href: route('admin.seller-invites.index') },
     { label: 'Products', href: route('admin.products.index') },
     { label: 'Orders', href: route('admin.orders.index') },
     { label: 'Withdrawals', href: route('admin.withdrawals.index') },
@@ -46,17 +49,49 @@ function DocLink({ path, label }: { path?: string; label: string }) {
 }
 
 export default function SellerShow({ seller }: SellerShowProps) {
+    const { flash } = usePage<SharedData>().props;
     const [reason, setReason] = useState('');
     const [blockReason, setBlockReason] = useState('');
+    const [sendRegistrationLink, setSendRegistrationLink] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     const approve = () => router.post(route('admin.sellers.approve', seller.id));
-    const reject = () => router.post(route('admin.sellers.reject', seller.id), { rejection_reason: reason });
+    const reject = () =>
+        router.post(route('admin.sellers.reject', seller.id), {
+            rejection_reason: reason,
+            send_registration_link: sendRegistrationLink,
+        });
     const block = () => router.post(route('admin.sellers.block', seller.id), { reason: blockReason });
     const unblock = () => router.post(route('admin.sellers.unblock', seller.id));
+    const resendInvite = () => router.post(route('admin.sellers.resend-invite', seller.id));
+
+    const copyInviteUrl = async () => {
+        if (!flash.sellerInviteUrl) return;
+        await navigator.clipboard.writeText(flash.sellerInviteUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     return (
         <PanelLayout title="Review Seller" nav={nav}>
             <Head title="Review Seller" />
+
+            {flash.sellerInviteUrl && (
+                <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                    <p className="text-sm font-medium text-blue-900">Registration link (share with applicant):</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <code className="flex-1 break-all rounded bg-white px-3 py-2 text-xs text-gray-800">
+                            {flash.sellerInviteUrl}
+                        </code>
+                        <Button type="button" variant="outline" size="sm" onClick={copyInviteUrl}>
+                            {copied ? <Check className="mr-1 h-3.5 w-3.5" /> : <Copy className="mr-1 h-3.5 w-3.5" />}
+                            {copied ? 'Copied' : 'Copy'}
+                        </Button>
+                    </div>
+                    <p className="mt-2 text-xs text-blue-700">Expires in 24 hours. Single use only.</p>
+                </div>
+            )}
+
             <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl bg-white p-6 shadow-sm">
                     <h3 className="font-semibold text-gray-900">Personal Information</h3>
@@ -95,11 +130,36 @@ export default function SellerShow({ seller }: SellerShowProps) {
                     <h3 className="font-semibold text-gray-900">Actions</h3>
                     <div className="mt-4 flex flex-wrap gap-4">
                         <Button onClick={approve} className="bg-green-600 hover:bg-green-700">Approve Seller</Button>
-                        <div className="flex flex-1 gap-2">
+                        <div className="flex flex-1 flex-col gap-2 sm:flex-row">
                             <Input placeholder="Rejection reason..." value={reason} onChange={(e) => setReason(e.target.value)} />
-                            <Button variant="destructive" onClick={reject}>Reject</Button>
+                            <label className="flex items-center gap-2 text-sm text-gray-600">
+                                <input
+                                    type="checkbox"
+                                    checked={sendRegistrationLink}
+                                    onChange={(e) => setSendRegistrationLink(e.target.checked)}
+                                />
+                                Send new registration link
+                            </label>
+                            <Button variant="destructive" onClick={reject} disabled={!reason.trim()}>
+                                Reject
+                            </Button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {seller.status === 'rejected' && (
+                <div className="mt-6 rounded-xl border border-amber-100 bg-amber-50 p-6">
+                    <h3 className="font-semibold text-amber-900">Application rejected</h3>
+                    {seller.rejection_reason && (
+                        <p className="mt-2 text-sm text-amber-800">Reason: {seller.rejection_reason}</p>
+                    )}
+                    <p className="mt-2 text-sm text-amber-700">
+                        Send a new private registration link if the applicant should resubmit.
+                    </p>
+                    <Button onClick={resendInvite} className="mt-4 bg-orange-500 hover:bg-orange-600">
+                        Generate registration link
+                    </Button>
                 </div>
             )}
 

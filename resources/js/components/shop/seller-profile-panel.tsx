@@ -1,4 +1,4 @@
-import { Building2, Calendar, MapPin, Package, ShieldCheck, Star, Store, Verified } from 'lucide-react';
+import { Building2, Calendar, Mail, MapPin, MessageCircle, Package, Phone, ShieldCheck, Star, Store, Verified } from 'lucide-react';
 
 import MessageSellerButton from '@/components/shop/message-seller-button';
 import { productImageUrl, SellerProfile } from '@/types/marketplace';
@@ -6,7 +6,16 @@ import { productImageUrl, SellerProfile } from '@/types/marketplace';
 interface SellerProfilePanelProps {
     sellerId: number;
     store: SellerProfile & {
-        user?: { name?: string; city?: string; region?: string };
+        user?: {
+            name?: string;
+            email?: string;
+            mobile?: string;
+            whatsapp?: string;
+            city?: string;
+            region?: string;
+            digital_address?: string;
+            residential_address?: string;
+        };
         store_description?: string | null;
         total_sales?: number;
         shop_photo?: string | null;
@@ -110,6 +119,73 @@ export default function SellerProfilePanel({ sellerId, store, productCount, sell
                                 <div>
                                     <dt className="font-medium text-gray-900">Shop address</dt>
                                     <dd className="text-gray-500">{store.business_address}</dd>
+                                </div>
+                            </div>
+                        )}
+
+                        {store.user?.digital_address && (
+                            <div className="flex items-start gap-3">
+                                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                                <div>
+                                    <dt className="font-medium text-gray-900">Digital address</dt>
+                                    <dd className="text-gray-500">{store.user.digital_address}</dd>
+                                </div>
+                            </div>
+                        )}
+
+                        {store.user?.residential_address && !store.business_address && (
+                            <div className="flex items-start gap-3">
+                                <Store className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                                <div>
+                                    <dt className="font-medium text-gray-900">Address</dt>
+                                    <dd className="text-gray-500">{store.user.residential_address}</dd>
+                                </div>
+                            </div>
+                        )}
+
+                        {store.user?.mobile && (
+                            <div className="flex items-start gap-3">
+                                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                                <div>
+                                    <dt className="font-medium text-gray-900">Phone</dt>
+                                    <dd>
+                                        <a href={`tel:${store.user.mobile.replace(/\s/g, '')}`} className="text-orange-500 hover:underline">
+                                            {store.user.mobile}
+                                        </a>
+                                    </dd>
+                                </div>
+                            </div>
+                        )}
+
+                        {store.user?.whatsapp && (
+                            <div className="flex items-start gap-3">
+                                <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+                                <div>
+                                    <dt className="font-medium text-gray-900">WhatsApp</dt>
+                                    <dd>
+                                        <a
+                                            href={`https://wa.me/${store.user.whatsapp.replace(/\D/g, '')}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-green-600 hover:underline"
+                                        >
+                                            {store.user.whatsapp}
+                                        </a>
+                                    </dd>
+                                </div>
+                            </div>
+                        )}
+
+                        {store.user?.email && (
+                            <div className="flex items-start gap-3">
+                                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                                <div>
+                                    <dt className="font-medium text-gray-900">Email</dt>
+                                    <dd>
+                                        <a href={`mailto:${store.user.email}`} className="text-orange-500 hover:underline">
+                                            {store.user.email}
+                                        </a>
+                                    </dd>
                                 </div>
                             </div>
                         )}

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Models\Checkout;
 use App\Models\Order;
 use App\Models\Review;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,19 +15,23 @@ class OrderController extends Controller
 {
     public function index(Request $request): Response
     {
-        $orders = Order::with('items')
+        $checkouts = Checkout::with(['orders.items'])
             ->where('buyer_id', $request->user()->id)
             ->latest()
             ->paginate(10);
 
         return Inertia::render('shop/orders', [
-            'orders' => $orders,
+            'checkouts' => $checkouts,
         ]);
     }
 
-    public function show(Request $request, Order $order): Response
+    public function show(Request $request, Order $order): Response|RedirectResponse
     {
         abort_unless($order->buyer_id === $request->user()->id, 403);
+
+        if ($order->checkout_id) {
+            return redirect()->route('checkouts.show', $order->checkout_id);
+        }
 
         $order->load(['items.product.images', 'items.dispute']);
 

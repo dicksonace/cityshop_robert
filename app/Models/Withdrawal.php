@@ -10,6 +10,7 @@ class Withdrawal extends Model
 {
     protected $fillable = [
         'user_id',
+        'payout_method_id',
         'amount',
         'momo_number',
         'account_name',
@@ -27,6 +28,11 @@ class Withdrawal extends Model
             'status' => WithdrawalStatus::class,
             'processed_at' => 'datetime',
         ];
+    }
+
+    public function payoutMethod(): BelongsTo
+    {
+        return $this->belongsTo(SellerPayoutMethod::class, 'payout_method_id');
     }
 
     public function user(): BelongsTo

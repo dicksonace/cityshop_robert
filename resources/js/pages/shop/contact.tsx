@@ -56,6 +56,23 @@ export default function Contact({ contact, subjects, defaults }: ContactProps) {
                     </div>
                 )}
 
+                {flash.info && (
+                    <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                        {flash.info}
+                    </div>
+                )}
+
+                {flash.error && (
+                    <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {flash.error}
+                    </div>
+                )}
+
+                <div className="mt-6 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+                    Interested in selling on CityShop? Choose <strong>Become a Seller</strong> as your subject below.
+                    Our team will review your request and send a private registration link if approved.
+                </div>
+
                 <div className="mt-10 grid gap-8 lg:grid-cols-5">
                     <div className="space-y-4 lg:col-span-2">
                         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">

@@ -58,7 +58,7 @@ return [
             'items' => [
                 [
                     'question' => 'How do I become a seller?',
-                    'answer' => 'Click "Sell on CityShop" and complete the seller registration form. Upload your Ghana Card, business documents (if applicable), and shop photo. Our team reviews applications within 1–3 business days.',
+                    'answer' => 'Seller registration is by invitation only. Contact support with the subject "Become a Seller" and tell us about your business. If approved, we will email you a private registration link valid for 24 hours. Upload your Ghana Card, business documents (if applicable), and shop photo. Our team reviews applications within 1–3 business days.',
                 ],
                 [
                     'question' => 'What commission does CityShop charge?',

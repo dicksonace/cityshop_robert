@@ -33,17 +33,6 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
                             </ul>
                         </div>
                         <div>
-                            <h4 className="font-semibold text-gray-900">Sell</h4>
-                            <ul className="mt-2 space-y-1 text-sm text-gray-500">
-                                <li>
-                                    <Link href={route('register.seller')}>Become a Seller</Link>
-                                </li>
-                                <li>
-                                    <Link href={route('login')}>Seller Login</Link>
-                                </li>
-                            </ul>
-                        </div>
-                        <div>
                             <h4 className="font-semibold text-gray-900">Support</h4>
                             <ul className="mt-2 space-y-1 text-sm text-gray-500">
                                 <li>
@@ -54,6 +43,17 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
                                 </li>
                                 <li>
                                     <Link href={route('faq')}>Buyer Protection</Link>
+                                </li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-gray-900">Account</h4>
+                            <ul className="mt-2 space-y-1 text-sm text-gray-500">
+                                <li>
+                                    <Link href={route('login')}>Log In</Link>
+                                </li>
+                                <li>
+                                    <Link href={route('register.buyer')}>Create Account</Link>
                                 </li>
                             </ul>
                         </div>

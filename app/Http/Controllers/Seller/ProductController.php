@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\Review;
 use App\Services\CategorySpecService;
+use App\Services\ProductAnalyticsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,14 +19,40 @@ class ProductController extends Controller
 {
     public function index(Request $request): Response
     {
-        $products = Product::with('images')
+        $query = Product::with(['images', 'category'])
             ->withCount('reviews')
-            ->where('seller_id', $request->user()->id)
-            ->latest()
-            ->paginate(10);
+            ->where('seller_id', $request->user()->id);
+
+        $status = $request->string('status')->toString();
+        if ($status && in_array($status, ['approved', 'pending', 'rejected', 'draft'], true)) {
+            $query->where('status', $status);
+        } elseif ($status === 'sold_out') {
+            $query->where('quantity', 0)->where('is_preorder', false);
+        }
+
+        if ($search = $request->string('search')->trim()->toString()) {
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        $sort = $request->string('sort', 'newest')->toString();
+        match ($sort) {
+            'oldest' => $query->oldest(),
+            'price_asc' => $query->orderByRaw('COALESCE(discount_price, price) asc'),
+            'price_desc' => $query->orderByRaw('COALESCE(discount_price, price) desc'),
+            'name' => $query->orderBy('name'),
+            default => $query->latest(),
+        };
+
+        $products = $query->paginate(12)->withQueryString();
 
         return Inertia::render('seller/products/index', [
             'products' => $products,
+            'filters' => [
+                'status' => $status ?: null,
+                'search' => $search ?: null,
+                'sort' => $sort,
+            ],
+            'categories' => Category::where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -33,27 +60,13 @@ class ProductController extends Controller
     {
         return Inertia::render('seller/products/create', [
             'categories' => Category::where('is_active', true)->orderBy('name')->get(),
+            'profile' => auth()->user()->sellerProfile,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'category_id' => ['nullable', 'exists:categories,id'],
-            'sku' => ['nullable', 'string', 'max:100'],
-            'brand' => ['nullable', 'string', 'max:100'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'discount_price' => ['nullable', 'numeric', 'min:0', 'lt:price'],
-            'quantity' => ['required', 'integer', 'min:0'],
-            'weight' => ['nullable', 'numeric', 'min:0'],
-            'free_shipping' => ['boolean'],
-            'in_ghana' => ['boolean'],
-            'specifications' => ['nullable', 'array'],
-            'images' => ['required', 'array', 'min:1', 'max:5'],
-            'images.*' => ['image', 'max:5120'],
-        ]);
+        $validated = $this->validateProduct($request, true);
 
         $specifications = $this->resolveSpecifications($validated['category_id'] ?? null, $request->input('specifications', []));
 
@@ -83,8 +96,9 @@ class ProductController extends Controller
         abort_unless($product->seller_id === $request->user()->id, 403);
 
         return Inertia::render('seller/products/edit', [
-            'product' => $product->load('images'),
+            'product' => $product->load(['images', 'category']),
             'categories' => Category::where('is_active', true)->orderBy('name')->get(),
+            'profile' => $request->user()->sellerProfile,
         ]);
     }
 
@@ -92,24 +106,7 @@ class ProductController extends Controller
     {
         abort_unless($product->seller_id === $request->user()->id, 403);
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'category_id' => ['nullable', 'exists:categories,id'],
-            'sku' => ['nullable', 'string', 'max:100'],
-            'brand' => ['nullable', 'string', 'max:100'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'discount_price' => ['nullable', 'numeric', 'min:0', 'lt:price'],
-            'quantity' => ['required', 'integer', 'min:0'],
-            'weight' => ['nullable', 'numeric', 'min:0'],
-            'free_shipping' => ['boolean'],
-            'in_ghana' => ['boolean'],
-            'specifications' => ['nullable', 'array'],
-            'images' => ['nullable', 'array', 'max:5'],
-            'images.*' => ['image', 'max:5120'],
-            'remove_images' => ['nullable', 'array'],
-            'remove_images.*' => ['integer', 'exists:product_images,id'],
-        ]);
+        $validated = $this->validateProduct($request, false);
 
         if ($request->filled('remove_images')) {
             ProductImage::where('product_id', $product->id)
@@ -137,7 +134,6 @@ class ProductController extends Controller
             }
         }
 
-        // Ensure first image by sort_order is primary
         $first = $product->images()->orderBy('sort_order')->first();
         if ($first) {
             $product->images()->update(['is_primary' => false]);
@@ -166,6 +162,86 @@ class ProductController extends Controller
         return back()->with('success', 'Product deleted.');
     }
 
+    public function duplicate(Request $request, Product $product): RedirectResponse
+    {
+        abort_unless($product->seller_id === $request->user()->id, 403);
+
+        $copy = $product->replicate(['slug', 'views', 'rating', 'review_count', 'cart_adds', 'wishlist_adds', 'purchase_count']);
+        $copy->name = $product->name.' (Copy)';
+        $copy->slug = Product::generateUniqueSlug($copy->name, $product->seller_id);
+        $copy->status = ProductStatus::Draft;
+        $copy->save();
+
+        foreach ($product->images as $image) {
+            ProductImage::create([
+                'product_id' => $copy->id,
+                'path' => $image->path,
+                'is_primary' => $image->is_primary,
+                'sort_order' => $image->sort_order,
+            ]);
+        }
+
+        return redirect()->route('seller.products.edit', $copy)
+            ->with('success', 'Product duplicated. Review and publish when ready.');
+    }
+
+    public function toggleVisibility(Request $request, Product $product): RedirectResponse
+    {
+        abort_unless($product->seller_id === $request->user()->id, 403);
+
+        if ($product->status === ProductStatus::Draft) {
+            $product->update(['status' => ProductStatus::Pending]);
+            $message = 'Product submitted for review.';
+        } elseif ($product->status === ProductStatus::Approved) {
+            $product->update(['status' => ProductStatus::Draft]);
+            $message = 'Product hidden from your store.';
+        } else {
+            return back()->with('error', 'Only live or draft products can be toggled.');
+        }
+
+        return back()->with('success', $message);
+    }
+
+    public function analytics(Request $request, Product $product, ProductAnalyticsService $analytics): Response
+    {
+        abort_unless($product->seller_id === $request->user()->id, 403);
+
+        return Inertia::render('seller/products/analytics', [
+            'product' => $product->load(['images', 'category']),
+            'stats' => $analytics->statsForProduct($product),
+        ]);
+    }
+
+    public function bulk(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'in:hide,delete,category'],
+            'product_ids' => ['required', 'array', 'min:1'],
+            'product_ids.*' => ['integer'],
+            'category_id' => ['nullable', 'exists:categories,id'],
+        ]);
+
+        $products = Product::where('seller_id', $request->user()->id)
+            ->whereIn('id', $validated['product_ids'])
+            ->get();
+
+        if ($products->isEmpty()) {
+            return back()->with('error', 'No products selected.');
+        }
+
+        $count = 0;
+        foreach ($products as $product) {
+            match ($validated['action']) {
+                'hide' => $product->update(['status' => ProductStatus::Draft]),
+                'delete' => $product->delete(),
+                'category' => $product->update(['category_id' => $validated['category_id']]),
+            };
+            $count++;
+        }
+
+        return back()->with('success', "{$count} product(s) updated.");
+    }
+
     public function reviews(Request $request, Product $product): Response
     {
         abort_unless($product->seller_id === $request->user()->id, 403);
@@ -180,6 +256,51 @@ class ProductController extends Controller
             'product' => $product->only(['id', 'name', 'slug', 'rating', 'review_count']),
             'reviews' => $reviews,
         ]);
+    }
+
+    private function validateProduct(Request $request, bool $creating): array
+    {
+        $imageRules = $creating
+            ? ['required', 'array', 'min:1', 'max:5']
+            : ['nullable', 'array', 'max:5'];
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'meta_title' => ['nullable', 'string', 'max:255'],
+            'meta_description' => ['nullable', 'string', 'max:500'],
+            'meta_keywords' => ['nullable', 'string', 'max:255'],
+            'category_id' => ['nullable', 'exists:categories,id'],
+            'sku' => ['nullable', 'string', 'max:100'],
+            'brand' => ['nullable', 'string', 'max:100'],
+            'condition' => ['nullable', 'in:new,used,refurbished'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'discount_price' => ['nullable', 'numeric', 'min:0', 'lt:price'],
+            'wholesale_price' => ['nullable', 'numeric', 'min:0'],
+            'minimum_order_quantity' => ['nullable', 'integer', 'min:1'],
+            'is_negotiable' => ['boolean'],
+            'quantity' => ['required', 'integer', 'min:0'],
+            'low_stock_alert' => ['nullable', 'integer', 'min:0'],
+            'weight' => ['nullable', 'numeric', 'min:0'],
+            'free_shipping' => ['boolean'],
+            'delivery_fee' => ['nullable', 'numeric', 'min:0'],
+            'delivery_days' => ['nullable', 'integer', 'min:1', 'max:90'],
+            'cash_on_delivery' => ['boolean'],
+            'pickup_available' => ['boolean'],
+            'ships_nationwide' => ['boolean'],
+            'in_ghana' => ['boolean'],
+            'specifications' => ['nullable', 'array'],
+            'images' => $imageRules,
+            'images.*' => ['image', 'max:5120'],
+            'remove_images' => ['nullable', 'array'],
+            'remove_images.*' => ['integer', 'exists:product_images,id'],
+        ]);
+
+        if ($validated['free_shipping'] ?? false) {
+            $validated['delivery_fee'] = null;
+        }
+
+        return $validated;
     }
 
     private function resolveSpecifications(?int $categoryId, array $specs): ?array

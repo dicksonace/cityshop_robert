@@ -11,7 +11,9 @@ class OrderController extends Controller
 {
     public function index(): Response
     {
-        $orders = Order::with(['buyer', 'items'])->latest()->paginate(15);
+        $orders = Order::with(['buyer', 'items', 'checkout:id,checkout_number'])
+            ->latest()
+            ->paginate(15);
 
         return Inertia::render('admin/orders/index', [
             'orders' => $orders,
@@ -20,10 +22,11 @@ class OrderController extends Controller
 
     public function show(Order $order): Response
     {
-        $order->load(['buyer', 'items.product', 'items.seller']);
+        $order->load(['buyer', 'items.product', 'items.seller', 'checkout.orders', 'checkout.payments', 'checkout.invoices', 'sellerPaymentMethod']);
 
         return Inertia::render('admin/orders/show', [
             'order' => $order,
+            'checkout' => $order->checkout,
         ]);
     }
 }

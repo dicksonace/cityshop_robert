@@ -174,7 +174,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                                 </button>
                             </div>
                         ) : viewMode === 'grid' ? (
-                            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 md:grid-cols-3">
+                            <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3">
                                 {products.data.map((product) => (
                                     <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
                                 ))}

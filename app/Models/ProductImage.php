@@ -12,12 +12,14 @@ class ProductImage extends Model
         'path',
         'is_primary',
         'sort_order',
+        'color_signature',
     ];
 
     protected function casts(): array
     {
         return [
             'is_primary' => 'boolean',
+            'color_signature' => 'array',
         ];
     }
 

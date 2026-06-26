@@ -41,6 +41,10 @@ class AuthenticatedSessionController extends Controller
                 return redirect()->intended(route('seller.pending', absolute: false));
             }
 
+            if (! $profile->storeCustomization || ! $profile->storeCustomization->isSetupComplete()) {
+                return redirect()->intended(route('seller.store-setup', absolute: false));
+            }
+
             return redirect()->intended(route('seller.dashboard', absolute: false));
         }
 

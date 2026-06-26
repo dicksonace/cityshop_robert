@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\SellerRegistrationInviteService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,13 +21,37 @@ use Inertia\Response;
 
 class SellerRegisterController extends Controller
 {
-    public function create(Request $request): Response|RedirectResponse
+    public function redirectToContact(): RedirectResponse
     {
+        return redirect()->route('contact')->with(
+            'info',
+            'Seller registration is by invitation only. Contact support to request a seller account — we will send you a private registration link if approved.',
+        );
+    }
+
+    public function create(Request $request, string $token, SellerRegistrationInviteService $invites): Response|RedirectResponse
+    {
+        $invite = $invites->findValidByToken($token);
+
+        if (! $invite) {
+            return redirect()->route('contact')->with(
+                'error',
+                'This registration link is invalid, expired, or has already been used. Please contact support for assistance.',
+            );
+        }
+
         $user = $request->user();
 
         if ($user) {
             if ($user->isAdmin()) {
                 return redirect()->route('admin.dashboard');
+            }
+
+            if ($invite->email && strcasecmp($user->email, $invite->email) !== 0) {
+                return redirect()->route('contact')->with(
+                    'error',
+                    'This registration link was issued for a different email address. Please contact support.',
+                );
             }
 
             $profile = $user->sellerProfile;
@@ -37,17 +62,29 @@ class SellerRegisterController extends Controller
                 if ($profile->status === SellerStatus::Pending) {
                     return redirect()->route('seller.pending');
                 }
+                if ($profile->status === SellerStatus::Suspended) {
+                    return redirect()->route('contact')->with(
+                        'error',
+                        'Your seller account is suspended. Please contact support.',
+                    );
+                }
             }
         }
 
+        $prefillEmail = $invite->email ?? $user?->email ?? '';
+
         return Inertia::render('auth/seller-register', [
+            'token' => $token,
+            'expiresAt' => $invite->expires_at->toIso8601String(),
             'isExistingUser' => (bool) $user,
             'defaults' => [
-                'first_name' => $user?->first_name ?? '',
-                'last_name' => $user?->last_name ?? '',
+                'first_name' => $invite->name ? explode(' ', $invite->name, 2)[0] : ($user?->first_name ?? ''),
+                'last_name' => $invite->name
+                    ? (explode(' ', $invite->name, 2)[1] ?? '')
+                    : ($user?->last_name ?? ''),
                 'mobile' => $user?->mobile ?? '',
                 'whatsapp' => $user?->whatsapp ?? '',
-                'email' => $user?->email ?? '',
+                'email' => $prefillEmail,
                 'ghana_card_number' => $user?->ghana_card_number ?? '',
                 'digital_address' => $user?->digital_address ?? '',
                 'residential_address' => $user?->residential_address ?? '',
@@ -57,16 +94,48 @@ class SellerRegisterController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, string $token, SellerRegistrationInviteService $invites): RedirectResponse
     {
+        $invite = $invites->findValidByToken($token);
+
+        if (! $invite) {
+            return redirect()->route('contact')->with(
+                'error',
+                'This registration link is invalid, expired, or has already been used. Please contact support for assistance.',
+            );
+        }
+
         $existingUser = $request->user();
         $isRegistered = $request->boolean('is_business_registered');
+
+        if ($existingUser) {
+            if ($existingUser->isAdmin()) {
+                abort(403);
+            }
+
+            if ($invite->email && strcasecmp($existingUser->email, $invite->email) !== 0) {
+                return back()->with('error', 'This registration link was issued for a different email address.');
+            }
+
+            $profile = $existingUser->sellerProfile;
+            if ($existingUser->isSeller() && $profile) {
+                if ($profile->status === SellerStatus::Approved) {
+                    return redirect()->route('seller.dashboard');
+                }
+                if ($profile->status === SellerStatus::Pending) {
+                    return redirect()->route('seller.pending');
+                }
+                if ($profile->status === SellerStatus::Suspended) {
+                    return back()->with('error', 'Your seller account is suspended. Please contact support.');
+                }
+            }
+        }
 
         $rules = [
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'mobile' => ['required', 'string', 'max:20', Rule::unique('users', 'mobile')->ignore($existingUser?->id)],
-            'whatsapp' => ['nullable', 'string', 'max:20'],
+            'whatsapp' => ['required', 'string', 'max:20'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users', 'email')->ignore($existingUser?->id)],
             'ghana_card_number' => ['required', 'string', 'max:50'],
             'digital_address' => ['required', 'string', 'max:100'],
@@ -78,6 +147,10 @@ class SellerRegisterController extends Controller
             'id_card_back' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'shop_photo' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
         ];
+
+        if ($invite->email) {
+            $rules['email'][] = Rule::in([strtolower($invite->email)]);
+        }
 
         if (! $existingUser) {
             $rules['password'] = ['required', 'confirmed', Rules\Password::defaults()];
@@ -100,10 +173,6 @@ class SellerRegisterController extends Controller
         $validated = $request->validate($rules);
 
         if ($existingUser) {
-            if ($existingUser->isAdmin()) {
-                abort(403);
-            }
-
             $existingUser->update([
                 'name' => "{$validated['first_name']} {$validated['last_name']}",
                 'first_name' => $validated['first_name'],
@@ -165,8 +234,9 @@ class SellerRegisterController extends Controller
 
         if ($user->sellerProfile) {
             $user->sellerProfile->update($profileData);
+            $sellerProfile = $user->sellerProfile->fresh();
         } else {
-            SellerProfile::create([
+            $sellerProfile = SellerProfile::create([
                 'user_id' => $user->id,
                 ...$profileData,
             ]);
@@ -175,6 +245,8 @@ class SellerRegisterController extends Controller
         if (! $user->wallet) {
             Wallet::create(['user_id' => $user->id]);
         }
+
+        $invites->markUsed($invite, $sellerProfile);
 
         if (! $existingUser) {
             event(new Registered($user));

@@ -1,5 +1,6 @@
 export interface SellerProfile {
     id: number;
+    user_id?: number;
     business_name: string | null;
     store_name: string | null;
     slug: string;
@@ -37,7 +38,18 @@ export interface Product {
     rating: number;
     review_count: number;
     images: ProductImage[];
-    seller?: { id: number; name: string; seller_profile?: SellerProfile };
+    seller?: {
+        id: number;
+        name: string;
+        email?: string;
+        mobile?: string;
+        whatsapp?: string;
+        region?: string;
+        city?: string;
+        digital_address?: string;
+        residential_address?: string;
+        seller_profile?: SellerProfile;
+    };
     category?: { id: number; name: string; slug?: string; icon?: string | null; spec_schema?: { fields: SpecField[] } | null };
 }
 
@@ -179,6 +191,6 @@ export function formatOrderStatus(status: string): string {
 
 export function productImageUrl(path: string | undefined): string {
     if (!path) return '/images/product-placeholder.svg';
-    if (path.startsWith('http')) return path;
+    if (path.startsWith('http') || path.startsWith('blob:')) return path;
     return `/storage/${path}`;
 }

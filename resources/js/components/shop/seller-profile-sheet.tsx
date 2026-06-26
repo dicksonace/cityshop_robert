@@ -7,7 +7,16 @@ interface SellerProfileSheetProps {
     onOpenChange: (open: boolean) => void;
     sellerId: number;
     store: SellerProfile & {
-        user?: { name?: string; city?: string; region?: string };
+        user?: {
+            name?: string;
+            email?: string;
+            mobile?: string;
+            whatsapp?: string;
+            city?: string;
+            region?: string;
+            digital_address?: string;
+            residential_address?: string;
+        };
         store_description?: string | null;
         total_sales?: number;
         shop_photo?: string | null;

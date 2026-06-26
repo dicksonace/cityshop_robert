@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Seller;
 
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
 use App\Services\OrderService;
@@ -16,13 +17,50 @@ class OrderController extends Controller
 
     public function index(Request $request): Response
     {
-        $orders = OrderItem::with(['order.buyer', 'product'])
-            ->where('seller_id', $request->user()->id)
-            ->latest()
-            ->paginate(15);
+        $status = $request->string('status')->toString();
+
+        $query = OrderItem::with(['order.buyer', 'product.images'])
+            ->where('seller_id', $request->user()->id);
+
+        if ($status && $status !== 'all') {
+            if ($status === 'active') {
+                $query->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed, OrderStatus::Shipped]);
+            } else {
+                $query->where('status', $status);
+            }
+        }
+
+        $orders = $query->latest()->paginate(20)->withQueryString();
+
+        $counts = [
+            'all' => OrderItem::where('seller_id', $request->user()->id)->count(),
+            'pending' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Pending)->count(),
+            'processing' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Processing)->count(),
+            'packed' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Packed)->count(),
+            'shipped' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Shipped)->count(),
+            'delivered' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Delivered)->count(),
+            'cancelled' => OrderItem::where('seller_id', $request->user()->id)->whereIn('status', [OrderStatus::Cancelled, OrderStatus::Refunded])->count(),
+        ];
 
         return Inertia::render('seller/orders/index', [
             'orders' => $orders,
+            'counts' => $counts,
+            'activeStatus' => $status ?: 'all',
+        ]);
+    }
+
+    public function show(Request $request, OrderItem $orderItem): Response
+    {
+        abort_unless($orderItem->seller_id === $request->user()->id, 403);
+
+        $orderItem->load([
+            'order.buyer',
+            'order.checkout',
+            'product.images',
+        ]);
+
+        return Inertia::render('seller/orders/show', [
+            'orderItem' => $orderItem,
         ]);
     }
 

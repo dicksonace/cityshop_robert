@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Enums\SellerStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 class SellerProfile extends Model
@@ -32,12 +34,16 @@ class SellerProfile extends Model
         'store_description',
         'rating',
         'total_sales',
+        'accept_marketplace_payments',
+        'accept_direct_payments',
     ];
 
     protected function casts(): array
     {
         return [
             'is_business_registered' => 'boolean',
+            'accept_marketplace_payments' => 'boolean',
+            'accept_direct_payments' => 'boolean',
             'status' => SellerStatus::class,
             'approved_at' => 'datetime',
             'rating' => 'decimal:2',
@@ -76,6 +82,16 @@ class SellerProfile extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function storeCustomization(): HasOne
+    {
+        return $this->hasOne(StoreCustomization::class);
+    }
+
+    public function paymentMethods(): HasMany
+    {
+        return $this->hasMany(SellerPaymentMethod::class);
     }
 
     public function isApproved(): bool

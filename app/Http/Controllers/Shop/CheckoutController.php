@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Shop;
 
+use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Checkout;
 use App\Models\Order;
 use App\Services\OrderService;
 use App\Services\PaystackService;
@@ -11,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,11 +26,26 @@ class CheckoutController extends Controller
 
     public function index(Request $request): Response
     {
-        $items = $request->user()->cartItems()->with(['product.images'])->get();
-        $subtotal = $items->sum(fn ($item) => $item->subtotal());
+        $grouped = $this->orderService->cartGroupedBySeller($request->user());
+        $subtotal = $grouped->flatten()->sum(fn ($item) => $item->subtotal());
+
+        $sellerGroups = $grouped->map(function ($items, $sellerId) {
+            $seller = $items->first()->product->seller;
+            $profile = $seller->sellerProfile;
+
+            return [
+                'seller_id' => (int) $sellerId,
+                'seller_name' => $profile?->displayName() ?? $seller->name,
+                'accept_marketplace_payments' => $profile?->accept_marketplace_payments ?? true,
+                'accept_direct_payments' => $profile?->accept_direct_payments ?? false,
+                'payment_methods' => $profile?->paymentMethods?->where('is_active', true)->values() ?? [],
+                'items' => $items,
+                'subtotal' => $items->sum(fn ($item) => $item->subtotal()),
+            ];
+        })->values();
 
         return Inertia::render('shop/checkout', [
-            'items' => $items,
+            'sellerGroups' => $sellerGroups,
             'subtotal' => $subtotal,
             'user' => $request->user(),
             'paystackPublicKey' => config('services.paystack.public_key'),
@@ -44,38 +62,59 @@ class CheckoutController extends Controller
             'digital_address' => ['nullable', 'string', 'max:100'],
             'delivery_notes' => ['nullable', 'string', 'max:500'],
             'payment_method' => ['required', 'in:momo,card,cash'],
+            'seller_payments' => ['nullable', 'array'],
+            'seller_payments.*.channel' => ['required_with:seller_payments', 'in:marketplace,direct'],
+            'seller_payments.*.method_id' => ['nullable', 'integer'],
+            'seller_coupons' => ['nullable', 'array'],
+            'seller_coupons.*' => ['nullable', 'string', 'max:30'],
         ]);
 
         try {
-            $order = $this->orderService->createPendingOrderFromCart(
+            $checkout = $this->orderService->createCheckoutFromCart(
                 $request->user(),
                 $validated,
-                $validated['payment_method']
+                $validated['payment_method'],
+                $validated['seller_payments'] ?? [],
+                $validated['seller_coupons'] ?? [],
             );
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
 
         if ($validated['payment_method'] === 'cash') {
-            $this->orderService->confirmCashOnDelivery($order);
+            $this->orderService->confirmCashOnDelivery($checkout);
 
-            return redirect()->route('orders.show', $order)
+            return redirect()->route('checkouts.show', $checkout)
                 ->with('success', 'Order placed! Pay on delivery.');
         }
 
-        return redirect()->route('checkout.payment', $order);
+        return redirect()->route('checkout.payment', $checkout);
     }
 
-    public function payment(Request $request, Order $order): Response|RedirectResponse
+    public function payment(Request $request, Checkout $checkout): Response|RedirectResponse
     {
-        abort_unless($order->buyer_id === $request->user()->id, 403);
+        abort_unless($checkout->buyer_id === $request->user()->id, 403);
 
-        if ($order->payment_status === PaymentStatus::Paid) {
-            return redirect()->route('orders.show', $order);
+        if ($checkout->payment_status === PaymentStatus::Paid) {
+            return redirect()->route('checkouts.show', $checkout);
         }
 
+        $checkout->load(['orders.items', 'orders.sellerPaymentMethod', 'orders.seller.sellerProfile']);
+
+        $marketplaceTotal = $checkout->orders
+            ->where('payment_channel', PaymentChannel::Marketplace)
+            ->sum('total');
+
+        $directOrders = $checkout->orders
+            ->where('payment_channel', PaymentChannel::Direct)
+            ->values();
+
         return Inertia::render('shop/payment', [
-            'order' => $order->load('items'),
+            'checkout' => $checkout,
+            'marketplaceTotal' => $marketplaceTotal,
+            'directOrders' => $directOrders,
             'paystackPublicKey' => config('services.paystack.public_key'),
             'paystackConfigured' => $this->paystack->isConfigured(),
         ]);
@@ -96,14 +135,14 @@ class CheckoutController extends Controller
                 return redirect()->route('orders.index')->with('error', 'Payment was not successful.');
             }
 
-            $orderId = $data['metadata']['order_id'] ?? null;
-            $order = $orderId
-                ? Order::findOrFail($orderId)
-                : Order::where('payment_reference', $reference)->firstOrFail();
+            $checkoutId = $data['metadata']['checkout_id'] ?? null;
+            $checkout = $checkoutId
+                ? Checkout::findOrFail($checkoutId)
+                : Checkout::whereHas('orders', fn ($q) => $q->where('payment_reference', $reference))->firstOrFail();
 
-            $this->orderService->fulfillPaidOrder($order, $reference);
+            $this->orderService->fulfillPaidCheckout($checkout, $reference);
 
-            return redirect()->route('orders.show', $order)->with('success', 'Payment successful!');
+            return redirect()->route('checkouts.show', $checkout)->with('success', 'Payment successful!');
         } catch (\Throwable $e) {
             Log::error('Paystack callback error', ['error' => $e->getMessage()]);
 
@@ -111,11 +150,11 @@ class CheckoutController extends Controller
         }
     }
 
-    public function initializePayment(Request $request, Order $order): JsonResponse
+    public function initializePayment(Request $request, Checkout $checkout): JsonResponse
     {
-        abort_unless($order->buyer_id === $request->user()->id, 403);
+        abort_unless($checkout->buyer_id === $request->user()->id, 403);
 
-        if ($order->payment_status === PaymentStatus::Paid) {
+        if ($checkout->payment_status === PaymentStatus::Paid) {
             return response()->json(['message' => 'Already paid'], 422);
         }
 
@@ -123,24 +162,47 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'Paystack is not configured. Add PAYSTACK keys to .env'], 503);
         }
 
+        $amount = $checkout->orders
+            ->where('payment_channel', PaymentChannel::Marketplace)
+            ->sum('total');
+
+        if ($amount <= 0) {
+            return response()->json(['message' => 'No marketplace payment required for this checkout.'], 422);
+        }
+
+        $reference = 'CSH-'.uniqid();
+
         try {
             $data = $this->paystack->initializeTransaction(
                 $request->user()->email,
-                (float) $order->total,
-                $order->payment_reference,
-                ['order_id' => $order->id, 'order_number' => $order->order_number]
+                (float) $amount,
+                $reference,
+                ['checkout_id' => $checkout->id, 'checkout_number' => $checkout->checkout_number]
             );
-
-            $order->update(['payment_reference' => $data['reference']]);
 
             return response()->json([
                 'authorization_url' => $data['authorization_url'],
                 'access_code' => $data['access_code'],
                 'reference' => $data['reference'],
                 'email' => $request->user()->email,
+                'amount' => $amount,
             ]);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
+    }
+
+    public function submitDirectReference(Request $request, Order $order): RedirectResponse
+    {
+        abort_unless($order->buyer_id === $request->user()->id, 403);
+        abort_unless($order->payment_channel === PaymentChannel::Direct, 422);
+
+        $validated = $request->validate([
+            'reference' => ['required', 'string', 'max:255'],
+        ]);
+
+        $this->orderService->submitDirectPaymentReference($order, $validated['reference']);
+
+        return back()->with('success', 'Payment reference submitted. The seller will confirm once received.');
     }
 }

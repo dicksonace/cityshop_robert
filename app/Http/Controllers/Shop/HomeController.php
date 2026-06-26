@@ -25,11 +25,7 @@ class HomeController extends Controller
             ->visibleInShop();
 
         if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('brand', 'like', "%{$search}%");
-            });
+            $this->discovery->applySearch($query, $search);
         }
 
         if ($category = $request->get('category')) {
@@ -120,7 +116,7 @@ class HomeController extends Controller
             'heroSlides' => [
                 ['title' => 'Trusted Sellers, Guaranteed Quality.', 'subtitle' => 'Every item is carefully vetted so you can buy with complete confidence.', 'accent' => 'from-blue-600 to-orange-500'],
                 ['title' => 'Shop Ghana\'s Best Deals', 'subtitle' => 'Electronics, fashion, and more — delivered to your doorstep.', 'accent' => 'from-emerald-600 to-teal-500'],
-                ['title' => 'Sell on CityShop', 'subtitle' => 'Join thousands of sellers growing their business online.', 'accent' => 'from-violet-600 to-indigo-500'],
+                ['title' => 'Buyer Protection You Can Trust', 'subtitle' => 'Secure payments, order tracking, and dispute support on every purchase.', 'accent' => 'from-violet-600 to-indigo-500'],
             ],
         ]);
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Wishlist;
+use App\Services\ProductAnalyticsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,6 +13,8 @@ use Inertia\Response;
 
 class WishlistController extends Controller
 {
+    public function __construct(private ProductAnalyticsService $analytics) {}
+
     public function index(Request $request): Response
     {
         $items = Wishlist::with(['product.images', 'product.seller.sellerProfile', 'product.category'])
@@ -48,6 +51,11 @@ class WishlistController extends Controller
             'user_id' => $request->user()->id,
             'product_id' => $validated['product_id'],
         ]);
+
+        $product = Product::find($validated['product_id']);
+        if ($product) {
+            $this->analytics->recordWishlistAdd($product);
+        }
 
         return back()->with('success', 'Added to wishlist!');
     }

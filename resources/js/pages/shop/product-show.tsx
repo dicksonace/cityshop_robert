@@ -2,12 +2,12 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { MessageSquare, ShoppingBag } from 'lucide-react';
 
 import ProductCard from '@/components/shop/product-card';
-import MessageSellerButton from '@/components/shop/message-seller-button';
 import ProductImageGallery from '@/components/shop/product-image-gallery';
 import ProductReviews from '@/components/shop/product-reviews';
+import ProductSellerInfo from '@/components/shop/product-seller-info';
 import ProductSpecifications from '@/components/shop/product-specifications';
 import RatingDisplay from '@/components/shop/rating-display';
-import SellerStoreLink from '@/components/shop/seller-store-link';
+import MessageSellerButton from '@/components/shop/message-seller-button';
 import WishlistButton from '@/components/shop/wishlist-button';
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
@@ -88,29 +88,33 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                         </div>
 
                         {product.seller?.seller_profile && (
-                            <div className="mt-4">
-                                <SellerStoreLink
-                                    profile={product.seller.seller_profile}
-                                    sellerName={product.seller.name}
-                                    variant="card"
-                                />
-                            </div>
+                            <ProductSellerInfo
+                                seller={product.seller}
+                                productId={product.id}
+                                showChatButton={false}
+                                currentUserId={auth.user?.id}
+                            />
                         )}
 
-                        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-                            <Button onClick={handleAddToCart} className="w-full bg-orange-500 py-5 text-base hover:bg-orange-600 sm:w-auto sm:py-6 sm:text-lg sm:px-12">
-                                <ShoppingBag className="mr-2 h-5 w-5" />
+                        <div className="mt-6 grid grid-cols-2 gap-2">
+                            <Button
+                                onClick={handleAddToCart}
+                                className="w-full bg-orange-500 py-4 text-sm hover:bg-orange-600 sm:py-6 sm:text-lg"
+                            >
+                                <ShoppingBag className="mr-1.5 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
                                 Add to Cart
                             </Button>
-                            {product.seller && auth.user?.id !== product.seller.id && (
+                            {product.seller && auth.user?.id !== product.seller.id ? (
                                 <MessageSellerButton
                                     sellerId={product.seller.id}
                                     productId={product.id}
-                                    variant="outline"
-                                    className="w-full py-5 text-base sm:w-auto sm:py-6 sm:text-lg"
+                                    label="Chat Seller"
+                                    className="w-full py-4 text-sm sm:py-6 sm:text-lg"
                                 />
+                            ) : (
+                                <div />
                             )}
-                            <div className="flex justify-center sm:justify-start">
+                            <div className="col-span-2 flex justify-center sm:justify-start">
                                 <WishlistButton productId={product.id} size="md" />
                             </div>
                         </div>
@@ -131,7 +135,7 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                 {related.length > 0 && (
                     <section className="mt-12">
                         <h2 className="text-xl font-bold text-gray-900">Related Products</h2>
-                        <div className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:gap-4 md:grid-cols-4">
+                        <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
                             {related.map((p) => (
                                 <ProductCard key={p.id} product={p} onAddToCart={handleRelatedAddToCart} />
                             ))}

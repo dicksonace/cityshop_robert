@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Checkout;
 use App\Models\Order;
 use App\Services\OrderService;
 use App\Services\PaystackService;
@@ -30,13 +31,28 @@ class PaystackWebhookController extends Controller
 
         if ($event === 'charge.success' && $data) {
             try {
+                $checkoutId = $data['metadata']['checkout_id'] ?? null;
+
+                if ($checkoutId) {
+                    $checkout = Checkout::find($checkoutId);
+                    if ($checkout) {
+                        $this->orderService->fulfillPaidCheckout($checkout, $data['reference']);
+
+                        return response('OK', 200);
+                    }
+                }
+
                 $orderId = $data['metadata']['order_id'] ?? null;
                 $order = $orderId
                     ? Order::find($orderId)
                     : Order::where('payment_reference', $data['reference'])->first();
 
                 if ($order) {
-                    $this->orderService->fulfillPaidOrder($order, $data['reference']);
+                    if ($order->checkout_id) {
+                        $this->orderService->fulfillPaidCheckout($order->checkout, $data['reference']);
+                    } else {
+                        $this->orderService->fulfillPaidOrder($order, $data['reference']);
+                    }
                 }
             } catch (\Throwable $e) {
                 Log::error('Paystack webhook error', ['error' => $e->getMessage()]);

@@ -66,8 +66,8 @@ export default function BuyerRegister() {
                     </form>
 
                     <p className="mt-4 text-center text-sm text-gray-500">
-                        Want to sell?{' '}
-                        <TextLink href={route('register.seller')}>Register as Seller</TextLink>
+                        Want to sell on CityShop?{' '}
+                        <TextLink href={route('contact')}>Contact support</TextLink>
                     </p>
                     <p className="mt-2 text-center text-sm text-gray-500">
                         Already have an account? <TextLink href={route('login')}>Log in</TextLink>
