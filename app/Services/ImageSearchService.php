@@ -15,15 +15,30 @@ class ImageSearchService
 {
     private const BINS = 64;
 
+    /** Max bit differences allowed between query and product image (0 = identical). */
+    private const MAX_DHASH_DISTANCE = 8;
+
+    /** Minimum combined visual score (0–1) to count as a match. */
+    private const MIN_MATCH_SCORE = 0.82;
+
+    /** If the best candidate is below this, return nothing. */
+    private const MIN_BEST_SCORE = 0.85;
+
+    private const MAX_RESULTS = 24;
+
     /**
      * @return array{products: Collection<int, array{product: Product, score: float, match_percent: int}>, preview: string, keywords: string[], method: string}
      */
     public function search(UploadedFile $file): array
     {
-        $absolutePath = $file->getRealPath();
-        $querySignature = $this->extractColorSignature($absolutePath);
+        $contents = file_get_contents($file->getRealPath());
+        $querySignature = $this->buildSignatureFromBytes($contents ?: '');
         $keywords = $this->extractKeywordsViaVision($file);
-        $preview = 'data:'.$file->getMimeType().';base64,'.base64_encode(file_get_contents($absolutePath));
+        $preview = 'data:'.$file->getMimeType().';base64,'.base64_encode($contents ?: '');
+
+        if (! $this->isValidSignature($querySignature)) {
+            return $this->emptyResult($preview, $keywords);
+        }
 
         $candidates = Product::with(['images', 'seller.sellerProfile', 'category'])
             ->visibleInShop()
@@ -32,36 +47,55 @@ class ImageSearchService
         $scored = [];
 
         foreach ($candidates as $product) {
-            $visualScore = 0.0;
+            $bestImageScore = 0.0;
 
             foreach ($product->images as $image) {
                 $signature = $this->resolveSignature($image);
-                if ($signature) {
-                    $visualScore = max($visualScore, $this->histogramSimilarity($querySignature, $signature));
+
+                if (! $this->isValidSignature($signature)) {
+                    continue;
                 }
+
+                $imageScore = $this->compareSignatures($querySignature, $signature);
+                $bestImageScore = max($bestImageScore, $imageScore);
+            }
+
+            if ($bestImageScore < self::MIN_MATCH_SCORE) {
+                continue;
             }
 
             $textScore = $keywords ? $this->keywordMatchScore($product, $keywords) : 0.0;
 
-            $finalScore = $keywords
-                ? (0.55 * $visualScore) + (0.45 * $textScore)
-                : $visualScore;
+            // Visual match is required; AI keywords only help rank among already-similar images.
+            $finalScore = $keywords && $textScore > 0
+                ? min(1.0, ($bestImageScore * 0.85) + ($textScore * 0.15))
+                : $bestImageScore;
 
-            if ($finalScore >= 0.12) {
-                $scored[] = [
-                    'product' => $product,
-                    'score' => round($finalScore, 4),
-                    'match_percent' => (int) round(min(99, $finalScore * 100)),
-                ];
-            }
+            $scored[] = [
+                'product' => $product,
+                'score' => round($finalScore, 4),
+                'match_percent' => $this->scoreToPercent($bestImageScore),
+            ];
+        }
+
+        if ($scored === []) {
+            return $this->emptyResult($preview, $keywords);
         }
 
         usort($scored, fn ($a, $b) => $b['score'] <=> $a['score']);
 
-        $top = collect(array_slice($scored, 0, 48));
+        $bestScore = $scored[0]['score'];
+
+        if ($bestScore < self::MIN_BEST_SCORE) {
+            return $this->emptyResult($preview, $keywords);
+        }
+
+        // Only keep results close to the best match — drop weak tail.
+        $cutoff = $bestScore * 0.94;
+        $filtered = array_values(array_filter($scored, fn ($row) => $row['score'] >= $cutoff));
 
         return [
-            'products' => $top,
+            'products' => collect(array_slice($filtered, 0, self::MAX_RESULTS)),
             'preview' => $preview,
             'keywords' => $keywords ?? [],
             'method' => $keywords ? 'ai_visual' : 'visual',
@@ -76,9 +110,9 @@ class ImageSearchService
             return null;
         }
 
-        $signature = $this->extractColorSignatureFromBytes($contents);
+        $signature = $this->buildSignatureFromBytes($contents);
 
-        if (array_sum($signature) <= 0) {
+        if (! $this->isValidSignature($signature)) {
             return null;
         }
 
@@ -87,13 +121,47 @@ class ImageSearchService
         return $signature;
     }
 
+    /**
+     * @return array{histogram: array<int, float>, dhash: string}|null
+     */
     public function resolveSignature(ProductImage $image): ?array
     {
-        if (is_array($image->color_signature) && count($image->color_signature) === self::BINS) {
-            return $image->color_signature;
+        $stored = $image->color_signature;
+
+        if ($this->isValidSignature($stored)) {
+            return $stored;
         }
 
         return $this->indexImage($image);
+    }
+
+    /**
+     * @param  array<int, float>|array{histogram?: array<int, float>, dhash?: string}|null  $signature
+     */
+    public function isValidSignature(?array $signature): bool
+    {
+        if (! is_array($signature)) {
+            return false;
+        }
+
+        $histogram = $signature['histogram'] ?? null;
+        $dhash = $signature['dhash'] ?? null;
+
+        return is_array($histogram)
+            && count($histogram) === self::BINS
+            && is_string($dhash)
+            && strlen($dhash) === self::BINS;
+    }
+
+    /**
+     * @return array{histogram: array<int, float>, dhash: string}
+     */
+    public function buildSignatureFromBytes(string $contents): array
+    {
+        return [
+            'histogram' => $this->extractColorHistogramFromBytes($contents),
+            'dhash' => $this->extractDHashFromBytes($contents),
+        ];
     }
 
     /**
@@ -107,13 +175,13 @@ class ImageSearchService
             return array_fill(0, self::BINS, 0);
         }
 
-        return $this->extractColorSignatureFromBytes($contents);
+        return $this->extractColorHistogramFromBytes($contents);
     }
 
     /**
      * @return array<int, float>
      */
-    public function extractColorSignatureFromBytes(string $contents): array
+    public function extractColorHistogramFromBytes(string $contents): array
     {
         $img = @imagecreatefromstring($contents);
 
@@ -143,6 +211,77 @@ class ImageSearchService
         $total = array_sum($bins) ?: 1;
 
         return array_map(fn ($v) => $v / $total, $bins);
+    }
+
+    public function extractDHashFromBytes(string $contents): string
+    {
+        $img = @imagecreatefromstring($contents);
+
+        if (! $img) {
+            return str_repeat('0', self::BINS);
+        }
+
+        $small = imagecreatetruecolor(9, 8);
+        imagecopyresampled($small, $img, 0, 0, 0, 0, 9, 8, imagesx($img), imagesy($img));
+        imagedestroy($img);
+
+        $gray = [];
+
+        for ($y = 0; $y < 8; $y++) {
+            $gray[$y] = [];
+            for ($x = 0; $x < 9; $x++) {
+                $rgb = imagecolorat($small, $x, $y);
+                $r = ($rgb >> 16) & 0xFF;
+                $g = ($rgb >> 8) & 0xFF;
+                $b = $rgb & 0xFF;
+                $gray[$y][$x] = (int) round(0.299 * $r + 0.587 * $g + 0.114 * $b);
+            }
+        }
+
+        imagedestroy($small);
+
+        $hash = '';
+
+        for ($y = 0; $y < 8; $y++) {
+            for ($x = 0; $x < 8; $x++) {
+                $hash .= $gray[$y][$x] > $gray[$y][$x + 1] ? '1' : '0';
+            }
+        }
+
+        return $hash;
+    }
+
+    /**
+     * @param  array{histogram: array<int, float>, dhash: string}  $a
+     * @param  array{histogram: array<int, float>, dhash: string}  $b
+     */
+    public function compareSignatures(array $a, array $b): float
+    {
+        $distance = $this->hammingDistance($a['dhash'], $b['dhash']);
+
+        if ($distance > self::MAX_DHASH_DISTANCE) {
+            return 0.0;
+        }
+
+        $structureScore = 1.0 - ($distance / self::BINS);
+        $colorScore = $this->histogramSimilarity($a['histogram'], $b['histogram']);
+
+        // Structure (dHash) matters most; color confirms the match.
+        return (0.75 * $structureScore) + (0.25 * $colorScore);
+    }
+
+    public function hammingDistance(string $a, string $b): int
+    {
+        $distance = 0;
+        $length = min(strlen($a), strlen($b));
+
+        for ($i = 0; $i < $length; $i++) {
+            if ($a[$i] !== $b[$i]) {
+                $distance++;
+            }
+        }
+
+        return $distance + abs(strlen($a) - strlen($b));
     }
 
     private function readImageBytes(string $path): ?string
@@ -271,6 +410,25 @@ class ImageSearchService
 
             return null;
         }
+    }
+
+    private function scoreToPercent(float $score): int
+    {
+        return (int) round(min(99, max(0, $score * 100)));
+    }
+
+    /**
+     * @param  string[]|null  $keywords
+     * @return array{products: Collection, preview: string, keywords: string[], method: string}
+     */
+    private function emptyResult(string $preview, ?array $keywords): array
+    {
+        return [
+            'products' => collect(),
+            'preview' => $preview,
+            'keywords' => $keywords ?? [],
+            'method' => $keywords ? 'ai_visual' : 'visual',
+        ];
     }
 
     /**

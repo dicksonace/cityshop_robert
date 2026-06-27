@@ -49,7 +49,7 @@ export default function ImageSearchPage({ results, preview, keywords, method, vi
                         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Search by photo</h1>
                     </div>
                     <p className="mt-2 text-center text-sm text-gray-500">
-                        Upload a product image and we&apos;ll find visually similar items in the shop
+                        Upload a product photo — we only show items that look like your image, not random guesses
                     </p>
                 </div>
             </div>
@@ -128,8 +128,16 @@ export default function ImageSearchPage({ results, preview, keywords, method, vi
                             ) : (
                                 <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center">
                                     <Camera className="mx-auto h-12 w-12 text-gray-300" />
-                                    <p className="mt-4 text-lg font-medium text-gray-900">No similar products found</p>
-                                    <p className="mt-1 text-sm text-gray-500">Try a clearer photo or a different angle.</p>
+                                    <p className="mt-4 text-lg font-medium text-gray-900">We don&apos;t have a matching product</p>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        No item in our shop looks like this photo. Try a clear product image, or browse categories instead.
+                                    </p>
+                                    <Link
+                                        href={route('home')}
+                                        className="mt-6 inline-block text-sm font-medium text-orange-500 hover:underline"
+                                    >
+                                        Browse all products
+                                    </Link>
                                 </div>
                             )}
                         </div>
