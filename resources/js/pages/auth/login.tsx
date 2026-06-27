@@ -91,9 +91,6 @@ export default function Login({ canResetPassword, status }: LoginProps) {
                         <p>
                             Sell on CityShop? <TextLink href={route('seller.login')}>Seller login</TextLink>
                         </p>
-                        <p className="text-xs text-gray-400">
-                            Staff: <TextLink href={route('admin.login')}>Admin login</TextLink>
-                        </p>
                     </div>
                 </div>
             </div>

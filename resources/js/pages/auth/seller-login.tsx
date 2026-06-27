@@ -132,14 +132,10 @@ export default function SellerLogin({ canResetPassword, status }: SellerLoginPro
                             </p>
                         )}
 
-                        <div className="mt-8 space-y-2 border-t border-gray-100 pt-6 text-center text-sm text-gray-500">
+                        <div className="mt-8 border-t border-gray-100 pt-6 text-center text-sm text-gray-500">
                             <p>
                                 Shopping as a buyer?{' '}
                                 <TextLink href={route('login')}>Shopper login</TextLink>
-                            </p>
-                            <p>
-                                Platform staff?{' '}
-                                <TextLink href={route('admin.login')}>Admin login</TextLink>
                             </p>
                         </div>
                     </div>
