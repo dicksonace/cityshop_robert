@@ -71,6 +71,11 @@ export default function Contact({ contact, subjects, defaults }: ContactProps) {
                 <div className="mt-6 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-900">
                     Interested in selling on CityShop? Choose <strong>Become a Seller</strong> as your subject below.
                     Our team will review your request and send a private registration link if approved.
+                    Already a seller?{' '}
+                    <Link href={route('seller.login')} className="font-medium text-orange-600 hover:underline">
+                        Sign in to Seller Centre
+                    </Link>
+                    .
                 </div>
 
                 <div className="mt-10 grid gap-8 lg:grid-cols-5">

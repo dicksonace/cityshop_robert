@@ -28,6 +28,7 @@ use App\Http\Controllers\Shop\DisputeController;
 use App\Http\Controllers\Shop\FaqController;
 use App\Http\Controllers\Shop\HomeController;
 use App\Http\Controllers\Shop\ImageSearchController;
+use App\Http\Controllers\Shop\InvoiceController;
 use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\ProductController;
 use App\Http\Controllers\Shop\ReviewController;
@@ -62,6 +63,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/checkout/callback', [CheckoutController::class, 'callback'])->name('checkout.callback');
     Route::post('/checkout/payment/{checkout}/initialize', [CheckoutController::class, 'initializePayment'])->name('checkout.initialize');
     Route::get('/checkouts/{checkout}', [CheckoutSessionController::class, 'show'])->name('checkouts.show');
+    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::post('/orders/{order}/direct-payment', [CheckoutController::class, 'submitDirectReference'])->name('orders.direct-payment');
 
     Route::get('/my-orders', [OrderController::class, 'index'])->name('orders.index');

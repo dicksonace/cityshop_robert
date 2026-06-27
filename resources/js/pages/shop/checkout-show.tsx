@@ -1,4 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
+import { FileText } from 'lucide-react';
 
 import ShopLayout from '@/layouts/shop-layout';
 import { formatPrice, formatOrderStatus, Order, OrderItem } from '@/types/marketplace';
@@ -20,6 +21,11 @@ interface CheckoutShowProps {
         invoices?: { id: number; invoice_number: string; type: string; total: number }[];
     };
 }
+
+const invoiceTypeLabels: Record<string, string> = {
+    customer_master: 'Full checkout',
+    customer: 'Per seller',
+};
 
 export default function CheckoutShow({ checkout }: CheckoutShowProps) {
     return (
@@ -46,16 +52,30 @@ export default function CheckoutShow({ checkout }: CheckoutShowProps) {
 
                 {checkout.invoices && checkout.invoices.length > 0 && (
                     <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
-                        <h2 className="font-semibold">Invoices</h2>
-                        <ul className="mt-3 space-y-2 text-sm">
+                        <h2 className="flex items-center gap-2 font-semibold">
+                            <FileText className="h-5 w-5 text-orange-500" />
+                            Invoices
+                        </h2>
+                        <ul className="mt-3 divide-y text-sm">
                             {checkout.invoices.map((inv) => (
-                                <li key={inv.id} className="flex justify-between">
-                                    <span>{inv.invoice_number} <span className="text-gray-400">({inv.type.replace('_', ' ')})</span></span>
-                                    <span>{formatPrice(inv.total)}</span>
+                                <li key={inv.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                                    <div>
+                                        <p className="font-medium text-gray-900">{inv.invoice_number}</p>
+                                        <p className="text-xs text-gray-400">{invoiceTypeLabels[inv.type] ?? inv.type.replace(/_/g, ' ')}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-semibold text-gray-900">{formatPrice(inv.total)}</span>
+                                        <Link
+                                            href={route('invoices.show', inv.id)}
+                                            className="rounded-lg bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-600 hover:bg-orange-100"
+                                        >
+                                            View invoice
+                                        </Link>
+                                    </div>
                                 </li>
                             ))}
                         </ul>
-                        <p className="mt-2 text-xs text-gray-500">Invoice copies were emailed to you.</p>
+                        <p className="mt-2 text-xs text-gray-500">A copy was also emailed to you after payment.</p>
                     </div>
                 )}
 

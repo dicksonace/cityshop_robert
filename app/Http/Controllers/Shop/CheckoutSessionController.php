@@ -25,8 +25,11 @@ class CheckoutSessionController extends Controller
             'orders.items.product.images',
             'orders.seller.sellerProfile',
             'orders.sellerPaymentMethod',
-            'invoices',
             'payments',
+            'invoices' => fn ($q) => $q
+                ->where('user_id', $request->user()->id)
+                ->whereIn('type', ['customer', 'customer_master'])
+                ->orderByDesc('issued_at'),
         ]);
 
         return Inertia::render('shop/checkout-show', [

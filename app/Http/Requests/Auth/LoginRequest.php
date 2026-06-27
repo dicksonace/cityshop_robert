@@ -22,6 +22,7 @@ class LoginRequest extends FormRequest
         return [
             'login' => ['required', 'string'],
             'password' => ['required', 'string'],
+            'portal' => ['sometimes', 'string', 'in:buyer,seller,admin'],
         ];
     }
 
@@ -39,6 +40,24 @@ class LoginRequest extends FormRequest
 
             throw ValidationException::withMessages([
                 'login' => __('auth.failed'),
+            ]);
+        }
+
+        $portal = $this->input('portal', 'buyer');
+
+        if ($portal === 'seller' && ! $user->isSeller()) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'login' => 'This account is not registered as a seller. Use shopper login or contact support.',
+            ]);
+        }
+
+        if ($portal === 'admin' && ! $user->isAdmin()) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'login' => 'Administrator access only. Please use the correct login portal.',
             ]);
         }
 

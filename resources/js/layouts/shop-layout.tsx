@@ -1,13 +1,16 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
 import ShopHeader from '@/components/shop/shop-header';
+import { SharedData } from '@/types';
 
 interface ShopLayoutProps {
     children: ReactNode;
 }
 
 export default function ShopLayout({ children }: ShopLayoutProps) {
+    const { auth } = usePage<SharedData>().props;
+
     return (
         <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-50 to-white pb-20 sm:pb-0">
             <ShopHeader />
@@ -49,12 +52,28 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
                         <div>
                             <h4 className="font-semibold text-gray-900">Account</h4>
                             <ul className="mt-2 space-y-1 text-sm text-gray-500">
-                                <li>
-                                    <Link href={route('login')}>Log In</Link>
-                                </li>
-                                <li>
-                                    <Link href={route('register.buyer')}>Create Account</Link>
-                                </li>
+                                {auth.user ? (
+                                    <>
+                                        <li>
+                                            <Link href={route('orders.index')}>My Orders</Link>
+                                        </li>
+                                        <li>
+                                            <Link href={route('wallet.index')}>Wallet</Link>
+                                        </li>
+                                        <li>
+                                            <Link href={route('wishlist.index')}>Wishlist</Link>
+                                        </li>
+                                    </>
+                                ) : (
+                                    <>
+                                        <li>
+                                            <Link href={route('login')}>Log In</Link>
+                                        </li>
+                                        <li>
+                                            <Link href={route('register.buyer')}>Create Account</Link>
+                                        </li>
+                                    </>
+                                )}
                             </ul>
                         </div>
                     </div>

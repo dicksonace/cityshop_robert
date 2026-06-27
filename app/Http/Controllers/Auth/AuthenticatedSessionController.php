@@ -24,6 +24,22 @@ class AuthenticatedSessionController extends Controller
         ]);
     }
 
+    public function createSeller(Request $request): Response
+    {
+        return Inertia::render('auth/seller-login', [
+            'canResetPassword' => Route::has('password.request'),
+            'status' => $request->session()->get('status'),
+        ]);
+    }
+
+    public function createAdmin(Request $request): Response
+    {
+        return Inertia::render('auth/admin-login', [
+            'canResetPassword' => Route::has('password.request'),
+            'status' => $request->session()->get('status'),
+        ]);
+    }
+
     /**
      * Handle an incoming authentication request.
      */

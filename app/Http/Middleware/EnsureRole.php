@@ -14,6 +14,14 @@ class EnsureRole
         $user = $request->user();
 
         if (! $user) {
+            if ($request->is('admin') || $request->is('admin/*')) {
+                return redirect()->route('admin.login');
+            }
+
+            if ($request->is('seller') || $request->is('seller/*')) {
+                return redirect()->route('seller.login');
+            }
+
             return redirect()->route('login');
         }
 

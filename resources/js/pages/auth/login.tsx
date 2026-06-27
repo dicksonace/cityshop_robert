@@ -19,6 +19,7 @@ export default function Login({ canResetPassword, status }: LoginProps) {
         login: '',
         password: '',
         remember: false,
+        portal: 'buyer' as const,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -30,11 +31,14 @@ export default function Login({ canResetPassword, status }: LoginProps) {
 
     return (
         <ShopLayout>
-            <Head title="Login" />
+            <Head title="Shopper Login" />
             <div className="mx-auto max-w-md px-4 py-12">
-                <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
-                    <h1 className="text-2xl font-bold text-gray-900">Welcome Back</h1>
-                    <p className="mt-1 text-sm text-gray-500">Login with your mobile number or email.</p>
+                <div className="rounded-2xl border border-orange-100 bg-white p-8 shadow-sm ring-1 ring-orange-50">
+                    <div className="mb-6 text-center">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-orange-500">Shopper</p>
+                        <h1 className="mt-1 text-2xl font-bold text-gray-900">Welcome back</h1>
+                        <p className="mt-1 text-sm text-gray-500">Login to shop, track orders, and save wishlists.</p>
+                    </div>
 
                     {status && <p className="mt-4 text-sm text-green-600">{status}</p>}
 
@@ -82,11 +86,13 @@ export default function Login({ canResetPassword, status }: LoginProps) {
 
                     <div className="mt-6 space-y-2 border-t border-gray-100 pt-4 text-center text-sm text-gray-500">
                         <p>
-                            New buyer? <TextLink href={route('register.buyer')}>Create account</TextLink>
+                            New here? <TextLink href={route('register.buyer')}>Create shopper account</TextLink>
                         </p>
                         <p>
-                            Want to sell on CityShop?{' '}
-                            <TextLink href={route('contact')}>Contact support</TextLink>
+                            Sell on CityShop? <TextLink href={route('seller.login')}>Seller login</TextLink>
+                        </p>
+                        <p className="text-xs text-gray-400">
+                            Staff: <TextLink href={route('admin.login')}>Admin login</TextLink>
                         </p>
                     </div>
                 </div>

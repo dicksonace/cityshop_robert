@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { Clock } from 'lucide-react';
 
 import ShopLayout from '@/layouts/shop-layout';
@@ -13,6 +13,11 @@ export default function SellerPending() {
                     <h1 className="mt-4 text-2xl font-bold text-gray-900">Application Under Review</h1>
                     <p className="mt-2 text-gray-500">
                         Thank you for applying to sell on CityShop. Our team is reviewing your documents. You will be notified once approved.
+                    </p>
+                    <p className="mt-4 text-sm text-gray-500">
+                        <Link href={route('seller.login')} className="text-emerald-600 hover:underline">
+                            Back to Seller Centre login
+                        </Link>
                     </p>
                 </div>
             </div>

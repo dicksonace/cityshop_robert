@@ -1,10 +1,12 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Heart, LogIn, Menu, MessageCircle, ShoppingCart, Store, User, X } from 'lucide-react';
+import { ChevronDown, Heart, LogIn, LogOut, Menu, MessageCircle, Package, ShoppingCart, Store, User, Wallet, X } from 'lucide-react';
 import { useState } from 'react';
 
 import NotificationBell from '@/components/shop/notification-bell';
 import SearchBox from '@/components/shop/search-box';
 import CityShopBrand from '@/components/cityshop-brand';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useChatOptional } from '@/contexts/chat-context';
 import { SharedData } from '@/types';
 
@@ -55,13 +57,50 @@ export default function ShopHeader() {
 
                     <div className="ml-auto flex items-center gap-0.5 sm:gap-2">
                         {auth.user ? (
-                            <Link
-                                href={dashboardLink()}
-                                className="hidden items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 md:flex"
-                            >
-                                <User className="h-4 w-4" />
-                                <span className="max-w-[6rem] truncate">{auth.user.name}</span>
-                            </Link>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="hidden items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 md:flex"
+                                    >
+                                        <User className="h-4 w-4" />
+                                        <span className="max-w-[6rem] truncate">{auth.user.name}</span>
+                                        <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuItem asChild>
+                                        <Link href={route('orders.index')} className="flex w-full cursor-pointer items-center">
+                                            <Package className="mr-2 h-4 w-4" />
+                                            My Orders
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href={route('wallet.index')} className="flex w-full cursor-pointer items-center">
+                                            <Wallet className="mr-2 h-4 w-4" />
+                                            Wallet
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href={route('wishlist.index')} className="flex w-full cursor-pointer items-center">
+                                            <Heart className="mr-2 h-4 w-4" />
+                                            Wishlist
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild>
+                                        <Link
+                                            href={route('logout')}
+                                            method="post"
+                                            as="button"
+                                            className="flex w-full cursor-pointer items-center text-red-600"
+                                        >
+                                            <LogOut className="mr-2 h-4 w-4" />
+                                            Log out
+                                        </Link>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         ) : (
                             <Link
                                 href={route('login')}
@@ -203,6 +242,19 @@ export default function ShopHeader() {
                         >
                             Login
                         </Link>
+                    )}
+                    {auth.user && (
+                        <Button
+                            variant="outline"
+                            className="mt-3 w-full"
+                            onClick={() => {
+                                setMobileMenuOpen(false);
+                                router.post(route('logout'));
+                            }}
+                        >
+                            <LogOut className="mr-2 h-4 w-4" />
+                            Log out
+                        </Button>
                     )}
                 </div>
             )}
