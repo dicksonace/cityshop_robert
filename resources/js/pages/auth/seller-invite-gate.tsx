@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { AlertTriangle, Copy, ExternalLink, LogOut, ShieldCheck, Store, User } from 'lucide-react';
+import { AlertTriangle, Copy, LogOut, ShieldCheck, Store, User } from 'lucide-react';
 import { useState } from 'react';
 
 import TextLink from '@/components/text-link';
@@ -29,7 +29,7 @@ const reasonCopy: Record<
     admin_signed_in: {
         title: 'You are signed in as admin',
         description:
-            'This private link is for a new seller account. To test registration, sign out first or open the link in a private/incognito window so your admin session stays separate.',
+            'This private link is for a new seller account. A normal new tab still uses your admin login — only a private/incognito window, or signing out first, will show the registration form.',
         canLogoutAndContinue: true,
     },
     wrong_account: {
@@ -117,30 +117,36 @@ export default function SellerInviteGate({
 
                     <div className="mt-6 space-y-3">
                         {copy.canLogoutAndContinue && (
-                            <Button
-                                type="button"
-                                onClick={logoutAndContinue}
-                                className="w-full bg-orange-500 hover:bg-orange-600"
-                            >
-                                <LogOut className="mr-2 h-4 w-4" />
-                                Sign out and continue registration
-                            </Button>
+                            <>
+                                <Button
+                                    type="button"
+                                    onClick={logoutAndContinue}
+                                    className="w-full bg-orange-500 hover:bg-orange-600"
+                                >
+                                    <LogOut className="mr-2 h-4 w-4" />
+                                    Sign out and continue registration
+                                </Button>
+
+                                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                                    <p className="font-medium">Want to keep admin signed in?</p>
+                                    <ol className="mt-2 list-inside list-decimal space-y-1 text-blue-800">
+                                        <li>Click &quot;Copy link for seller&quot; below</li>
+                                        <li>
+                                            Open a <strong>private/incognito</strong> window (Chrome: Ctrl+Shift+N)
+                                        </li>
+                                        <li>Paste the link there — you will see the registration form</li>
+                                    </ol>
+                                    <p className="mt-2 text-xs text-blue-700">
+                                        A regular new tab cannot do this; it shares the same login as this tab.
+                                    </p>
+                                </div>
+                            </>
                         )}
 
                         <Button type="button" variant="outline" onClick={copyLink} className="w-full">
                             <Copy className="mr-2 h-4 w-4" />
                             {copied ? 'Link copied!' : 'Copy link for seller'}
                         </Button>
-
-                        <a
-                            href={inviteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                            <ExternalLink className="h-4 w-4" />
-                            Open in new tab (use private window to test)
-                        </a>
 
                         <TextLink href={dashboardHref} className="flex w-full justify-center text-sm text-gray-500">
                             {currentUser.role === 'admin' ? (
