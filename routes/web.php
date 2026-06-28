@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\SellerController as AdminSellerController;
 use App\Http\Controllers\Admin\SellerInviteController as AdminSellerInviteController;
+use App\Http\Controllers\Admin\StoreOversightController as AdminStoreOversightController;
 use App\Http\Controllers\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\Chat\ConversationController as ChatConversationController;
 use App\Http\Controllers\Chat\MessageController as ChatMessageController;
@@ -179,6 +180,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/contact-messages', [AdminContactMessageController::class, 'index'])->name('contact-messages.index');
     Route::patch('/contact-messages/{contactMessage}/read', [AdminContactMessageController::class, 'markRead'])->name('contact-messages.read');
+
+    Route::get('/stores', [AdminStoreOversightController::class, 'index'])->name('stores.index');
+    Route::get('/stores/{seller}', [AdminStoreOversightController::class, 'show'])->name('stores.show');
+    Route::post('/stores/{seller}/products/bulk', [AdminStoreOversightController::class, 'bulkProducts'])->name('stores.products.bulk');
+    Route::post('/stores/{seller}/products/{product}/hide', [AdminStoreOversightController::class, 'hideProduct'])->name('stores.products.hide');
+    Route::post('/stores/{seller}/products/{product}/approve', [AdminStoreOversightController::class, 'approveProduct'])->name('stores.products.approve');
+    Route::delete('/stores/{seller}/products/{product}', [AdminStoreOversightController::class, 'destroyProduct'])->name('stores.products.destroy');
 });
 
 require __DIR__.'/settings.php';

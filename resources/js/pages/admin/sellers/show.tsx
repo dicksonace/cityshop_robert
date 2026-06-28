@@ -156,6 +156,21 @@ export default function SellerShow({ seller }: SellerShowProps) {
             )}
 
             {seller.status === 'approved' && (
+                <div className="mt-6 rounded-xl border border-orange-100 bg-orange-50 p-6">
+                    <h3 className="font-semibold text-gray-900">Manage store products</h3>
+                    <p className="mt-1 text-sm text-gray-600">
+                        Open this seller&apos;s dashboard view to search, disable, approve, or delete their listings.
+                    </p>
+                    <Link
+                        href={route('admin.stores.show', seller.id)}
+                        className="mt-4 inline-flex rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600"
+                    >
+                        Open store dashboard
+                    </Link>
+                </div>
+            )}
+
+            {seller.status === 'approved' && (
                 <div className="mt-6 rounded-xl border border-red-100 bg-white p-6 shadow-sm">
                     <h3 className="font-semibold text-gray-900">Block Seller</h3>
                     <p className="mt-1 text-sm text-gray-500">

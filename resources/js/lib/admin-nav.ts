@@ -1,5 +1,6 @@
 export type AdminNavKey =
     | 'dashboard'
+    | 'stores'
     | 'sellers'
     | 'invites'
     | 'products'
@@ -11,6 +12,7 @@ export type AdminNavKey =
 export function adminNav(active: AdminNavKey) {
     return [
         { label: 'Dashboard', href: route('admin.dashboard'), active: active === 'dashboard' },
+        { label: 'Stores', href: route('admin.stores.index'), active: active === 'stores' },
         { label: 'Sellers', href: route('admin.sellers.index'), active: active === 'sellers' },
         { label: 'Invites', href: route('admin.seller-invites.index'), active: active === 'invites' },
         { label: 'Products', href: route('admin.products.index'), active: active === 'products' },
