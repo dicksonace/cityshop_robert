@@ -47,6 +47,12 @@ interface SellerDefaults {
     residential_address: string;
     region: string;
     city: string;
+    store_name?: string;
+    business_name?: string;
+    business_registration_number?: string;
+    business_address?: string;
+    tin?: string;
+    is_business_registered?: boolean;
 }
 
 interface SellerRegisterProps {
@@ -57,9 +63,9 @@ interface SellerRegisterProps {
 }
 
 export default function SellerRegister({ token, expiresAt, isExistingUser = false, defaults }: SellerRegisterProps) {
-    const { flash } = usePage<SharedData>().props;
+    const { flash, errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
     const { error: toastError } = useToast();
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors: formErrors, reset } = useForm({
         first_name: defaults?.first_name ?? '',
         last_name: defaults?.last_name ?? '',
         mobile: defaults?.mobile ?? '',
@@ -72,12 +78,12 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
         city: defaults?.city ?? '',
         password: '',
         password_confirmation: '',
-        is_business_registered: false as boolean,
-        business_name: '',
-        business_registration_number: '',
-        business_address: '',
-        tin: '',
-        store_name: '',
+        is_business_registered: defaults?.is_business_registered ?? false,
+        business_name: defaults?.business_name ?? '',
+        business_registration_number: defaults?.business_registration_number ?? '',
+        business_address: defaults?.business_address ?? '',
+        tin: defaults?.tin ?? '',
+        store_name: defaults?.store_name ?? '',
         id_card_front: null as File | null,
         id_card_back: null as File | null,
         shop_photo: null as File | null,
@@ -85,6 +91,8 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
         form_b: null as File | null,
         business_certificate: null as File | null,
     });
+
+    const errors = { ...(pageErrors ?? {}), ...formErrors };
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -146,6 +154,29 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
     return (
         <ShopLayout>
             <Head title="Become a Seller" />
+
+            {(flash.error || Object.keys(errors).length > 0) && (
+                <div className="sticky top-0 z-50 border-b border-red-300 bg-red-600 px-4 py-3 text-white shadow-md">
+                    <p className="mx-auto max-w-2xl text-sm font-semibold">
+                        {flash.error ?? 'Some required fields are missing or invalid. Please check the form below.'}
+                    </p>
+                    {Object.keys(errors).length > 0 && (
+                        <ul className="mx-auto mt-1 max-w-2xl list-inside list-disc text-xs text-red-100">
+                            {Object.entries(errors)
+                                .slice(0, 6)
+                                .map(([field, message]) => (
+                                    <li key={field}>
+                                        {fieldLabels[field] ?? field}: {message}
+                                    </li>
+                                ))}
+                            {Object.keys(errors).length > 6 && (
+                                <li>…and {Object.keys(errors).length - 6} more</li>
+                            )}
+                        </ul>
+                    )}
+                </div>
+            )}
+
             <div className="mx-auto max-w-2xl px-4 py-12">
                 <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
                     <h1 className="text-2xl font-bold text-gray-900">Seller Application</h1>
@@ -315,7 +346,7 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
 
                         <Button type="submit" disabled={processing} className="w-full bg-orange-500 hover:bg-orange-600">
                             {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                            Submit Application
+                            {processing ? 'Submitting application…' : 'Submit Application'}
                         </Button>
                     </form>
 

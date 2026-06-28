@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
@@ -72,24 +73,34 @@ class SellerRegisterController extends Controller
         }
 
         $prefillEmail = $invite->email ?? $user?->email ?? '';
+        $inviteFirstName = $invite->name ? explode(' ', $invite->name, 2)[0] : ($user?->first_name ?? '');
+        $inviteLastName = $invite->name
+            ? (explode(' ', $invite->name, 2)[1] ?? '')
+            : ($user?->last_name ?? '');
 
         return Inertia::render('auth/seller-register', [
             'token' => $token,
             'expiresAt' => $invite->expires_at->toIso8601String(),
             'isExistingUser' => (bool) $user,
             'defaults' => [
-                'first_name' => $invite->name ? explode(' ', $invite->name, 2)[0] : ($user?->first_name ?? ''),
-                'last_name' => $invite->name
-                    ? (explode(' ', $invite->name, 2)[1] ?? '')
-                    : ($user?->last_name ?? ''),
-                'mobile' => $user?->mobile ?? '',
-                'whatsapp' => $user?->whatsapp ?? '',
-                'email' => $prefillEmail,
-                'ghana_card_number' => $user?->ghana_card_number ?? '',
-                'digital_address' => $user?->digital_address ?? '',
-                'residential_address' => $user?->residential_address ?? '',
-                'region' => $user?->region ?? '',
-                'city' => $user?->city ?? '',
+                'first_name' => old('first_name', $inviteFirstName),
+                'last_name' => old('last_name', $inviteLastName),
+                'mobile' => old('mobile', $user?->mobile ?? ''),
+                'whatsapp' => old('whatsapp', $user?->whatsapp ?? ''),
+                'email' => old('email', $prefillEmail),
+                'ghana_card_number' => old('ghana_card_number', $user?->ghana_card_number ?? ''),
+                'digital_address' => old('digital_address', $user?->digital_address ?? ''),
+                'residential_address' => old('residential_address', $user?->residential_address ?? ''),
+                'region' => old('region', $user?->region ?? ''),
+                'city' => old('city', $user?->city ?? ''),
+                'store_name' => old('store_name', ''),
+                'business_name' => old('business_name', ''),
+                'business_registration_number' => old('business_registration_number', ''),
+                'business_address' => old('business_address', ''),
+                'tin' => old('tin', ''),
+                'is_business_registered' => old('is_business_registered', '0') === '1'
+                    || old('is_business_registered') === true
+                    || old('is_business_registered') === 'true',
             ],
         ]);
     }
@@ -182,89 +193,141 @@ class SellerRegisterController extends Controller
             $rules['store_name'] = ['required', 'string', 'max:255'];
         }
 
-        $validated = $request->validate($rules);
+        $validator = Validator::make($request->all(), $rules, [
+            'id_card_front.required' => 'Please upload the front of your Ghana Card.',
+            'id_card_back.required' => 'Please upload the back of your Ghana Card.',
+            'shop_photo.required' => 'Please upload a photo of the front of your shop.',
+            'form_a.required' => 'Please upload Form A for your registered business.',
+            'form_b.required' => 'Please upload Form B for your registered business.',
+            'business_certificate.required' => 'Please upload your business certificate.',
+        ]);
 
-        if ($existingUser) {
-            $existingUser->update([
-                'name' => "{$validated['first_name']} {$validated['last_name']}",
-                'first_name' => $validated['first_name'],
-                'last_name' => $validated['last_name'],
-                'mobile' => $validated['mobile'],
-                'whatsapp' => $validated['whatsapp'] ?? null,
-                'email' => $validated['email'],
-                'ghana_card_number' => $validated['ghana_card_number'],
-                'digital_address' => $validated['digital_address'],
-                'residential_address' => $validated['residential_address'],
-                'region' => $validated['region'],
-                'city' => $validated['city'],
-                'role' => UserRole::Seller,
-            ]);
+        if ($validator->fails()) {
+            $count = $validator->errors()->count();
 
-            $user = $existingUser;
-        } else {
-            $user = User::create([
-                'name' => "{$validated['first_name']} {$validated['last_name']}",
-                'first_name' => $validated['first_name'],
-                'last_name' => $validated['last_name'],
-                'mobile' => $validated['mobile'],
-                'whatsapp' => $validated['whatsapp'] ?? null,
-                'email' => $validated['email'],
-                'ghana_card_number' => $validated['ghana_card_number'],
-                'digital_address' => $validated['digital_address'],
-                'residential_address' => $validated['residential_address'],
-                'region' => $validated['region'],
-                'city' => $validated['city'],
-                'password' => Hash::make($validated['password']),
-                'role' => UserRole::Seller,
-            ]);
+            return back()
+                ->withErrors($validator)
+                ->with(
+                    'error',
+                    $count === 1
+                        ? 'Please fix 1 required field and submit again.'
+                        : "Please fix {$count} required fields and submit again.",
+                )
+                ->withInput($request->except([
+                    'password',
+                    'password_confirmation',
+                    'id_card_front',
+                    'id_card_back',
+                    'shop_photo',
+                    'form_a',
+                    'form_b',
+                    'business_certificate',
+                ]));
         }
 
-        $profileData = [
-            'is_business_registered' => $isRegistered,
-            'status' => SellerStatus::Pending,
-            'rejection_reason' => null,
-            'shop_photo' => $request->file('shop_photo')->store('sellers/documents', 'public'),
-            'id_card_front' => $request->file('id_card_front')->store('sellers/documents', 'public'),
-            'id_card_back' => $request->file('id_card_back')->store('sellers/documents', 'public'),
-        ];
+        $validated = $validator->validated();
 
-        if ($isRegistered) {
-            $profileData = array_merge($profileData, [
-                'business_name' => $validated['business_name'],
-                'business_registration_number' => $validated['business_registration_number'],
-                'business_address' => $validated['business_address'],
-                'tin' => $validated['tin'] ?? null,
-                'form_a' => $request->file('form_a')->store('sellers/documents', 'public'),
-                'form_b' => $request->file('form_b')->store('sellers/documents', 'public'),
-                'business_certificate' => $request->file('business_certificate')->store('sellers/documents', 'public'),
-                'store_name' => null,
-            ]);
-        } else {
-            $profileData['store_name'] = $validated['store_name'];
-            $profileData['business_name'] = null;
-        }
+        try {
+            if ($existingUser) {
+                $existingUser->update([
+                    'name' => "{$validated['first_name']} {$validated['last_name']}",
+                    'first_name' => $validated['first_name'],
+                    'last_name' => $validated['last_name'],
+                    'mobile' => $validated['mobile'],
+                    'whatsapp' => $validated['whatsapp'] ?? null,
+                    'email' => $validated['email'],
+                    'ghana_card_number' => $validated['ghana_card_number'],
+                    'digital_address' => $validated['digital_address'],
+                    'residential_address' => $validated['residential_address'],
+                    'region' => $validated['region'],
+                    'city' => $validated['city'],
+                    'role' => UserRole::Seller,
+                ]);
 
-        if ($user->sellerProfile) {
-            $user->sellerProfile->update($profileData);
-            $sellerProfile = $user->sellerProfile->fresh();
-        } else {
-            $sellerProfile = SellerProfile::create([
-                'user_id' => $user->id,
-                ...$profileData,
-            ]);
-        }
+                $user = $existingUser;
+            } else {
+                $user = User::create([
+                    'name' => "{$validated['first_name']} {$validated['last_name']}",
+                    'first_name' => $validated['first_name'],
+                    'last_name' => $validated['last_name'],
+                    'mobile' => $validated['mobile'],
+                    'whatsapp' => $validated['whatsapp'] ?? null,
+                    'email' => $validated['email'],
+                    'ghana_card_number' => $validated['ghana_card_number'],
+                    'digital_address' => $validated['digital_address'],
+                    'residential_address' => $validated['residential_address'],
+                    'region' => $validated['region'],
+                    'city' => $validated['city'],
+                    'password' => Hash::make($validated['password']),
+                    'role' => UserRole::Seller,
+                ]);
+            }
 
-        if (! $user->wallet) {
-            Wallet::create(['user_id' => $user->id]);
-        }
+            $profileData = [
+                'is_business_registered' => $isRegistered,
+                'status' => SellerStatus::Pending,
+                'rejection_reason' => null,
+                'shop_photo' => $request->file('shop_photo')->store('sellers/documents', 'public'),
+                'id_card_front' => $request->file('id_card_front')->store('sellers/documents', 'public'),
+                'id_card_back' => $request->file('id_card_back')->store('sellers/documents', 'public'),
+            ];
 
-        $invites->markUsed($invite, $sellerProfile);
+            if ($isRegistered) {
+                $profileData = array_merge($profileData, [
+                    'business_name' => $validated['business_name'],
+                    'business_registration_number' => $validated['business_registration_number'],
+                    'business_address' => $validated['business_address'],
+                    'tin' => $validated['tin'] ?? null,
+                    'form_a' => $request->file('form_a')->store('sellers/documents', 'public'),
+                    'form_b' => $request->file('form_b')->store('sellers/documents', 'public'),
+                    'business_certificate' => $request->file('business_certificate')->store('sellers/documents', 'public'),
+                    'store_name' => null,
+                ]);
+            } else {
+                $profileData['store_name'] = $validated['store_name'];
+                $profileData['business_name'] = null;
+            }
 
-        Auth::login($user);
-        $request->session()->regenerate();
+            if ($user->sellerProfile) {
+                $user->sellerProfile->update($profileData);
+                $sellerProfile = $user->sellerProfile->fresh();
+            } else {
+                $sellerProfile = SellerProfile::create([
+                    'user_id' => $user->id,
+                    ...$profileData,
+                ]);
+            }
 
-        if (! $existingUser) {
-            event(new Registered($user));
+            if (! $user->wallet) {
+                Wallet::create(['user_id' => $user->id]);
+            }
+
+            $invites->markUsed($invite, $sellerProfile);
+
+            Auth::login($user);
+            $request->session()->regenerate();
+
+            if (! $existingUser) {
+                event(new Registered($user));
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()
+                ->with(
+                    'error',
+                    'We could not save your application. Check that document photos are under 5MB each, then try again.',
+                )
+                ->withInput($request->except([
+                    'password',
+                    'password_confirmation',
+                    'id_card_front',
+                    'id_card_back',
+                    'shop_photo',
+                    'form_a',
+                    'form_b',
+                    'business_certificate',
+                ]));
         }
 
         return redirect()
