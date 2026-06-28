@@ -6,14 +6,15 @@ import { SharedData } from '@/types';
 
 interface ShopLayoutProps {
     children: ReactNode;
+    hideHeaderSearch?: boolean;
 }
 
-export default function ShopLayout({ children }: ShopLayoutProps) {
+export default function ShopLayout({ children, hideHeaderSearch = false }: ShopLayoutProps) {
     const { auth } = usePage<SharedData>().props;
 
     return (
         <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-50 to-white pb-20 sm:pb-0">
-            <ShopHeader />
+            <ShopHeader hideSearch={hideHeaderSearch} />
             <main>{children}</main>
             <footer className="mt-12 border-t border-gray-200 bg-white py-8">
                 <div className="mx-auto max-w-7xl px-4">

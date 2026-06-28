@@ -31,6 +31,8 @@ interface SearchBoxProps {
     showButton?: boolean;
     compact?: boolean;
     onSubmitted?: () => void;
+    /** `search` = /search?q= ; `home` = shop homepage with ?search= */
+    target?: 'search' | 'home';
 }
 
 export default function SearchBox({
@@ -40,6 +42,7 @@ export default function SearchBox({
     showButton = true,
     compact = false,
     onSubmitted,
+    target = 'search',
 }: SearchBoxProps) {
     const [query, setQuery] = useState(initialQuery);
     const [open, setOpen] = useState(false);
@@ -95,6 +98,10 @@ export default function SearchBox({
         const term = (q ?? query).trim();
         setOpen(false);
         onSubmitted?.();
+        if (target === 'home') {
+            router.get(route('home'), term ? { search: term } : {});
+            return;
+        }
         router.get(route('search'), term ? { q: term } : {});
     };
 
@@ -159,7 +166,11 @@ export default function SearchBox({
                             {categories.map((cat) => (
                                 <Link
                                     key={cat.id}
-                                    href={route('search', { q: query, category: cat.id })}
+                                    href={
+                                        target === 'home'
+                                            ? route('home', { search: query, category: cat.id })
+                                            : route('search', { q: query, category: cat.id })
+                                    }
                                     className="flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-orange-50"
                                     onClick={() => setOpen(false)}
                                 >

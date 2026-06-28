@@ -5,6 +5,7 @@ import { useState } from 'react';
 import HeroBanner from '@/components/shop/hero-banner';
 import ProductCard from '@/components/shop/product-card';
 import ProductFilters, { ActiveFilterChips, applyFilters, ShopFilters } from '@/components/shop/product-filters';
+import SearchBox from '@/components/shop/search-box';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import ShopLayout from '@/layouts/shop-layout';
 import { addProductToCart } from '@/lib/shop-actions';
@@ -58,7 +59,7 @@ export default function Home({ products, categories, brands, priceRange, filters
     const filterProps = { filters, categories, brands, priceRange };
 
     return (
-        <ShopLayout>
+        <ShopLayout hideHeaderSearch>
             <Head title="Shop" />
             <HeroBanner slides={heroSlides} />
 
@@ -84,6 +85,16 @@ export default function Home({ products, categories, brands, priceRange, filters
 
                     {/* Main content */}
                     <div className="min-w-0 flex-1">
+                        {/* Search — next to product listings */}
+                        <div className="mb-4 rounded-2xl border border-orange-100 bg-white p-3 shadow-sm sm:p-4">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Search products</p>
+                            <SearchBox
+                                initialQuery={filters.search ?? ''}
+                                target="home"
+                                className="w-full"
+                            />
+                        </div>
+
                         {/* Toolbar */}
                         <div className="mb-4 flex flex-col gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">

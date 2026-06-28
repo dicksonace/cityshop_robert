@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useChatOptional } from '@/contexts/chat-context';
 import { SharedData } from '@/types';
 
-export default function ShopHeader() {
+export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolean }) {
     const page = usePage<SharedData & { cartCount: number; wishlistCount: number; unreadMessages?: number }>();
     const { auth, cartCount, wishlistCount } = page.props;
     const chat = useChatOptional();
@@ -51,9 +51,11 @@ export default function ShopHeader() {
                 <div className="flex items-center gap-2 sm:gap-4">
                     <CityShopBrand size="sm" className="shrink-0" />
 
-                    <div className="mx-auto hidden max-w-2xl flex-1 md:flex">
+                    <div className={`mx-auto hidden max-w-2xl flex-1 md:flex ${hideSearch ? 'md:hidden' : ''}`}>
                         <SearchBox initialQuery={initialSearch} className="w-full" />
                     </div>
+
+                    {hideSearch && <div className="hidden flex-1 md:block" />}
 
                     <div className="ml-auto flex items-center gap-0.5 sm:gap-2">
                         {auth.user ? (
@@ -164,10 +166,12 @@ export default function ShopHeader() {
                     </div>
                 </div>
 
-                {/* Mobile search — always visible */}
-                <div className="mt-2 md:hidden">
-                    <SearchBox initialQuery={initialSearch} compact onSubmitted={() => setMobileMenuOpen(false)} />
-                </div>
+                {/* Mobile search — hidden on shop home (search lives above products) */}
+                {!hideSearch && (
+                    <div className="mt-2 md:hidden">
+                        <SearchBox initialQuery={initialSearch} compact onSubmitted={() => setMobileMenuOpen(false)} />
+                    </div>
+                )}
 
                 <nav className="mt-2 hidden items-center gap-6 border-t border-gray-50 pt-2 md:mt-3 md:flex md:pt-3">
                     {navLinks.map((link) =>

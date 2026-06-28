@@ -24,7 +24,7 @@ class HomeController extends Controller
         $query = Product::with(['images', 'seller.sellerProfile', 'category'])
             ->visibleInShop();
 
-        if ($search = $request->get('search')) {
+        if ($search = $request->get('search') ?: $request->get('q')) {
             $this->discovery->applySearch($query, $search);
         }
 
@@ -97,7 +97,7 @@ class HomeController extends Controller
                 'max' => (float) ($priceStats->max_price ?? 10000),
             ],
             'filters' => [
-                'search' => $request->get('search', ''),
+                'search' => $request->get('search') ?: $request->get('q', ''),
                 'category' => $request->get('category', ''),
                 'brand' => $request->get('brand', ''),
                 'price_min' => $request->get('price_min', ''),
