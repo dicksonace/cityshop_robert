@@ -96,6 +96,18 @@ class SellerRegisterController extends Controller
 
     public function store(Request $request, string $token, SellerRegistrationInviteService $invites): RedirectResponse
     {
+        if (
+            $request->isMethod('post')
+            && empty($request->all())
+            && empty($request->allFiles())
+            && (int) $request->server('CONTENT_LENGTH', 0) > 0
+        ) {
+            return back()->with(
+                'error',
+                'Upload too large for the server. Use smaller images (under 5MB each) and try again.',
+            );
+        }
+
         $invite = $invites->findValidByToken($token);
 
         if (! $invite) {

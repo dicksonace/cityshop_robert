@@ -7,8 +7,34 @@ import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/contexts/toast-context';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
+
+const fieldLabels: Record<string, string> = {
+    first_name: 'First name',
+    last_name: 'Last name',
+    mobile: 'Mobile number',
+    whatsapp: 'WhatsApp number',
+    email: 'Email address',
+    ghana_card_number: 'Ghana Card number',
+    digital_address: 'Digital address',
+    residential_address: 'Residential address',
+    region: 'Region',
+    city: 'City',
+    password: 'Password',
+    password_confirmation: 'Password confirmation',
+    store_name: 'Store name',
+    business_name: 'Business name',
+    business_registration_number: 'Business registration number',
+    business_address: 'Business address',
+    id_card_front: 'Ghana Card (front)',
+    id_card_back: 'Ghana Card (back)',
+    shop_photo: 'Shop photo',
+    form_a: 'Form A',
+    form_b: 'Form B',
+    business_certificate: 'Business certificate',
+};
 
 interface SellerDefaults {
     first_name: string;
@@ -32,6 +58,7 @@ interface SellerRegisterProps {
 
 export default function SellerRegister({ token, expiresAt, isExistingUser = false, defaults }: SellerRegisterProps) {
     const { flash } = usePage<SharedData>().props;
+    const { error: toastError } = useToast();
     const { data, setData, post, processing, errors, reset } = useForm({
         first_name: defaults?.first_name ?? '',
         last_name: defaults?.last_name ?? '',
@@ -61,12 +88,40 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+
+        const requiredFiles: (keyof typeof data)[] = ['id_card_front', 'id_card_back', 'shop_photo'];
+        if (data.is_business_registered) {
+            requiredFiles.push('form_a', 'form_b', 'business_certificate');
+        }
+
+        const missingFiles = requiredFiles.filter((field) => !data[field]);
+        if (missingFiles.length > 0) {
+            const names = missingFiles.map((f) => fieldLabels[f] ?? f).join(', ');
+            toastError(`Please upload: ${names}`);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
         post(route('register.seller', { token }), {
             forceFormData: true,
             onFinish: () => reset('password', 'password_confirmation'),
-            onError: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
+            onError: (errs) => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                const first = Object.values(errs)[0];
+                if (typeof first === 'string') {
+                    toastError(first);
+                } else {
+                    toastError('Please complete all required fields and try again.');
+                }
+            },
         });
     };
+
+    useEffect(() => {
+        if (flash.error) {
+            toastError(flash.error);
+        }
+    }, [flash.error, toastError]);
 
     useEffect(() => {
         if (Object.keys(errors).length > 0) {
@@ -111,9 +166,21 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
 
                     {Object.keys(errors).length > 0 && (
                         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                            Please fix the highlighted fields below and submit again.
+                            <p className="font-medium">Please fix the following and submit again:</p>
+                            <ul className="mt-2 list-inside list-disc space-y-1">
+                                {Object.entries(errors).map(([field, message]) => (
+                                    <li key={field}>
+                                        <span className="font-medium">{fieldLabels[field] ?? field}:</span> {message}
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     )}
+
+                    <p className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-800">
+                        All fields are required, including document uploads at the bottom of the form. After a successful
+                        submit you will be taken to a &quot;Waiting for review&quot; page.
+                    </p>
 
                     <form className="mt-6 space-y-8" onSubmit={submit}>
                         <section>

@@ -5,7 +5,7 @@ import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 
 interface SellerPendingProps {
-    applicant: {
+    applicant?: {
         name: string;
         email: string;
     };
@@ -35,8 +35,10 @@ const steps = [
 ];
 
 export default function SellerPending({ applicant, submittedAt, justSubmitted = false }: SellerPendingProps) {
-    const { flash } = usePage<SharedData>().props;
+    const { flash, auth } = usePage<SharedData>().props;
     const showSuccess = justSubmitted || Boolean(flash.success);
+    const name = applicant?.name ?? auth.user?.name ?? 'Seller';
+    const email = applicant?.email ?? auth.user?.email ?? '';
 
     return (
         <ShopLayout>
@@ -62,19 +64,21 @@ export default function SellerPending({ applicant, submittedAt, justSubmitted = 
                         </div>
                         <h1 className="mt-4 text-2xl font-bold text-gray-900">Waiting for review</h1>
                         <p className="mt-2 text-sm text-gray-500">
-                            Hi {applicant.name.split(' ')[0]}, your seller application is under review. You cannot access
-                            Seller Centre until an admin approves your account.
+                            Hi {name.split(' ')[0]}, your seller application is under review. You cannot access Seller
+                            Centre until an admin approves your account.
                         </p>
                     </div>
 
                     <div className="mt-6 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
                         <p>
-                            <span className="font-medium text-gray-800">Applicant:</span> {applicant.name}
+                            <span className="font-medium text-gray-800">Applicant:</span> {name}
                         </p>
-                        <p className="mt-1 flex items-center gap-1.5">
-                            <Mail className="h-4 w-4 text-gray-400" />
-                            {applicant.email}
-                        </p>
+                        {email && (
+                            <p className="mt-1 flex items-center gap-1.5">
+                                <Mail className="h-4 w-4 text-gray-400" />
+                                {email}
+                            </p>
+                        )}
                         {submittedAt && (
                             <p className="mt-1 text-xs text-gray-500">
                                 Submitted {new Date(submittedAt).toLocaleString()}
