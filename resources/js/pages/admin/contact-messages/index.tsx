@@ -1,7 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { Mail, MailOpen } from 'lucide-react';
 
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { Paginated } from '@/types/marketplace';
 
 interface ContactMessage {
@@ -20,15 +20,6 @@ interface ContactMessagesProps {
     messages: Paginated<ContactMessage>;
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard') },
-    { label: 'Sellers', href: route('admin.sellers.index') },
-    { label: 'Products', href: route('admin.products.index') },
-    { label: 'Orders', href: route('admin.orders.index') },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index') },
-    { label: 'Disputes', href: route('admin.disputes.index') },
-    { label: 'Messages', href: route('admin.contact-messages.index'), active: true },
-];
 
 const subjectLabels: Record<string, string> = {
     general: 'General Inquiry',
@@ -42,7 +33,7 @@ const subjectLabels: Record<string, string> = {
 
 export default function ContactMessagesIndex({ messages }: ContactMessagesProps) {
     return (
-        <PanelLayout title="Contact Messages" nav={nav}>
+        <AdminLayout title="Contact Messages" active="messages">
             <Head title="Contact Messages" />
             <div className="space-y-4">
                 {messages.data.length === 0 ? (
@@ -86,6 +77,6 @@ export default function ContactMessagesIndex({ messages }: ContactMessagesProps)
                     ))
                 )}
             </div>
-        </PanelLayout>
+        </AdminLayout>
     );
 }

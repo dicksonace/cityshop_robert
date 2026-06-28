@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Paginated, Product, productImageUrl } from '@/types/marketplace';
 
 interface ProductsIndexProps {
@@ -11,13 +11,6 @@ interface ProductsIndexProps {
     status: string;
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard') },
-    { label: 'Sellers', href: route('admin.sellers.index') },
-    { label: 'Products', href: route('admin.products.index'), active: true },
-    { label: 'Orders', href: route('admin.orders.index') },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index') },
-];
 
 export default function AdminProductsIndex({ products, status }: ProductsIndexProps) {
     const [rejectId, setRejectId] = useState<number | null>(null);
@@ -26,7 +19,7 @@ export default function AdminProductsIndex({ products, status }: ProductsIndexPr
     const tabs = ['pending', 'approved', 'rejected', 'all'];
 
     return (
-        <PanelLayout title="Manage Products" nav={nav}>
+        <AdminLayout title="Manage Products" active="products">
             <Head title="Products" />
             <div className="scrollbar-hide -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
                 {tabs.map((tab) => (
@@ -81,6 +74,6 @@ export default function AdminProductsIndex({ products, status }: ProductsIndexPr
                     </div>
                 </div>
             )}
-        </PanelLayout>
+        </AdminLayout>
     );
 }

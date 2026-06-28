@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { Paginated, SellerProfile } from '@/types/marketplace';
 
 interface SellersIndexProps {
@@ -8,20 +8,12 @@ interface SellersIndexProps {
     status: string;
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard') },
-    { label: 'Sellers', href: route('admin.sellers.index'), active: true },
-    { label: 'Invites', href: route('admin.seller-invites.index') },
-    { label: 'Products', href: route('admin.products.index') },
-    { label: 'Orders', href: route('admin.orders.index') },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index') },
-];
 
 const tabs = ['pending', 'approved', 'suspended', 'rejected', 'all'];
 
 export default function SellersIndex({ sellers, status }: SellersIndexProps) {
     return (
-        <PanelLayout title="Manage Sellers" nav={nav}>
+        <AdminLayout title="Manage Sellers" active="sellers">
             <Head title="Sellers" />
             <div className="scrollbar-hide -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
                 {tabs.map((tab) => (
@@ -75,6 +67,6 @@ export default function SellersIndex({ sellers, status }: SellersIndexProps) {
                     </tbody>
                 </table>
             </div>
-        </PanelLayout>
+        </AdminLayout>
     );
 }

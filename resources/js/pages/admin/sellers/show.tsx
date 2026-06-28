@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { SellerProfile } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
@@ -30,14 +30,6 @@ interface SellerShowProps {
     };
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard') },
-    { label: 'Sellers', href: route('admin.sellers.index'), active: true },
-    { label: 'Invites', href: route('admin.seller-invites.index') },
-    { label: 'Products', href: route('admin.products.index') },
-    { label: 'Orders', href: route('admin.orders.index') },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index') },
-];
 
 function DocLink({ path, label }: { path?: string; label: string }) {
     if (!path) return null;
@@ -73,7 +65,7 @@ export default function SellerShow({ seller }: SellerShowProps) {
     };
 
     return (
-        <PanelLayout title="Review Seller" nav={nav}>
+        <AdminLayout title="Review Seller" active="sellers">
             <Head title="Review Seller" />
 
             {flash.sellerInviteUrl && (
@@ -195,6 +187,6 @@ export default function SellerShow({ seller }: SellerShowProps) {
                     </Button>
                 </div>
             )}
-        </PanelLayout>
+        </AdminLayout>
     );
 }

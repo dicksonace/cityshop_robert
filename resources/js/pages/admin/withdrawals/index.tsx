@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Paginated, Withdrawal } from '@/types/marketplace';
 
 interface WithdrawalsIndexProps {
@@ -11,13 +11,6 @@ interface WithdrawalsIndexProps {
     status: string;
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard') },
-    { label: 'Sellers', href: route('admin.sellers.index') },
-    { label: 'Products', href: route('admin.products.index') },
-    { label: 'Orders', href: route('admin.orders.index') },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index'), active: true },
-];
 
 export default function WithdrawalsIndex({ withdrawals, status }: WithdrawalsIndexProps) {
     const [rejectId, setRejectId] = useState<number | null>(null);
@@ -26,7 +19,7 @@ export default function WithdrawalsIndex({ withdrawals, status }: WithdrawalsInd
     const tabs = ['pending', 'paid', 'rejected', 'all'];
 
     return (
-        <PanelLayout title="Withdrawals" nav={nav}>
+        <AdminLayout title="Withdrawals" active="withdrawals">
             <Head title="Withdrawals" />
             <div className="scrollbar-hide -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
                 {tabs.map((tab) => (
@@ -83,6 +76,6 @@ export default function WithdrawalsIndex({ withdrawals, status }: WithdrawalsInd
                     </div>
                 </div>
             )}
-        </PanelLayout>
+        </AdminLayout>
     );
 }

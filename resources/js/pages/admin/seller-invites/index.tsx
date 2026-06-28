@@ -6,7 +6,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { Paginated } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
@@ -29,14 +29,6 @@ interface SellerInvitesIndexProps {
     expiryHours: number;
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard') },
-    { label: 'Sellers', href: route('admin.sellers.index') },
-    { label: 'Invites', href: route('admin.seller-invites.index'), active: true },
-    { label: 'Products', href: route('admin.products.index') },
-    { label: 'Orders', href: route('admin.orders.index') },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index') },
-];
 
 function CopyLinkButton({ url }: { url: string }) {
     const [copied, setCopied] = useState(false);
@@ -86,7 +78,7 @@ export default function SellerInvitesIndex({ invites, expiryHours }: SellerInvit
     };
 
     return (
-        <PanelLayout title="Seller Registration Invites" nav={nav}>
+        <AdminLayout title="Seller Registration Invites" active="invites">
             <Head title="Seller Invites" />
 
             {flash.success && (
@@ -200,6 +192,6 @@ export default function SellerInvitesIndex({ invites, expiryHours }: SellerInvit
                     </div>
                 </div>
             </div>
-        </PanelLayout>
+        </AdminLayout>
     );
 }

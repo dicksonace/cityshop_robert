@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, formatOrderStatus, Order, OrderItem } from '@/types/marketplace';
 
 interface Checkout {
@@ -28,17 +28,10 @@ interface AdminOrderShowProps {
     checkout: Checkout | null;
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard') },
-    { label: 'Sellers', href: route('admin.sellers.index') },
-    { label: 'Products', href: route('admin.products.index') },
-    { label: 'Orders', href: route('admin.orders.index'), active: true },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index') },
-];
 
 export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps) {
     return (
-        <PanelLayout title={`Order ${order.order_number}`} nav={nav}>
+        <AdminLayout title={`Order ${order.order_number}`} active="orders">
             <Head title={`Order ${order.order_number}`} />
             <div className="mb-4">
                 <Link href={route('admin.orders.index')} className="text-sm text-orange-500 hover:underline">← All orders</Link>
@@ -186,6 +179,6 @@ export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps)
                     </ul>
                 </div>
             )}
-        </PanelLayout>
+        </AdminLayout>
     );
 }

@@ -16,6 +16,7 @@ interface NavItem {
 interface PanelLayoutProps {
     children: ReactNode;
     title: string;
+    panelTitle?: string;
     nav: NavItem[];
 }
 
@@ -76,7 +77,8 @@ function PanelNav({
     );
 }
 
-export default function PanelLayout({ children, title, nav }: PanelLayoutProps) {
+export default function PanelLayout({ children, title, panelTitle, nav }: PanelLayoutProps) {
+    const sidebarTitle = panelTitle ?? title;
     const [menuOpen, setMenuOpen] = useState(false);
     const closeMenu = () => setMenuOpen(false);
 
@@ -85,15 +87,15 @@ export default function PanelLayout({ children, title, nav }: PanelLayoutProps) 
             <Head title={title} />
             <div className="flex">
                 <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex">
-                    <PanelNav nav={nav} panelTitle={title} className="h-full" />
+                    <PanelNav nav={nav} panelTitle={sidebarTitle} className="h-full" />
                 </aside>
 
                 <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
                     <SheetContent side="left" className="w-[min(100vw-2rem,18rem)] p-0">
                         <SheetHeader className="sr-only">
-                            <SheetTitle>{title} menu</SheetTitle>
+                            <SheetTitle>{sidebarTitle} menu</SheetTitle>
                         </SheetHeader>
-                        <PanelNav nav={nav} panelTitle={title} onNavigate={closeMenu} className="h-full" />
+                        <PanelNav nav={nav} panelTitle={sidebarTitle} onNavigate={closeMenu} className="h-full" />
                     </SheetContent>
                 </Sheet>
 

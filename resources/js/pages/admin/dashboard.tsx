@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { DollarSign, Package, ShoppingCart, Store, Users } from 'lucide-react';
 
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Order, SellerProfile } from '@/types/marketplace';
 
 interface AdminDashboardProps {
@@ -20,17 +20,6 @@ interface AdminDashboardProps {
     pendingSellers: (SellerProfile & { user: { name: string; email: string } })[];
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard'), active: true },
-    { label: 'Sellers', href: route('admin.sellers.index') },
-    { label: 'Invites', href: route('admin.seller-invites.index') },
-    { label: 'Products', href: route('admin.products.index') },
-    { label: 'Orders', href: route('admin.orders.index') },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index') },
-    { label: 'Disputes', href: route('admin.disputes.index') },
-    { label: 'Messages', href: route('admin.contact-messages.index') },
-];
-
 export default function AdminDashboard({ stats, recentOrders, pendingSellers }: AdminDashboardProps) {
     const cards = [
         { label: 'Total Revenue', value: formatPrice(stats.total_revenue), icon: DollarSign, color: 'text-green-500' },
@@ -44,7 +33,7 @@ export default function AdminDashboard({ stats, recentOrders, pendingSellers }: 
     ];
 
     return (
-        <PanelLayout title="Admin Panel" nav={nav}>
+        <AdminLayout title="Admin Panel" active="dashboard">
             <Head title="Admin Dashboard" />
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {cards.map((card) => (
@@ -103,6 +92,6 @@ export default function AdminDashboard({ stats, recentOrders, pendingSellers }: 
                     )}
                 </div>
             </div>
-        </PanelLayout>
+        </AdminLayout>
     );
 }

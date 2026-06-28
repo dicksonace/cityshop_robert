@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { Paginated } from '@/types/marketplace';
 
 interface Dispute {
@@ -22,14 +22,6 @@ interface DisputesIndexProps {
     status: string;
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard') },
-    { label: 'Sellers', href: route('admin.sellers.index') },
-    { label: 'Products', href: route('admin.products.index') },
-    { label: 'Orders', href: route('admin.orders.index') },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index') },
-    { label: 'Disputes', href: route('admin.disputes.index'), active: true },
-];
 
 const tabs = ['open', 'under_review', 'resolved_buyer', 'resolved_seller', 'closed', 'all'];
 
@@ -46,7 +38,7 @@ export default function DisputesIndex({ disputes, status }: DisputesIndexProps) 
     };
 
     return (
-        <PanelLayout title="Disputes" nav={nav}>
+        <AdminLayout title="Disputes" active="disputes">
             <Head title="Disputes" />
             <div className="mb-4 flex flex-wrap gap-2">
                 {tabs.map((tab) => (
@@ -99,6 +91,6 @@ export default function DisputesIndex({ disputes, status }: DisputesIndexProps) 
                 ))}
                 {disputes.data.length === 0 && <p className="text-center text-gray-500">No disputes found.</p>}
             </div>
-        </PanelLayout>
+        </AdminLayout>
     );
 }

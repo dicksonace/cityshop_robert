@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 
-import PanelLayout from '@/layouts/panel-layout';
+import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Order, Paginated } from '@/types/marketplace';
 
 interface OrdersIndexProps {
@@ -11,17 +11,10 @@ interface OrdersIndexProps {
     }>;
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('admin.dashboard') },
-    { label: 'Sellers', href: route('admin.sellers.index') },
-    { label: 'Products', href: route('admin.products.index') },
-    { label: 'Orders', href: route('admin.orders.index'), active: true },
-    { label: 'Withdrawals', href: route('admin.withdrawals.index') },
-];
 
 export default function AdminOrdersIndex({ orders }: OrdersIndexProps) {
     return (
-        <PanelLayout title="Orders" nav={nav}>
+        <AdminLayout title="Orders" active="orders">
             <Head title="Orders" />
             <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="min-w-[720px] w-full text-sm">
@@ -55,6 +48,6 @@ export default function AdminOrdersIndex({ orders }: OrdersIndexProps) {
                     </tbody>
                 </table>
             </div>
-        </PanelLayout>
+        </AdminLayout>
     );
 }
