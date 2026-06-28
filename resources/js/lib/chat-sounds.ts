@@ -1,17 +1,27 @@
 let audioContext: AudioContext | null = null;
+let audioUnlocked = false;
 
-function getContext(): AudioContext {
+function getContext(): AudioContext | null {
+    if (!audioUnlocked || typeof window === 'undefined') {
+        return null;
+    }
+
     if (!audioContext) {
         audioContext = new AudioContext();
     }
+
     if (audioContext.state === 'suspended') {
         void audioContext.resume();
     }
+
     return audioContext;
 }
 
 function playTone(frequency: number, startTime: number, duration: number, volume: number, type: OscillatorType = 'sine'): void {
     const ctx = getContext();
+    if (!ctx) {
+        return;
+    }
     const oscillator = ctx.createOscillator();
     const gain = ctx.createGain();
 
@@ -33,6 +43,9 @@ function playTone(frequency: number, startTime: number, duration: number, volume
 export function playChatSendSound(): void {
     try {
         const ctx = getContext();
+        if (!ctx) {
+            return;
+        }
         const now = ctx.currentTime;
         playTone(520, now, 0.08, 0.12);
         playTone(780, now + 0.06, 0.1, 0.08);
@@ -45,6 +58,9 @@ export function playChatSendSound(): void {
 export function playChatReceiveSound(): void {
     try {
         const ctx = getContext();
+        if (!ctx) {
+            return;
+        }
         const now = ctx.currentTime;
         playTone(660, now, 0.14, 0.18);
         playTone(880, now + 0.12, 0.18, 0.15);
@@ -56,8 +72,15 @@ export function playChatReceiveSound(): void {
 
 /** Unlock audio on first user interaction (browser autoplay policy) */
 export function unlockChatSounds(): void {
+    audioUnlocked = true;
+
     try {
-        getContext();
+        if (!audioContext) {
+            audioContext = new AudioContext();
+        }
+        if (audioContext.state === 'suspended') {
+            void audioContext.resume();
+        }
     } catch {
         // ignore
     }

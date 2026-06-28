@@ -28,6 +28,14 @@ class EnsureRole
         $allowed = array_map(fn ($r) => UserRole::from($r), $roles);
 
         if (! in_array($user->role, $allowed, true)) {
+            if (($request->is('seller') || $request->is('seller/*')) && $user->isAdmin()) {
+                return redirect()->route('admin.dashboard');
+            }
+
+            if (($request->is('admin') || $request->is('admin/*')) && $user->isSeller()) {
+                return redirect()->route('seller.dashboard');
+            }
+
             abort(403, 'Unauthorized.');
         }
 

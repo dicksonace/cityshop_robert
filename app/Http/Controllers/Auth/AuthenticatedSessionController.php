@@ -17,8 +17,12 @@ class AuthenticatedSessionController extends Controller
     /**
      * Show the login page.
      */
-    public function create(Request $request): Response
+    public function create(Request $request): Response|RedirectResponse
     {
+        if ($user = $request->user()) {
+            return redirect()->to($user->defaultRedirectRoute());
+        }
+
         return Inertia::render('auth/login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => $request->session()->get('status'),
@@ -26,8 +30,12 @@ class AuthenticatedSessionController extends Controller
         ]);
     }
 
-    public function createSeller(Request $request): Response
+    public function createSeller(Request $request): Response|RedirectResponse
     {
+        if ($user = $request->user()) {
+            return redirect()->to($user->defaultRedirectRoute());
+        }
+
         return Inertia::render('auth/seller-login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => $request->session()->get('status'),
@@ -35,8 +43,12 @@ class AuthenticatedSessionController extends Controller
         ]);
     }
 
-    public function createAdmin(Request $request): Response
+    public function createAdmin(Request $request): Response|RedirectResponse
     {
+        if ($user = $request->user()) {
+            return redirect()->to($user->defaultRedirectRoute());
+        }
+
         return Inertia::render('auth/admin-login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => $request->session()->get('status'),

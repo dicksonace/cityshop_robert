@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureStoreSetupComplete;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\TrackUserPresence;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -33,6 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
             TrackUserPresence::class,
         ]);
+
+        RedirectIfAuthenticated::redirectUsing(
+            fn ($request) => $request->user()?->defaultRedirectRoute() ?? route('home'),
+        );
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

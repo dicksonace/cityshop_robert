@@ -1,5 +1,19 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { ChevronDown, Heart, LogIn, LogOut, Menu, MessageCircle, Package, ShoppingCart, Store, User, Wallet, X } from 'lucide-react';
+import {
+    ChevronDown,
+    Heart,
+    LayoutDashboard,
+    LogIn,
+    LogOut,
+    Menu,
+    MessageCircle,
+    Package,
+    ShoppingCart,
+    Store,
+    User,
+    Wallet,
+    X,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import NotificationBell from '@/components/shop/notification-bell';
@@ -45,6 +59,16 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
         return route('orders.index');
     };
 
+    const dashboardLabel = () => {
+        if (!auth.user) return 'Dashboard';
+        const role = auth.user.role as string;
+        if (role === 'admin') return 'Admin Dashboard';
+        if (role === 'seller') return 'Seller Centre';
+        return 'My Orders';
+    };
+
+    const isStaff = auth.user?.role === 'admin' || auth.user?.role === 'seller';
+
     return (
         <header className="sticky top-0 z-50 border-b border-gray-100/80 bg-white/95 shadow-sm backdrop-blur-md">
             <div className="mx-auto max-w-7xl px-3 py-2 sm:px-4 sm:py-3">
@@ -70,7 +94,16 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                                         <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                                     </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuContent align="end" className="w-52">
+                                    {isStaff && (
+                                        <DropdownMenuItem asChild>
+                                            <Link href={dashboardLink()} className="flex w-full cursor-pointer items-center font-medium text-orange-600">
+                                                <LayoutDashboard className="mr-2 h-4 w-4" />
+                                                {dashboardLabel()}
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    )}
+                                    {isStaff && <DropdownMenuSeparator />}
                                     <DropdownMenuItem asChild>
                                         <Link href={route('orders.index')} className="flex w-full cursor-pointer items-center">
                                             <Package className="mr-2 h-4 w-4" />
@@ -205,14 +238,26 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
             {mobileMenuOpen && (
                 <div className="max-h-[calc(100dvh-8rem)] overflow-y-auto border-t border-gray-100 bg-white px-3 py-3 md:hidden">
                     {auth.user && (
-                        <Link
-                            href={dashboardLink()}
-                            className="mb-2 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700"
-                            onClick={() => setMobileMenuOpen(false)}
-                        >
-                            <User className="h-4 w-4" />
-                            {auth.user.name}
-                        </Link>
+                        <>
+                            <Link
+                                href={dashboardLink()}
+                                className="mb-2 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700"
+                                onClick={() => setMobileMenuOpen(false)}
+                            >
+                                <User className="h-4 w-4" />
+                                {auth.user.name}
+                            </Link>
+                            {isStaff && (
+                                <Link
+                                    href={dashboardLink()}
+                                    className="mb-2 flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2.5 text-sm font-medium text-orange-700"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    <LayoutDashboard className="h-4 w-4" />
+                                    {dashboardLabel()}
+                                </Link>
+                            )}
+                        </>
                     )}
                     {navLinks.map((link) =>
                         link.auth && !auth.user ? null : link.chat ? (

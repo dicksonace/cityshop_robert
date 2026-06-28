@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-$HOME/domains/cityunlock.net/cityshop}"
 PHP_BIN="${PHP_BIN:-php}"
-COMPOSER="${COMPOSER:-$PHP_BIN composer.phar}"
+COMPOSER_BIN="${COMPOSER_BIN:-composer.phar}"
 
 echo "==> Deploying CityShop in $APP_DIR"
 cd "$APP_DIR"
@@ -12,7 +12,14 @@ echo "==> Pull latest code"
 git pull origin main
 
 echo "==> Install PHP dependencies"
-$PHP_BIN -d memory_limit=-1 "$COMPOSER" install --no-dev --optimize-autoloader
+if [[ -f "$COMPOSER_BIN" ]]; then
+    $PHP_BIN -d memory_limit=-1 "$COMPOSER_BIN" install --no-dev --optimize-autoloader
+elif command -v composer >/dev/null 2>&1; then
+    composer install --no-dev --optimize-autoloader
+else
+    echo "Composer not found. Run: curl -sS https://getcomposer.org/installer | $PHP_BIN"
+    exit 1
+fi
 
 echo "==> Run migrations"
 $PHP_BIN artisan migrate --force
