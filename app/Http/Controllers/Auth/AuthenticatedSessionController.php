@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,6 +22,7 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('auth/login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => $request->session()->get('status'),
+            'defaultLogin' => old('login', ''),
         ]);
     }
 
@@ -29,6 +31,7 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('auth/seller-login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => $request->session()->get('status'),
+            'defaultLogin' => old('login', ''),
         ]);
     }
 
@@ -37,6 +40,7 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('auth/admin-login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => $request->session()->get('status'),
+            'defaultLogin' => old('login', ''),
         ]);
     }
 
@@ -45,7 +49,23 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        $request->authenticate();
+        try {
+            $request->authenticate();
+        } catch (ValidationException $e) {
+            $portal = $request->input('portal', 'buyer');
+            $loginRoute = match ($portal) {
+                'seller' => route('seller.login'),
+                'admin' => route('admin.login'),
+                default => route('login'),
+            };
+
+            $firstError = collect($e->errors())->flatten()->first();
+
+            return redirect($loginRoute)
+                ->withErrors($e->errors())
+                ->with('error', is_string($firstError) ? $firstError : 'Login failed. Please try again.')
+                ->withInput($request->only('login'));
+        }
 
         $request->session()->regenerate();
 

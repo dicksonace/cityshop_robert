@@ -1,33 +1,53 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useEffect } from 'react';
 
+import LoginErrorBanner from '@/components/auth/login-error-banner';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/contexts/toast-context';
 import ShopLayout from '@/layouts/shop-layout';
+import { SharedData } from '@/types';
 
 interface LoginProps {
     canResetPassword: boolean;
     status?: string;
+    defaultLogin?: string;
 }
 
-export default function Login({ canResetPassword, status }: LoginProps) {
-    const { data, setData, post, processing, errors, reset } = useForm({
-        login: '',
+export default function Login({ canResetPassword, status, defaultLogin = '' }: LoginProps) {
+    const { flash, errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
+    const { error: toastError } = useToast();
+    const { data, setData, post, processing, errors: formErrors, reset } = useForm({
+        login: defaultLogin,
         password: '',
         remember: false,
         portal: 'buyer' as const,
     });
 
+    const errors = { ...(pageErrors ?? {}), ...formErrors };
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         post(route('login'), {
             onFinish: () => reset('password'),
+            onError: (errs) => {
+                const first = Object.values(errs)[0];
+                if (typeof first === 'string') {
+                    toastError(first);
+                }
+            },
         });
     };
+
+    useEffect(() => {
+        if (flash?.error) {
+            toastError(flash.error);
+        }
+    }, [flash?.error, toastError]);
 
     return (
         <ShopLayout>
@@ -40,7 +60,9 @@ export default function Login({ canResetPassword, status }: LoginProps) {
                         <p className="mt-1 text-sm text-gray-500">Login to shop, track orders, and save wishlists.</p>
                     </div>
 
-                    {status && <p className="mt-4 text-sm text-green-600">{status}</p>}
+                    {status && <p className="mb-4 text-sm text-green-600">{status}</p>}
+
+                    <LoginErrorBanner flashError={flash?.error} errors={errors} />
 
                     <form className="mt-6 flex flex-col gap-4" onSubmit={submit}>
                         <div>

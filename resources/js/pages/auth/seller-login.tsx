@@ -1,16 +1,20 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { BarChart3, LoaderCircle, Package, Store, Truck, Wallet } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useEffect } from 'react';
 
+import LoginErrorBanner from '@/components/auth/login-error-banner';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/contexts/toast-context';
+import { SharedData } from '@/types';
 
 interface SellerLoginProps {
     canResetPassword: boolean;
     status?: string;
+    defaultLogin?: string;
 }
 
 const highlights = [
@@ -20,20 +24,36 @@ const highlights = [
     { icon: BarChart3, text: 'View store analytics' },
 ];
 
-export default function SellerLogin({ canResetPassword, status }: SellerLoginProps) {
-    const { data, setData, post, processing, errors, reset } = useForm({
-        login: '',
+export default function SellerLogin({ canResetPassword, status, defaultLogin = '' }: SellerLoginProps) {
+    const { flash, errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
+    const { error: toastError } = useToast();
+    const { data, setData, post, processing, errors: formErrors, reset } = useForm({
+        login: defaultLogin,
         password: '',
         remember: false,
         portal: 'seller' as const,
     });
 
+    const errors = { ...(pageErrors ?? {}), ...formErrors };
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         post(route('login'), {
             onFinish: () => reset('password'),
+            onError: (errs) => {
+                const first = Object.values(errs)[0];
+                if (typeof first === 'string') {
+                    toastError(first);
+                }
+            },
         });
     };
+
+    useEffect(() => {
+        if (flash?.error) {
+            toastError(flash.error);
+        }
+    }, [flash?.error, toastError]);
 
     return (
         <>
@@ -89,6 +109,10 @@ export default function SellerLogin({ canResetPassword, status }: SellerLoginPro
                         <p className="mt-1 text-sm text-gray-500">Use your seller mobile number or email.</p>
 
                         {status && <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{status}</p>}
+
+                        <div className="mt-4">
+                            <LoginErrorBanner flashError={flash?.error} errors={errors} />
+                        </div>
 
                         <form className="mt-8 flex flex-col gap-4" onSubmit={submit}>
                             <div>

@@ -61,6 +61,22 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        if ($portal === 'buyer' && $user->isSeller()) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'login' => 'This is a seller account. Please use Seller Centre login instead.',
+            ]);
+        }
+
+        if ($portal === 'buyer' && $user->isAdmin()) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'login' => 'This is an administrator account. Please use the admin login page.',
+            ]);
+        }
+
         Auth::login($user, $this->boolean('remember'));
         RateLimiter::clear($this->throttleKey());
     }

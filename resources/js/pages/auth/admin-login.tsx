@@ -1,32 +1,52 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { LoaderCircle, Lock, Shield } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useEffect } from 'react';
 
+import LoginErrorBanner from '@/components/auth/login-error-banner';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/contexts/toast-context';
+import { SharedData } from '@/types';
 
 interface AdminLoginProps {
     canResetPassword: boolean;
     status?: string;
+    defaultLogin?: string;
 }
 
-export default function AdminLogin({ canResetPassword, status }: AdminLoginProps) {
-    const { data, setData, post, processing, errors, reset } = useForm({
-        login: '',
+export default function AdminLogin({ canResetPassword, status, defaultLogin = '' }: AdminLoginProps) {
+    const { flash, errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
+    const { error: toastError } = useToast();
+    const { data, setData, post, processing, errors: formErrors, reset } = useForm({
+        login: defaultLogin,
         password: '',
         remember: false,
         portal: 'admin' as const,
     });
 
+    const errors = { ...(pageErrors ?? {}), ...formErrors };
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         post(route('login'), {
             onFinish: () => reset('password'),
+            onError: (errs) => {
+                const first = Object.values(errs)[0];
+                if (typeof first === 'string') {
+                    toastError(first);
+                }
+            },
         });
     };
+
+    useEffect(() => {
+        if (flash?.error) {
+            toastError(flash.error);
+        }
+    }, [flash?.error, toastError]);
 
     return (
         <>
@@ -51,6 +71,8 @@ export default function AdminLogin({ canResetPassword, status }: AdminLoginProps
                         </div>
 
                         {status && <p className="mb-4 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">{status}</p>}
+
+                        <LoginErrorBanner flashError={flash?.error} errors={errors} variant="dark" />
 
                         <form className="flex flex-col gap-4" onSubmit={submit}>
                             <div>
