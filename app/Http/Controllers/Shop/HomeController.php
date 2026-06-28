@@ -24,7 +24,9 @@ class HomeController extends Controller
         $query = Product::with(['images', 'seller.sellerProfile', 'category'])
             ->visibleInShop();
 
-        if ($search = $request->get('search') ?: $request->get('q')) {
+        $search = trim((string) ($request->get('search') ?: $request->get('q', '')));
+
+        if ($search !== '') {
             $this->discovery->applySearch($query, $search);
         }
 
@@ -63,7 +65,7 @@ class HomeController extends Controller
             default => null,
         };
 
-        $sort = $request->get('sort', 'recommended');
+        $sort = $request->get('sort', $search !== '' ? 'relevance' : 'recommended');
         $randomSeed = $this->discovery->resolveRandomSeed($request);
         $this->discovery->applySort($query, $sort, $randomSeed);
 

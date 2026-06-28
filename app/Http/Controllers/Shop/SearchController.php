@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\ProductDiscoveryService;
+use App\Services\ProductSearchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,7 +14,10 @@ use Inertia\Response;
 
 class SearchController extends Controller
 {
-    public function __construct(private ProductDiscoveryService $discovery) {}
+    public function __construct(
+        private ProductDiscoveryService $discovery,
+        private ProductSearchService $search,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -57,13 +61,11 @@ class SearchController extends Controller
         }
 
         $products = Product::with(['images', 'category'])
-            ->visibleInShop()
-            ->where(function ($query) use ($q) {
-                $query->where('name', 'like', "%{$q}%")
-                    ->orWhere('brand', 'like', "%{$q}%")
-                    ->orWhere('sku', 'like', "%{$q}%");
-            })
-            ->orderByDesc('views')
+            ->visibleInShop();
+
+        $this->search->apply($products, $q);
+
+        $products = $this->search->applySortByRelevance($products)
             ->limit(8)
             ->get()
             ->map(fn (Product $p) => [
@@ -78,7 +80,9 @@ class SearchController extends Controller
             ]);
 
         $categories = Category::where('is_active', true)
-            ->where('name', 'like', "%{$q}%")
+            ->where(function ($query) use ($q) {
+                $query->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($q).'%']);
+            })
             ->withCount(['products' => fn ($cq) => $cq->visibleInShop()])
             ->limit(6)
             ->get()
