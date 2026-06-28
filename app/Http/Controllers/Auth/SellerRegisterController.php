@@ -6,6 +6,7 @@ use App\Enums\SellerStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\SellerProfile;
+use App\Models\SellerRegistrationInvite;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\SellerRegistrationInviteService;
@@ -44,31 +45,27 @@ class SellerRegisterController extends Controller
         $user = $request->user();
 
         if ($user) {
-            if ($user->isAdmin()) {
-                return redirect()->route('admin.dashboard');
-            }
-
-            if ($invite->email && strcasecmp($user->email, $invite->email) !== 0) {
-                return redirect()->route('contact')->with(
-                    'error',
-                    'This registration link was issued for a different email address. Please contact support.',
-                );
-            }
-
             $profile = $user->sellerProfile;
-            if ($user->isSeller() && $profile) {
-                if ($profile->status === SellerStatus::Approved) {
-                    return redirect()->route('seller.dashboard');
-                }
-                if ($profile->status === SellerStatus::Pending) {
-                    return redirect()->route('seller.pending');
-                }
-                if ($profile->status === SellerStatus::Suspended) {
-                    return redirect()->route('contact')->with(
-                        'error',
-                        'Your seller account is suspended. Please contact support.',
-                    );
-                }
+            if ($user->isSeller() && $profile?->status === SellerStatus::Pending) {
+                return redirect()->route('seller.pending');
+            }
+
+            $gateReason = $this->inviteGateReason($user, $invite);
+
+            if ($gateReason !== null) {
+                return Inertia::render('auth/seller-invite-gate', [
+                    'token' => $token,
+                    'reason' => $gateReason,
+                    'inviteUrl' => route('register.seller', ['token' => $token], absolute: true),
+                    'inviteEmail' => $invite->email,
+                    'inviteName' => $invite->name,
+                    'expiresAt' => $invite->expires_at->toIso8601String(),
+                    'currentUser' => [
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'role' => $user->role->value,
+                    ],
+                ]);
             }
         }
 
@@ -333,5 +330,31 @@ class SellerRegisterController extends Controller
         return redirect()
             ->route('seller.pending', ['submitted' => 1])
             ->with('success', 'Your seller application was submitted successfully. Our team will review it within 24–48 hours.');
+    }
+
+    /**
+     * @return 'admin_signed_in'|'wrong_account'|'already_approved'|'suspended'|null
+     */
+    private function inviteGateReason(User $user, SellerRegistrationInvite $invite): ?string
+    {
+        if ($user->isAdmin()) {
+            return 'admin_signed_in';
+        }
+
+        if ($invite->email && strcasecmp($user->email, $invite->email) !== 0) {
+            return 'wrong_account';
+        }
+
+        $profile = $user->sellerProfile;
+        if ($user->isSeller() && $profile) {
+            if ($profile->status === SellerStatus::Approved) {
+                return 'already_approved';
+            }
+            if ($profile->status === SellerStatus::Suspended) {
+                return 'suspended';
+            }
+        }
+
+        return null;
     }
 }

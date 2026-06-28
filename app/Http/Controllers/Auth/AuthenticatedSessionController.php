@@ -80,6 +80,11 @@ class AuthenticatedSessionController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        $redirect = $request->query('redirect');
+        if (is_string($redirect) && str_starts_with($redirect, '/') && ! str_starts_with($redirect, '//')) {
+            return redirect($redirect);
+        }
+
         return redirect('/');
     }
 }
