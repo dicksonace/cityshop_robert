@@ -23,8 +23,8 @@ export default function AdminOrdersIndex({ orders }: OrdersIndexProps) {
     return (
         <PanelLayout title="Orders" nav={nav}>
             <Head title="Orders" />
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-                <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
+                <table className="min-w-[720px] w-full text-sm">
                     <thead className="border-b bg-gray-50">
                         <tr>
                             <th className="px-4 py-3 text-left font-medium text-gray-500">Order</th>

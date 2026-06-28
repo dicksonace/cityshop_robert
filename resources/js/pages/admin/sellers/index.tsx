@@ -23,7 +23,7 @@ export default function SellersIndex({ sellers, status }: SellersIndexProps) {
     return (
         <PanelLayout title="Manage Sellers" nav={nav}>
             <Head title="Sellers" />
-            <div className="mb-4 flex gap-2">
+            <div className="scrollbar-hide -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
                 {tabs.map((tab) => (
                     <Link
                         key={tab}
@@ -37,8 +37,8 @@ export default function SellersIndex({ sellers, status }: SellersIndexProps) {
                 ))}
             </div>
 
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-                <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
+                <table className="min-w-[640px] w-full text-sm">
                     <thead className="border-b bg-gray-50">
                         <tr>
                             <th className="px-4 py-3 text-left font-medium text-gray-500">Store</th>

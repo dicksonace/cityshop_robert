@@ -28,7 +28,7 @@ export default function WithdrawalsIndex({ withdrawals, status }: WithdrawalsInd
     return (
         <PanelLayout title="Withdrawals" nav={nav}>
             <Head title="Withdrawals" />
-            <div className="mb-4 flex gap-2">
+            <div className="scrollbar-hide -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
                 {tabs.map((tab) => (
                     <Link
                         key={tab}

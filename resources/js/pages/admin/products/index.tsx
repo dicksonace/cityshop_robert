@@ -28,7 +28,7 @@ export default function AdminProductsIndex({ products, status }: ProductsIndexPr
     return (
         <PanelLayout title="Manage Products" nav={nav}>
             <Head title="Products" />
-            <div className="mb-4 flex gap-2">
+            <div className="scrollbar-hide -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
                 {tabs.map((tab) => (
                     <Link
                         key={tab}
@@ -44,15 +44,17 @@ export default function AdminProductsIndex({ products, status }: ProductsIndexPr
 
             <div className="space-y-4">
                 {products.data.map((product) => (
-                    <div key={product.id} className="flex gap-4 rounded-xl bg-white p-4 shadow-sm">
-                        <img src={productImageUrl(product.images?.[0]?.path)} alt="" className="h-20 w-20 rounded-lg object-contain" />
-                        <div className="flex-1">
-                            <h3 className="font-medium">{product.name}</h3>
-                            <p className="text-sm text-gray-500">by {product.seller?.name}</p>
-                            <p className="font-bold text-orange-500">{formatPrice(product.price)}</p>
+                    <div key={product.id} className="flex flex-col gap-4 rounded-xl bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+                        <div className="flex gap-4">
+                            <img src={productImageUrl(product.images?.[0]?.path)} alt="" className="h-20 w-20 shrink-0 rounded-lg object-contain" />
+                            <div className="min-w-0 flex-1">
+                                <h3 className="font-medium">{product.name}</h3>
+                                <p className="text-sm text-gray-500">by {product.seller?.name}</p>
+                                <p className="font-bold text-orange-500">{formatPrice(product.price)}</p>
+                            </div>
                         </div>
                         {product.status === 'pending' && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap gap-2 sm:shrink-0">
                                 <Button size="sm" className="bg-green-600" onClick={() => router.post(route('admin.products.approve', product.id))}>
                                     Approve
                                 </Button>
