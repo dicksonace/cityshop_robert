@@ -46,8 +46,12 @@ class SellerRegisterController extends Controller
 
         if ($user) {
             $profile = $user->sellerProfile;
+
             if ($user->isSeller() && $profile?->status === SellerStatus::Pending) {
-                return redirect()->route('seller.pending');
+                return redirect()->route('seller.login')->with(
+                    'status',
+                    'Your seller application is under review. You can sign in at Seller Centre after admin approval.',
+                );
             }
 
             $gateReason = $this->inviteGateReason($user, $invite);
@@ -143,7 +147,10 @@ class SellerRegisterController extends Controller
                     return redirect()->route('seller.dashboard');
                 }
                 if ($profile->status === SellerStatus::Pending) {
-                    return redirect()->route('seller.pending');
+                    return redirect()->route('seller.login')->with(
+                        'status',
+                        'Your seller application is under review. You can sign in after admin approval.',
+                    );
                 }
                 if ($profile->status === SellerStatus::Suspended) {
                     return back()->with('error', 'Your seller account is suspended. Please contact support.');
@@ -224,6 +231,8 @@ class SellerRegisterController extends Controller
 
         $validated = $validator->validated();
 
+        $applicant = null;
+
         try {
             if ($existingUser) {
                 $existingUser->update([
@@ -301,12 +310,15 @@ class SellerRegisterController extends Controller
 
             $invites->markUsed($invite, $sellerProfile);
 
-            Auth::login($user);
-            $request->session()->regenerate();
-
             if (! $existingUser) {
                 event(new Registered($user));
             }
+
+            $applicant = [
+                'name' => $user->name,
+                'email' => $user->email,
+                'submitted_at' => now()->toIso8601String(),
+            ];
         } catch (\Throwable $e) {
             report($e);
 
@@ -327,9 +339,32 @@ class SellerRegisterController extends Controller
                 ]));
         }
 
+        Auth::guard('web')->logout();
+
         return redirect()
-            ->route('seller.pending', ['submitted' => 1])
-            ->with('success', 'Your seller application was submitted successfully. Our team will review it within 24–48 hours.');
+            ->route('seller.application.submitted')
+            ->with('success', 'Your seller application was submitted successfully. Our team will review it within 24–48 hours.')
+            ->with('seller_application', $applicant);
+    }
+
+    public function applicationSubmitted(Request $request): Response|RedirectResponse
+    {
+        $applicant = $request->session()->get('seller_application');
+
+        if (! is_array($applicant) || empty($applicant['email'])) {
+            return redirect()->route('seller.login')->with(
+                'status',
+                'Sign in at Seller Centre after your application has been approved.',
+            );
+        }
+
+        return Inertia::render('auth/seller-application-submitted', [
+            'applicant' => [
+                'name' => $applicant['name'] ?? 'Seller',
+                'email' => $applicant['email'],
+            ],
+            'submittedAt' => $applicant['submitted_at'] ?? null,
+        ]);
     }
 
     /**

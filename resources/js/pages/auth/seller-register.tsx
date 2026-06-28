@@ -209,8 +209,8 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
                     )}
 
                     <p className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-800">
-                        All fields are required, including document uploads at the bottom of the form. After a successful
-                        submit you will be taken to a &quot;Waiting for review&quot; page.
+                        All fields are required, including document uploads at the bottom of the form. After
+                        submit you will see a confirmation page. Seller login is only available after admin approval.
                     </p>
 
                     <form className="mt-6 space-y-8" onSubmit={submit}>

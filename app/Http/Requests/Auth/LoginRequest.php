@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Enums\SellerStatus;
 use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
@@ -44,6 +45,24 @@ class LoginRequest extends FormRequest
         }
 
         $portal = $this->input('portal', 'buyer');
+
+        if ($portal === 'seller' && $user->isSeller()) {
+            $profile = $user->sellerProfile;
+
+            if (! $profile || $profile->status !== SellerStatus::Approved) {
+                RateLimiter::hit($this->throttleKey());
+
+                $message = match ($profile?->status) {
+                    SellerStatus::Pending => 'Your seller application is still under review. You can sign in after admin approval (usually 24–48 hours).',
+                    SellerStatus::Suspended => 'Your seller account is suspended. Please contact support.',
+                    default => 'Your seller account is not active yet. Please contact support.',
+                };
+
+                throw ValidationException::withMessages([
+                    'login' => $message,
+                ]);
+            }
+        }
 
         if ($portal === 'seller' && ! $user->isSeller()) {
             RateLimiter::hit($this->throttleKey());

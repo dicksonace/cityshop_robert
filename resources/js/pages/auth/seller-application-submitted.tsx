@@ -1,16 +1,15 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { CheckCircle2, Clock, Mail, ShieldCheck, Store } from 'lucide-react';
+import { CheckCircle2, Clock, Home, Mail, ShieldCheck } from 'lucide-react';
 
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 
-interface SellerPendingProps {
-    applicant?: {
+interface SellerApplicationSubmittedProps {
+    applicant: {
         name: string;
         email: string;
     };
     submittedAt?: string | null;
-    justSubmitted?: boolean;
 }
 
 const steps = [
@@ -26,36 +25,31 @@ const steps = [
     },
     {
         title: 'Approval email',
-        description: 'We will notify you at your registered email when approved.',
+        description: 'We will email you when your account is approved.',
     },
     {
-        title: 'Set up your store',
-        description: 'After approval, complete store setup and start listing products.',
+        title: 'Sign in to Seller Centre',
+        description: 'After approval, log in at Seller Centre to set up your store.',
     },
 ];
 
-export default function SellerPending({ applicant, submittedAt, justSubmitted = false }: SellerPendingProps) {
-    const { flash, auth } = usePage<SharedData>().props;
-    const showSuccess = justSubmitted || Boolean(flash.success);
-    const name = applicant?.name ?? auth.user?.name ?? 'Seller';
-    const email = applicant?.email ?? auth.user?.email ?? '';
+export default function SellerApplicationSubmitted({ applicant, submittedAt }: SellerApplicationSubmittedProps) {
+    const { flash } = usePage<SharedData>().props;
 
     return (
         <ShopLayout>
             <Head title="Application Submitted" />
             <div className="mx-auto max-w-xl px-4 py-10 sm:py-16">
-                {showSuccess && (
-                    <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-emerald-900">
-                        <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
-                        <div>
-                            <p className="font-semibold">Application submitted successfully</p>
-                            <p className="mt-1 text-sm text-emerald-800">
-                                {flash.success ??
-                                    'Thank you. Your seller application is now waiting for admin review and verification.'}
-                            </p>
-                        </div>
+                <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-emerald-900">
+                    <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
+                    <div>
+                        <p className="font-semibold">Application submitted successfully</p>
+                        <p className="mt-1 text-sm text-emerald-800">
+                            {flash.success ??
+                                'Thank you. Your seller application is waiting for admin review and verification.'}
+                        </p>
                     </div>
-                )}
+                </div>
 
                 <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-100">
                     <div className="text-center">
@@ -64,21 +58,19 @@ export default function SellerPending({ applicant, submittedAt, justSubmitted = 
                         </div>
                         <h1 className="mt-4 text-2xl font-bold text-gray-900">Waiting for review</h1>
                         <p className="mt-2 text-sm text-gray-500">
-                            Hi {name.split(' ')[0]}, your seller application is under review. You cannot access Seller
-                            Centre until an admin approves your account.
+                            Hi {applicant.name.split(' ')[0]}, your application was received. You are{' '}
+                            <strong>not signed in</strong> — seller login is only available after admin approval.
                         </p>
                     </div>
 
                     <div className="mt-6 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
                         <p>
-                            <span className="font-medium text-gray-800">Applicant:</span> {name}
+                            <span className="font-medium text-gray-800">Applicant:</span> {applicant.name}
                         </p>
-                        {email && (
-                            <p className="mt-1 flex items-center gap-1.5">
-                                <Mail className="h-4 w-4 text-gray-400" />
-                                {email}
-                            </p>
-                        )}
+                        <p className="mt-1 flex items-center gap-1.5">
+                            <Mail className="h-4 w-4 text-gray-400" />
+                            {applicant.email}
+                        </p>
                         {submittedAt && (
                             <p className="mt-1 text-xs text-gray-500">
                                 Submitted {new Date(submittedAt).toLocaleString()}
@@ -109,16 +101,17 @@ export default function SellerPending({ applicant, submittedAt, justSubmitted = 
                     </ol>
 
                     <div className="mt-8 space-y-3">
-                        <Link
-                            href={route('seller.login')}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-                        >
-                            <Store className="h-4 w-4" />
-                            Go to Seller Centre login
-                        </Link>
-                        <p className="text-center text-xs text-gray-500">
-                            Seller Centre login unlocks after admin approves your account.
+                        <p className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-center text-sm text-blue-800">
+                            After approval, go to <strong>Seller Centre login</strong> with the email and password you
+                            registered with.
                         </p>
+                        <Link
+                            href={route('home')}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                            <Home className="h-4 w-4" />
+                            Back to shop
+                        </Link>
                         <Link
                             href={route('contact')}
                             className="flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-orange-500"

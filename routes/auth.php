@@ -31,6 +31,7 @@ Route::middleware('guest')->group(function () {
 Route::get('register/seller', [SellerRegisterController::class, 'redirectToContact']);
 Route::get('register/seller/{token}', [SellerRegisterController::class, 'create'])->name('register.seller');
 Route::post('register/seller/{token}', [SellerRegisterController::class, 'store'])->name('register.seller.store');
+Route::get('seller/application-submitted', [SellerRegisterController::class, 'applicationSubmitted'])->name('seller.application.submitted');
 
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)->name('verification.notice');
