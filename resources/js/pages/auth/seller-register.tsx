@@ -1,6 +1,6 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useEffect } from 'react';
 
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
+import { SharedData } from '@/types';
 
 interface SellerDefaults {
     first_name: string;
@@ -30,6 +31,7 @@ interface SellerRegisterProps {
 }
 
 export default function SellerRegister({ token, expiresAt, isExistingUser = false, defaults }: SellerRegisterProps) {
+    const { flash } = usePage<SharedData>().props;
     const { data, setData, post, processing, errors, reset } = useForm({
         first_name: defaults?.first_name ?? '',
         last_name: defaults?.last_name ?? '',
@@ -62,8 +64,15 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
         post(route('register.seller', { token }), {
             forceFormData: true,
             onFinish: () => reset('password', 'password_confirmation'),
+            onError: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
         });
     };
+
+    useEffect(() => {
+        if (Object.keys(errors).length > 0) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, [errors]);
 
     const fileInput = (field: keyof typeof data, label: string, required = true) => (
         <div>
@@ -91,8 +100,20 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
                             : 'Complete your application using your private invitation link. Admin will review within 24–48 hours.'}
                     </p>
                     <p className="mt-2 text-xs text-amber-700">
-                        Link expires: {new Date(expiresAt).toLocaleString()}. Phone, WhatsApp, email, and location are shown to buyers.
+                        Link expires: {new Date(expiresAt).toLocaleString()}.
                     </p>
+
+                    {flash.error && (
+                        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {flash.error}
+                        </div>
+                    )}
+
+                    {Object.keys(errors).length > 0 && (
+                        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            Please fix the highlighted fields below and submit again.
+                        </div>
+                    )}
 
                     <form className="mt-6 space-y-8" onSubmit={submit}>
                         <section>
@@ -117,7 +138,6 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
                                     <Label>WhatsApp Number</Label>
                                     <Input value={data.whatsapp} onChange={(e) => setData('whatsapp', e.target.value)} required className="mt-1" />
                                     <InputError message={errors.whatsapp} />
-                                    <p className="mt-1 text-xs text-gray-500">Shown to buyers on your product pages.</p>
                                 </div>
                                 <div className="sm:col-span-2">
                                     <Label>Email Address</Label>

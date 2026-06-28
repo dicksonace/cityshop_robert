@@ -40,7 +40,8 @@ class DashboardController extends Controller
 
     public function pending(Request $request): Response
     {
-        $profile = $request->user()->sellerProfile;
+        $user = $request->user();
+        $profile = $user->sellerProfile;
 
         if ($profile?->status === SellerStatus::Suspended) {
             return Inertia::render('seller/blocked', [
@@ -48,6 +49,13 @@ class DashboardController extends Controller
             ]);
         }
 
-        return Inertia::render('seller/pending');
+        return Inertia::render('seller/pending', [
+            'applicant' => [
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+            'submittedAt' => $profile?->updated_at?->toIso8601String(),
+            'justSubmitted' => $request->boolean('submitted'),
+        ]);
     }
 }

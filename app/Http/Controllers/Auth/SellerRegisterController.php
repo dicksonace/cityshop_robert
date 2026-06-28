@@ -248,12 +248,15 @@ class SellerRegisterController extends Controller
 
         $invites->markUsed($invite, $sellerProfile);
 
+        Auth::login($user);
+        $request->session()->regenerate();
+
         if (! $existingUser) {
             event(new Registered($user));
-            Auth::login($user);
         }
 
-        return redirect()->route('seller.pending')
-            ->with('success', 'Your seller application has been submitted. We will review it shortly.');
+        return redirect()
+            ->route('seller.pending', ['submitted' => 1])
+            ->with('success', 'Your seller application was submitted successfully. Our team will review it within 24–48 hours.');
     }
 }
