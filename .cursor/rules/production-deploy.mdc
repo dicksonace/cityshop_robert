@@ -33,3 +33,19 @@ chmod -R 775 storage bootstrap/cache
 ```
 
 Vite assets are committed in the repo — **no `npm run build` on the server** unless frontend was edited directly on the server.
+
+## Fresh database reset (wipes ALL data)
+
+Use when starting real testing with **admin only** — no demo products, sellers, or buyers.
+
+**Local:**
+```bash
+php artisan cityshop:reset --force
+```
+
+**Server:**
+```bash
+cd ~/domains/cityunlock.net/cityshop && bash scripts/reset-production.sh
+```
+
+Default admin after reset: `admin@cityshop.com` / `password` at `/admin/login` — change password immediately.
