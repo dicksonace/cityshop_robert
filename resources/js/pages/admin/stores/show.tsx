@@ -49,6 +49,7 @@ const statusTabs = [
     { value: 'draft', label: 'Hidden' },
     { value: 'rejected', label: 'Rejected' },
     { value: 'sold_out', label: 'Sold out' },
+    { value: 'deleted', label: 'Deleted' },
 ];
 
 const statusBadge: Record<string, string> = {
@@ -95,7 +96,7 @@ export default function AdminStoreShow({
 
     const runBulk = (action: 'hide' | 'delete' | 'approve') => {
         if (selected.length === 0) return;
-        if (action === 'delete' && !confirm(`Permanently delete ${selected.length} product(s)?`)) return;
+        if (action === 'delete' && !confirm(`Move ${selected.length} product(s) to trash? You can restore them from Deleted.`)) return;
 
         router.post(
             route('admin.stores.products.bulk', seller.id),
@@ -110,8 +111,12 @@ export default function AdminStoreShow({
     };
 
     const deleteProduct = (productId: number) => {
-        if (!confirm('Permanently delete this product? This cannot be undone.')) return;
+        if (!confirm('Move this product to trash? You can restore it from the Deleted filter.')) return;
         router.delete(route('admin.stores.products.destroy', [seller.id, productId]));
+    };
+
+    const restoreProduct = (productId: number) => {
+        router.post(route('admin.stores.products.restore', [seller.id, productId]));
     };
 
     const approveProduct = (productId: number) => {
@@ -147,7 +152,7 @@ export default function AdminStoreShow({
                     <p className="font-semibold">Admin store view</p>
                     <p className="mt-0.5 text-amber-800">
                         You are managing <strong>{storeName}</strong> ({seller.user.email}). Disable hides products from
-                        the shop. Delete removes them permanently.
+                        the shop. Delete moves products to trash (soft delete) and they can be restored from Deleted.
                     </p>
                 </div>
             </div>
@@ -296,20 +301,28 @@ export default function AdminStoreShow({
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 sm:shrink-0">
-                                    {product.status !== 'approved' && (
-                                        <Button size="sm" className="bg-green-600" onClick={() => approveProduct(product.id)}>
-                                            Approve
+                                    {filters.status === 'deleted' ? (
+                                        <Button size="sm" className="bg-green-600" onClick={() => restoreProduct(product.id)}>
+                                            Restore
                                         </Button>
+                                    ) : (
+                                        <>
+                                            {product.status !== 'approved' && (
+                                                <Button size="sm" className="bg-green-600" onClick={() => approveProduct(product.id)}>
+                                                    Approve
+                                                </Button>
+                                            )}
+                                            {product.status !== 'draft' && (
+                                                <Button size="sm" variant="outline" onClick={() => hideProduct(product.id)}>
+                                                    Disable
+                                                </Button>
+                                            )}
+                                            <Button size="sm" variant="destructive" onClick={() => deleteProduct(product.id)}>
+                                                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                                                Delete
+                                            </Button>
+                                        </>
                                     )}
-                                    {product.status !== 'draft' && (
-                                        <Button size="sm" variant="outline" onClick={() => hideProduct(product.id)}>
-                                            Disable
-                                        </Button>
-                                    )}
-                                    <Button size="sm" variant="destructive" onClick={() => deleteProduct(product.id)}>
-                                        <Trash2 className="mr-1 h-3.5 w-3.5" />
-                                        Delete
-                                    </Button>
                                 </div>
                             </div>
                         ))

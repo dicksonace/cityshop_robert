@@ -7,10 +7,12 @@ use App\Enums\SellerStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class Product extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'seller_id',
         'category_id',
@@ -77,6 +79,15 @@ class Product extends Model
             if (! $product->slug) {
                 $product->slug = static::generateUniqueSlug($product->name, $product->seller_id);
             }
+        });
+
+        static::deleting(function (Product $product) {
+            if ($product->isForceDeleting()) {
+                return;
+            }
+
+            CartItem::where('product_id', $product->id)->get()->each->delete();
+            Wishlist::where('product_id', $product->id)->get()->each->delete();
         });
     }
 
@@ -167,5 +178,24 @@ class Product extends Model
     public function getRouteKeyName(): string
     {
         return 'slug';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $query = request()->routeIs(
+            'admin.stores.products.*',
+            'seller.products.restore',
+            'admin.stores.products.restore',
+        ) ? static::withTrashed() : static::query();
+
+        if ($field) {
+            return $query->where($field, $value)->firstOrFail();
+        }
+
+        if (is_numeric($value)) {
+            return $query->whereKey($value)->firstOrFail();
+        }
+
+        return $query->where($this->getRouteKeyName(), $value)->firstOrFail();
     }
 }

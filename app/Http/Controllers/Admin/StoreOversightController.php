@@ -52,7 +52,9 @@ class StoreOversightController extends Controller
             ->where('seller_id', $user->id);
 
         $status = $request->string('status')->toString();
-        if ($status && in_array($status, ['approved', 'pending', 'rejected', 'draft'], true)) {
+        if ($status === 'deleted') {
+            $query->onlyTrashed();
+        } elseif ($status && in_array($status, ['approved', 'pending', 'rejected', 'draft'], true)) {
             $query->where('status', $status);
         } elseif ($status === 'sold_out') {
             $query->where('quantity', 0)->where('is_preorder', false);
@@ -105,7 +107,17 @@ class StoreOversightController extends Controller
 
         $product->delete();
 
-        return back()->with('success', 'Product deleted permanently.');
+        return back()->with('success', 'Product moved to trash. Restore it from the Deleted filter if needed.');
+    }
+
+    public function restoreProduct(SellerProfile $seller, Product $product): RedirectResponse
+    {
+        $this->assertProductBelongsToSeller($seller, $product);
+        abort_unless($product->trashed(), 404);
+
+        $product->restore();
+
+        return back()->with('success', 'Product restored.');
     }
 
     public function approveProduct(SellerProfile $seller, Product $product): RedirectResponse
@@ -128,7 +140,8 @@ class StoreOversightController extends Controller
             'product_ids.*' => ['integer'],
         ]);
 
-        $products = Product::where('seller_id', $seller->user_id)
+        $products = Product::withTrashed()
+            ->where('seller_id', $seller->user_id)
             ->whereIn('id', $validated['product_ids'])
             ->get();
 
@@ -138,13 +151,25 @@ class StoreOversightController extends Controller
 
         $count = 0;
         foreach ($products as $product) {
+            if ($validated['action'] === 'delete') {
+                if (! $product->trashed()) {
+                    $product->delete();
+                    $count++;
+                }
+
+                continue;
+            }
+
+            if ($product->trashed()) {
+                continue;
+            }
+
             match ($validated['action']) {
                 'hide' => $product->update(['status' => ProductStatus::Draft]),
                 'approve' => $product->update([
                     'status' => ProductStatus::Approved,
                     'rejection_reason' => null,
                 ]),
-                'delete' => $product->delete(),
             };
             $count++;
         }
@@ -152,7 +177,7 @@ class StoreOversightController extends Controller
         $label = match ($validated['action']) {
             'hide' => 'disabled',
             'approve' => 'approved',
-            default => 'deleted',
+            default => 'moved to trash',
         };
 
         return back()->with('success', "{$count} product(s) {$label}.");
@@ -160,6 +185,12 @@ class StoreOversightController extends Controller
 
     private function assertProductBelongsToSeller(SellerProfile $seller, Product $product): void
     {
-        abort_unless($product->seller_id === $seller->user_id, 404);
+        abort_unless(
+            Product::withTrashed()
+                ->whereKey($product->id)
+                ->where('seller_id', $seller->user_id)
+                ->exists(),
+            404,
+        );
     }
 }

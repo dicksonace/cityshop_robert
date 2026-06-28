@@ -21,6 +21,7 @@ const statusTabs = [
     { value: 'draft', label: 'Hidden' },
     { value: 'sold_out', label: 'Sold out' },
     { value: 'rejected', label: 'Rejected' },
+    { value: 'deleted', label: 'Deleted' },
 ];
 
 export default function ProductsIndex({ products, filters, categories = [] }: ProductsIndexProps) {
@@ -34,7 +35,7 @@ export default function ProductsIndex({ products, filters, categories = [] }: Pr
 
     const runBulk = (action: string) => {
         if (selected.length === 0) return;
-        if (action === 'delete' && !confirm(`Delete ${selected.length} product(s)?`)) return;
+        if (action === 'delete' && !confirm(`Move ${selected.length} product(s) to trash? You can restore them from Deleted.`)) return;
         router.post(route('seller.products.bulk'), {
             action,
             product_ids: selected,
@@ -145,9 +146,20 @@ export default function ProductsIndex({ products, filters, categories = [] }: Pr
                             onDuplicate={(id) => router.post(route('seller.products.duplicate', id))}
                             onToggleVisibility={(id) => router.patch(route('seller.products.visibility', id))}
                             onDelete={(id) => {
-                                if (confirm('Delete this product?')) router.delete(route('seller.products.destroy', id));
+                                if (confirm('Move this product to trash? You can restore it from the Deleted tab.')) {
+                                    router.delete(route('seller.products.destroy', id));
+                                }
                             }}
                             />
+                            {filters.status === 'deleted' && (
+                                <Button
+                                    size="sm"
+                                    className="absolute right-3 bottom-3 z-10 bg-green-600 hover:bg-green-700"
+                                    onClick={() => router.post(route('seller.products.restore', product.id))}
+                                >
+                                    Restore
+                                </Button>
+                            )}
                         </div>
                     ))}
                 </div>

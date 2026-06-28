@@ -42,10 +42,14 @@ class CartController extends Controller
 
         $quantity = $validated['quantity'] ?? 1;
 
-        $cartItem = CartItem::firstOrNew([
+        $cartItem = CartItem::withTrashed()->firstOrNew([
             'user_id' => $request->user()->id,
             'product_id' => $product->id,
         ]);
+
+        if ($cartItem->trashed()) {
+            $cartItem->restore();
+        }
 
         $cartItem->quantity = ($cartItem->exists ? $cartItem->quantity : 0) + $quantity;
         $cartItem->save();

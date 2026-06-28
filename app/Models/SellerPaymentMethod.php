@@ -5,9 +5,11 @@ namespace App\Models;
 use App\Enums\SellerPaymentMethodType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SellerPaymentMethod extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'seller_profile_id',
         'type',

@@ -24,7 +24,9 @@ class ProductController extends Controller
             ->where('seller_id', $request->user()->id);
 
         $status = $request->string('status')->toString();
-        if ($status && in_array($status, ['approved', 'pending', 'rejected', 'draft'], true)) {
+        if ($status === 'deleted') {
+            $query->onlyTrashed();
+        } elseif ($status && in_array($status, ['approved', 'pending', 'rejected', 'draft'], true)) {
             $query->where('status', $status);
         } elseif ($status === 'sold_out') {
             $query->where('quantity', 0)->where('is_preorder', false);
@@ -111,7 +113,8 @@ class ProductController extends Controller
         if ($request->filled('remove_images')) {
             ProductImage::where('product_id', $product->id)
                 ->whereIn('id', $request->input('remove_images'))
-                ->delete();
+                ->get()
+                ->each->delete();
         }
 
         $product->refresh();
@@ -159,7 +162,17 @@ class ProductController extends Controller
 
         $product->delete();
 
-        return back()->with('success', 'Product deleted.');
+        return back()->with('success', 'Product moved to trash. You can restore it from the Deleted tab.');
+    }
+
+    public function restore(Request $request, Product $product): RedirectResponse
+    {
+        abort_unless($product->seller_id === $request->user()->id, 403);
+        abort_unless($product->trashed(), 404);
+
+        $product->restore();
+
+        return back()->with('success', 'Product restored.');
     }
 
     public function duplicate(Request $request, Product $product): RedirectResponse
@@ -221,7 +234,8 @@ class ProductController extends Controller
             'category_id' => ['nullable', 'exists:categories,id'],
         ]);
 
-        $products = Product::where('seller_id', $request->user()->id)
+        $products = Product::withTrashed()
+            ->where('seller_id', $request->user()->id)
             ->whereIn('id', $validated['product_ids'])
             ->get();
 
@@ -231,9 +245,21 @@ class ProductController extends Controller
 
         $count = 0;
         foreach ($products as $product) {
+            if ($validated['action'] === 'delete') {
+                if (! $product->trashed()) {
+                    $product->delete();
+                    $count++;
+                }
+
+                continue;
+            }
+
+            if ($product->trashed()) {
+                continue;
+            }
+
             match ($validated['action']) {
                 'hide' => $product->update(['status' => ProductStatus::Draft]),
-                'delete' => $product->delete(),
                 'category' => $product->update(['category_id' => $validated['category_id']]),
             };
             $count++;

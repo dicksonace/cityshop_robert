@@ -37,11 +37,18 @@ class WishlistController extends Controller
             ->visibleInShop()
             ->firstOrFail();
 
-        $existing = Wishlist::where('user_id', $request->user()->id)
+        $existing = Wishlist::withTrashed()
+            ->where('user_id', $request->user()->id)
             ->where('product_id', $validated['product_id'])
             ->first();
 
         if ($existing) {
+            if ($existing->trashed()) {
+                $existing->restore();
+
+                return back()->with('success', 'Added to wishlist!');
+            }
+
             $existing->delete();
 
             return back()->with('success', 'Removed from wishlist.');

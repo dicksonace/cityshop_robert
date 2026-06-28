@@ -83,7 +83,8 @@ class PaymentMethodController extends Controller
     public function destroy(Request $request, int $method): RedirectResponse
     {
         $profile = $request->user()->sellerProfile;
-        $profile->paymentMethods()->where('id', $method)->delete();
+        $paymentMethod = $profile->paymentMethods()->whereKey($method)->firstOrFail();
+        $paymentMethod->delete();
 
         return back()->with('success', 'Payment method removed.');
     }
