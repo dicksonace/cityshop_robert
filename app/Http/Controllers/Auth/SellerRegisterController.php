@@ -82,6 +82,7 @@ class SellerRegisterController extends Controller
         return Inertia::render('auth/seller-register', [
             'token' => $token,
             'expiresAt' => $invite->expires_at->toIso8601String(),
+            'inviteEmail' => $invite->email ? strtolower($invite->email) : null,
             'isExistingUser' => (bool) $user,
             'defaults' => [
                 'first_name' => old('first_name', $inviteFirstName),
@@ -176,7 +177,7 @@ class SellerRegisterController extends Controller
         ];
 
         if ($invite->email) {
-            $rules['email'][] = Rule::in([strtolower($invite->email)]);
+            $rules['email'][] = Rule::in([strtolower(trim($invite->email))]);
         }
 
         if (! $existingUser) {
@@ -198,6 +199,9 @@ class SellerRegisterController extends Controller
         }
 
         $validator = Validator::make($request->all(), $rules, [
+            'email.in' => $invite->email
+                ? 'This invite was sent to '.$invite->email.'. You must register with that exact email address.'
+                : 'The email address is not valid for this invite.',
             'id_card_front.required' => 'Please upload the front of your Ghana Card.',
             'id_card_back.required' => 'Please upload the back of your Ghana Card.',
             'shop_photo.required' => 'Please upload a photo of the front of your shop.',

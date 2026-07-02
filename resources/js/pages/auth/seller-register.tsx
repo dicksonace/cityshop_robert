@@ -94,6 +94,7 @@ interface SellerDefaults {
 interface SellerRegisterProps {
     token: string;
     expiresAt: string;
+    inviteEmail?: string | null;
     isExistingUser?: boolean;
     defaults?: SellerDefaults;
 }
@@ -193,7 +194,7 @@ function fileLabel(file: File | null): string {
     return file ? file.name : 'Not uploaded';
 }
 
-export default function SellerRegister({ token, expiresAt, isExistingUser = false, defaults }: SellerRegisterProps) {
+export default function SellerRegister({ token, expiresAt, inviteEmail = null, isExistingUser = false, defaults }: SellerRegisterProps) {
     const { flash, errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
     const { error: toastError } = useToast();
     const [step, setStep] = useState(0);
@@ -291,6 +292,12 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
             },
         });
     };
+
+    useEffect(() => {
+        if (inviteEmail && data.email !== inviteEmail) {
+            setData('email', inviteEmail);
+        }
+    }, [inviteEmail, data.email, setData]);
 
     useEffect(() => {
         if (flash.error) {
@@ -486,7 +493,18 @@ export default function SellerRegister({ token, expiresAt, isExistingUser = fals
                                         </div>
                                         <div className="sm:col-span-2">
                                             <Label>Email Address</Label>
-                                            <Input type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} className="mt-1" />
+                                            <Input
+                                                type="email"
+                                                value={data.email}
+                                                readOnly={Boolean(inviteEmail)}
+                                                onChange={(e) => setData('email', e.target.value)}
+                                                className={cn('mt-1', inviteEmail && 'bg-gray-50 text-gray-700')}
+                                            />
+                                            {inviteEmail && (
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    This invite is tied to <span className="font-medium text-gray-700">{inviteEmail}</span>. The email cannot be changed.
+                                                </p>
+                                            )}
                                             <InputError message={displayErrors.email} />
                                         </div>
                                         {!isExistingUser && (
