@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 
+import SellerAccountActions from '@/components/admin/seller-account-actions';
 import AdminLayout from '@/layouts/admin-layout';
 import { Paginated, SellerProfile } from '@/types/marketplace';
 
@@ -58,9 +59,19 @@ export default function SellersIndex({ sellers, status }: SellersIndexProps) {
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                    <Link href={route('admin.sellers.show', seller.id)} className="text-blue-500 hover:underline">
-                                        Review
-                                    </Link>
+                                    <div className="flex flex-col items-end gap-2">
+                                        <Link href={route('admin.sellers.show', seller.id)} className="text-blue-500 hover:underline">
+                                            Review
+                                        </Link>
+                                        {(seller.status === 'approved' || seller.status === 'suspended') && (
+                                            <SellerAccountActions
+                                                sellerId={seller.id}
+                                                status={seller.status}
+                                                storeName={seller.business_name ?? seller.store_name ?? 'Store'}
+                                                compact
+                                            />
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}

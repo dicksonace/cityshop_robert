@@ -1,7 +1,8 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 
+import SellerAccountActions from '@/components/admin/seller-account-actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AdminLayout from '@/layouts/admin-layout';
@@ -43,9 +44,10 @@ function DocLink({ path, label }: { path?: string; label: string }) {
 export default function SellerShow({ seller }: SellerShowProps) {
     const { flash } = usePage<SharedData>().props;
     const [reason, setReason] = useState('');
-    const [blockReason, setBlockReason] = useState('');
     const [sendRegistrationLink, setSendRegistrationLink] = useState(false);
     const [copied, setCopied] = useState(false);
+
+    const storeName = seller.business_name ?? seller.store_name ?? 'Store';
 
     const approve = () => router.post(route('admin.sellers.approve', seller.id));
     const reject = () =>
@@ -53,8 +55,6 @@ export default function SellerShow({ seller }: SellerShowProps) {
             rejection_reason: reason,
             send_registration_link: sendRegistrationLink,
         });
-    const block = () => router.post(route('admin.sellers.block', seller.id), { reason: blockReason });
-    const unblock = () => router.post(route('admin.sellers.unblock', seller.id));
     const resendInvite = () => router.post(route('admin.sellers.resend-invite', seller.id));
 
     const copyInviteUrl = async () => {
@@ -101,7 +101,7 @@ export default function SellerShow({ seller }: SellerShowProps) {
                     <h3 className="font-semibold text-gray-900">Business Information</h3>
                     <dl className="mt-4 space-y-2 text-sm">
                         <div><dt className="text-gray-500">Registered</dt><dd>{seller.is_business_registered ? 'Yes' : 'No'}</dd></div>
-                        <div><dt className="text-gray-500">Name</dt><dd className="font-medium">{seller.business_name ?? seller.store_name}</dd></div>
+                        <div><dt className="text-gray-500">Name</dt><dd className="font-medium">{storeName}</dd></div>
                         {seller.business_registration_number && (
                             <div><dt className="text-gray-500">Reg. Number</dt><dd>{seller.business_registration_number}</dd></div>
                         )}
@@ -170,36 +170,20 @@ export default function SellerShow({ seller }: SellerShowProps) {
                 </div>
             )}
 
-            {seller.status === 'approved' && (
-                <div className="mt-6 rounded-xl border border-red-100 bg-white p-6 shadow-sm">
-                    <h3 className="font-semibold text-gray-900">Block Seller</h3>
+            {(seller.status === 'approved' || seller.status === 'suspended' || seller.status === 'pending' || seller.status === 'rejected') && (
+                <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <h3 className="font-semibold text-gray-900">Account controls</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                        Blocked sellers cannot access their dashboard and all their products are hidden from the shop.
+                        Block hides the seller and their products from the shop. Delete removes the seller login and trashes all listings.
                     </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                        <Input
-                            placeholder="Reason for blocking..."
-                            value={blockReason}
-                            onChange={(e) => setBlockReason(e.target.value)}
-                            className="max-w-md"
-                        />
-                        <Button variant="destructive" onClick={block} disabled={!blockReason.trim()}>
-                            Block Seller
-                        </Button>
-                    </div>
-                </div>
-            )}
-
-            {seller.status === 'suspended' && (
-                <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6">
-                    <h3 className="font-semibold text-red-800">This seller is blocked</h3>
-                    {seller.rejection_reason && (
-                        <p className="mt-2 text-sm text-red-700">Reason: {seller.rejection_reason}</p>
+                    {seller.status === 'suspended' && seller.rejection_reason && (
+                        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                            Block reason: {seller.rejection_reason}
+                        </p>
                     )}
-                    <p className="mt-2 text-sm text-red-600">Their products are hidden from the shop.</p>
-                    <Button onClick={unblock} className="mt-4 bg-green-600 hover:bg-green-700">
-                        Unblock Seller
-                    </Button>
+                    <div className="mt-4">
+                        <SellerAccountActions sellerId={seller.id} status={seller.status} storeName={storeName} />
+                    </div>
                 </div>
             )}
         </AdminLayout>

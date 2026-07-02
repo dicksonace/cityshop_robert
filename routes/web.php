@@ -160,6 +160,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/sellers/{seller}/reject', [AdminSellerController::class, 'reject'])->name('sellers.reject');
     Route::post('/sellers/{seller}/block', [AdminSellerController::class, 'block'])->name('sellers.block');
     Route::post('/sellers/{seller}/unblock', [AdminSellerController::class, 'unblock'])->name('sellers.unblock');
+    Route::delete('/sellers/{seller}', [AdminSellerController::class, 'destroy'])->name('sellers.destroy');
     Route::post('/sellers/{seller}/resend-invite', [AdminSellerInviteController::class, 'resendForSeller'])->name('sellers.resend-invite');
 
     Route::get('/seller-invites', [AdminSellerInviteController::class, 'index'])->name('seller-invites.index');

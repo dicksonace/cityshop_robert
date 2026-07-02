@@ -21,6 +21,7 @@ class StoreOversightController extends Controller
         $search = $request->string('search')->trim()->toString();
 
         $sellers = SellerProfile::with('user')
+            ->whereHas('user')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     $query->where('store_name', 'like', "%{$search}%")

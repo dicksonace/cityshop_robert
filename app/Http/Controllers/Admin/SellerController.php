@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SellerProfile;
 use App\Notifications\SellerApprovedNotification;
 use App\Notifications\SellerRejectedNotification;
-use App\Notifications\SellerSuspendedNotification;
+use App\Services\SellerAccountService;
 use App\Services\SellerRegistrationInviteService;
 use App\Services\StoreCustomizationService;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +22,7 @@ class SellerController extends Controller
         $status = $request->get('status', 'pending');
 
         $sellers = SellerProfile::with('user')
+            ->whereHas('user')
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
             ->latest()
             ->paginate(15)
@@ -96,39 +97,53 @@ class SellerController extends Controller
         return back()->with($flash);
     }
 
-    public function block(Request $request, SellerProfile $seller): RedirectResponse
+    public function block(Request $request, SellerProfile $seller, SellerAccountService $accounts): RedirectResponse
     {
-        if ($seller->status !== SellerStatus::Approved) {
-            return back()->with('error', 'Only approved sellers can be blocked.');
-        }
-
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:1000'],
         ]);
 
-        $seller->update([
-            'status' => SellerStatus::Suspended,
-            'rejection_reason' => $validated['reason'],
-        ]);
-
-        $seller->user->notify(new SellerSuspendedNotification($validated['reason']));
+        try {
+            $accounts->block($seller, $validated['reason']);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         return back()->with('success', 'Seller blocked. Their products are hidden from the shop.');
     }
 
-    public function unblock(Request $request, SellerProfile $seller): RedirectResponse
+    public function unblock(Request $request, SellerProfile $seller, SellerAccountService $accounts): RedirectResponse
     {
-        if ($seller->status !== SellerStatus::Suspended) {
-            return back()->with('error', 'This seller is not blocked.');
+        try {
+            $accounts->unblock($seller, $request->user()->id);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
         }
 
-        $seller->update([
-            'status' => SellerStatus::Approved,
-            'rejection_reason' => null,
-            'approved_at' => now(),
-            'approved_by' => $request->user()->id,
+        return back()->with('success', 'Seller unblocked. Their products are visible in the shop again.');
+    }
+
+    public function destroy(Request $request, SellerProfile $seller, SellerAccountService $accounts): RedirectResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+            'confirm_store_name' => ['required', 'string'],
         ]);
 
-        return back()->with('success', 'Seller unblocked. Their products are visible in the shop again.');
+        $expectedName = $seller->business_name ?? $seller->store_name ?? '';
+
+        if (strcasecmp(trim($validated['confirm_store_name']), trim($expectedName)) !== 0) {
+            return back()->with('error', 'Store name confirmation did not match. Account was not deleted.');
+        }
+
+        try {
+            $accounts->delete($seller, $validated['reason']);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('admin.sellers.index', ['status' => 'all'])
+            ->with('success', 'Seller account deleted. Their listings were removed from the marketplace.');
     }
 }

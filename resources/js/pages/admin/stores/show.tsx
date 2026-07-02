@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
+import SellerAccountActions from '@/components/admin/seller-account-actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AdminLayout from '@/layouts/admin-layout';
@@ -189,6 +190,20 @@ export default function AdminStoreShow({
                 </div>
                 <div className="mt-4 inline-flex rounded-xl bg-white/10 px-4 py-2 text-sm">
                     Store health: <strong className="ml-1">{storeHealth.score}%</strong>
+                </div>
+            </div>
+
+            <div className="mb-6 rounded-xl border border-red-100 bg-white p-5 shadow-sm">
+                <h3 className="font-semibold text-gray-900">Seller account actions</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                    Block to suspend dashboard access and hide products. Delete removes the seller account and trashes all listings.
+                </p>
+                <div className="mt-4">
+                    <SellerAccountActions
+                        sellerId={seller.id}
+                        status={seller.status}
+                        storeName={storeName}
+                    />
                 </div>
             </div>
 

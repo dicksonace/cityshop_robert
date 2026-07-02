@@ -2,6 +2,7 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import { Check, ChevronLeft, ChevronRight, LoaderCircle, MapPin, Store, User, FileCheck } from 'lucide-react';
 import { FormEventHandler, ReactNode, useEffect, useState } from 'react';
 
+import DocumentUploadField from '@/components/forms/document-upload-field';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
@@ -194,6 +195,43 @@ function fileLabel(file: File | null): string {
     return file ? file.name : 'Not uploaded';
 }
 
+function FilePreviewSummary({ label, file }: { label: string; file: File | null }) {
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!file || !file.type.startsWith('image/')) {
+            setPreviewUrl(null);
+            return;
+        }
+        const url = URL.createObjectURL(file);
+        setPreviewUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [file]);
+
+    return (
+        <div className="flex items-center justify-between gap-3 border-b border-gray-50 py-2 text-sm last:border-0">
+            <span className="text-gray-500">{label}</span>
+            <div className="flex min-w-0 items-center gap-2">
+                {previewUrl ? (
+                    <img src={previewUrl} alt="" className="h-10 w-10 rounded-md border border-gray-200 object-cover" />
+                ) : file ? (
+                    <span className="rounded-md bg-orange-50 px-2 py-1 text-[10px] font-semibold uppercase text-orange-600">PDF</span>
+                ) : null}
+                <span className="truncate text-right font-medium text-gray-900">{fileLabel(file)}</span>
+            </div>
+        </div>
+    );
+}
+
+const uploadHints: Partial<Record<keyof FormData, string>> = {
+    id_card_front: 'Upload a clear photo of the front of your Ghana Card.',
+    id_card_back: 'Upload a clear photo of the back of your Ghana Card.',
+    shop_photo: 'Upload a photo showing the front of your shop or selling location.',
+    form_a: 'Upload your registered business Form A document.',
+    form_b: 'Upload your registered business Form B document.',
+    business_certificate: 'Upload your business registration certificate.',
+};
+
 export default function SellerRegister({ token, expiresAt, inviteEmail = null, isExistingUser = false, defaults }: SellerRegisterProps) {
     const { flash, errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
     const { error: toastError } = useToast();
@@ -317,26 +355,22 @@ export default function SellerRegister({ token, expiresAt, inviteEmail = null, i
     }, [pageErrors, formErrors]);
 
     const fileInput = (field: keyof FormData, label: string, required = true) => (
-        <div>
-            <Label>{label}</Label>
-            <Input
-                type="file"
-                accept="image/*,.pdf"
-                className="mt-1"
-                onChange={(e) => {
-                    setData(field, e.target.files?.[0] ?? null);
-                    setStepErrors((prev) => {
-                        const next = { ...prev };
-                        delete next[field];
-                        return next;
-                    });
-                }}
-            />
-            {data[field] instanceof File && (
-                <p className="mt-1 text-xs text-emerald-600">Selected: {(data[field] as File).name}</p>
-            )}
-            <InputError message={displayErrors[field]} />
-        </div>
+        <DocumentUploadField
+            id={field}
+            label={label}
+            hint={uploadHints[field]}
+            required={required}
+            value={data[field] instanceof File ? (data[field] as File) : null}
+            onChange={(file) => {
+                setData(field, file);
+                setStepErrors((prev) => {
+                    const next = { ...prev };
+                    delete next[field];
+                    return next;
+                });
+            }}
+            error={displayErrors[field]}
+        />
     );
 
     const progress = ((step + 1) / STEPS.length) * 100;
@@ -628,7 +662,6 @@ export default function SellerRegister({ token, expiresAt, inviteEmail = null, i
                                             <div className="sm:col-span-2">{fileInput('business_certificate', 'Business Certificate')}</div>
                                         </div>
                                     )}
-                                    <p className="mt-3 text-xs text-gray-500">Accepted formats: JPG, PNG, PDF. Max 5MB per file.</p>
                                 </section>
                             )}
 
@@ -667,14 +700,14 @@ export default function SellerRegister({ token, expiresAt, inviteEmail = null, i
 
                                     <SummarySection title="Documents" stepIndex={3}>
                                         <SummaryRow label="Ghana Card #" value={data.ghana_card_number} />
-                                        <SummaryRow label="ID front" value={fileLabel(data.id_card_front)} />
-                                        <SummaryRow label="ID back" value={fileLabel(data.id_card_back)} />
-                                        <SummaryRow label="Shop photo" value={fileLabel(data.shop_photo)} />
+                                        <FilePreviewSummary label="ID front" file={data.id_card_front} />
+                                        <FilePreviewSummary label="ID back" file={data.id_card_back} />
+                                        <FilePreviewSummary label="Shop photo" file={data.shop_photo} />
                                         {data.is_business_registered && (
                                             <>
-                                                <SummaryRow label="Form A" value={fileLabel(data.form_a)} />
-                                                <SummaryRow label="Form B" value={fileLabel(data.form_b)} />
-                                                <SummaryRow label="Certificate" value={fileLabel(data.business_certificate)} />
+                                                <FilePreviewSummary label="Form A" file={data.form_a} />
+                                                <FilePreviewSummary label="Form B" file={data.form_b} />
+                                                <FilePreviewSummary label="Certificate" file={data.business_certificate} />
                                             </>
                                         )}
                                     </SummarySection>
