@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\CartItem;
 use App\Models\Wishlist;
 use App\Services\ChatService;
+use App\Services\PanelNavService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -68,6 +69,7 @@ class HandleInertiaRequests extends Middleware
             'wishlistCount' => $wishlistCount,
             'unreadMessages' => $unreadMessages,
             'unreadNotifications' => $unreadNotifications,
+            'panelNavCounts' => fn () => PanelNavService::countsFor($user),
             'reverb' => [
                 'key' => config('broadcasting.connections.reverb.key'),
                 'host' => config('broadcasting.connections.reverb.options.host'),

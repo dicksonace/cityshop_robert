@@ -3,55 +3,49 @@ import { LogOut, Menu } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 
 import CityShopBrand from '@/components/cityshop-brand';
+import PanelSidebarNav from '@/components/panel/panel-sidebar-nav';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { PanelNavGroup } from '@/lib/panel-nav-types';
 import { cn } from '@/lib/utils';
-
-interface NavItem {
-    label: string;
-    href: string;
-    active?: boolean;
-}
 
 interface PanelLayoutProps {
     children: ReactNode;
     title: string;
     panelTitle?: string;
-    nav: NavItem[];
+    panelId: string;
+    navGroups: PanelNavGroup[];
+    fallbackSection?: string;
 }
 
-function PanelNav({
-    nav,
+function PanelShell({
     panelTitle,
+    panelId,
+    navGroups,
+    fallbackSection,
     onNavigate,
     className,
 }: {
-    nav: NavItem[];
     panelTitle: string;
+    panelId: string;
+    navGroups: PanelNavGroup[];
+    fallbackSection?: string;
     onNavigate?: () => void;
     className?: string;
 }) {
     return (
-        <div className={cn('flex flex-col', className)}>
-            <div className="border-b border-gray-100 p-6">
+        <div className={cn('flex h-full flex-col', className)}>
+            <div className="border-b border-gray-100 p-5">
                 <CityShopBrand showText size="md" />
-                <p className="mt-3 text-xs font-medium uppercase tracking-wider text-gray-500">{panelTitle}</p>
+                <p className="mt-2 text-xs font-medium uppercase tracking-wider text-gray-500">{panelTitle}</p>
             </div>
-            <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-                {nav.map((item) => (
-                    <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={onNavigate}
-                        className={cn(
-                            'block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                            item.active ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50',
-                        )}
-                    >
-                        {item.label}
-                    </Link>
-                ))}
-            </nav>
+            <PanelSidebarNav
+                panelId={panelId}
+                groups={navGroups}
+                fallbackSection={fallbackSection}
+                onNavigate={onNavigate}
+                className="min-h-0 flex-1"
+            />
             <div className="space-y-2 border-t border-gray-100 p-4">
                 <Link
                     href={route('home')}
@@ -77,7 +71,7 @@ function PanelNav({
     );
 }
 
-export default function PanelLayout({ children, title, panelTitle, nav }: PanelLayoutProps) {
+export default function PanelLayout({ children, title, panelTitle, panelId, navGroups, fallbackSection }: PanelLayoutProps) {
     const sidebarTitle = panelTitle ?? title;
     const [menuOpen, setMenuOpen] = useState(false);
     const closeMenu = () => setMenuOpen(false);
@@ -86,20 +80,33 @@ export default function PanelLayout({ children, title, panelTitle, nav }: PanelL
         <div className="min-h-screen bg-gray-50">
             <Head title={title} />
             <div className="flex">
-                <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex">
-                    <PanelNav nav={nav} panelTitle={sidebarTitle} className="h-full" />
+                <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-gray-200 bg-white lg:flex">
+                    <PanelShell
+                        panelTitle={sidebarTitle}
+                        panelId={panelId}
+                        navGroups={navGroups}
+                        fallbackSection={fallbackSection}
+                        className="h-full"
+                    />
                 </aside>
 
                 <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-                    <SheetContent side="left" className="w-[min(100vw-2rem,18rem)] p-0">
+                    <SheetContent side="left" className="w-[min(100vw-2rem,20rem)] p-0">
                         <SheetHeader className="sr-only">
                             <SheetTitle>{sidebarTitle} menu</SheetTitle>
                         </SheetHeader>
-                        <PanelNav nav={nav} panelTitle={sidebarTitle} onNavigate={closeMenu} className="h-full" />
+                        <PanelShell
+                            panelTitle={sidebarTitle}
+                            panelId={panelId}
+                            navGroups={navGroups}
+                            fallbackSection={fallbackSection}
+                            onNavigate={closeMenu}
+                            className="h-full"
+                        />
                     </SheetContent>
                 </Sheet>
 
-                <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
+                <div className="flex min-w-0 flex-1 flex-col lg:pl-72">
                     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur lg:px-8 lg:py-4">
                         <div className="flex items-center gap-3">
                             <Button

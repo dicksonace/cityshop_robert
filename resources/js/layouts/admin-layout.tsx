@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 
-import { AdminNavKey, adminNav } from '@/lib/admin-nav';
+import { AdminNavKey, adminNavGroups, adminNavSection } from '@/lib/admin-nav';
 import PanelLayout from '@/layouts/panel-layout';
 
 interface AdminLayoutProps {
@@ -11,7 +11,13 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children, title, active }: AdminLayoutProps) {
     return (
-        <PanelLayout title={title} panelTitle="Admin Panel" nav={adminNav(active)}>
+        <PanelLayout
+            title={title}
+            panelTitle="Admin Panel"
+            panelId="admin"
+            navGroups={adminNavGroups(active)}
+            fallbackSection={adminNavSection(active)}
+        >
             {children}
         </PanelLayout>
     );

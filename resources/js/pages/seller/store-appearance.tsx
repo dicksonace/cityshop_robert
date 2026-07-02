@@ -6,8 +6,7 @@ import StoreStorefront from '@/components/store/store-storefront';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import PanelLayout from '@/layouts/panel-layout';
-import { sellerNav } from '@/lib/seller-nav';
+import SellerLayout from '@/layouts/seller-layout';
 import { publishStore, resetStore, submitStoreDraft } from '@/lib/store-customization-form';
 import { Paginated, Product, SellerProfile } from '@/types/marketplace';
 import { SECTION_LABELS, StoreCustomizationSettings, ThemePreset } from '@/types/store-customization';
@@ -105,7 +104,7 @@ export default function StoreAppearance({
     ];
 
     return (
-        <PanelLayout title="Customize Store" nav={sellerNav('appearance')}>
+        <SellerLayout title="Customize Store" active="appearance">
             <Head title="Customize Store" />
 
             {flash.success && (
@@ -314,6 +313,6 @@ export default function StoreAppearance({
                     </div>
                 </div>
             </div>
-        </PanelLayout>
+        </SellerLayout>
     );
 }

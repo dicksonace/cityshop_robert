@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { MessageSquare, Star } from 'lucide-react';
 
-import PanelLayout from '@/layouts/panel-layout';
+import SellerLayout from '@/layouts/seller-layout';
 import { Paginated, ProductReview } from '@/types/marketplace';
 
 interface ProductReviewsProps {
@@ -9,13 +9,6 @@ interface ProductReviewsProps {
     reviews: Paginated<ProductReview & { order?: { order_number: string } }>;
 }
 
-const nav = [
-    { label: 'Dashboard', href: route('seller.dashboard') },
-    { label: 'Products', href: route('seller.products.index'), active: true },
-    { label: 'Orders', href: route('seller.orders.index') },
-    { label: 'Messages', href: route('chat.index') },
-    { label: 'Wallet', href: route('seller.wallet') },
-];
 
 function StarRating({ rating }: { rating: number }) {
     return (
@@ -29,7 +22,7 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function SellerProductReviews({ product, reviews }: ProductReviewsProps) {
     return (
-        <PanelLayout title="Product Comments" nav={nav}>
+        <SellerLayout title="Product Comments" active="products">
             <Head title={`Comments — ${product.name}`} />
 
             <Link href={route('seller.products.index')} className="text-sm text-orange-500 hover:underline">
@@ -113,6 +106,6 @@ export default function SellerProductReviews({ product, reviews }: ProductReview
                     </div>
                 )}
             </div>
-        </PanelLayout>
+        </SellerLayout>
     );
 }

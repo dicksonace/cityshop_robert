@@ -31,6 +31,7 @@ export interface SharedData {
     wishlistCount: number;
     unreadMessages?: number;
     unreadNotifications?: number;
+    panelNavCounts?: Record<string, number>;
     flash: { success?: string; error?: string; info?: string; sellerInviteUrl?: string };
     [key: string]: unknown;
 }
