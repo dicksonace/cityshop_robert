@@ -218,7 +218,7 @@ export default function ImageUploader({
                     {confirmed ? (
                         <div className="flex items-center gap-2 text-sm text-green-700">
                             <Check className="h-5 w-5" />
-                            <span className="font-medium">{previews.length} image{previews.length > 1 ? 's' : ''} confirmed — ready to submit</span>
+                            <span className="font-medium">{previews.length} image{previews.length > 1 ? 's' : ''} confirmed — ready to publish</span>
                         </div>
                     ) : (
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

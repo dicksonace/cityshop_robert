@@ -76,7 +76,7 @@ class ProductController extends Controller
             ...collect($validated)->except('images')->toArray(),
             'specifications' => $specifications,
             'seller_id' => $request->user()->id,
-            'status' => ProductStatus::Pending,
+            'status' => ProductStatus::Approved,
             'is_preorder' => false,
         ]);
 
@@ -90,7 +90,7 @@ class ProductController extends Controller
         }
 
         return redirect()->route('seller.products.index')
-            ->with('success', 'Product submitted for review.');
+            ->with('success', 'Product published successfully. It is now live in the shop.');
     }
 
     public function edit(Request $request, Product $product): Response
@@ -145,15 +145,24 @@ class ProductController extends Controller
 
         $specifications = $this->resolveSpecifications($validated['category_id'] ?? null, $request->input('specifications', []));
 
+        $nextStatus = $product->status === ProductStatus::Draft
+            ? ProductStatus::Draft
+            : ProductStatus::Approved;
+
         $product->update([
             ...collect($validated)->except(['images', 'remove_images'])->toArray(),
             'specifications' => $specifications,
-            'status' => ProductStatus::Pending,
+            'status' => $nextStatus,
             'is_preorder' => false,
+            'rejection_reason' => null,
         ]);
 
+        $message = $nextStatus === ProductStatus::Approved
+            ? 'Product updated successfully. It is live in the shop.'
+            : 'Product updated. It is still hidden — publish it when you are ready.';
+
         return redirect()->route('seller.products.index')
-            ->with('success', 'Product updated and resubmitted for review.');
+            ->with('success', $message);
     }
 
     public function destroy(Request $request, Product $product): RedirectResponse
@@ -202,9 +211,12 @@ class ProductController extends Controller
     {
         abort_unless($product->seller_id === $request->user()->id, 403);
 
-        if ($product->status === ProductStatus::Draft) {
-            $product->update(['status' => ProductStatus::Pending]);
-            $message = 'Product submitted for review.';
+        if ($product->status === ProductStatus::Draft || $product->status === ProductStatus::Pending || $product->status === ProductStatus::Rejected) {
+            $product->update([
+                'status' => ProductStatus::Approved,
+                'rejection_reason' => null,
+            ]);
+            $message = 'Product is now live in the shop.';
         } elseif ($product->status === ProductStatus::Approved) {
             $product->update(['status' => ProductStatus::Draft]);
             $message = 'Product hidden from your store.';

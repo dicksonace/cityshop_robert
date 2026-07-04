@@ -93,12 +93,12 @@ export default function SellerProductCard({ product, onDuplicate, onToggleVisibi
                             <DropdownMenuItem onClick={() => onDuplicate?.(product.id)}>
                                 <Copy className="mr-2 h-4 w-4" /> Duplicate
                             </DropdownMenuItem>
-                            {(product.status === 'approved' || product.status === 'draft') && (
+                            {(product.status === 'approved' || product.status === 'draft' || product.status === 'pending' || product.status === 'rejected') && (
                                 <DropdownMenuItem onClick={() => onToggleVisibility?.(product.id)}>
-                                    {product.status === 'draft' ? (
-                                        <><Eye className="mr-2 h-4 w-4" /> Submit for review</>
-                                    ) : (
+                                    {product.status === 'approved' ? (
                                         <><EyeOff className="mr-2 h-4 w-4" /> Hide listing</>
+                                    ) : (
+                                        <><Eye className="mr-2 h-4 w-4" /> Publish live</>
                                     )}
                                 </DropdownMenuItem>
                             )}

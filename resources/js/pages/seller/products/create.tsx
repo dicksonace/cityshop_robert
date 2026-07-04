@@ -289,7 +289,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                         )}
                         <Button type="submit" disabled={processing || !canNext()} className="ml-auto bg-orange-500 hover:bg-orange-600">
                             {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                            {step < STEPS.length - 1 ? <>Next <ChevronRight className="ml-1 h-4 w-4" /></> : 'Submit for review'}
+                            {step < STEPS.length - 1 ? <>Next <ChevronRight className="ml-1 h-4 w-4" /></> : 'Publish product'}
                         </Button>
                     </div>
                 </div>

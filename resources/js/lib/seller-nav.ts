@@ -64,7 +64,6 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
             items: [
                 { key: 'products-all', label: 'All Products', href: route('seller.products.index'), mobile: true, defaultOnPath: true },
                 { key: 'products-add', label: 'Add Product', href: route('seller.products.create') },
-                { key: 'products-pending', label: 'Pending Approval', href: route('seller.products.index', { status: 'pending' }), badgeKey: 'pending_products' },
                 { key: 'products-live', label: 'Active Products', href: route('seller.products.index', { status: 'approved' }) },
                 { key: 'products-draft', label: 'Hidden / Draft', href: route('seller.products.index', { status: 'draft' }) },
                 { key: 'products-sold-out', label: 'Out of Stock', href: route('seller.products.index', { status: 'sold_out' }) },

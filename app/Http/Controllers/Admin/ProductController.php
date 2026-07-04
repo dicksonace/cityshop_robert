@@ -14,7 +14,7 @@ class ProductController extends Controller
 {
     public function index(Request $request): Response
     {
-        $status = $request->get('status', 'pending');
+        $status = $request->get('status', 'all');
 
         $products = Product::with(['seller', 'images', 'category'])
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
@@ -49,6 +49,13 @@ class ProductController extends Controller
             'rejection_reason' => $validated['rejection_reason'],
         ]);
 
-        return back()->with('success', 'Product rejected.');
+        return back()->with('success', 'Product removed from the shop.');
+    }
+
+    public function hide(Product $product): RedirectResponse
+    {
+        $product->update(['status' => ProductStatus::Draft]);
+
+        return back()->with('success', 'Product hidden from the shop.');
     }
 }

@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import SellerLayout from '@/layouts/seller-layout';
 import { Paginated, Product } from '@/types/marketplace';
+import { SharedData } from '@/types';
 
 interface ProductsIndexProps {
     products: Paginated<Product & { reviews_count?: number; category?: { name: string } }>;
@@ -17,14 +18,13 @@ interface ProductsIndexProps {
 const statusTabs = [
     { value: '', label: 'All' },
     { value: 'approved', label: 'Live' },
-    { value: 'pending', label: 'Pending' },
     { value: 'draft', label: 'Hidden' },
     { value: 'sold_out', label: 'Sold out' },
-    { value: 'rejected', label: 'Rejected' },
     { value: 'deleted', label: 'Deleted' },
 ];
 
 export default function ProductsIndex({ products, filters, categories = [] }: ProductsIndexProps) {
+    const { flash } = usePage<SharedData>().props;
     const [search, setSearch] = useState(filters.search ?? '');
     const [selected, setSelected] = useState<number[]>([]);
     const [bulkCategory, setBulkCategory] = useState('');
@@ -55,6 +55,17 @@ export default function ProductsIndex({ products, filters, categories = [] }: Pr
     return (
         <SellerLayout title="Products" active="products" showFab>
             <Head title="Products" />
+
+            {flash.success && (
+                <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+                    {flash.success}
+                </div>
+            )}
+            {flash.error && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+                    {flash.error}
+                </div>
+            )}
 
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <form

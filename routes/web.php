@@ -169,6 +169,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/products', [AdminProductController::class, 'index'])->name('products.index');
     Route::post('/products/{product}/approve', [AdminProductController::class, 'approve'])->name('products.approve');
     Route::post('/products/{product}/reject', [AdminProductController::class, 'reject'])->name('products.reject');
+    Route::post('/products/{product}/hide', [AdminProductController::class, 'hide'])->name('products.hide');
 
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
