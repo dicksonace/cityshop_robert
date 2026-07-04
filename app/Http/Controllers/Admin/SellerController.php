@@ -20,10 +20,23 @@ class SellerController extends Controller
     public function index(Request $request): Response
     {
         $status = $request->get('status', 'pending');
+        $search = $request->string('search')->trim()->toString();
 
         $sellers = SellerProfile::with('user')
             ->whereHas('user')
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('store_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%")
+                        ->orWhere('slug', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('email', 'like', "%{$search}%")
+                                ->orWhere('name', 'like', "%{$search}%")
+                                ->orWhere('mobile', 'like', "%{$search}%");
+                        });
+                });
+            })
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -31,6 +44,7 @@ class SellerController extends Controller
         return Inertia::render('admin/sellers/index', [
             'sellers' => $sellers,
             'status' => $status,
+            'search' => $search !== '' ? $search : null,
         ]);
     }
 
