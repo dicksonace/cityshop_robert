@@ -36,6 +36,11 @@ class OrderController extends Controller
                         ->orWhereHas('items.dispute');
                 })
                 ->count(),
+            'completed' => Order::where('buyer_id', $buyerId)
+                ->where('status', OrderStatus::Delivered)
+                ->where('payment_status', PaymentStatus::Paid)
+                ->count(),
+            'cancelled' => Order::where('buyer_id', $buyerId)->where('status', OrderStatus::Cancelled)->count(),
             'review' => $this->pendingReviewCount($buyerId),
             'invoices' => Order::where('buyer_id', $buyerId)
                 ->whereHas('checkout.invoices', fn (Builder $q) => $q
@@ -92,6 +97,10 @@ class OrderController extends Controller
                     ->orWhere('payment_status', PaymentStatus::Refunded)
                     ->orWhereHas('items.dispute');
             }),
+            'completed' => $query
+                ->where('status', OrderStatus::Delivered)
+                ->where('payment_status', PaymentStatus::Paid),
+            'cancelled' => $query->where('status', OrderStatus::Cancelled),
             'review' => $query->whereHas('items', function (Builder $q) use ($buyerId) {
                 $q->where('status', OrderStatus::Delivered)
                     ->whereNotExists(function ($sub) use ($buyerId) {

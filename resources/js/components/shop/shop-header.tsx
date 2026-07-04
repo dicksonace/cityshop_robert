@@ -2,6 +2,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import {
     ChevronDown,
     Heart,
+    KeyRound,
     LayoutDashboard,
     LogIn,
     LogOut,
@@ -34,13 +35,37 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
 
     const navLinks = [
         { label: 'Shop', href: route('home') },
-        { label: 'Wallet', href: route('wallet.index'), auth: true },
-        { label: 'Wishlist', href: route('wishlist.index'), auth: true },
-        { label: 'My Orders', href: route('orders.index'), auth: true },
+        { label: 'Wallet', href: route('wallet.index'), auth: true, buyerOnly: true },
+        { label: 'Wishlist', href: route('wishlist.index'), auth: true, buyerOnly: true },
+        { label: 'My Orders', href: route('orders.index'), auth: true, buyerOnly: true },
         { label: 'Messages', href: route('chat.index'), auth: true, chat: true },
         { label: 'Contact', href: route('contact') },
         { label: 'FAQ', href: route('faq') },
     ];
+
+    const sellerNavLinks = [
+        { label: 'Seller Centre', href: route('seller.dashboard'), highlight: true },
+        { label: 'Products', href: route('seller.products.index') },
+        { label: 'Orders', href: route('seller.orders.index') },
+        { label: 'Earnings', href: route('seller.wallet') },
+        { label: 'Messages', href: route('chat.index'), chat: true },
+        { label: 'Browse marketplace', href: route('home') },
+        { label: 'Contact', href: route('contact') },
+        { label: 'FAQ', href: route('faq') },
+    ];
+
+    const adminNavLinks = [
+        { label: 'Admin Dashboard', href: route('admin.dashboard'), highlight: true },
+        { label: 'Browse marketplace', href: route('home') },
+        { label: 'Contact', href: route('contact') },
+        { label: 'FAQ', href: route('faq') },
+    ];
+
+    const role = auth.user?.role as string | undefined;
+    const isSeller = role === 'seller';
+    const isAdmin = role === 'admin';
+    const isStaff = isAdmin || isSeller;
+    const activeNavLinks = isSeller ? sellerNavLinks : isAdmin ? adminNavLinks : navLinks;
 
     const openMessages = (e?: React.MouseEvent) => {
         e?.preventDefault();
@@ -53,21 +78,56 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
 
     const dashboardLink = () => {
         if (!auth.user) return route('login');
-        const role = auth.user.role as string;
-        if (role === 'admin') return route('admin.dashboard');
-        if (role === 'seller') return route('seller.dashboard');
+        if (isAdmin) return route('admin.dashboard');
+        if (isSeller) return route('seller.dashboard');
         return route('orders.index');
     };
 
     const dashboardLabel = () => {
         if (!auth.user) return 'Dashboard';
-        const role = auth.user.role as string;
-        if (role === 'admin') return 'Admin Dashboard';
-        if (role === 'seller') return 'Seller Centre';
+        if (isAdmin) return 'Admin Dashboard';
+        if (isSeller) return 'Seller Centre';
         return 'My Orders';
     };
 
-    const isStaff = auth.user?.role === 'admin' || auth.user?.role === 'seller';
+    const renderNavLink = (
+        link: { label: string; href: string; auth?: boolean; buyerOnly?: boolean; chat?: boolean; highlight?: boolean },
+        onNavigate?: () => void,
+        mobile = false,
+    ) => {
+        if (link.auth && !auth.user) return null;
+        if (link.buyerOnly && isStaff) return null;
+
+        const className = mobile
+            ? link.highlight
+                ? 'mb-2 flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2.5 text-sm font-medium text-orange-700'
+                : 'block py-2.5 text-sm font-medium text-gray-600'
+            : link.highlight
+              ? 'text-sm font-semibold text-orange-600 hover:text-orange-700'
+              : 'text-sm font-medium text-gray-600 hover:text-orange-500';
+
+        if (link.chat) {
+            return (
+                <button
+                    key={link.label}
+                    type="button"
+                    onClick={() => {
+                        openMessages();
+                        onNavigate?.();
+                    }}
+                    className={mobile ? 'block w-full py-2.5 text-left text-sm font-medium text-gray-600' : className}
+                >
+                    {link.label}
+                </button>
+            );
+        }
+
+        return (
+            <Link key={link.label} href={link.href} className={className} onClick={onNavigate}>
+                {link.label}
+            </Link>
+        );
+    };
 
     return (
         <header className="sticky top-0 z-50 border-b border-gray-100/80 bg-white/95 shadow-sm backdrop-blur-md">
@@ -103,23 +163,62 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                                             </Link>
                                         </DropdownMenuItem>
                                     )}
+                                    {isSeller && (
+                                        <>
+                                            <DropdownMenuItem asChild>
+                                                <Link href={route('seller.products.index')} className="flex w-full cursor-pointer items-center">
+                                                    <Package className="mr-2 h-4 w-4" />
+                                                    My Products
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link href={route('seller.orders.index')} className="flex w-full cursor-pointer items-center">
+                                                    <ShoppingCart className="mr-2 h-4 w-4" />
+                                                    Seller Orders
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link href={route('seller.wallet')} className="flex w-full cursor-pointer items-center">
+                                                    <Wallet className="mr-2 h-4 w-4" />
+                                                    Earnings
+                                                </Link>
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
                                     {isStaff && <DropdownMenuSeparator />}
+                                    {!isStaff && (
+                                        <>
+                                            <DropdownMenuItem asChild>
+                                                <Link href={route('orders.index')} className="flex w-full cursor-pointer items-center">
+                                                    <Package className="mr-2 h-4 w-4" />
+                                                    My Orders
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link href={route('wallet.index')} className="flex w-full cursor-pointer items-center">
+                                                    <Wallet className="mr-2 h-4 w-4" />
+                                                    Wallet
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link href={route('wishlist.index')} className="flex w-full cursor-pointer items-center">
+                                                    <Heart className="mr-2 h-4 w-4" />
+                                                    Wishlist
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                        </>
+                                    )}
                                     <DropdownMenuItem asChild>
-                                        <Link href={route('orders.index')} className="flex w-full cursor-pointer items-center">
-                                            <Package className="mr-2 h-4 w-4" />
-                                            My Orders
+                                        <Link href={route('profile.edit')} className="flex w-full cursor-pointer items-center">
+                                            <User className="mr-2 h-4 w-4" />
+                                            Profile
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem asChild>
-                                        <Link href={route('wallet.index')} className="flex w-full cursor-pointer items-center">
-                                            <Wallet className="mr-2 h-4 w-4" />
-                                            Wallet
-                                        </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link href={route('wishlist.index')} className="flex w-full cursor-pointer items-center">
-                                            <Heart className="mr-2 h-4 w-4" />
-                                            Wishlist
+                                        <Link href={route('password.edit')} className="flex w-full cursor-pointer items-center">
+                                            <KeyRound className="mr-2 h-4 w-4" />
+                                            Change password
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
@@ -146,7 +245,7 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                             </Link>
                         )}
 
-                        {auth.user && (
+                        {auth.user && !isStaff && (
                             <button
                                 type="button"
                                 onClick={openMessages}
@@ -164,17 +263,19 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
 
                         <NotificationBell />
 
-                        <Link
-                            href={auth.user ? route('wishlist.index') : route('login')}
-                            className="relative hidden rounded-lg p-1.5 hover:bg-gray-50 sm:block sm:p-2"
-                        >
-                            <Heart className="h-5 w-5 text-gray-700" />
-                            {wishlistCount > 0 && (
-                                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white sm:h-5 sm:w-5 sm:text-xs">
-                                    {wishlistCount}
-                                </span>
-                            )}
-                        </Link>
+                        {auth.user && !isStaff && (
+                            <Link
+                                href={route('wishlist.index')}
+                                className="relative hidden rounded-lg p-1.5 hover:bg-gray-50 sm:block sm:p-2"
+                            >
+                                <Heart className="h-5 w-5 text-gray-700" />
+                                {wishlistCount > 0 && (
+                                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white sm:h-5 sm:w-5 sm:text-xs">
+                                        {wishlistCount}
+                                    </span>
+                                )}
+                            </Link>
+                        )}
 
                         <Link
                             href={auth.user ? route('cart.index') : route('login')}
@@ -207,22 +308,7 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                 )}
 
                 <nav className="mt-2 hidden items-center gap-6 border-t border-gray-50 pt-2 md:mt-3 md:flex md:pt-3">
-                    {navLinks.map((link) =>
-                        link.auth && !auth.user ? null : link.chat ? (
-                            <button
-                                key={link.label}
-                                type="button"
-                                onClick={openMessages}
-                                className="text-sm font-medium text-gray-600 hover:text-orange-500"
-                            >
-                                {link.label}
-                            </button>
-                        ) : (
-                            <Link key={link.label} href={link.href} className="text-sm font-medium text-gray-600 hover:text-orange-500">
-                                {link.label}
-                            </Link>
-                        ),
-                    )}
+                    {activeNavLinks.map((link) => renderNavLink(link))}
                     {!auth.user && (
                         <Link
                             href={route('register.buyer')}
@@ -238,51 +324,14 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
             {mobileMenuOpen && (
                 <div className="max-h-[calc(100dvh-8rem)] overflow-y-auto border-t border-gray-100 bg-white px-3 py-3 md:hidden">
                     {auth.user && (
-                        <>
-                            <Link
-                                href={dashboardLink()}
-                                className="mb-2 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700"
-                                onClick={() => setMobileMenuOpen(false)}
-                            >
-                                <User className="h-4 w-4" />
-                                {auth.user.name}
-                            </Link>
-                            {isStaff && (
-                                <Link
-                                    href={dashboardLink()}
-                                    className="mb-2 flex items-center gap-2 rounded-lg bg-orange-50 px-3 py-2.5 text-sm font-medium text-orange-700"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                >
-                                    <LayoutDashboard className="h-4 w-4" />
-                                    {dashboardLabel()}
-                                </Link>
-                            )}
-                        </>
+                        <div className="mb-2 rounded-lg bg-gray-50 px-3 py-2.5">
+                            <p className="text-sm font-medium text-gray-900">{auth.user.name}</p>
+                            <p className="text-xs text-gray-500">
+                                {isSeller ? 'Seller account' : isAdmin ? 'Admin account' : 'Buyer account'}
+                            </p>
+                        </div>
                     )}
-                    {navLinks.map((link) =>
-                        link.auth && !auth.user ? null : link.chat ? (
-                            <button
-                                key={link.label}
-                                type="button"
-                                onClick={() => {
-                                    openMessages();
-                                    setMobileMenuOpen(false);
-                                }}
-                                className="block w-full py-2.5 text-left text-sm font-medium text-gray-600"
-                            >
-                                {link.label}
-                            </button>
-                        ) : (
-                            <Link
-                                key={link.label}
-                                href={link.href}
-                                className="block py-2.5 text-sm font-medium text-gray-600"
-                                onClick={() => setMobileMenuOpen(false)}
-                            >
-                                {link.label}
-                            </Link>
-                        ),
-                    )}
+                    {activeNavLinks.map((link) => renderNavLink(link, () => setMobileMenuOpen(false), true))}
                     {!auth.user && (
                         <Link
                             href={route('login')}
@@ -293,17 +342,33 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                         </Link>
                     )}
                     {auth.user && (
-                        <Button
-                            variant="outline"
-                            className="mt-3 w-full"
-                            onClick={() => {
-                                setMobileMenuOpen(false);
-                                router.post(route('logout'));
-                            }}
-                        >
-                            <LogOut className="mr-2 h-4 w-4" />
-                            Log out
-                        </Button>
+                        <>
+                            <Link
+                                href={route('profile.edit')}
+                                className="block py-2.5 text-sm font-medium text-gray-600"
+                                onClick={() => setMobileMenuOpen(false)}
+                            >
+                                Profile
+                            </Link>
+                            <Link
+                                href={route('password.edit')}
+                                className="block py-2.5 text-sm font-medium text-gray-600"
+                                onClick={() => setMobileMenuOpen(false)}
+                            >
+                                Change password
+                            </Link>
+                            <Button
+                                variant="outline"
+                                className="mt-3 w-full"
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    router.post(route('logout'));
+                                }}
+                            >
+                                <LogOut className="mr-2 h-4 w-4" />
+                                Log out
+                            </Button>
+                        </>
                     )}
                 </div>
             )}

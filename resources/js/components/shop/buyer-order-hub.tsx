@@ -1,5 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import {
+    CheckCircle2,
     ChevronRight,
     Clock,
     FileText,
@@ -17,6 +18,8 @@ interface OrderHubCounts {
     processing: number;
     shipped: number;
     refunds: number;
+    completed: number;
+    cancelled: number;
     review: number;
     invoices: number;
 }
@@ -31,6 +34,7 @@ const shortcuts = [
     { key: 'processing', label: 'Processing', icon: Clock },
     { key: 'shipped', label: 'Shipped', icon: Truck },
     { key: 'refunds', label: 'Refunds', icon: RotateCcw },
+    { key: 'completed', label: 'Completed', icon: CheckCircle2 },
     { key: 'review', label: 'Review', icon: Star },
 ] as const;
 
@@ -60,7 +64,7 @@ export default function BuyerOrderHub({ counts, activeTab }: BuyerOrderHubProps)
                         <ChevronRight className="h-4 w-4" />
                     </button>
                 </div>
-                <div className="mt-4 grid grid-cols-5 gap-1">
+                <div className="mt-4 grid grid-cols-3 gap-1 sm:grid-cols-6">
                     {shortcuts.map(({ key, label, icon: Icon }) => {
                         const count = counts[key];
                         const active = activeTab === key;
@@ -124,6 +128,8 @@ export const orderTabs = [
     { key: 'processing', label: 'Processing' },
     { key: 'shipped', label: 'Shipped' },
     { key: 'refunds', label: 'Refunds' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'cancelled', label: 'Cancelled' },
     { key: 'review', label: 'To review' },
 ] as const;
 
@@ -179,7 +185,7 @@ export function orderStatusMessage(order: {
         return 'On the way to you';
     }
     if (order.status === 'delivered') {
-        return 'Delivered — confirm or leave a review';
+        return 'Order completed';
     }
     if (order.status === 'processing' || order.status === 'packed') {
         return 'Seller is preparing your order';

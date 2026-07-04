@@ -13,6 +13,8 @@ interface OrderHubCounts {
     processing: number;
     shipped: number;
     refunds: number;
+    completed: number;
+    cancelled: number;
     review: number;
     invoices: number;
 }
@@ -154,24 +156,36 @@ export default function Orders({ orders, counts, tab }: OrdersProps) {
                                         )}
 
                                         <div className="mt-4 flex flex-wrap gap-2">
-                                            {order.payment_status === 'pending' && order.checkout_id && (
+                                            {tab === 'completed' && firstItem?.product?.slug ? (
                                                 <Button
                                                     size="sm"
-                                                    className="bg-orange-500 hover:bg-orange-600"
-                                                    onClick={() => router.visit(route('checkout.payment', order.checkout_id!))}
-                                                >
-                                                    Pay now
-                                                </Button>
-                                            )}
-                                            {firstItem?.product?.slug && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="border-orange-200 text-orange-600 hover:bg-orange-50"
+                                                    className="w-full bg-orange-500 hover:bg-orange-600 sm:w-auto"
                                                     onClick={() => handleBuyAgain(firstItem.product?.slug)}
                                                 >
                                                     Buy again
                                                 </Button>
+                                            ) : (
+                                                <>
+                                                    {order.payment_status === 'pending' && order.checkout_id && (
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-orange-500 hover:bg-orange-600"
+                                                            onClick={() => router.visit(route('checkout.payment', order.checkout_id!))}
+                                                        >
+                                                            Pay now
+                                                        </Button>
+                                                    )}
+                                                    {firstItem?.product?.slug && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="border-orange-200 text-orange-600 hover:bg-orange-50"
+                                                            onClick={() => handleBuyAgain(firstItem.product?.slug)}
+                                                        >
+                                                            Buy again
+                                                        </Button>
+                                                    )}
+                                                </>
                                             )}
                                             <Button size="sm" variant="outline" asChild>
                                                 <Link href={detailUrl}>View details</Link>
