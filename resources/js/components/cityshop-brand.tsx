@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 interface CityShopBrandProps extends HTMLAttributes<HTMLDivElement> {
     showText?: boolean;
     asLink?: boolean;
+    href?: string;
     size?: 'sm' | 'md' | 'lg';
     inverted?: boolean;
 }
@@ -21,6 +22,7 @@ export default function CityShopBrand({
     className,
     showText = false,
     asLink = true,
+    href,
     size = 'md',
     inverted: _inverted = false,
     ...props
@@ -39,7 +41,7 @@ export default function CityShopBrand({
 
     if (asLink) {
         return (
-            <Link href={route('home')} className={wrapperClass}>
+            <Link href={href ?? route('home')} className={wrapperClass}>
                 {content}
             </Link>
         );

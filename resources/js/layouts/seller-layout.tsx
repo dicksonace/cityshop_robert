@@ -46,7 +46,7 @@ function SellerSidebar({
     return (
         <div className={cn('flex h-full flex-col', className)}>
             <div className="border-b border-gray-100 p-5">
-                <CityShopBrand showText size="md" />
+                <CityShopBrand showText size="md" href={route('seller.dashboard')} />
                 <p className="mt-2 text-xs font-medium uppercase tracking-wider text-gray-400">Seller Hub</p>
             </div>
             <PanelSidebarNav
@@ -114,7 +114,7 @@ export default function SellerLayout({ children, title, active, showFab = false 
                                 >
                                     <Menu className="h-5 w-5" />
                                 </Button>
-                                <CityShopBrand size="sm" />
+                                <CityShopBrand size="sm" href={route('seller.dashboard')} />
                             </div>
                             <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-gray-900 sm:text-lg lg:text-xl">{title}</h1>
                             <Link href={route('seller.products.create')} className="hidden sm:inline-flex lg:hidden">
