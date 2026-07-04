@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\BuyerController as AdminBuyerController;
 use App\Http\Controllers\Admin\ChatOversightController as AdminChatOversightController;
 use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
+use App\Http\Controllers\Admin\SellerReportController as AdminSellerReportController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DisputeController as AdminDisputeController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\ProductController;
 use App\Http\Controllers\Shop\ReviewController;
 use App\Http\Controllers\Shop\SearchController;
+use App\Http\Controllers\Shop\SellerReportController;
 use App\Http\Controllers\Shop\StoreController;
 use App\Http\Controllers\Shop\WalletController as BuyerWalletController;
 use App\Http\Controllers\Shop\WishlistController;
@@ -55,6 +57,8 @@ Route::get('/faq', [FaqController::class, 'show'])->name('faq');
 Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle']);
 
 Route::middleware(['auth'])->group(function () {
+    Route::post('/sellers/report', [SellerReportController::class, 'store'])->name('sellers.report');
+
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/cart', [CartController::class, 'store'])->name('cart.store');
     Route::patch('/cart/{cartItem}', [CartController::class, 'update'])->name('cart.update');
@@ -191,6 +195,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/chats', [AdminChatOversightController::class, 'index'])->name('chats.index');
     Route::get('/chats/{conversation}', [AdminChatOversightController::class, 'show'])->name('chats.show');
+
+    Route::get('/seller-reports', [AdminSellerReportController::class, 'index'])->name('seller-reports.index');
+    Route::patch('/seller-reports/{report}', [AdminSellerReportController::class, 'update'])->name('seller-reports.update');
 
     Route::get('/stores', [AdminStoreOversightController::class, 'index'])->name('stores.index');
     Route::get('/stores/{seller}', [AdminStoreOversightController::class, 'show'])->name('stores.show');

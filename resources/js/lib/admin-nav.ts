@@ -21,7 +21,8 @@ export type AdminNavKey =
     | 'withdrawals'
     | 'disputes'
     | 'messages'
-    | 'chats';
+    | 'chats'
+    | 'seller-reports';
 
 const sectionMap: Record<AdminNavKey, string> = {
     dashboard: 'dashboard',
@@ -35,6 +36,7 @@ const sectionMap: Record<AdminNavKey, string> = {
     disputes: 'support',
     messages: 'support',
     chats: 'support',
+    'seller-reports': 'support',
 };
 
 export function adminNavSection(active: AdminNavKey): string {
@@ -111,6 +113,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'disputes-open', label: 'Disputes', href: route('admin.disputes.index', { status: 'open' }), badgeKey: 'open_disputes', defaultOnPath: true },
                 { key: 'disputes-all', label: 'All Disputes', href: route('admin.disputes.index', { status: 'all' }) },
                 { key: 'chats', label: 'Buyer–Seller Chats', href: route('admin.chats.index') },
+                { key: 'seller-reports', label: 'Seller Reports', href: route('admin.seller-reports.index'), badgeKey: 'open_seller_reports' },
                 { key: 'messages', label: 'Contact Messages', href: route('admin.contact-messages.index'), badgeKey: 'unread_messages' },
             ],
         },

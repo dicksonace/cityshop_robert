@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import StoreHero from '@/components/store/store-hero';
 import MessageSellerButton from '@/components/shop/message-seller-button';
+import ReportSellerButton from '@/components/shop/report-seller-button';
 import ProductCard from '@/components/shop/product-card';
 import SellerProfileSheet from '@/components/shop/seller-profile-sheet';
 import { Paginated, Product, SellerProfile, productImageUrl } from '@/types/marketplace';
@@ -286,7 +287,14 @@ export default function StoreStorefront({
                                 <Share2 className="h-4 w-4" /> Copy Link
                             </button>
                             {currentUserId !== store.user_id && (
-                                <MessageSellerButton sellerId={store.user_id} variant="banner" label="Message" className={buttonRadiusClass(theme.button_style)} />
+                                <>
+                                    <MessageSellerButton sellerId={store.user_id} variant="banner" label="Message" className={buttonRadiusClass(theme.button_style)} />
+                                    <ReportSellerButton
+                                        sellerId={store.user_id}
+                                        storeName={storeName}
+                                        className={`inline-flex items-center gap-1.5 border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 sm:text-sm ${buttonRadiusClass(theme.button_style)}`}
+                                    />
+                                </>
                             )}
                         </div>
                     )}
