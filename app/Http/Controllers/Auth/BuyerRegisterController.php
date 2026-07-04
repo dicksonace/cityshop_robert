@@ -42,6 +42,8 @@ class BuyerRegisterController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('home');
+        return redirect()
+            ->route('home')
+            ->with('success', 'Welcome to CityShop! Your account was created successfully. Start shopping anytime.');
     }
 }

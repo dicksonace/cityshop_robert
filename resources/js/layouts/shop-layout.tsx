@@ -10,11 +10,21 @@ interface ShopLayoutProps {
 }
 
 export default function ShopLayout({ children, hideHeaderSearch = false }: ShopLayoutProps) {
-    const { auth } = usePage<SharedData>().props;
+    const { auth, flash } = usePage<SharedData>().props;
 
     return (
         <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-50 to-white pb-20 sm:pb-0">
             <ShopHeader hideSearch={hideHeaderSearch} />
+            {flash?.success && (
+                <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-800">
+                    {flash.success}
+                </div>
+            )}
+            {flash?.error && (
+                <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-800">
+                    {flash.error}
+                </div>
+            )}
             <main>{children}</main>
             <footer className="mt-12 border-t border-gray-200 bg-white py-8">
                 <div className="mx-auto max-w-7xl px-4">
