@@ -20,7 +20,7 @@ export function submitStoreDraft(
     settings: StoreCustomizationSettings,
     files: StoreDraftFiles = {},
     removes: StoreDraftRemoves = {},
-    options?: { onSuccess?: () => void },
+    options?: { onSuccess?: () => void; onError?: () => void },
 ) {
     const formData = new FormData();
     formData.append('settings', JSON.stringify(settings));
@@ -39,6 +39,10 @@ export function submitStoreDraft(
         forceFormData: true,
         preserveScroll: true,
         onSuccess: options?.onSuccess,
+        onError: options?.onError,
+        onFinish: () => {
+            // keep saving state managed by callers via onSuccess/onError
+        },
     });
 }
 
@@ -50,6 +54,8 @@ export function resetStore() {
     router.post(route('seller.store-appearance.reset'), {});
 }
 
-export function completeStoreSetup() {
-    router.post(route('seller.store-appearance.complete-setup'));
+export function completeStoreSetup(options?: { onError?: () => void }) {
+    router.post(route('seller.store-appearance.complete-setup'), {}, {
+        onError: options?.onError,
+    });
 }

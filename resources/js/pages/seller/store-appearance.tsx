@@ -2,6 +2,8 @@ import { Head, usePage } from '@inertiajs/react';
 import { ChevronDown, ChevronUp, LoaderCircle, Monitor, Smartphone, Tablet } from 'lucide-react';
 import { useState } from 'react';
 
+import DocumentUploadField from '@/components/forms/document-upload-field';
+import MultiImageUploadField from '@/components/forms/multi-image-upload-field';
 import StoreStorefront from '@/components/store/store-storefront';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,21 +56,39 @@ export default function StoreAppearance({
     const [heroFiles, setHeroFiles] = useState<File[]>([]);
     const [promoFile, setPromoFile] = useState<File | null>(null);
     const [removedHeroImages, setRemovedHeroImages] = useState<string[]>([]);
+    const [removeLogo, setRemoveLogo] = useState(false);
+    const [removeCover, setRemoveCover] = useState(false);
+    const [removePromo, setRemovePromo] = useState(false);
 
     const previewWidth = device === 'mobile' ? '375px' : device === 'tablet' ? '768px' : '100%';
+    const imageAccept = 'image/jpeg,image/png,image/webp,image/gif';
 
     const saveDraft = () => {
         setSaving(true);
-        submitStoreDraft(settings, { store_logo: logoFile, cover_image: coverFile, hero_images: heroFiles, promo_image: promoFile }, { remove_hero_images: removedHeroImages }, {
-            onSuccess: () => {
-                setSaving(false);
-                setLogoFile(null);
-                setCoverFile(null);
-                setHeroFiles([]);
-                setPromoFile(null);
-                setRemovedHeroImages([]);
+        submitStoreDraft(
+            settings,
+            { store_logo: logoFile, cover_image: coverFile, hero_images: heroFiles, promo_image: promoFile },
+            {
+                remove_store_logo: removeLogo,
+                remove_cover_image: removeCover,
+                remove_promo_image: removePromo,
+                remove_hero_images: removedHeroImages,
             },
-        });
+            {
+                onSuccess: () => {
+                    setSaving(false);
+                    setLogoFile(null);
+                    setCoverFile(null);
+                    setHeroFiles([]);
+                    setPromoFile(null);
+                    setRemovedHeroImages([]);
+                    setRemoveLogo(false);
+                    setRemoveCover(false);
+                    setRemovePromo(false);
+                },
+                onError: () => setSaving(false),
+            },
+        );
     };
 
     const applyPreset = (key: string) => {
@@ -183,16 +203,45 @@ export default function StoreAppearance({
                                         <button key={type} type="button" onClick={() => setSettings({ ...settings, hero: { ...settings.hero, type } })} className={`rounded-lg border px-2 py-3 text-sm capitalize ${settings.hero.type === type ? 'border-orange-500 bg-orange-50' : 'border-gray-100'}`}>{type}</button>
                                     ))}
                                 </div>
-                                <div>
-                                    <Label>Cover image</Label>
-                                    <Input type="file" accept="image/*" className="mt-1" onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)} />
-                                </div>
+                                <DocumentUploadField
+                                    id="cover_image"
+                                    label="Cover image"
+                                    hint="Upload a banner image for the top of your store"
+                                    required={false}
+                                    accept={imageAccept}
+                                    value={coverFile}
+                                    existingUrl={!removeCover && settings.branding.cover_image ? productImageUrl(settings.branding.cover_image) : null}
+                                    onChange={(file) => {
+                                        setCoverFile(file);
+                                        if (file) setRemoveCover(false);
+                                    }}
+                                    onClearExisting={() => setRemoveCover(true)}
+                                />
                                 {settings.hero.type === 'slideshow' && (
                                     <>
-                                        <div>
-                                            <Label>Add slideshow images</Label>
-                                            <Input type="file" accept="image/*" multiple className="mt-1" onChange={(e) => setHeroFiles(Array.from(e.target.files ?? []))} />
-                                        </div>
+                                        <MultiImageUploadField
+                                            id="hero_images"
+                                            label="Slideshow images"
+                                            hint="Add photos for your storefront slideshow"
+                                            maxFiles={8}
+                                            value={heroFiles}
+                                            onChange={setHeroFiles}
+                                            existingUrls={settings.hero.images
+                                                .filter((img) => !removedHeroImages.includes(img))
+                                                .map((img) => productImageUrl(img))}
+                                            onRemoveExisting={(url) => {
+                                                const path = settings.hero.images.find((img) => productImageUrl(img) === url);
+                                                if (!path) return;
+                                                setRemovedHeroImages((r) => [...r, path]);
+                                                setSettings({
+                                                    ...settings,
+                                                    hero: {
+                                                        ...settings.hero,
+                                                        images: settings.hero.images.filter((i) => i !== path),
+                                                    },
+                                                });
+                                            }}
+                                        />
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
                                                 <Label>Autoplay (sec)</Label>
@@ -202,14 +251,6 @@ export default function StoreAppearance({
                                                 <label className="flex items-center gap-2"><input type="checkbox" checked={settings.hero.show_arrows} onChange={(e) => setSettings({ ...settings, hero: { ...settings.hero, show_arrows: e.target.checked } })} /> Arrows</label>
                                                 <label className="flex items-center gap-2"><input type="checkbox" checked={settings.hero.show_indicators} onChange={(e) => setSettings({ ...settings, hero: { ...settings.hero, show_indicators: e.target.checked } })} /> Indicators</label>
                                             </div>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {settings.hero.images.map((img) => (
-                                                <div key={img} className="relative">
-                                                    <img src={productImageUrl(img)} alt="" className="h-14 w-14 rounded object-cover" />
-                                                    <button type="button" className="absolute -top-1 -right-1 rounded-full bg-red-500 px-1 text-[10px] text-white" onClick={() => { setRemovedHeroImages((r) => [...r, img]); setSettings({ ...settings, hero: { ...settings.hero, images: settings.hero.images.filter((i) => i !== img) } }); }}>×</button>
-                                                </div>
-                                            ))}
                                         </div>
                                     </>
                                 )}
@@ -227,7 +268,20 @@ export default function StoreAppearance({
                                     <div><Label>Instagram</Label><Input value={settings.branding.social_instagram} onChange={(e) => setSettings({ ...settings, branding: { ...settings.branding, social_instagram: e.target.value } })} className="mt-1" /></div>
                                     <div><Label>Twitter/X</Label><Input value={settings.branding.social_twitter} onChange={(e) => setSettings({ ...settings, branding: { ...settings.branding, social_twitter: e.target.value } })} className="mt-1" /></div>
                                 </div>
-                                <div><Label>Store logo</Label><Input type="file" accept="image/*" className="mt-1" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} /></div>
+                                <DocumentUploadField
+                                    id="store_logo"
+                                    label="Store logo"
+                                    hint="Upload your store logo or brand mark"
+                                    required={false}
+                                    accept={imageAccept}
+                                    value={logoFile}
+                                    existingUrl={!removeLogo && settings.branding.store_logo ? productImageUrl(settings.branding.store_logo) : null}
+                                    onChange={(file) => {
+                                        setLogoFile(file);
+                                        if (file) setRemoveLogo(false);
+                                    }}
+                                    onClearExisting={() => setRemoveLogo(true)}
+                                />
                             </div>
                         )}
 
@@ -276,7 +330,20 @@ export default function StoreAppearance({
                             <div className="space-y-4">
                                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.promo_banner.enabled} onChange={(e) => setSettings({ ...settings, promo_banner: { ...settings.promo_banner, enabled: e.target.checked } })} /> Enable promo banner</label>
                                 <div><Label>Promo text</Label><Input value={settings.promo_banner.text} onChange={(e) => setSettings({ ...settings, promo_banner: { ...settings.promo_banner, text: e.target.value } })} className="mt-1" placeholder="20% Off This Weekend" /></div>
-                                <div><Label>Promo image</Label><Input type="file" accept="image/*" className="mt-1" onChange={(e) => setPromoFile(e.target.files?.[0] ?? null)} /></div>
+                                <DocumentUploadField
+                                    id="promo_image"
+                                    label="Promo image"
+                                    hint="Upload an image for your promo banner"
+                                    required={false}
+                                    accept={imageAccept}
+                                    value={promoFile}
+                                    existingUrl={!removePromo && settings.promo_banner.image ? productImageUrl(settings.promo_banner.image) : null}
+                                    onChange={(file) => {
+                                        setPromoFile(file);
+                                        if (file) setRemovePromo(false);
+                                    }}
+                                    onClearExisting={() => setRemovePromo(true)}
+                                />
                                 <div className="grid grid-cols-2 gap-3">
                                     <div><Label>Start date</Label><Input type="datetime-local" value={settings.promo_banner.starts_at?.slice(0, 16) ?? ''} onChange={(e) => setSettings({ ...settings, promo_banner: { ...settings.promo_banner, starts_at: e.target.value ? new Date(e.target.value).toISOString() : null } })} className="mt-1" /></div>
                                     <div><Label>End date</Label><Input type="datetime-local" value={settings.promo_banner.ends_at?.slice(0, 16) ?? ''} onChange={(e) => setSettings({ ...settings, promo_banner: { ...settings.promo_banner, ends_at: e.target.value ? new Date(e.target.value).toISOString() : null } })} className="mt-1" /></div>

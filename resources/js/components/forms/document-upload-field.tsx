@@ -14,6 +14,9 @@ interface DocumentUploadFieldProps {
     maxSizeMb?: number;
     value: File | null;
     onChange: (file: File | null) => void;
+    /** Already-saved image URL (shown when no new file is selected). */
+    existingUrl?: string | null;
+    onClearExisting?: () => void;
     error?: string;
     className?: string;
 }
@@ -45,6 +48,8 @@ export default function DocumentUploadField({
     maxSizeMb = 5,
     value,
     onChange,
+    existingUrl = null,
+    onClearExisting,
     error,
     className,
 }: DocumentUploadFieldProps) {
@@ -52,6 +57,7 @@ export default function DocumentUploadField({
     const [dragOver, setDragOver] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [localError, setLocalError] = useState<string | null>(null);
+    const [clearedExisting, setClearedExisting] = useState(false);
 
     useEffect(() => {
         if (!value) {
@@ -67,6 +73,9 @@ export default function DocumentUploadField({
 
         setPreviewUrl(null);
     }, [value]);
+
+    const shownExistingUrl = !value && !clearedExisting ? existingUrl : null;
+    const hasSelection = Boolean(value || shownExistingUrl);
 
     const validateAndSet = (file: File | null) => {
         setLocalError(null);
@@ -93,6 +102,7 @@ export default function DocumentUploadField({
             return;
         }
 
+        setClearedExisting(false);
         onChange(file);
     };
 
@@ -107,12 +117,17 @@ export default function DocumentUploadField({
     const clearFile = () => {
         setLocalError(null);
         onChange(null);
+        if (shownExistingUrl) {
+            setClearedExisting(true);
+            onClearExisting?.();
+        }
         if (inputRef.current) {
             inputRef.current.value = '';
         }
     };
 
     const displayError = localError ?? error;
+    const displayPreview = previewUrl ?? shownExistingUrl;
 
     return (
         <div className={cn('space-y-2', className)}>
@@ -147,10 +162,10 @@ export default function DocumentUploadField({
                     displayError && 'border-red-300 bg-red-50/40',
                 )}
             >
-                {value ? (
+                {hasSelection ? (
                     <div className="flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                        {previewUrl ? (
-                            <img src={previewUrl} alt={`${label} preview`} className="max-h-44 w-full max-w-sm rounded-lg object-contain shadow-sm" />
+                        {displayPreview ? (
+                            <img src={displayPreview} alt={`${label} preview`} className="max-h-44 w-full max-w-sm rounded-lg object-contain shadow-sm" />
                         ) : (
                             <div className="flex h-28 w-28 flex-col items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
                                 <FileText className="h-10 w-10 text-orange-500" />
@@ -158,20 +173,34 @@ export default function DocumentUploadField({
                             </div>
                         )}
                         <div className="max-w-sm text-center">
-                            <p className="truncate text-sm font-semibold text-gray-900">{value.name}</p>
-                            <p className="text-xs text-gray-500">{formatFileSize(value.size)}</p>
+                            <p className="truncate text-sm font-semibold text-gray-900">
+                                {value?.name ?? 'Current image'}
+                            </p>
+                            {value && <p className="text-xs text-gray-500">{formatFileSize(value.size)}</p>}
                         </div>
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                clearFile();
-                            }}
-                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                        >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Remove file
-                        </button>
+                        <div className="flex flex-wrap justify-center gap-2">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    inputRef.current?.click();
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                                Replace
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    clearFile();
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Remove
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <>
@@ -194,11 +223,11 @@ export default function DocumentUploadField({
                 />
             </div>
 
-            {value && (
+            {hasSelection && (
                 <div className="flex items-center gap-2">
                     <div className="overflow-hidden rounded-lg border-2 border-emerald-500 bg-white p-0.5 shadow-sm">
-                        {previewUrl ? (
-                            <img src={previewUrl} alt="" className="h-14 w-14 object-cover" />
+                        {displayPreview ? (
+                            <img src={displayPreview} alt="" className="h-14 w-14 object-cover" />
                         ) : (
                             <div className="flex h-14 w-14 items-center justify-center bg-gray-50">
                                 <FileText className="h-6 w-6 text-orange-500" />
@@ -206,7 +235,7 @@ export default function DocumentUploadField({
                         )}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-gray-800">{value.name}</p>
+                        <p className="truncate text-xs font-medium text-gray-800">{value?.name ?? 'Current image'}</p>
                         <p className="text-[11px] text-emerald-600">Selected — preview ready</p>
                     </div>
                 </div>

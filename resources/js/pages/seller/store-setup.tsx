@@ -2,6 +2,8 @@ import { Head } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, Check, LoaderCircle, Palette, ImageIcon, Store } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
+import DocumentUploadField from '@/components/forms/document-upload-field';
+import MultiImageUploadField from '@/components/forms/multi-image-upload-field';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +25,8 @@ const steps = [
     { id: 4, title: 'Launch', icon: Check },
 ];
 
+const imageAccept = 'image/jpeg,image/png,image/webp,image/gif';
+
 export default function StoreSetup({ customization: initial, presets, storeUrl, storeName }: StoreSetupProps) {
     const [step, setStep] = useState(1);
     const [settings, setSettings] = useState<StoreCustomizationSettings>(initial);
@@ -30,28 +34,57 @@ export default function StoreSetup({ customization: initial, presets, storeUrl, 
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [coverFile, setCoverFile] = useState<File | null>(null);
     const [heroFiles, setHeroFiles] = useState<File[]>([]);
+    const [removeLogo, setRemoveLogo] = useState(false);
+    const [removeCover, setRemoveCover] = useState(false);
+    const [removedHeroImages, setRemovedHeroImages] = useState<string[]>([]);
+
+    const draftFiles = () => ({
+        store_logo: logoFile,
+        cover_image: coverFile,
+        hero_images: heroFiles,
+    });
+
+    const draftRemoves = () => ({
+        remove_store_logo: removeLogo,
+        remove_cover_image: removeCover,
+        remove_hero_images: removedHeroImages,
+    });
+
+    const clearPendingFiles = () => {
+        setLogoFile(null);
+        setCoverFile(null);
+        setHeroFiles([]);
+        setRemoveLogo(false);
+        setRemoveCover(false);
+        setRemovedHeroImages([]);
+    };
 
     const saveAndNext = () => {
         setSaving(true);
-        submitStoreDraft(settings, { store_logo: logoFile, cover_image: coverFile, hero_images: heroFiles }, {}, {
+        submitStoreDraft(settings, draftFiles(), draftRemoves(), {
             onSuccess: () => {
                 setSaving(false);
-                setLogoFile(null);
-                setCoverFile(null);
-                setHeroFiles([]);
+                clearPendingFiles();
                 setStep((s) => Math.min(s + 1, 4));
             },
+            onError: () => setSaving(false),
         });
     };
 
     const finish = (e: FormEvent) => {
         e.preventDefault();
         setSaving(true);
-        submitStoreDraft(settings, { store_logo: logoFile, cover_image: coverFile, hero_images: heroFiles }, {}, {
+        submitStoreDraft(settings, draftFiles(), draftRemoves(), {
             onSuccess: () => {
                 completeStoreSetup();
             },
+            onError: () => setSaving(false),
         });
+    };
+
+    const skipToDashboard = () => {
+        setSaving(true);
+        completeStoreSetup({ onError: () => setSaving(false) });
     };
 
     const applyPreset = (key: string) => {
@@ -70,6 +103,14 @@ export default function StoreSetup({ customization: initial, presets, storeUrl, 
         }));
     };
 
+    const logoExistingUrl =
+        !removeLogo && settings.branding.store_logo ? productImageUrl(settings.branding.store_logo) : null;
+    const coverExistingUrl =
+        !removeCover && settings.branding.cover_image ? productImageUrl(settings.branding.cover_image) : null;
+    const heroExistingUrls = settings.hero.images
+        .filter((img) => !removedHeroImages.includes(img))
+        .map((img) => productImageUrl(img));
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
             <Head title="Set Up Your Store" />
@@ -77,6 +118,7 @@ export default function StoreSetup({ customization: initial, presets, storeUrl, 
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900">Welcome to CityShop, {storeName}!</h1>
                     <p className="mt-2 text-gray-500">Customize your storefront before you start selling.</p>
+                    <p className="mt-1 text-xs text-gray-400">You can skip and customize later from your dashboard.</p>
                 </div>
 
                 <div className="mt-8 flex justify-center gap-2">
@@ -93,13 +135,21 @@ export default function StoreSetup({ customization: initial, presets, storeUrl, 
                     ))}
                 </div>
 
-                <form onSubmit={step === 4 ? finish : (e) => { e.preventDefault(); saveAndNext(); }} className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
+                <form
+                    onSubmit={step === 4 ? finish : (e) => { e.preventDefault(); saveAndNext(); }}
+                    className="mt-8 rounded-2xl bg-white p-6 shadow-sm"
+                >
                     {step === 1 && (
                         <div className="space-y-4">
                             <h2 className="text-lg font-semibold">Store branding</h2>
                             <div>
                                 <Label>Slogan</Label>
-                                <Input value={settings.branding.slogan} onChange={(e) => setSettings({ ...settings, branding: { ...settings.branding, slogan: e.target.value } })} className="mt-1" placeholder="Quality products, fast delivery" />
+                                <Input
+                                    value={settings.branding.slogan}
+                                    onChange={(e) => setSettings({ ...settings, branding: { ...settings.branding, slogan: e.target.value } })}
+                                    className="mt-1"
+                                    placeholder="Quality products, fast delivery"
+                                />
                             </div>
                             <div>
                                 <Label>Store description</Label>
@@ -113,12 +163,27 @@ export default function StoreSetup({ customization: initial, presets, storeUrl, 
                             </div>
                             <div>
                                 <Label>Business category</Label>
-                                <Input value={settings.branding.business_category} onChange={(e) => setSettings({ ...settings, branding: { ...settings.branding, business_category: e.target.value } })} className="mt-1" placeholder="Electronics, Fashion, etc." />
+                                <Input
+                                    value={settings.branding.business_category}
+                                    onChange={(e) => setSettings({ ...settings, branding: { ...settings.branding, business_category: e.target.value } })}
+                                    className="mt-1"
+                                    placeholder="Electronics, Fashion, etc."
+                                />
                             </div>
-                            <div>
-                                <Label>Store logo</Label>
-                                <Input type="file" accept="image/*" className="mt-1" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
-                            </div>
+                            <DocumentUploadField
+                                id="store_logo"
+                                label="Store logo"
+                                hint="Upload your store logo or brand mark"
+                                required={false}
+                                accept={imageAccept}
+                                value={logoFile}
+                                existingUrl={logoExistingUrl}
+                                onChange={(file) => {
+                                    setLogoFile(file);
+                                    if (file) setRemoveLogo(false);
+                                }}
+                                onClearExisting={() => setRemoveLogo(true)}
+                            />
                         </div>
                     )}
 
@@ -169,16 +234,43 @@ export default function StoreSetup({ customization: initial, presets, storeUrl, 
                                     </button>
                                 ))}
                             </div>
-                            <div>
-                                <Label>Cover / banner image</Label>
-                                <Input type="file" accept="image/*" className="mt-1" onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)} />
-                            </div>
+                            <DocumentUploadField
+                                id="cover_image"
+                                label="Cover / banner image"
+                                hint="Upload a banner image for the top of your store"
+                                required={false}
+                                accept={imageAccept}
+                                value={coverFile}
+                                existingUrl={coverExistingUrl}
+                                onChange={(file) => {
+                                    setCoverFile(file);
+                                    if (file) setRemoveCover(false);
+                                }}
+                                onClearExisting={() => setRemoveCover(true)}
+                            />
                             {settings.hero.type === 'slideshow' && (
                                 <>
-                                    <div>
-                                        <Label>Slideshow images (up to 8)</Label>
-                                        <Input type="file" accept="image/*" multiple className="mt-1" onChange={(e) => setHeroFiles(Array.from(e.target.files ?? []))} />
-                                    </div>
+                                    <MultiImageUploadField
+                                        id="hero_images"
+                                        label="Slideshow images"
+                                        hint="Add photos for your storefront slideshow"
+                                        maxFiles={8}
+                                        value={heroFiles}
+                                        onChange={setHeroFiles}
+                                        existingUrls={heroExistingUrls}
+                                        onRemoveExisting={(url) => {
+                                            const path = settings.hero.images.find((img) => productImageUrl(img) === url);
+                                            if (!path) return;
+                                            setRemovedHeroImages((prev) => [...prev, path]);
+                                            setSettings({
+                                                ...settings,
+                                                hero: {
+                                                    ...settings.hero,
+                                                    images: settings.hero.images.filter((img) => img !== path),
+                                                },
+                                            });
+                                        }}
+                                    />
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
                                             <Label>Autoplay (seconds)</Label>
@@ -195,13 +287,6 @@ export default function StoreSetup({ customization: initial, presets, storeUrl, 
                                             </label>
                                         </div>
                                     </div>
-                                    {settings.hero.images.length > 0 && (
-                                        <div className="flex flex-wrap gap-2">
-                                            {settings.hero.images.map((img) => (
-                                                <img key={img} src={productImageUrl(img)} alt="" className="h-16 w-16 rounded-lg object-cover" />
-                                            ))}
-                                        </div>
-                                    )}
                                 </>
                             )}
                         </div>
@@ -221,15 +306,27 @@ export default function StoreSetup({ customization: initial, presets, storeUrl, 
                         </div>
                     )}
 
-                    <div className="mt-8 flex justify-between">
+                    <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <Button type="button" variant="outline" disabled={step === 1 || saving} onClick={() => setStep((s) => s - 1)}>
                             <ArrowLeft className="mr-1 h-4 w-4" /> Back
                         </Button>
-                        <Button type="submit" disabled={saving} className="bg-orange-500 hover:bg-orange-600">
-                            {saving && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                            {step === 4 ? 'Publish & Start Selling' : 'Save & Continue'}
-                            {step < 4 && <ArrowRight className="ml-1 h-4 w-4" />}
-                        </Button>
+
+                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                disabled={saving}
+                                onClick={skipToDashboard}
+                                className="text-gray-600 hover:text-orange-600"
+                            >
+                                Skip for now
+                            </Button>
+                            <Button type="submit" disabled={saving} className="bg-orange-500 hover:bg-orange-600">
+                                {saving && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                {step === 4 ? 'Publish & Start Selling' : 'Save & Continue'}
+                                {step < 4 && <ArrowRight className="ml-1 h-4 w-4" />}
+                            </Button>
+                        </div>
                     </div>
                 </form>
             </div>
