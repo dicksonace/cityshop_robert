@@ -66,8 +66,8 @@ class HomeController extends Controller
         };
 
         $sort = $request->get('sort', $search !== '' ? 'relevance' : 'recommended');
-        $randomSeed = $this->discovery->resolveRandomSeed($request);
-        $this->discovery->applySort($query, $sort, $randomSeed);
+        $rankingSeed = $this->discovery->resolveRandomSeed($request);
+        $this->discovery->applySort($query, $sort, $rankingSeed, $request->user());
 
         $products = $query->paginate(12)->withQueryString();
 
@@ -108,7 +108,7 @@ class HomeController extends Controller
                 'in_ghana' => $request->boolean('in_ghana'),
                 'free_ship' => $request->boolean('free_ship'),
                 'sort' => $sort,
-                'seed' => $randomSeed ?? $request->get('seed', ''),
+                'seed' => $rankingSeed ?? $request->get('seed', ''),
             ],
             'counts' => [
                 'in_ghana' => Product::visibleInShop()->where('in_ghana', true)->count(),

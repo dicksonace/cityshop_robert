@@ -33,7 +33,8 @@ class SearchController extends Controller
         }
 
         $sort = $search ? ($request->get('sort', 'relevance')) : $request->get('sort', 'recommended');
-        $this->discovery->applySort($query, $sort);
+        $rankingSeed = $this->discovery->resolveRandomSeed($request);
+        $this->discovery->applySort($query, $sort, $rankingSeed, $request->user());
 
         $products = $query->paginate(24)->withQueryString();
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Review;
 use App\Services\ProductAnalyticsService;
+use App\Services\ProductDiscoveryService;
 use App\Services\ReviewService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,7 +14,10 @@ use Inertia\Response;
 
 class ProductController extends Controller
 {
-    public function __construct(private ProductAnalyticsService $analytics) {}
+    public function __construct(
+        private ProductAnalyticsService $analytics,
+        private ProductDiscoveryService $discovery,
+    ) {}
 
     public function show(Request $request, string $slug): Response
     {
@@ -47,6 +51,13 @@ class ProductController extends Controller
         if ($product->category_id) {
             $relatedQuery->where('category_id', $product->category_id);
         }
+
+        $this->discovery->applySort(
+            $relatedQuery,
+            'recommended',
+            $this->discovery->explorationSeed(),
+            $request->user(),
+        );
 
         $related = $relatedQuery->limit(4)->get();
 
