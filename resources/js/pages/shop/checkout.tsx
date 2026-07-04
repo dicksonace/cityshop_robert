@@ -1,4 +1,4 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
-import { CartItem, formatPrice, productImageUrl } from '@/types/marketplace';
+import { CartItem, formatPrice, productImageUrl, Wallet } from '@/types/marketplace';
 import { User } from '@/types';
 
 interface SellerPaymentMethod {
@@ -36,9 +36,10 @@ interface CheckoutProps {
     sellerGroups: SellerGroup[];
     subtotal: number;
     user: User;
+    wallet: Wallet;
 }
 
-export default function Checkout({ sellerGroups, subtotal, user }: CheckoutProps) {
+export default function Checkout({ sellerGroups, subtotal, user, wallet }: CheckoutProps) {
     const initialSellerPayments: Record<string, { channel: string; method_id?: number }> = {};
     sellerGroups.forEach((group) => {
         if (group.accept_direct_payments && !group.accept_marketplace_payments) {
@@ -74,6 +75,17 @@ export default function Checkout({ sellerGroups, subtotal, user }: CheckoutProps
         e.preventDefault();
         post(route('checkout.store'));
     };
+
+    const marketplaceTotal = sellerGroups.reduce((sum, group) => {
+        const choice = data.seller_payments[String(group.seller_id)] ?? { channel: 'marketplace' };
+        const usesMarketplace = choice.channel === 'marketplace' && group.accept_marketplace_payments;
+        return usesMarketplace ? sum + group.subtotal : sum;
+    }, 0);
+
+    const hasMarketplaceOrders = marketplaceTotal > 0;
+    const walletBalance = Number(wallet.available_balance);
+    const walletCoversMarketplace = walletBalance >= marketplaceTotal;
+    const canUseWallet = hasMarketplaceOrders && walletCoversMarketplace;
 
     return (
         <ShopLayout>
@@ -117,12 +129,42 @@ export default function Checkout({ sellerGroups, subtotal, user }: CheckoutProps
                         </div>
 
                         <div className="rounded-xl bg-white p-6 shadow-sm">
-                            <h2 className="font-semibold text-gray-900">Platform payment (Paystack)</h2>
-                            <p className="mt-1 text-sm text-gray-500">For sellers using CityShop payments.</p>
+                            <h2 className="font-semibold text-gray-900">Payment</h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Pay with your wallet or via Paystack. Direct seller payments stay on the next step.
+                            </p>
                             <div className="mt-3 space-y-2">
+                                {hasMarketplaceOrders && (
+                                    <label className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 hover:bg-gray-50 ${!canUseWallet ? 'opacity-70' : ''}`}>
+                                        <input
+                                            type="radio"
+                                            name="payment_method"
+                                            value="wallet"
+                                            checked={data.payment_method === 'wallet'}
+                                            onChange={() => setData('payment_method', 'wallet')}
+                                            disabled={!canUseWallet}
+                                            className="mt-1"
+                                        />
+                                        <div className="flex-1">
+                                            <span className="font-medium">My Wallet</span>
+                                            <p className="text-sm text-gray-500">
+                                                Balance: {formatPrice(walletBalance)}
+                                                {marketplaceTotal > 0 && (
+                                                    <> · CityShop portion: {formatPrice(marketplaceTotal)}</>
+                                                )}
+                                            </p>
+                                            {!walletCoversMarketplace && (
+                                                <p className="mt-1 text-xs text-amber-600">
+                                                    Insufficient balance.{' '}
+                                                    <Link href={route('wallet.index')} className="underline">Add funds</Link>
+                                                </p>
+                                            )}
+                                        </div>
+                                    </label>
+                                )}
                                 {[
-                                    { value: 'momo', label: 'MTN MoMo' },
-                                    { value: 'card', label: 'Visa / Mastercard' },
+                                    { value: 'momo', label: 'MTN MoMo (Paystack)' },
+                                    { value: 'card', label: 'Visa / Mastercard (Paystack)' },
                                     { value: 'cash', label: 'Cash on Delivery' },
                                 ].map((method) => (
                                     <label key={method.value} className="flex cursor-pointer items-center gap-2 rounded-lg border p-3 hover:bg-gray-50">
@@ -131,6 +173,7 @@ export default function Checkout({ sellerGroups, subtotal, user }: CheckoutProps
                                     </label>
                                 ))}
                             </div>
+                            <InputError message={errors.payment_method} />
                         </div>
                     </div>
 
@@ -156,7 +199,9 @@ export default function Checkout({ sellerGroups, subtotal, user }: CheckoutProps
                                         ))}
                                     </div>
 
-                                    {(group.accept_marketplace_payments || group.accept_direct_payments) && data.payment_method !== 'cash' && (
+                                    {data.payment_method !== 'cash' &&
+                                        (data.payment_method !== 'wallet' || group.accept_direct_payments) &&
+                                        (group.accept_marketplace_payments || group.accept_direct_payments) && (
                                         <div className="mt-4 border-t pt-4">
                                             <p className="text-sm font-medium text-gray-700">How to pay this seller</p>
                                             <div className="mt-2 space-y-2">
@@ -213,7 +258,11 @@ export default function Checkout({ sellerGroups, subtotal, user }: CheckoutProps
                             </div>
                             <Button type="submit" disabled={processing} className="mt-6 w-full bg-orange-500 py-6 hover:bg-orange-600">
                                 {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                {data.payment_method === 'cash' ? 'Place Order' : 'Continue to Payment'}
+                                {data.payment_method === 'cash'
+                                    ? 'Place Order'
+                                    : data.payment_method === 'wallet'
+                                      ? 'Pay with Wallet'
+                                      : 'Continue to Payment'}
                             </Button>
                         </div>
                     </div>

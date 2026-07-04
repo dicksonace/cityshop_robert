@@ -23,6 +23,9 @@ class OrderItem extends Model
         'rejection_reason',
         'courier_name',
         'tracking_number',
+        'vehicle_number',
+        'driver_phone',
+        'package_image',
     ];
 
     protected function casts(): array

@@ -9,6 +9,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Dispute;
 use App\Models\Wallet;
 use App\Notifications\DisputeResolvedNotification;
+use App\Services\WalletService;
+use App\Services\WalletTransactionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -32,6 +34,15 @@ class DisputeController extends Controller
         ]);
     }
 
+    public function review(Request $request, Dispute $dispute): RedirectResponse
+    {
+        abort_unless($dispute->status === DisputeStatus::Open, 422);
+
+        $dispute->update(['status' => DisputeStatus::UnderReview]);
+
+        return back()->with('success', 'Refund request marked as under review.');
+    }
+
     public function resolve(Request $request, Dispute $dispute): RedirectResponse
     {
         $validated = $request->validate([
@@ -49,11 +60,20 @@ class DisputeController extends Controller
         $item = $dispute->orderItem;
 
         if ($validated['resolution'] === 'resolved_buyer') {
-            $wallet = Wallet::where('user_id', $item->seller_id)->first();
-            if ($wallet) {
-                $amount = (float) $item->seller_amount;
-                $wallet->decrement('pending_balance', min($amount, (float) $wallet->pending_balance));
+            $refundAmount = $item->lineTotal();
+            $buyerWallet = WalletService::ensure($dispute->buyer);
+            $buyerWallet->increment('available_balance', $refundAmount);
+            WalletTransactionService::recordOrderRefund($item, $refundAmount);
+
+            $sellerWallet = Wallet::where('user_id', $item->seller_id)->first();
+            if ($sellerWallet) {
+                $sellerAmount = (float) $item->seller_amount;
+                $sellerWallet->decrement('pending_balance', min($sellerAmount, (float) $sellerWallet->pending_balance));
+                $sellerWallet->decrement('available_balance', min($sellerAmount, (float) $sellerWallet->available_balance));
+                $sellerWallet->decrement('total_earnings', min($sellerAmount, (float) $sellerWallet->total_earnings));
             }
+            WalletTransactionService::recordSaleReversed($item);
+
             $item->update(['status' => OrderStatus::Refunded]);
             $dispute->order->update(['payment_status' => PaymentStatus::Refunded]);
         }
@@ -72,6 +92,6 @@ class DisputeController extends Controller
         $dispute->buyer->notify(new DisputeResolvedNotification($dispute));
         $dispute->seller->notify(new DisputeResolvedNotification($dispute));
 
-        return back()->with('success', 'Dispute resolved.');
+        return back()->with('success', 'Refund request resolved.');
     }
 }

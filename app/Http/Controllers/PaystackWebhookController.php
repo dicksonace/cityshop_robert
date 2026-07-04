@@ -6,6 +6,7 @@ use App\Models\Checkout;
 use App\Models\Order;
 use App\Services\OrderService;
 use App\Services\PaystackService;
+use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,6 +32,20 @@ class PaystackWebhookController extends Controller
 
         if ($event === 'charge.success' && $data) {
             try {
+                $metadata = $data['metadata'] ?? [];
+
+                if (($metadata['type'] ?? '') === 'wallet_topup') {
+                    $userId = (int) ($metadata['user_id'] ?? 0);
+                    $amount = round(((int) ($data['amount'] ?? 0)) / 100, 2);
+                    $method = (string) ($metadata['method'] ?? 'momo');
+
+                    if ($userId > 0 && $amount > 0) {
+                        WalletService::creditFromVerifiedTopUp($userId, $amount, $data['reference'], $method);
+                    }
+
+                    return response('OK', 200);
+                }
+
                 $checkoutId = $data['metadata']['checkout_id'] ?? null;
 
                 if ($checkoutId) {

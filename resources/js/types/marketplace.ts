@@ -108,6 +108,7 @@ export const walletTransactionLabels: Record<string, string> = {
     withdrawal_completed: 'Payout Sent',
     withdrawal_refunded: 'Withdrawal Refunded',
     fund_added: 'Funds Added',
+    order_payment: 'Order Payment',
     order_refund: 'Order Refund',
     sale_reversed: 'Sale Reversed',
 };
@@ -144,6 +145,9 @@ export interface OrderItem {
     rejection_reason?: string | null;
     courier_name?: string;
     tracking_number?: string;
+    vehicle_number?: string | null;
+    driver_phone?: string | null;
+    package_image?: string | null;
     product?: Product;
     order?: Order;
 }

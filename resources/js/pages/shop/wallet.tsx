@@ -18,6 +18,8 @@ import {
 interface BuyerWalletProps {
     wallet: Wallet;
     transactions: Paginated<WalletTransaction>;
+    paystackConfigured: boolean;
+    paystackPublicKey: string;
 }
 
 function formatDate(value?: string): string {
@@ -31,7 +33,7 @@ function formatDate(value?: string): string {
     });
 }
 
-export default function BuyerWallet({ wallet, transactions }: BuyerWalletProps) {
+export default function BuyerWallet({ wallet, transactions, paystackConfigured }: BuyerWalletProps) {
     const addFundsForm = useForm({ amount: '', method: 'momo' });
     const withdrawForm = useForm({
         amount: '',
@@ -60,20 +62,20 @@ export default function BuyerWallet({ wallet, transactions }: BuyerWalletProps) 
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">My Wallet</h1>
-                        <p className="text-sm text-gray-500">Add funds, withdraw, and view refunds from cancelled orders.</p>
+                        <p className="text-sm text-gray-500">Add funds, pay for orders, withdraw, and view refunds.</p>
                     </div>
                 </div>
 
                 <div className="mb-8 rounded-2xl bg-gradient-to-r from-slate-900 via-blue-900 to-orange-900 p-6 text-white shadow-lg">
                     <p className="text-sm text-white/70">Available balance</p>
                     <p className="mt-1 text-4xl font-bold">{formatPrice(wallet.available_balance)}</p>
-                    <p className="mt-2 text-xs text-white/60">Refunds from rejected orders are credited here automatically.</p>
+                    <p className="mt-2 text-xs text-white/60">Use your balance at checkout or withdraw to MoMo. Refunds are credited here.</p>
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-2">
                     <form onSubmit={submitAddFunds} className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
                         <h3 className="font-semibold text-gray-900">Add Funds</h3>
-                        <p className="mt-1 text-sm text-gray-500">Top up your wallet via MoMo or card.</p>
+                        <p className="mt-1 text-sm text-gray-500">Top up via Paystack (MoMo or card), pay for orders, or withdraw to MoMo.</p>
                         <div className="mt-4 space-y-3">
                             <div>
                                 <Label>Amount (GH₵)</Label>
@@ -99,10 +101,13 @@ export default function BuyerWallet({ wallet, transactions }: BuyerWalletProps) 
                                     <option value="card">Card</option>
                                 </select>
                             </div>
-                            <Button type="submit" disabled={addFundsForm.processing} className="w-full bg-green-600 hover:bg-green-700">
+                            <Button type="submit" disabled={addFundsForm.processing || !paystackConfigured} className="w-full bg-green-600 hover:bg-green-700">
                                 {addFundsForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                Add Funds
+                                {paystackConfigured ? 'Pay to Add Funds' : 'Top-up unavailable'}
                             </Button>
+                            {!paystackConfigured && (
+                                <p className="text-xs text-amber-600">Online top-up requires Paystack to be configured.</p>
+                            )}
                         </div>
                     </form>
 

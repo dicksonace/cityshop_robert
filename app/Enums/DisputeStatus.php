@@ -9,4 +9,5 @@ enum DisputeStatus: string
     case ResolvedBuyer = 'resolved_buyer';
     case ResolvedSeller = 'resolved_seller';
     case Closed = 'closed';
+    case Cancelled = 'cancelled';
 }

@@ -16,11 +16,13 @@ use App\Models\Product;
 use App\Models\SellerPaymentMethod;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Notifications\OrderPlacedNotification;
 use App\Notifications\OrderStatusUpdatedNotification;
 use App\Notifications\PaymentConfirmedNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class OrderService
 {
@@ -235,6 +237,55 @@ class OrderService
         });
     }
 
+    public function payCheckoutWithWallet(Checkout $checkout, User $buyer): Checkout
+    {
+        abort_unless($checkout->buyer_id === $buyer->id, 403);
+
+        if ($checkout->payment_status === PaymentStatus::Paid) {
+            return $checkout;
+        }
+
+        $checkout->load('orders');
+
+        $marketplaceTotal = (float) $checkout->orders
+            ->where('payment_channel', PaymentChannel::Marketplace)
+            ->sum('total');
+
+        if ($marketplaceTotal <= 0) {
+            throw ValidationException::withMessages([
+                'payment_method' => 'Wallet payment only applies to CityShop marketplace orders.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($checkout, $buyer, $marketplaceTotal) {
+            $wallet = Wallet::where('user_id', $buyer->id)->lockForUpdate()->first()
+                ?? WalletService::ensure($buyer);
+
+            if ((float) $wallet->available_balance < $marketplaceTotal) {
+                throw ValidationException::withMessages([
+                    'payment_method' => 'Insufficient wallet balance. Add funds or choose another payment method.',
+                ]);
+            }
+
+            $reference = 'WAL-'.$checkout->checkout_number;
+
+            if (WalletTransaction::where('reference', $reference)->exists()) {
+                return $this->fulfillPaidCheckout($checkout, $reference);
+            }
+
+            $wallet->decrement('available_balance', $marketplaceTotal);
+
+            WalletTransactionService::recordOrderPayment(
+                $buyer->id,
+                $marketplaceTotal,
+                $checkout->checkout_number,
+                $reference,
+            );
+
+            return $this->fulfillPaidCheckout($checkout, $reference);
+        });
+    }
+
     public function fulfillPaidOrder(Order $order, string $paystackReference, bool $skipCheckoutUpdate = false, bool $skipBuyerNotify = false): Order
     {
         if ($order->payment_status === PaymentStatus::Paid) {
@@ -444,7 +495,11 @@ class OrderService
     public function updateOrderItemStatus(OrderItem $item, array $data): OrderItem
     {
         $previousStatus = $item->status->value;
-        $item->update($data);
+
+        $allowed = ['status', 'vehicle_number', 'driver_phone', 'package_image'];
+        $payload = array_intersect_key($data, array_flip($allowed));
+
+        $item->update($payload);
 
         if ($data['status'] === 'shipped' && $previousStatus !== 'shipped') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'shipped'));

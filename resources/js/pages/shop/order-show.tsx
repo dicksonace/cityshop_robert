@@ -1,14 +1,14 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangle, Star } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ShopLayout from '@/layouts/shop-layout';
-import { formatPrice, formatOrderStatus, Order, OrderItem } from '@/types/marketplace';
+import { formatPrice, formatOrderStatus, Order, OrderItem, productImageUrl } from '@/types/marketplace';
 
 interface OrderShowProps {
-    order: Order & { items?: (OrderItem & { dispute?: { id: number; status: string; reason: string } })[] };
+    order: Order & { items?: (OrderItem & { dispute?: { id: number; status: string; reason: string; description?: string } })[] };
     reviews: Record<number, { rating: number; comment?: string }>;
 }
 
@@ -54,7 +54,7 @@ function ReviewForm({ orderId, item }: { orderId: number; item: OrderItem }) {
     );
 }
 
-function DisputeForm({ orderId, item }: { orderId: number; item: OrderItem }) {
+function RefundRequestForm({ orderId, item }: { orderId: number; item: OrderItem }) {
     const [open, setOpen] = useState(false);
     const { data, setData, post, processing } = useForm({
         order_item_id: item.id,
@@ -71,14 +71,15 @@ function DisputeForm({ orderId, item }: { orderId: number; item: OrderItem }) {
         return (
             <button type="button" onClick={() => setOpen(true)} className="mt-2 flex items-center gap-1 text-sm text-red-500 hover:underline">
                 <AlertTriangle className="h-4 w-4" />
-                Open Dispute
+                Request refund
             </button>
         );
     }
 
     return (
         <form onSubmit={submit} className="mt-3 rounded-lg border border-red-100 bg-red-50 p-4">
-            <p className="text-sm font-medium text-gray-900">Open a dispute</p>
+            <p className="text-sm font-medium text-gray-900">Request a refund</p>
+            <p className="mt-1 text-xs text-gray-500">Admin will review before any refund is approved. You can cancel while it is pending.</p>
             <select
                 value={data.reason}
                 onChange={(e) => setData('reason', e.target.value)}
@@ -90,17 +91,40 @@ function DisputeForm({ orderId, item }: { orderId: number; item: OrderItem }) {
             </select>
             <textarea
                 required
-                placeholder="Describe the issue..."
+                placeholder="Explain why you need a refund..."
                 value={data.description}
                 onChange={(e) => setData('description', e.target.value)}
                 className="mt-2 w-full rounded-md border px-3 py-2 text-sm"
                 rows={3}
             />
             <div className="mt-2 flex gap-2">
-                <Button type="submit" size="sm" variant="destructive" disabled={processing}>Submit Dispute</Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button type="submit" size="sm" variant="destructive" disabled={processing}>Submit request</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>Close</Button>
             </div>
         </form>
+    );
+}
+
+function RefundStatus({ dispute }: { dispute: { id: number; status: string; reason: string; description?: string } }) {
+    const canCancel = ['open', 'under_review'].includes(dispute.status);
+
+    return (
+        <div className="mt-2 rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm">
+            <p className="font-medium text-amber-900 capitalize">Refund: {dispute.status.replace(/_/g, ' ')}</p>
+            <p className="text-amber-800 capitalize">{dispute.reason.replace(/_/g, ' ')}</p>
+            {dispute.description && <p className="mt-1 text-amber-700">{dispute.description}</p>}
+            {canCancel && (
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-2"
+                    onClick={() => router.post(route('disputes.cancel', dispute.id))}
+                >
+                    Cancel refund request
+                </Button>
+            )}
+        </div>
     );
 }
 
@@ -158,15 +182,25 @@ export default function OrderShow({ order, reviews }: OrderShowProps) {
                                     <div>
                                         <span className="font-medium">{item.product_name} x {item.quantity}</span>
                                         <p className="text-xs text-gray-500">Status: {formatOrderStatus(item.status)}</p>
-                                        {item.tracking_number && (
-                                            <p className="text-xs text-gray-500">{item.courier_name}: {item.tracking_number}</p>
+                                        {(item.vehicle_number || item.driver_phone) && (
+                                            <p className="mt-1 text-xs text-gray-600">
+                                                Driver: {item.driver_phone}
+                                                {item.vehicle_number ? ` · Vehicle ${item.vehicle_number}` : ''}
+                                            </p>
+                                        )}
+                                        {item.package_image && (
+                                            <img
+                                                src={productImageUrl(item.package_image)}
+                                                alt="Package"
+                                                className="mt-2 h-20 w-20 rounded-lg border object-cover"
+                                            />
                                         )}
                                     </div>
                                     <span className="font-medium">{formatPrice(item.unit_price * item.quantity)}</span>
                                 </div>
 
-                                {item.dispute && (
-                                    <p className="mt-2 text-xs text-red-600">Dispute: {item.dispute.reason} ({item.dispute.status})</p>
+                                {item.dispute && item.dispute.status !== 'cancelled' && (
+                                    <RefundStatus dispute={item.dispute} />
                                 )}
 
                                 {item.status === 'delivered' && !reviews[item.product_id ?? 0] && (
@@ -180,8 +214,8 @@ export default function OrderShow({ order, reviews }: OrderShowProps) {
                                     </p>
                                 )}
 
-                                {['shipped', 'delivered'].includes(item.status) && !item.dispute && (
-                                    <DisputeForm orderId={order.id} item={item} />
+                                {['shipped', 'delivered'].includes(item.status) && (!item.dispute || item.dispute.status === 'cancelled') && (
+                                    <RefundRequestForm orderId={order.id} item={item} />
                                 )}
                             </div>
                         ))}

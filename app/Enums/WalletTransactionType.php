@@ -10,6 +10,7 @@ enum WalletTransactionType: string
     case WithdrawalCompleted = 'withdrawal_completed';
     case WithdrawalRefunded = 'withdrawal_refunded';
     case FundAdded = 'fund_added';
+    case OrderPayment = 'order_payment';
     case OrderRefund = 'order_refund';
     case SaleReversed = 'sale_reversed';
 }

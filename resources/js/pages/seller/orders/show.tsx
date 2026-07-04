@@ -1,10 +1,19 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { FormEventHandler } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import SellerLayout from '@/layouts/seller-layout';
 import { formatPrice, formatOrderStatus, OrderItem, productImageUrl } from '@/types/marketplace';
+
+interface DisputeInfo {
+    id: number;
+    reason: string;
+    description: string;
+    status: string;
+    resolution_notes?: string | null;
+}
 
 interface OrderShowProps {
     orderItem: OrderItem & {
@@ -23,6 +32,7 @@ interface OrderShowProps {
             buyer?: { name: string; email: string; mobile?: string };
         };
         product?: { images?: { path: string }[] };
+        dispute?: DisputeInfo | null;
     };
 }
 
@@ -31,21 +41,55 @@ const nextStatuses = ['processing', 'packed', 'shipped', 'delivered'] as const;
 export default function SellerOrderShow({ orderItem }: OrderShowProps) {
     const form = useForm({
         status: orderItem.status,
-        courier_name: orderItem.courier_name ?? '',
-        tracking_number: orderItem.tracking_number ?? '',
+        vehicle_number: orderItem.vehicle_number ?? '',
+        driver_phone: orderItem.driver_phone ?? '',
+        package_image: null as File | null,
     });
 
     const image = orderItem.product?.images?.[0];
     const order = orderItem.order;
+    const dispute = orderItem.dispute;
+
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        form.post(route('seller.orders.update', orderItem.id), {
+            forceFormData: true,
+            preserveScroll: true,
+            onBefore: () => {
+                form.transform((data) => ({ ...data, _method: 'patch' }));
+            },
+            onFinish: () => form.setData('package_image', null),
+        });
+    };
 
     const updateStatus = (status: string) => {
-        router.patch(route('seller.orders.update', orderItem.id), { status, courier_name: form.data.courier_name, tracking_number: form.data.tracking_number });
+        if (status === 'shipped' && (!form.data.vehicle_number.trim() || !form.data.driver_phone.trim())) {
+            form.setError('vehicle_number', 'Add vehicle number and driver phone before marking shipped.');
+            return;
+        }
+        router.patch(route('seller.orders.update', orderItem.id), {
+            status,
+            vehicle_number: form.data.vehicle_number,
+            driver_phone: form.data.driver_phone,
+        }, { preserveScroll: true });
     };
 
     return (
         <SellerLayout title={`Order ${order.order_number}`} active="orders">
             <Head title={`Order ${order.order_number}`} />
             <Link href={route('seller.orders.index')} className="mb-4 inline-block text-sm text-orange-500 hover:underline">← Back to orders</Link>
+
+            {dispute && !['cancelled', 'closed'].includes(dispute.status) && (
+                <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-4">
+                    <p className="font-semibold text-red-800">Refund request from buyer</p>
+                    <p className="mt-1 text-sm text-red-700 capitalize">{dispute.reason.replace(/_/g, ' ')} · {dispute.status.replace(/_/g, ' ')}</p>
+                    <p className="mt-2 text-sm text-red-600">{dispute.description}</p>
+                    <p className="mt-2 text-xs text-red-500">Admin reviews refund requests before money is returned.</p>
+                    <Link href={route('seller.refunds.index')} className="mt-2 inline-block text-sm font-medium text-red-700 hover:underline">
+                        View all refund requests →
+                    </Link>
+                </div>
+            )}
 
             <div className="grid gap-6 lg:grid-cols-3">
                 <div className="lg:col-span-2 space-y-6">
@@ -75,26 +119,61 @@ export default function SellerOrderShow({ orderItem }: OrderShowProps) {
                                     variant={orderItem.status === s ? 'default' : 'outline'}
                                     className={orderItem.status === s ? 'bg-orange-500' : ''}
                                     onClick={() => updateStatus(s)}
-                                    disabled={orderItem.status === 'cancelled' || orderItem.status === 'delivered'}
+                                    disabled={orderItem.status === 'cancelled' || orderItem.status === 'delivered' || orderItem.status === 'refunded'}
                                 >
                                     {formatOrderStatus(s)}
                                 </Button>
                             ))}
                         </div>
 
-                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                        <form onSubmit={submit} className="mt-6 space-y-4 border-t border-gray-100 pt-4">
                             <div>
-                                <Label>Courier</Label>
-                                <Input value={form.data.courier_name} onChange={(e) => form.setData('courier_name', e.target.value)} className="mt-1" placeholder="e.g. Speedaf" />
+                                <h4 className="text-sm font-semibold text-gray-900">Your delivery details</h4>
+                                <p className="text-xs text-gray-500">CityShop has no delivery fleet — add your driver and vehicle info when sending the order.</p>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <Label>Vehicle / car number</Label>
+                                    <Input
+                                        value={form.data.vehicle_number}
+                                        onChange={(e) => form.setData('vehicle_number', e.target.value)}
+                                        className="mt-1"
+                                        placeholder="e.g. GR 1234-20"
+                                        required={form.data.status === 'shipped'}
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Driver phone</Label>
+                                    <Input
+                                        value={form.data.driver_phone}
+                                        onChange={(e) => form.setData('driver_phone', e.target.value)}
+                                        className="mt-1"
+                                        placeholder="e.g. 024 000 0000"
+                                        required={form.data.status === 'shipped'}
+                                    />
+                                </div>
                             </div>
                             <div>
-                                <Label>Tracking number</Label>
-                                <Input value={form.data.tracking_number} onChange={(e) => form.setData('tracking_number', e.target.value)} className="mt-1" />
+                                <Label>Package photo</Label>
+                                {orderItem.package_image && (
+                                    <img
+                                        src={productImageUrl(orderItem.package_image)}
+                                        alt="Package"
+                                        className="mt-2 h-32 w-32 rounded-lg border object-cover"
+                                    />
+                                )}
+                                <Input
+                                    type="file"
+                                    accept="image/*"
+                                    className="mt-2"
+                                    onChange={(e) => form.setData('package_image', e.target.files?.[0] ?? null)}
+                                />
+                                <p className="mt-1 text-xs text-gray-400">Photo of packed order before dispatch (optional but recommended).</p>
                             </div>
-                        </div>
-                        <Button type="button" className="mt-3 bg-orange-500 hover:bg-orange-600" onClick={() => updateStatus(form.data.status)}>
-                            Save tracking info
-                        </Button>
+                            <Button type="submit" disabled={form.processing} className="bg-orange-500 hover:bg-orange-600">
+                                Save delivery info
+                            </Button>
+                        </form>
                     </div>
                 </div>
 

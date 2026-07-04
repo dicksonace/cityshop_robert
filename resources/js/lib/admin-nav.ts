@@ -110,8 +110,8 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
             icon: MessageSquare,
             defaultOpen: section === 'support',
             items: [
-                { key: 'disputes-open', label: 'Disputes', href: route('admin.disputes.index', { status: 'open' }), badgeKey: 'open_disputes', defaultOnPath: true },
-                { key: 'disputes-all', label: 'All Disputes', href: route('admin.disputes.index', { status: 'all' }) },
+                { key: 'disputes-open', label: 'Refund requests', href: route('admin.disputes.index', { status: 'open' }), badgeKey: 'open_disputes', defaultOnPath: true },
+                { key: 'disputes-all', label: 'All refund requests', href: route('admin.disputes.index', { status: 'all' }) },
                 { key: 'chats', label: 'Buyer–Seller Chats', href: route('admin.chats.index') },
                 { key: 'seller-reports', label: 'Seller Reports', href: route('admin.seller-reports.index'), badgeKey: 'open_seller_reports' },
                 { key: 'messages', label: 'Contact Messages', href: route('admin.contact-messages.index'), badgeKey: 'unread_messages' },

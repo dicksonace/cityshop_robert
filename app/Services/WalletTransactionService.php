@@ -80,14 +80,25 @@ class WalletTransactionService
         );
     }
 
-    public static function recordFundAdded(int $userId, float $amount, string $method): void
+    public static function recordFundAdded(int $userId, float $amount, string $method, ?string $reference = null): void
     {
         static::record(
             userId: $userId,
             type: WalletTransactionType::FundAdded,
             amount: $amount,
             description: "Funds added via {$method}",
-            reference: 'TOP-'.now()->format('YmdHis'),
+            reference: $reference ?? 'TOP-'.now()->format('YmdHis'),
+        );
+    }
+
+    public static function recordOrderPayment(int $userId, float $amount, string $checkoutNumber, string $reference): void
+    {
+        static::record(
+            userId: $userId,
+            type: WalletTransactionType::OrderPayment,
+            amount: -1 * $amount,
+            description: "Order payment (Checkout {$checkoutNumber})",
+            reference: $reference,
         );
     }
 
@@ -201,6 +212,7 @@ class WalletTransactionService
             WalletTransactionType::WithdrawalCompleted => 'Payout Sent',
             WalletTransactionType::WithdrawalRefunded => 'Withdrawal Refunded',
             WalletTransactionType::FundAdded => 'Funds Added',
+            WalletTransactionType::OrderPayment => 'Order Payment',
             WalletTransactionType::OrderRefund => 'Order Refund',
             WalletTransactionType::SaleReversed => 'Sale Reversed',
         };

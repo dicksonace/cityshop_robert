@@ -21,7 +21,7 @@ class PaystackService
         return ! empty($this->secretKey) && ! empty(config('services.paystack.public_key'));
     }
 
-    public function initializeTransaction(string $email, float $amountGhs, string $reference, array $metadata = []): array
+    public function initializeTransaction(string $email, float $amountGhs, string $reference, array $metadata = [], ?string $callbackUrl = null): array
     {
         $response = Http::withToken($this->secretKey)
             ->post("{$this->baseUrl}/transaction/initialize", [
@@ -29,7 +29,7 @@ class PaystackService
                 'amount' => (int) round($amountGhs * 100),
                 'currency' => 'GHS',
                 'reference' => $reference,
-                'callback_url' => route('checkout.callback'),
+                'callback_url' => $callbackUrl ?? route('checkout.callback'),
                 'metadata' => $metadata,
             ]);
 

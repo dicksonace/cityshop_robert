@@ -57,6 +57,7 @@ class OrderController extends Controller
             'order.buyer',
             'order.checkout',
             'product.images',
+            'dispute',
         ]);
 
         return Inertia::render('seller/orders/show', [
@@ -70,9 +71,27 @@ class OrderController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', 'in:processing,packed,shipped,delivered'],
-            'courier_name' => ['nullable', 'string', 'max:100'],
-            'tracking_number' => ['nullable', 'string', 'max:100'],
+            'vehicle_number' => ['nullable', 'string', 'max:50'],
+            'driver_phone' => ['nullable', 'string', 'max:30'],
+            'package_image' => ['nullable', 'image', 'max:5120'],
         ]);
+
+        $becomingShipped = $validated['status'] === 'shipped' && $orderItem->status !== OrderStatus::Shipped;
+
+        if ($becomingShipped) {
+            $request->validate([
+                'vehicle_number' => ['required', 'string', 'max:50'],
+                'driver_phone' => ['required', 'string', 'max:30'],
+            ]);
+            $validated['vehicle_number'] = $request->string('vehicle_number')->toString();
+            $validated['driver_phone'] = $request->string('driver_phone')->toString();
+        }
+
+        if ($request->hasFile('package_image')) {
+            $validated['package_image'] = $request->file('package_image')->store('order-packages', 'public');
+        } else {
+            unset($validated['package_image']);
+        }
 
         try {
             $this->orderService->updateOrderItemStatus($orderItem, $validated);

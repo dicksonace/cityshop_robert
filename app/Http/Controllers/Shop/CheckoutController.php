@@ -9,6 +9,7 @@ use App\Models\Checkout;
 use App\Models\Order;
 use App\Services\OrderService;
 use App\Services\PaystackService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,7 @@ class CheckoutController extends Controller
             'sellerGroups' => $sellerGroups,
             'subtotal' => $subtotal,
             'user' => $request->user(),
+            'wallet' => WalletService::ensure($request->user()),
             'paystackPublicKey' => config('services.paystack.public_key'),
         ]);
     }
@@ -61,7 +63,7 @@ class CheckoutController extends Controller
             'city' => ['required', 'string', 'max:100'],
             'digital_address' => ['nullable', 'string', 'max:100'],
             'delivery_notes' => ['nullable', 'string', 'max:500'],
-            'payment_method' => ['required', 'in:momo,card,cash'],
+            'payment_method' => ['required', 'in:momo,card,cash,wallet'],
             'seller_payments' => ['nullable', 'array'],
             'seller_payments.*.channel' => ['required_with:seller_payments', 'in:marketplace,direct'],
             'seller_payments.*.method_id' => ['nullable', 'integer'],
@@ -88,6 +90,25 @@ class CheckoutController extends Controller
 
             return redirect()->route('checkouts.show', $checkout)
                 ->with('success', 'Order placed! Pay on delivery.');
+        }
+
+        if ($validated['payment_method'] === 'wallet') {
+            try {
+                $this->orderService->payCheckoutWithWallet($checkout, $request->user());
+            } catch (ValidationException $e) {
+                return back()->withErrors($e->errors())->withInput();
+            }
+
+            $hasDirect = $checkout->fresh('orders')->orders
+                ->contains(fn ($order) => $order->payment_channel === PaymentChannel::Direct);
+
+            if ($hasDirect) {
+                return redirect()->route('checkout.payment', $checkout)
+                    ->with('success', 'Wallet payment applied. Complete direct seller payments below.');
+            }
+
+            return redirect()->route('checkouts.show', $checkout)
+                ->with('success', 'Order paid from your wallet.');
         }
 
         return redirect()->route('checkout.payment', $checkout);

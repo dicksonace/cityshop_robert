@@ -4,7 +4,7 @@ import { FormEvent, useState } from 'react';
 
 import { Input } from '@/components/ui/input';
 import AdminLayout from '@/layouts/admin-layout';
-import { Paginated } from '@/types/marketplace';
+import { formatPrice, Paginated } from '@/types/marketplace';
 
 interface BuyerRow {
     id: number;
@@ -13,6 +13,7 @@ interface BuyerRow {
     mobile?: string;
     created_at: string;
     orders_count: number;
+    wallet?: { available_balance: number } | null;
 }
 
 interface BuyersIndexProps {
@@ -33,7 +34,7 @@ export default function AdminBuyersIndex({ buyers, search }: BuyersIndexProps) {
             <Head title="Buyers" />
 
             <p className="mb-4 text-sm text-gray-500">
-                View shopper accounts, their profiles, and order history.
+                View shopper accounts, wallet balances, and order history.
             </p>
 
             <form onSubmit={submitSearch} className="mb-6">
@@ -55,6 +56,7 @@ export default function AdminBuyersIndex({ buyers, search }: BuyersIndexProps) {
                             <th className="px-4 py-3 text-left font-medium text-gray-500">Buyer</th>
                             <th className="px-4 py-3 text-left font-medium text-gray-500">Contact</th>
                             <th className="px-4 py-3 text-left font-medium text-gray-500">Orders</th>
+                            <th className="px-4 py-3 text-left font-medium text-gray-500">Wallet</th>
                             <th className="px-4 py-3 text-left font-medium text-gray-500">Joined</th>
                             <th className="px-4 py-3 text-right font-medium text-gray-500">Actions</th>
                         </tr>
@@ -62,7 +64,7 @@ export default function AdminBuyersIndex({ buyers, search }: BuyersIndexProps) {
                     <tbody className="divide-y">
                         {buyers.data.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="px-4 py-10 text-center text-gray-500">
+                                <td colSpan={6} className="px-4 py-10 text-center text-gray-500">
                                     No buyers found.
                                 </td>
                             </tr>
@@ -75,6 +77,9 @@ export default function AdminBuyersIndex({ buyers, search }: BuyersIndexProps) {
                                         <p className="text-gray-500">{buyer.mobile ?? '—'}</p>
                                     </td>
                                     <td className="px-4 py-3">{buyer.orders_count}</td>
+                                    <td className="px-4 py-3 font-medium text-green-600">
+                                        {formatPrice(buyer.wallet?.available_balance ?? 0)}
+                                    </td>
                                     <td className="px-4 py-3 text-gray-500">
                                         {new Date(buyer.created_at).toLocaleDateString('en-GH', {
                                             day: 'numeric',

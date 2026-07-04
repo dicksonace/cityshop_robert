@@ -18,6 +18,7 @@ use App\Http\Controllers\Chat\NotificationController as ChatNotificationControll
 use App\Http\Controllers\PaystackWebhookController;
 use App\Http\Controllers\Seller\CouponController as SellerCouponController;
 use App\Http\Controllers\Seller\DashboardController as SellerDashboardController;
+use App\Http\Controllers\Seller\DisputeController as SellerDisputeController;
 use App\Http\Controllers\Seller\OrderController as SellerOrderController;
 use App\Http\Controllers\Seller\PaymentMethodController as SellerPaymentMethodController;
 use App\Http\Controllers\Seller\ProductController as SellerProductController;
@@ -77,6 +78,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/my-orders/{order}', [OrderController::class, 'show'])->name('orders.show');
     Route::post('/my-orders/{order}/reviews', [ReviewController::class, 'store'])->name('orders.reviews.store');
     Route::post('/my-orders/{order}/disputes', [DisputeController::class, 'store'])->name('orders.disputes.store');
+    Route::post('/disputes/{dispute}/cancel', [DisputeController::class, 'cancel'])->name('disputes.cancel');
     Route::post('/products/{product:slug}/reviews', [ReviewController::class, 'storeForProduct'])->name('products.reviews.store');
 
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
@@ -85,6 +87,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/wallet', [BuyerWalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet/add-funds', [BuyerWalletController::class, 'addFunds'])->name('wallet.add-funds');
+    Route::get('/wallet/callback', [BuyerWalletController::class, 'callback'])->name('wallet.callback');
     Route::post('/wallet/withdraw', [BuyerWalletController::class, 'withdraw'])->name('wallet.withdraw');
 
     Route::get('/messages', [ChatConversationController::class, 'index'])->name('chat.index');
@@ -143,6 +146,8 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::patch('/orders/{orderItem}', [SellerOrderController::class, 'update'])->name('orders.update');
             Route::post('/orders/{orderItem}/reject', [SellerOrderController::class, 'reject'])->name('orders.reject');
 
+            Route::get('/refunds', [SellerDisputeController::class, 'index'])->name('refunds.index');
+
             Route::get('/wallet', [SellerWalletController::class, 'index'])->name('wallet');
             Route::post('/wallet/withdraw', [SellerWalletController::class, 'withdraw'])->name('wallet.withdraw');
             Route::post('/wallet/payout-methods', [SellerWalletController::class, 'storePayoutMethod'])->name('wallet.payout-methods.store');
@@ -185,6 +190,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject'])->name('withdrawals.reject');
 
     Route::get('/disputes', [AdminDisputeController::class, 'index'])->name('disputes.index');
+    Route::post('/disputes/{dispute}/review', [AdminDisputeController::class, 'review'])->name('disputes.review');
     Route::post('/disputes/{dispute}/resolve', [AdminDisputeController::class, 'resolve'])->name('disputes.resolve');
 
     Route::get('/contact-messages', [AdminContactMessageController::class, 'index'])->name('contact-messages.index');

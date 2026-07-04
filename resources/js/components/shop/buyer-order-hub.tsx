@@ -178,9 +178,9 @@ export function orderStatusMessage(order: {
         return 'Waiting for payment';
     }
     if (order.status === 'shipped') {
-        const item = order.items?.find((i) => i.tracking_number);
-        if (item?.courier_name && item.tracking_number) {
-            return `Shipped via ${item.courier_name} · ${item.tracking_number}`;
+        const item = order.items?.find((i) => i.driver_phone || i.vehicle_number);
+        if (item?.driver_phone) {
+            return `On the way · Driver ${item.driver_phone}${item.vehicle_number ? ` · ${item.vehicle_number}` : ''}`;
         }
         return 'On the way to you';
     }

@@ -6,6 +6,8 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\User;
+use App\Models\WalletTransaction;
+use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,6 +20,7 @@ class BuyerController extends Controller
 
         $buyers = User::query()
             ->where('role', UserRole::Buyer)
+            ->with('wallet')
             ->withCount('orders')
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
@@ -41,6 +44,12 @@ class BuyerController extends Controller
         abort_unless($buyer->isBuyer(), 404);
 
         $buyer->loadCount('orders');
+        $wallet = WalletService::ensure($buyer);
+
+        $transactions = WalletTransaction::where('user_id', $buyer->id)
+            ->latest()
+            ->paginate(15, ['*'], 'transactions_page')
+            ->withQueryString();
 
         $orders = $buyer->orders()
             ->with(['items.product'])
@@ -57,6 +66,8 @@ class BuyerController extends Controller
 
         return Inertia::render('admin/buyers/show', [
             'buyer' => $buyer,
+            'wallet' => $wallet,
+            'transactions' => $transactions,
             'orders' => $orders,
             'conversations' => $conversations,
         ]);

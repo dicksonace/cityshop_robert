@@ -34,8 +34,8 @@ class DisputeController extends Controller
             return back()->with('error', 'Disputes can only be opened for items that are out for delivery or delivered.');
         }
 
-        if (Dispute::where('order_item_id', $item->id)->exists()) {
-            return back()->with('error', 'A dispute already exists for this item.');
+        if (Dispute::where('order_item_id', $item->id)->whereNotIn('status', [DisputeStatus::Cancelled])->exists()) {
+            return back()->with('error', 'This item already has a refund or dispute on record.');
         }
 
         $dispute = Dispute::create([
@@ -56,6 +56,23 @@ class DisputeController extends Controller
         $admins = User::where('role', UserRole::Admin)->get();
         Notification::send($admins, new DisputeOpenedNotification($dispute));
 
-        return back()->with('success', 'Dispute submitted. Our team will review it shortly.');
+        return back()->with('success', 'Refund request submitted. Admin will review before any refund is issued.');
+    }
+
+    public function cancel(Request $request, Dispute $dispute): RedirectResponse
+    {
+        abort_unless($dispute->buyer_id === $request->user()->id, 403);
+
+        if (! in_array($dispute->status, [DisputeStatus::Open, DisputeStatus::UnderReview], true)) {
+            return back()->with('error', 'This refund request can no longer be cancelled.');
+        }
+
+        $dispute->update([
+            'status' => DisputeStatus::Cancelled,
+            'resolution_notes' => 'Cancelled by buyer.',
+            'resolved_at' => now(),
+        ]);
+
+        return back()->with('success', 'Refund request cancelled.');
     }
 }

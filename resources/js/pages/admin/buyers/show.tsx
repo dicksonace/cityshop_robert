@@ -2,7 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 
 import AdminLayout from '@/layouts/admin-layout';
-import { formatPrice, Paginated } from '@/types/marketplace';
+import { formatPrice, formatWalletTransactionType, Paginated, Wallet, WalletTransaction } from '@/types/marketplace';
 
 interface BuyerShowProps {
     buyer: {
@@ -32,9 +32,22 @@ interface BuyerShowProps {
         product?: { id: number; name: string; slug: string };
         latest_message?: { body?: string };
     }[];
+    wallet: Wallet;
+    transactions: Paginated<WalletTransaction>;
 }
 
-export default function AdminBuyerShow({ buyer, orders, conversations }: BuyerShowProps) {
+function formatDate(value?: string): string {
+    if (!value) return '—';
+    return new Date(value).toLocaleString('en-GH', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+export default function AdminBuyerShow({ buyer, orders, conversations, wallet, transactions }: BuyerShowProps) {
     return (
         <AdminLayout title={buyer.name} active="buyers">
             <Head title={`${buyer.name} — Buyer`} />
@@ -44,7 +57,7 @@ export default function AdminBuyerShow({ buyer, orders, conversations }: BuyerSh
                 Back to buyers
             </Link>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-3">
                 <div className="rounded-xl bg-white p-6 shadow-sm">
                     <h3 className="font-semibold text-gray-900">Profile</h3>
                     <dl className="mt-4 space-y-2 text-sm">
@@ -59,6 +72,15 @@ export default function AdminBuyerShow({ buyer, orders, conversations }: BuyerSh
                             <dd>{new Date(buyer.created_at).toLocaleString('en-GH')}</dd>
                         </div>
                     </dl>
+                </div>
+
+                <div className="rounded-xl bg-gradient-to-br from-slate-900 to-blue-900 p-6 text-white shadow-sm">
+                    <h3 className="font-semibold">Wallet</h3>
+                    <p className="mt-1 text-sm text-white/70">Available balance</p>
+                    <p className="mt-2 text-3xl font-bold">{formatPrice(wallet.available_balance)}</p>
+                    <p className="mt-4 text-xs text-white/60">
+                        Buyers fund their wallet to shop on CityShop. Refunds from approved returns are credited here.
+                    </p>
                 </div>
 
                 <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -90,6 +112,33 @@ export default function AdminBuyerShow({ buyer, orders, conversations }: BuyerSh
                         )}
                     </div>
                 </div>
+            </div>
+
+            <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
+                <h3 className="font-semibold text-gray-900">Wallet transactions</h3>
+                {transactions.data.length === 0 ? (
+                    <p className="mt-4 text-sm text-gray-500">No wallet activity yet.</p>
+                ) : (
+                    <div className="mt-4 divide-y">
+                        {transactions.data.map((tx) => {
+                            const isCredit = tx.amount > 0;
+                            return (
+                                <div key={tx.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                                            {formatWalletTransactionType(tx.type)}
+                                        </span>
+                                        <p className="mt-1 text-sm text-gray-600">{tx.description}</p>
+                                        <p className="text-xs text-gray-400">{formatDate(tx.created_at)}</p>
+                                    </div>
+                                    <p className={`font-semibold ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
+                                        {isCredit ? '+' : ''}{formatPrice(tx.amount)}
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">

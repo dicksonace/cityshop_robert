@@ -81,6 +81,7 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
                 { key: 'orders-processing', label: 'Processing', href: route('seller.orders.index', { status: 'processing' }) },
                 { key: 'orders-shipped', label: 'Shipped', href: route('seller.orders.index', { status: 'shipped' }) },
                 { key: 'orders-delivered', label: 'Delivered', href: route('seller.orders.index', { status: 'delivered' }) },
+                { key: 'orders-refunds', label: 'Refund requests', href: route('seller.refunds.index'), badgeKey: 'open_refunds' },
             ],
         },
         {
