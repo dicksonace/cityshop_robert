@@ -95,7 +95,7 @@ export default function PanelLayout({ children, title, panelTitle, panelId, navG
                 </aside>
 
                 <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-                    <SheetContent side="left" className="w-[min(100vw-2rem,20rem)] p-0">
+                    <SheetContent side="left" className="w-[min(100vw-2rem,20rem)] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
                         <SheetHeader className="sr-only">
                             <SheetTitle>{sidebarTitle} menu</SheetTitle>
                         </SheetHeader>

@@ -54,12 +54,12 @@ export default function SellerDashboard({
     storeUrl,
 }: DashboardProps) {
     const kpis = [
-        { label: 'Revenue earned', value: formatPrice(stats.total_earnings), sub: `${stats.delivered_orders} delivered`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        { label: 'Available', value: formatPrice(stats.available_balance), sub: 'Withdrawable now', icon: Wallet, color: 'text-green-600', bg: 'bg-green-50' },
-        { label: 'Pending', value: formatPrice(stats.pending_balance), sub: 'Clearing', icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { label: 'Orders', value: stats.total_orders, sub: `${stats.pending_orders} need action`, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50' },
-        { label: 'Live products', value: stats.live_products, sub: `${stats.out_of_stock} out of stock`, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Store views', value: stats.product_views, sub: stats.average_rating ? `${stats.average_rating}★ avg rating` : 'No ratings yet', icon: Eye, color: 'text-purple-600', bg: 'bg-purple-50' },
+        { label: 'Revenue earned', value: formatPrice(stats.total_earnings), sub: `${stats.delivered_orders} delivered`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', href: route('seller.wallet') },
+        { label: 'Available', value: formatPrice(stats.available_balance), sub: 'Withdrawable now', icon: Wallet, color: 'text-green-600', bg: 'bg-green-50', href: route('seller.wallet') },
+        { label: 'Pending', value: formatPrice(stats.pending_balance), sub: 'Clearing', icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50', href: route('seller.wallet') },
+        { label: 'Orders', value: stats.total_orders, sub: `${stats.pending_orders} need action`, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50', href: stats.pending_orders > 0 ? route('seller.orders.index', { status: 'pending' }) : route('seller.orders.index') },
+        { label: 'Live products', value: stats.live_products, sub: `${stats.out_of_stock} out of stock`, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', href: route('seller.products.index', { status: 'approved' }) },
+        { label: 'Store views', value: stats.product_views, sub: stats.average_rating ? `${stats.average_rating}★ avg rating` : 'No ratings yet', icon: Eye, color: 'text-purple-600', bg: 'bg-purple-50', href: route('seller.store-appearance.index') },
     ];
 
     return (
@@ -100,18 +100,22 @@ export default function SellerDashboard({
 
             <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {kpis.map((kpi) => (
-                    <div key={kpi.label} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                    <Link
+                        key={kpi.label}
+                        href={kpi.href}
+                        className="group rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-orange-200 hover:shadow-md"
+                    >
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-sm text-gray-500">{kpi.label}</p>
                                 <p className="mt-1 text-2xl font-bold text-gray-900">{kpi.value}</p>
                                 <p className="mt-0.5 text-xs text-gray-400">{kpi.sub}</p>
                             </div>
-                            <div className={`rounded-xl p-2.5 ${kpi.bg}`}>
+                            <div className={`rounded-xl p-2.5 transition group-hover:scale-105 ${kpi.bg}`}>
                                 <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
                             </div>
                         </div>
-                    </div>
+                    </Link>
                 ))}
             </div>
 

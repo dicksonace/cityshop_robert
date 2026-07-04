@@ -1,6 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, Pin, PinOff, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
@@ -70,6 +70,8 @@ export default function PanelSidebarNav({
     const pinsStorageKey = `panel-nav-pins:${panelId}`;
 
     const [search, setSearch] = useState('');
+    const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+    const mobileSearchRef = useRef<HTMLInputElement>(null);
     const [expanded, setExpanded] = useState<Record<string, boolean>>(() => loadExpandedGroups(expandedStorageKey, groups));
     const [pinnedHrefs, setPinnedHrefs] = useState<string[]>(() => loadPinnedHrefs(pinsStorageKey));
 
@@ -115,6 +117,16 @@ export default function PanelSidebarNav({
         });
     };
 
+    const handleNavigate = () => {
+        setMobileSearchOpen(false);
+        onNavigate?.();
+    };
+
+    const openMobileSearch = () => {
+        setMobileSearchOpen(true);
+        requestAnimationFrame(() => mobileSearchRef.current?.focus());
+    };
+
     const renderSubItem = (item: PanelNavSubItem, siblings: PanelNavSubItem[], indent = true) => {
         const active = activeItemKey === item.key || isNavSubItemActive(url, item, siblings);
         const badge = resolveBadgeCount(item, counts, unreadMessages);
@@ -124,7 +136,7 @@ export default function PanelSidebarNav({
             <div key={item.key} className="group/item flex items-center gap-0.5">
                 <Link
                     href={item.href}
-                    onClick={onNavigate}
+                    onClick={handleNavigate}
                     className={cn(
                         'flex min-w-0 flex-1 items-center gap-2 rounded-md py-2 text-sm transition-colors',
                         indent ? 'pl-9 pr-2' : 'px-2',
@@ -155,7 +167,7 @@ export default function PanelSidebarNav({
         <div className={cn('flex flex-col', className)}>
             {showSearch && (
                 <div className="border-b border-gray-100 px-3 py-3">
-                    <div className="relative">
+                    <div className="relative hidden lg:block">
                         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                         <Input
                             value={search}
@@ -163,6 +175,36 @@ export default function PanelSidebarNav({
                             placeholder="Search menu..."
                             className="h-8 border-gray-200 pl-8 text-xs"
                         />
+                    </div>
+
+                    <div className="lg:hidden">
+                        {mobileSearchOpen ? (
+                            <div className="relative">
+                                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                                <Input
+                                    ref={mobileSearchRef}
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    onBlur={() => {
+                                        if (!search.trim()) {
+                                            setMobileSearchOpen(false);
+                                        }
+                                    }}
+                                    placeholder="Search menu..."
+                                    enterKeyHint="search"
+                                    className="h-8 border-gray-200 pl-8 text-xs"
+                                />
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={openMobileSearch}
+                                className="relative flex h-8 w-full items-center rounded-md border border-gray-200 bg-white pl-8 text-left text-xs text-gray-400"
+                            >
+                                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
+                                Search menu...
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -192,7 +234,7 @@ export default function PanelSidebarNav({
                             <Link
                                 key={group.key}
                                 href={item.href}
-                                onClick={onNavigate}
+                                onClick={handleNavigate}
                                 className={cn(
                                     'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
                                     active || groupActive ? 'bg-orange-50 text-orange-600' : 'text-gray-700 hover:bg-gray-50',

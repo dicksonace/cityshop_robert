@@ -92,7 +92,7 @@ export default function SellerLayout({ children, title, active, showFab = false 
                 </aside>
 
                 <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-                    <SheetContent side="left" className="w-[min(100vw-2rem,20rem)] p-0">
+                    <SheetContent side="left" className="w-[min(100vw-2rem,20rem)] p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
                         <SheetHeader className="sr-only">
                             <SheetTitle>Seller Hub menu</SheetTitle>
                         </SheetHeader>
