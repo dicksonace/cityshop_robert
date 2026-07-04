@@ -16,6 +16,7 @@ interface PanelLayoutProps {
     panelId: string;
     navGroups: PanelNavGroup[];
     fallbackSection?: string;
+    brandHref?: string;
 }
 
 function PanelShell({
@@ -23,6 +24,7 @@ function PanelShell({
     panelId,
     navGroups,
     fallbackSection,
+    brandHref,
     onNavigate,
     className,
 }: {
@@ -30,13 +32,14 @@ function PanelShell({
     panelId: string;
     navGroups: PanelNavGroup[];
     fallbackSection?: string;
+    brandHref?: string;
     onNavigate?: () => void;
     className?: string;
 }) {
     return (
         <div className={cn('flex h-full flex-col', className)}>
             <div className="border-b border-gray-100 p-5">
-                <CityShopBrand showText size="md" />
+                <CityShopBrand showText size="md" href={brandHref} />
                 <p className="mt-2 text-xs font-medium uppercase tracking-wider text-gray-500">{panelTitle}</p>
             </div>
             <PanelSidebarNav
@@ -71,7 +74,7 @@ function PanelShell({
     );
 }
 
-export default function PanelLayout({ children, title, panelTitle, panelId, navGroups, fallbackSection }: PanelLayoutProps) {
+export default function PanelLayout({ children, title, panelTitle, panelId, navGroups, fallbackSection, brandHref }: PanelLayoutProps) {
     const sidebarTitle = panelTitle ?? title;
     const [menuOpen, setMenuOpen] = useState(false);
     const closeMenu = () => setMenuOpen(false);
@@ -86,6 +89,7 @@ export default function PanelLayout({ children, title, panelTitle, panelId, navG
                         panelId={panelId}
                         navGroups={navGroups}
                         fallbackSection={fallbackSection}
+                        brandHref={brandHref}
                         className="h-full"
                     />
                 </aside>
@@ -100,6 +104,7 @@ export default function PanelLayout({ children, title, panelTitle, panelId, navG
                             panelId={panelId}
                             navGroups={navGroups}
                             fallbackSection={fallbackSection}
+                            brandHref={brandHref}
                             onNavigate={closeMenu}
                             className="h-full"
                         />

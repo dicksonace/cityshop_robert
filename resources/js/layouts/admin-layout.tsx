@@ -17,6 +17,7 @@ export default function AdminLayout({ children, title, active }: AdminLayoutProp
             panelId="admin"
             navGroups={adminNavGroups(active)}
             fallbackSection={adminNavSection(active)}
+            brandHref={route('admin.dashboard')}
         >
             {children}
         </PanelLayout>
