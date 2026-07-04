@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\BuyerController as AdminBuyerController;
+use App\Http\Controllers\Admin\ChatOversightController as AdminChatOversightController;
 use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DisputeController as AdminDisputeController;
@@ -183,6 +185,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/contact-messages', [AdminContactMessageController::class, 'index'])->name('contact-messages.index');
     Route::patch('/contact-messages/{contactMessage}/read', [AdminContactMessageController::class, 'markRead'])->name('contact-messages.read');
+
+    Route::get('/buyers', [AdminBuyerController::class, 'index'])->name('buyers.index');
+    Route::get('/buyers/{buyer}', [AdminBuyerController::class, 'show'])->name('buyers.show');
+
+    Route::get('/chats', [AdminChatOversightController::class, 'index'])->name('chats.index');
+    Route::get('/chats/{conversation}', [AdminChatOversightController::class, 'show'])->name('chats.show');
 
     Route::get('/stores', [AdminStoreOversightController::class, 'index'])->name('stores.index');
     Route::get('/stores/{seller}', [AdminStoreOversightController::class, 'show'])->name('stores.show');

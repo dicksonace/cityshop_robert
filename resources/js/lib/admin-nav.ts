@@ -4,6 +4,7 @@ import {
     Package,
     ShoppingCart,
     Store,
+    Users,
     Wallet,
 } from 'lucide-react';
 
@@ -14,22 +15,26 @@ export type AdminNavKey =
     | 'stores'
     | 'sellers'
     | 'invites'
+    | 'buyers'
     | 'products'
     | 'orders'
     | 'withdrawals'
     | 'disputes'
-    | 'messages';
+    | 'messages'
+    | 'chats';
 
 const sectionMap: Record<AdminNavKey, string> = {
     dashboard: 'dashboard',
     stores: 'marketplace',
     sellers: 'marketplace',
     invites: 'marketplace',
+    buyers: 'users',
     products: 'catalog',
     orders: 'orders',
     withdrawals: 'finance',
     disputes: 'support',
     messages: 'support',
+    chats: 'support',
 };
 
 export function adminNavSection(active: AdminNavKey): string {
@@ -60,6 +65,13 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'sellers-rejected', label: 'Rejected', href: route('admin.sellers.index', { status: 'rejected' }) },
                 { key: 'invites', label: 'Registration Invites', href: route('admin.seller-invites.index') },
             ],
+        },
+        {
+            key: 'users',
+            label: 'Buyers',
+            icon: Users,
+            defaultOpen: section === 'users',
+            items: [{ key: 'buyers', label: 'All Buyers', href: route('admin.buyers.index') }],
         },
         {
             key: 'catalog',
@@ -98,6 +110,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
             items: [
                 { key: 'disputes-open', label: 'Disputes', href: route('admin.disputes.index', { status: 'open' }), badgeKey: 'open_disputes', defaultOnPath: true },
                 { key: 'disputes-all', label: 'All Disputes', href: route('admin.disputes.index', { status: 'all' }) },
+                { key: 'chats', label: 'Buyer–Seller Chats', href: route('admin.chats.index') },
                 { key: 'messages', label: 'Contact Messages', href: route('admin.contact-messages.index'), badgeKey: 'unread_messages' },
             ],
         },

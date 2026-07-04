@@ -56,32 +56,63 @@ class ProductDiscoveryService
             'price_desc' => $query->orderByRaw('COALESCE(products.discount_price, products.price) DESC'),
             'rating' => $query->orderByDesc('products.rating')->orderByDesc('products.review_count'),
             'popular' => $query->orderByDesc('products.views')->orderByDesc('products.review_count'),
-            'random' => $query->inRandomOrder($seed ?? (string) random_int(100_000, 999_999_999)),
+            'random' => $query->inRandomOrder($seed ?? $this->rotationSeed()),
             'newest' => $query->latest('products.created_at'),
             'relevance' => $this->search->applySortByRelevance($query)
                 ->orderByDesc('products.review_count'),
+            // Recommended mixes quality score with a seed that rotates every 5 minutes.
             default => $query
-                ->orderByRaw($this->recommendedScoreSql().' DESC')
+                ->orderByRaw($this->rotatingRecommendedSql($seed ?? $this->rotationSeed()))
                 ->orderByDesc('products.review_count')
                 ->orderByDesc('products.created_at'),
         };
     }
 
+    /**
+     * Stable seed for a 5-minute window so listings reshuffle for everyone on the same schedule.
+     */
+    public function rotationSeed(?int $at = null): string
+    {
+        return (string) intdiv($at ?? time(), 300);
+    }
+
     public function resolveRandomSeed(Request $request): ?string
     {
-        if ($request->get('sort') !== 'random') {
+        $sort = $request->get('sort', 'recommended');
+
+        if (! in_array($sort, ['random', 'recommended', ''], true) && $sort !== null) {
             return null;
         }
 
-        return $request->get('seed', (string) random_int(100_000, 999_999_999));
+        if ($sort === 'random') {
+            return $request->get('seed', $this->rotationSeed());
+        }
+
+        // Recommended always uses the current 5-minute bucket (ignore stale client seeds).
+        return $this->rotationSeed();
     }
 
     public function needsRandomSeedRedirect(Request $request): ?string
     {
-        if ($request->get('sort') !== 'random' || $request->has('seed')) {
-            return null;
+        // No redirect needed — recommended uses server-side time buckets automatically.
+        if ($request->get('sort') === 'random' && ! $request->has('seed')) {
+            return $this->rotationSeed();
         }
 
-        return (string) random_int(100_000, 999_999_999);
+        return null;
+    }
+
+    private function rotatingRecommendedSql(string $seed): string
+    {
+        $score = $this->recommendedScoreSql();
+        $seedInt = abs((int) $seed) ?: 1;
+        $driver = Schema::getConnection()->getDriverName();
+
+        // Quality score plus a deterministic shuffle that changes every rotation window.
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            return "({$score} + (CRC32(CONCAT(products.id, '-', {$seedInt})) % 1000) / 350.0) DESC";
+        }
+
+        return "({$score} + ((products.id * {$seedInt}) % 997) / 350.0) DESC";
     }
 }
