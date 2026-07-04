@@ -5,30 +5,39 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\ProductStatDaily;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class ProductAnalyticsService
 {
     public function recordView(Product $product): void
     {
-        $product->increment('views');
-        $this->incrementDaily($product->id, 'views');
+        $this->safe(function () use ($product) {
+            $product->increment('views');
+            $this->incrementDaily($product->id, 'views');
+        });
     }
 
     public function recordCartAdd(Product $product, int $quantity = 1): void
     {
-        $product->increment('cart_adds', $quantity);
-        $this->incrementDaily($product->id, 'cart_adds', $quantity);
+        $this->safe(function () use ($product, $quantity) {
+            $product->increment('cart_adds', $quantity);
+            $this->incrementDaily($product->id, 'cart_adds', $quantity);
+        });
     }
 
     public function recordWishlistAdd(Product $product): void
     {
-        $product->increment('wishlist_adds');
+        $this->safe(fn () => $product->increment('wishlist_adds'));
     }
 
     public function recordPurchase(Product $product, int $quantity = 1): void
     {
-        $product->increment('purchase_count', $quantity);
-        $this->incrementDaily($product->id, 'purchases', $quantity);
+        $this->safe(function () use ($product, $quantity) {
+            $product->increment('purchase_count', $quantity);
+            $this->incrementDaily($product->id, 'purchases', $quantity);
+        });
     }
 
     /**
@@ -76,13 +85,57 @@ class ProductAnalyticsService
 
     private function incrementDaily(int $productId, string $column, int $amount = 1): void
     {
+        if (! Schema::hasTable('product_stat_daily')) {
+            return;
+        }
+
+        if (! in_array($column, ['views', 'cart_adds', 'purchases'], true)) {
+            return;
+        }
+
         $date = Carbon::today()->toDateString();
+        $now = now();
 
-        $stat = ProductStatDaily::firstOrCreate(
-            ['product_id' => $productId, 'date' => $date],
-            ['views' => 0, 'cart_adds' => 0, 'purchases' => 0],
-        );
+        // Avoid firstOrCreate + date casts, which can miss existing rows and hit the unique index.
+        $updated = DB::table('product_stat_daily')
+            ->where('product_id', $productId)
+            ->whereDate('date', $date)
+            ->update([
+                $column => DB::raw("{$column} + {$amount}"),
+                'updated_at' => $now,
+            ]);
 
-        $stat->increment($column, $amount);
+        if ($updated > 0) {
+            return;
+        }
+
+        try {
+            DB::table('product_stat_daily')->insert([
+                'product_id' => $productId,
+                'date' => $date,
+                'views' => $column === 'views' ? $amount : 0,
+                'cart_adds' => $column === 'cart_adds' ? $amount : 0,
+                'purchases' => $column === 'purchases' ? $amount : 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        } catch (Throwable) {
+            DB::table('product_stat_daily')
+                ->where('product_id', $productId)
+                ->whereDate('date', $date)
+                ->update([
+                    $column => DB::raw("{$column} + {$amount}"),
+                    'updated_at' => $now,
+                ]);
+        }
+    }
+
+    private function safe(callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 }

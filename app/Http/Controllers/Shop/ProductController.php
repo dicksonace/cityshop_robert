@@ -22,6 +22,7 @@ class ProductController extends Controller
             ->where('slug', $slug)
             ->firstOrFail();
 
+        // Never let analytics take down the product page.
         $this->analytics->recordView($product);
 
         $reviews = Review::with('user')
@@ -30,16 +31,24 @@ class ProductController extends Controller
             ->paginate(10, ['*'], 'reviews_page')
             ->withQueryString();
 
-        $reviewable = $request->user()
-            ? ReviewService::findReviewableItem($request->user(), $product)
-            : null;
+        $reviewable = null;
+        if ($request->user()) {
+            try {
+                $reviewable = ReviewService::findReviewableItem($request->user(), $product);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
-        $related = Product::with('images')
+        $relatedQuery = Product::with('images')
             ->visibleInShop()
-            ->where('category_id', $product->category_id)
-            ->where('id', '!=', $product->id)
-            ->limit(4)
-            ->get();
+            ->where('id', '!=', $product->id);
+
+        if ($product->category_id) {
+            $relatedQuery->where('category_id', $product->category_id);
+        }
+
+        $related = $relatedQuery->limit(4)->get();
 
         return Inertia::render('shop/product-show', [
             'product' => $product,
