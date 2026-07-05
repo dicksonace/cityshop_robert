@@ -92,4 +92,18 @@ return [
         ],
     ],
 
+    'vehicles' => [
+        'icon' => '🚗',
+        'fields' => [
+            ['key' => 'vehicle_type', 'label' => 'Vehicle type', 'type' => 'select', 'options' => ['Car', 'Motorcycle', 'Truck', 'Van', 'Bus', 'Other']],
+            ['key' => 'make', 'label' => 'Make', 'type' => 'text'],
+            ['key' => 'model', 'label' => 'Model', 'type' => 'text'],
+            ['key' => 'year', 'label' => 'Year', 'type' => 'text'],
+            ['key' => 'mileage', 'label' => 'Mileage / Odometer', 'type' => 'text'],
+            ['key' => 'fuel_type', 'label' => 'Fuel type', 'type' => 'select', 'options' => ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'LPG']],
+            ['key' => 'transmission', 'label' => 'Transmission', 'type' => 'select', 'options' => ['Manual', 'Automatic']],
+            ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Foreign Used', 'Locally Used', 'Refurbished']],
+        ],
+    ],
+
 ];

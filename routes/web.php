@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\BuyerController as AdminBuyerController;
+use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ChatOversightController as AdminChatOversightController;
 use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Admin\SellerReportController as AdminSellerReportController;
@@ -181,6 +182,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/products/{product}/approve', [AdminProductController::class, 'approve'])->name('products.approve');
     Route::post('/products/{product}/reject', [AdminProductController::class, 'reject'])->name('products.reject');
     Route::post('/products/{product}/hide', [AdminProductController::class, 'hide'])->name('products.hide');
+
+    Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories.index');
+    Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');
+    Route::put('/categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
+    Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy'])->name('categories.destroy');
 
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');

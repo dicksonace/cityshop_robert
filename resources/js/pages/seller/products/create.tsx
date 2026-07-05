@@ -56,7 +56,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
         images: [] as File[],
     });
 
-    transform((formData) => ({ ...formData, images: imageFiles }));
+    transform((formData) => ({ ...formData, images: imageFiles, image_count: imageFiles.length }));
 
     useEffect(() => {
         const urls = imageFiles.map((f) => URL.createObjectURL(f));

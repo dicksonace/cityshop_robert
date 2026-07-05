@@ -52,6 +52,7 @@ export default function EditProduct({ product, categories }: EditProductProps) {
     transform((formData) => ({
         ...formData,
         images: imageFiles,
+        image_count: imageFiles.length,
         remove_images: removeIds,
     }));
 

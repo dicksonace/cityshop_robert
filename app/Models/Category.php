@@ -46,4 +46,9 @@ class Category extends Model
     {
         return $this->hasMany(Product::class);
     }
+
+    public function scopeActiveOrdered($query)
+    {
+        return $query->where('is_active', true)->orderBy('sort_order')->orderBy('name');
+    }
 }

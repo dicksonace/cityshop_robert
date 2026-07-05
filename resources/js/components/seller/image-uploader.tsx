@@ -1,7 +1,8 @@
-import { Check, GripVertical, ImagePlus, Trash2, Upload } from 'lucide-react';
+import { Check, GripVertical, ImagePlus, LoaderCircle, Trash2, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { compressProductImages } from '@/lib/compress-image';
 import { cn } from '@/lib/utils';
 import { ProductImage, productImageUrl } from '@/types/marketplace';
 
@@ -32,6 +33,7 @@ export default function ImageUploader({
     const [previews, setPreviews] = useState<ImagePreview[]>([]);
     const [confirmed, setConfirmed] = useState(false);
     const [dragOver, setDragOver] = useState(false);
+    const [compressing, setCompressing] = useState(false);
     const [removedIds, setRemovedIds] = useState<number[]>([]);
 
     useEffect(() => {
@@ -57,7 +59,7 @@ export default function ImageUploader({
         [onChange],
     );
 
-    const addFiles = (files: FileList | File[]) => {
+    const addFiles = async (files: FileList | File[]) => {
         const incoming = Array.from(files).filter((f) => f.type.startsWith('image/'));
         const remaining = maxImages - previews.length;
         const toAdd = incoming.slice(0, remaining);
@@ -66,15 +68,22 @@ export default function ImageUploader({
 
         setConfirmed(false);
         onConfirmedChange?.(false);
-        const newPreviews: ImagePreview[] = toAdd.map((file) => ({
-            id: `new-${Date.now()}-${Math.random()}`,
-            file,
-            previewUrl: URL.createObjectURL(file),
-        }));
+        setCompressing(true);
 
-        const updated = [...previews, ...newPreviews];
-        setPreviews(updated);
-        notifyChange(updated, removedIds);
+        try {
+            const compressed = await compressProductImages(toAdd);
+            const newPreviews: ImagePreview[] = compressed.map((file) => ({
+                id: `new-${Date.now()}-${Math.random()}`,
+                file,
+                previewUrl: URL.createObjectURL(file),
+            }));
+
+            const updated = [...previews, ...newPreviews];
+            setPreviews(updated);
+            notifyChange(updated, removedIds);
+        } finally {
+            setCompressing(false);
+        }
     };
 
     const removeImage = (id: string) => {
@@ -138,11 +147,15 @@ export default function ImageUploader({
                     className={cn(
                         'flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 transition-colors',
                         dragOver ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-gray-50 hover:border-orange-300 hover:bg-orange-50/50',
+                        compressing && 'pointer-events-none opacity-70',
                     )}
                 >
                     <Upload className="h-8 w-8 text-gray-400" />
-                    <p className="mt-2 text-sm font-medium text-gray-700">Drop images here or click to browse</p>
-                    <p className="mt-1 text-xs text-gray-400">PNG, JPG up to 5MB each</p>
+                    <p className="mt-2 text-sm font-medium text-gray-700">
+                        {compressing ? 'Optimizing photos…' : 'Drop images here or click to browse'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400">PNG, JPG up to 5MB each — large phone photos are auto-compressed</p>
+                    {compressing && <LoaderCircle className="mt-2 h-5 w-5 animate-spin text-orange-500" />}
                     <input
                         ref={inputRef}
                         type="file"

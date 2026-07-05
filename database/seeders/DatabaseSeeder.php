@@ -37,6 +37,7 @@ class DatabaseSeeder extends Seeder
             'appliances' => 'Appliances',
             'beauty' => 'Beauty',
             'sports' => 'Sports',
+            'vehicles' => 'Vehicles',
         ];
 
         foreach ($categoryNames as $slug => $name) {

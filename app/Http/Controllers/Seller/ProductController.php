@@ -12,6 +12,7 @@ use App\Services\CategorySpecService;
 use App\Services\ProductAnalyticsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -54,14 +55,14 @@ class ProductController extends Controller
                 'search' => $search ?: null,
                 'sort' => $sort,
             ],
-            'categories' => Category::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'categories' => Category::activeOrdered()->get(['id', 'name']),
         ]);
     }
 
     public function create(): Response
     {
         return Inertia::render('seller/products/create', [
-            'categories' => Category::where('is_active', true)->orderBy('name')->get(),
+            'categories' => Category::activeOrdered()->get(),
             'profile' => auth()->user()->sellerProfile,
         ]);
     }
@@ -70,24 +71,33 @@ class ProductController extends Controller
     {
         $validated = $this->validateProduct($request, true);
 
+        $files = $request->file('images') ?? [];
+        $imageCountError = $this->imageUploadCountError($request, count($files));
+
+        if ($imageCountError) {
+            return back()->withErrors(['images' => $imageCountError])->withInput();
+        }
+
         $specifications = $this->resolveSpecifications($validated['category_id'] ?? null, $request->input('specifications', []));
 
-        $product = Product::create([
-            ...collect($validated)->except('images')->toArray(),
-            'specifications' => $specifications,
-            'seller_id' => $request->user()->id,
-            'status' => ProductStatus::Approved,
-            'is_preorder' => false,
-        ]);
-
-        foreach ($request->file('images') as $index => $image) {
-            ProductImage::create([
-                'product_id' => $product->id,
-                'path' => $image->store('products', 'public'),
-                'is_primary' => $index === 0,
-                'sort_order' => $index,
+        DB::transaction(function () use ($validated, $files, $request, $specifications, &$product) {
+            $product = Product::create([
+                ...collect($validated)->except(['images', 'image_count'])->toArray(),
+                'specifications' => $specifications,
+                'seller_id' => $request->user()->id,
+                'status' => ProductStatus::Approved,
+                'is_preorder' => false,
             ]);
-        }
+
+            foreach ($files as $index => $image) {
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'path' => $image->store('products', 'public'),
+                    'is_primary' => $index === 0,
+                    'sort_order' => $index,
+                ]);
+            }
+        });
 
         return redirect()->route('seller.products.index')
             ->with('success', 'Product published successfully. It is now live in the shop.');
@@ -99,7 +109,7 @@ class ProductController extends Controller
 
         return Inertia::render('seller/products/edit', [
             'product' => $product->load(['images', 'category']),
-            'categories' => Category::where('is_active', true)->orderBy('name')->get(),
+            'categories' => Category::activeOrdered()->get(),
             'profile' => $request->user()->sellerProfile,
         ]);
     }
@@ -126,8 +136,15 @@ class ProductController extends Controller
         }
 
         if ($request->file('images')) {
+            $newFiles = $request->file('images');
+            $imageCountError = $this->imageUploadCountError($request, count($newFiles));
+
+            if ($imageCountError) {
+                return back()->withErrors(['images' => $imageCountError])->withInput();
+            }
+
             $startOrder = $product->images()->max('sort_order') ?? -1;
-            foreach ($request->file('images') as $index => $image) {
+            foreach ($newFiles as $index => $image) {
                 ProductImage::create([
                     'product_id' => $product->id,
                     'path' => $image->store('products', 'public'),
@@ -330,6 +347,7 @@ class ProductController extends Controller
             'specifications' => ['nullable', 'array'],
             'images' => $imageRules,
             'images.*' => ['image', 'max:5120'],
+            'image_count' => ['nullable', 'integer', 'min:1', 'max:5'],
             'remove_images' => ['nullable', 'array'],
             'remove_images.*' => ['integer', 'exists:product_images,id'],
         ]);
@@ -339,6 +357,17 @@ class ProductController extends Controller
         }
 
         return $validated;
+    }
+
+    private function imageUploadCountError(Request $request, int $receivedCount): ?string
+    {
+        $expectedCount = (int) $request->input('image_count', 0);
+
+        if ($expectedCount > 0 && $receivedCount < $expectedCount) {
+            return "Only {$receivedCount} of {$expectedCount} images were received. Try again with smaller photos (under 5MB each).";
+        }
+
+        return null;
     }
 
     private function resolveSpecifications(?int $categoryId, array $specs): ?array

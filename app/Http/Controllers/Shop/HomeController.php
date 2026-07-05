@@ -77,6 +77,7 @@ class HomeController extends Controller
 
         $categories = Category::where('is_active', true)
             ->withCount(['products' => fn ($q) => $q->visibleInShop()])
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
             ->filter(fn ($c) => $c->products_count > 0)
