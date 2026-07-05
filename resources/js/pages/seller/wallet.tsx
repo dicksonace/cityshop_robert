@@ -30,7 +30,9 @@ interface Withdrawal {
     momo_number: string;
     account_name: string;
     status: string;
-    rejection_reason?: string;
+    payout_channel?: string | null;
+    rejection_reason?: string | null;
+    failure_reason?: string | null;
     created_at: string;
     processed_at?: string;
 }
@@ -102,9 +104,17 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
 
     const statusColor: Record<string, string> = {
         pending: 'bg-amber-100 text-amber-800',
+        processing: 'bg-blue-100 text-blue-800',
         approved: 'bg-blue-100 text-blue-800',
         paid: 'bg-emerald-100 text-emerald-800',
         rejected: 'bg-red-100 text-red-800',
+    };
+
+    const statusLabel: Record<string, string> = {
+        pending: 'Awaiting admin',
+        processing: 'Payout in progress',
+        paid: 'Paid out',
+        rejected: 'Rejected',
     };
 
     return (
@@ -249,7 +259,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                                     <p><span className="text-gray-500">Number:</span> {selectedMethod.account_number}</p>
                                     <p><span className="text-gray-500">Name:</span> {selectedMethod.account_name}</p>
                                     <p className="text-lg font-bold text-orange-500">{formatPrice(parseFloat(withdrawForm.data.amount) || 0)}</p>
-                                    <p className="text-xs text-gray-500">Estimated processing: 1–3 business days</p>
+                                    <p className="text-xs text-gray-500">Admin will send via Paystack or manual MoMo after review.</p>
                                 </div>
                             )}
 
@@ -282,9 +292,19 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                         {withdrawals.data.map((w) => (
                             <div key={w.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
                                 <div>
-                                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor[w.status] ?? 'bg-gray-100'}`}>{w.status}</span>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor[w.status] ?? 'bg-gray-100'}`}>
+                                            {statusLabel[w.status] ?? w.status}
+                                        </span>
+                                        {w.payout_channel && (
+                                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs capitalize text-gray-600">
+                                                {w.payout_channel}
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="mt-1 text-gray-500">{networkLabels[w.network]} · {w.momo_number}</p>
                                     <p className="text-xs text-gray-400">{formatDate(w.created_at)}</p>
+                                    {w.rejection_reason && <p className="mt-1 text-xs text-red-600">{w.rejection_reason}</p>}
                                 </div>
                                 <p className="font-bold text-gray-900">{formatPrice(w.amount)}</p>
                             </div>

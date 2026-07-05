@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Services\OrderService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
+use App\Services\WithdrawalPayoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,6 +17,7 @@ class PaystackWebhookController extends Controller
     public function __construct(
         private PaystackService $paystack,
         private OrderService $orderService,
+        private WithdrawalPayoutService $withdrawalPayouts,
     ) {}
 
     public function handle(Request $request): Response
@@ -71,6 +73,14 @@ class PaystackWebhookController extends Controller
                 }
             } catch (\Throwable $e) {
                 Log::error('Paystack webhook error', ['error' => $e->getMessage()]);
+            }
+        }
+
+        if (in_array($event, ['transfer.success', 'transfer.failed', 'transfer.reversed'], true) && $data) {
+            try {
+                $this->withdrawalPayouts->handleTransferWebhook($data);
+            } catch (\Throwable $e) {
+                Log::error('Paystack transfer webhook error', ['error' => $e->getMessage()]);
             }
         }
 

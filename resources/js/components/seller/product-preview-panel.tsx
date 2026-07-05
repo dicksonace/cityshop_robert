@@ -70,7 +70,7 @@ export default function ProductPreviewPanel({
     }), [data, categories, category, profile, price, discount]);
 
     return (
-        <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="sticky top-20 rounded-2xl border border-gray-200 bg-white shadow-sm lg:top-24">
             <div className="border-b border-gray-100 p-4">
                 <p className="text-sm font-semibold text-gray-900">Live preview</p>
                 <p className="text-xs text-gray-500">How buyers will see your listing</p>

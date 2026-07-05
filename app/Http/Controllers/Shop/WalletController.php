@@ -140,7 +140,7 @@ class WalletController extends Controller
             }
 
             $pending = Withdrawal::where('user_id', $request->user()->id)
-                ->where('status', WithdrawalStatus::Pending)
+                ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
                 ->exists();
 
             if ($pending) {

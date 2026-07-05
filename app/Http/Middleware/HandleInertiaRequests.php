@@ -82,6 +82,7 @@ class HandleInertiaRequests extends Middleware
                 'info' => fn () => $request->session()->get('info'),
                 'sellerInviteUrl' => fn () => $request->session()->get('sellerInviteUrl'),
                 'openChat' => fn () => $request->session()->get('openChat'),
+                'withdrawal_otp' => fn () => $request->session()->get('withdrawal_otp'),
             ],
         ];
     }

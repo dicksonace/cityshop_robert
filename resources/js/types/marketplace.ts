@@ -89,6 +89,11 @@ export interface Withdrawal {
     account_name: string;
     network: string;
     status: string;
+    paystack_reference?: string | null;
+    paystack_status?: string | null;
+    payout_channel?: string | null;
+    failure_reason?: string | null;
+    rejection_reason?: string | null;
     created_at?: string;
 }
 

@@ -45,6 +45,9 @@ class PanelNavService
             'pending_sellers' => SellerProfile::where('status', SellerStatus::Pending)->count(),
             'pending_products' => Product::where('status', ProductStatus::Pending)->count(),
             'pending_withdrawals' => Withdrawal::where('status', WithdrawalStatus::Pending)->count(),
+            'pending_seller_withdrawals' => Withdrawal::where('status', WithdrawalStatus::Pending)
+                ->whereHas('user', fn ($q) => $q->where('role', UserRole::Seller))
+                ->count(),
             'open_disputes' => Dispute::whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->count(),
             'open_seller_reports' => SellerReport::whereIn('status', [SellerReportStatus::Open, SellerReportStatus::Reviewing])->count(),
             'unread_messages' => ContactMessage::where('is_read', false)->count(),

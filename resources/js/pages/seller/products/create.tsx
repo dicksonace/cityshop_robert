@@ -111,20 +111,36 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
         <SellerLayout title="Add Product" active="products">
             <Head title="Add Product" />
 
-            <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2">
-                {STEPS.map((label, i) => (
-                    <div key={label} className="flex items-center gap-2 shrink-0">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${i <= step ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                            {i + 1}
-                        </div>
-                        <span className={`text-sm font-medium ${i === step ? 'text-gray-900' : 'text-gray-400'}`}>{label}</span>
-                        {i < STEPS.length - 1 && <ChevronRight className="h-4 w-4 text-gray-300" />}
+            <div className="w-full max-w-full overflow-x-hidden">
+                {/* Mobile: compact step indicator (avoids wide horizontal scroll breaking layout) */}
+                <div className="mb-4 lg:hidden">
+                    <p className="text-sm font-medium text-gray-500">
+                        Step {step + 1} of {STEPS.length}
+                    </p>
+                    <p className="text-lg font-semibold text-gray-900">{STEPS[step]}</p>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+                        <div
+                            className="h-full rounded-full bg-orange-500 transition-all"
+                            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+                        />
                     </div>
-                ))}
-            </div>
+                </div>
 
-            <form onSubmit={submit} className="grid gap-8 xl:grid-cols-2">
-                <div className="space-y-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                {/* Desktop: full step trail */}
+                <div className="mb-6 hidden items-center gap-2 overflow-x-auto pb-2 lg:flex">
+                    {STEPS.map((label, i) => (
+                        <div key={label} className="flex shrink-0 items-center gap-2">
+                            <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${i <= step ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                {i + 1}
+                            </div>
+                            <span className={`text-sm font-medium ${i === step ? 'text-gray-900' : 'text-gray-400'}`}>{label}</span>
+                            {i < STEPS.length - 1 && <ChevronRight className="h-4 w-4 text-gray-300" />}
+                        </div>
+                    ))}
+                </div>
+
+                <form onSubmit={submit} className="flex w-full min-w-0 flex-col gap-6 lg:grid lg:grid-cols-2 lg:gap-8">
+                    <div className="order-1 w-full min-w-0 space-y-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
                     {step === 0 && (
                         <>
                             <div>
@@ -294,7 +310,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                     </div>
                 </div>
 
-                <div className="hidden xl:block">
+                <div className="order-2 hidden w-full min-w-0 lg:block">
                     <ProductPreviewPanel
                         data={previewData}
                         categories={categories}
@@ -304,6 +320,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                     />
                 </div>
             </form>
+            </div>
         </SellerLayout>
     );
 }

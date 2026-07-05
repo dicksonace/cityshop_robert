@@ -63,4 +63,92 @@ class PaystackService
 
         return hash_equals(hash_hmac('sha512', $payload, $secret), $signature);
     }
+
+    public function mobileMoneyBankCode(string $network): string
+    {
+        return match (strtolower($network)) {
+            'mtn' => 'MTN',
+            'telecel', 'vodafone', 'vod' => 'VOD',
+            'airteltigo', 'atl', 'airtel', 'tigo' => 'ATL',
+            default => strtoupper($network),
+        };
+    }
+
+    public function normalizeGhanaPhone(string $phone): string
+    {
+        $digits = preg_replace('/\D/', '', $phone);
+
+        if (str_starts_with($digits, '233') && strlen($digits) >= 12) {
+            return '0'.substr($digits, 3);
+        }
+
+        return $digits;
+    }
+
+    public function createMobileMoneyRecipient(string $name, string $phone, string $network): array
+    {
+        $response = Http::withToken($this->secretKey)
+            ->post("{$this->baseUrl}/transferrecipient", [
+                'type' => 'mobile_money',
+                'name' => $name,
+                'account_number' => $this->normalizeGhanaPhone($phone),
+                'bank_code' => $this->mobileMoneyBankCode($network),
+                'currency' => 'GHS',
+            ]);
+
+        if (! $response->successful()) {
+            Log::error('Paystack recipient creation failed', ['body' => $response->json()]);
+            throw new \RuntimeException($response->json('message') ?? 'Could not create Paystack payout recipient.');
+        }
+
+        return $response->json('data');
+    }
+
+    public function initiateTransfer(string $recipientCode, float $amountGhs, string $reference, string $reason): array
+    {
+        $response = Http::withToken($this->secretKey)
+            ->post("{$this->baseUrl}/transfer", [
+                'source' => 'balance',
+                'amount' => (int) round($amountGhs * 100),
+                'recipient' => $recipientCode,
+                'reference' => $reference,
+                'reason' => $reason,
+                'currency' => 'GHS',
+            ]);
+
+        if (! $response->successful()) {
+            Log::error('Paystack transfer failed', ['body' => $response->json()]);
+            throw new \RuntimeException($response->json('message') ?? 'Paystack payout failed.');
+        }
+
+        return $response->json('data');
+    }
+
+    public function finalizeTransfer(string $transferCode, string $otp): array
+    {
+        $response = Http::withToken($this->secretKey)
+            ->post("{$this->baseUrl}/transfer/finalize_transfer", [
+                'transfer_code' => $transferCode,
+                'otp' => $otp,
+            ]);
+
+        if (! $response->successful()) {
+            Log::error('Paystack transfer finalize failed', ['body' => $response->json()]);
+            throw new \RuntimeException($response->json('message') ?? 'OTP confirmation failed.');
+        }
+
+        return $response->json('data');
+    }
+
+    public function verifyTransfer(string $reference): array
+    {
+        $response = Http::withToken($this->secretKey)
+            ->get("{$this->baseUrl}/transfer/verify/{$reference}");
+
+        if (! $response->successful()) {
+            throw new \RuntimeException('Transfer verification failed.');
+        }
+
+        return $response->json('data');
+    }
 }

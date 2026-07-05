@@ -101,6 +101,8 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
             defaultOpen: section === 'finance',
             items: [
                 { key: 'withdrawals-pending', label: 'Withdrawal Requests', href: route('admin.withdrawals.index', { status: 'pending' }), badgeKey: 'pending_withdrawals', defaultOnPath: true },
+                { key: 'withdrawals-sellers', label: 'Seller Payouts', href: route('admin.withdrawals.index', { status: 'pending', role: 'seller' }), badgeKey: 'pending_seller_withdrawals' },
+                { key: 'withdrawals-buyers', label: 'Buyer Withdrawals', href: route('admin.withdrawals.index', { status: 'pending', role: 'buyer' }) },
                 { key: 'withdrawals-all', label: 'All Withdrawals', href: route('admin.withdrawals.index', { status: 'all' }) },
             ],
         },

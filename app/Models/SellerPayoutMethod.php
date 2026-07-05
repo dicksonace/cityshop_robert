@@ -16,6 +16,7 @@ class SellerPayoutMethod extends Model
         'network',
         'account_number',
         'account_name',
+        'paystack_recipient_code',
         'is_default',
     ];
 

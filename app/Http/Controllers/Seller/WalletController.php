@@ -41,7 +41,7 @@ class WalletController extends Controller
             'withdrawals' => $withdrawals,
             'payoutMethods' => $payoutMethods,
             'hasPendingWithdrawal' => Withdrawal::where('user_id', $user->id)
-                ->where('status', WithdrawalStatus::Pending)
+                ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
                 ->exists(),
         ]);
     }
@@ -106,7 +106,9 @@ class WalletController extends Controller
             return back()->with('error', 'Insufficient available balance.');
         }
 
-        if (Withdrawal::where('user_id', $request->user()->id)->where('status', WithdrawalStatus::Pending)->exists()) {
+        if (Withdrawal::where('user_id', $request->user()->id)
+            ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
+            ->exists()) {
             return back()->with('error', 'You already have a pending withdrawal request.');
         }
 
