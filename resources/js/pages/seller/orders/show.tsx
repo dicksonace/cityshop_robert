@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { FormEventHandler } from 'react';
+import { ChevronRight, FormEventHandler } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,11 +34,24 @@ interface OrderShowProps {
         product?: { images?: { path: string }[] };
         dispute?: DisputeInfo | null;
     };
+    backStage?: string;
 }
 
-const nextStatuses = ['processing', 'packed', 'shipped', 'delivered'] as const;
+const sellerFlow: { status: string; label: string; hint: string }[] = [
+    { status: 'processing', label: 'Start processing', hint: 'Payment received — begin preparing the order.' },
+    { status: 'packed', label: 'Mark as packing', hint: 'Item is being packed and prepared.' },
+    { status: 'shipped', label: 'Out for delivery', hint: 'Add driver & vehicle details, then send.' },
+    { status: 'awaiting_confirmation', label: 'Mark as delivered', hint: 'You handed the item to the buyer — they must confirm receipt.' },
+];
 
-export default function SellerOrderShow({ orderItem }: OrderShowProps) {
+function nextSellerStatus(current: string): string | null {
+    if (current === 'pending') return 'processing';
+    const idx = sellerFlow.findIndex((s) => s.status === current);
+    if (idx === -1 || idx >= sellerFlow.length - 1) return null;
+    return sellerFlow[idx + 1].status;
+}
+
+export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderShowProps) {
     const form = useForm({
         status: orderItem.status,
         vehicle_number: orderItem.vehicle_number ?? '',
@@ -49,6 +62,8 @@ export default function SellerOrderShow({ orderItem }: OrderShowProps) {
     const image = orderItem.product?.images?.[0];
     const order = orderItem.order;
     const dispute = orderItem.dispute;
+    const next = nextSellerStatus(orderItem.status);
+    const isTerminal = ['cancelled', 'delivered', 'refunded', 'awaiting_confirmation'].includes(orderItem.status);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -62,29 +77,33 @@ export default function SellerOrderShow({ orderItem }: OrderShowProps) {
         });
     };
 
-    const updateStatus = (status: string) => {
-        if (status === 'shipped' && (!form.data.vehicle_number.trim() || !form.data.driver_phone.trim())) {
-            form.setError('vehicle_number', 'Add vehicle number and driver phone before marking shipped.');
+    const advanceStatus = () => {
+        if (!next) return;
+
+        if (next === 'shipped' && (!form.data.vehicle_number.trim() || !form.data.driver_phone.trim())) {
+            form.setError('vehicle_number', 'Add vehicle number and driver phone before sending for delivery.');
             return;
         }
+
         router.patch(route('seller.orders.update', orderItem.id), {
-            status,
+            status: next,
             vehicle_number: form.data.vehicle_number,
             driver_phone: form.data.driver_phone,
         }, { preserveScroll: true });
     };
 
+    const currentStep = sellerFlow.find((s) => s.status === orderItem.status);
+
     return (
         <SellerLayout title={`Order ${order.order_number}`} active="orders">
             <Head title={`Order ${order.order_number}`} />
-            <Link href={route('seller.orders.index')} className="mb-4 inline-block text-sm text-orange-500 hover:underline">← Back to orders</Link>
+            <Link href={route('seller.orders.stage', backStage)} className="mb-4 inline-block text-sm text-orange-500 hover:underline">← Back to queue</Link>
 
             {dispute && !['cancelled', 'closed'].includes(dispute.status) && (
                 <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-4">
                     <p className="font-semibold text-red-800">Refund request from buyer</p>
                     <p className="mt-1 text-sm text-red-700 capitalize">{dispute.reason.replace(/_/g, ' ')} · {dispute.status.replace(/_/g, ' ')}</p>
                     <p className="mt-2 text-sm text-red-600">{dispute.description}</p>
-                    <p className="mt-2 text-xs text-red-500">Admin reviews refund requests before money is returned.</p>
                     <Link href={route('seller.refunds.index')} className="mt-2 inline-block text-sm font-medium text-red-700 hover:underline">
                         View all refund requests →
                     </Link>
@@ -108,28 +127,69 @@ export default function SellerOrderShow({ orderItem }: OrderShowProps) {
 
                     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                         <h3 className="font-semibold text-gray-900">Fulfillment</h3>
-                        <p className="mt-1 text-sm text-gray-500">Current: <span className="capitalize font-medium text-gray-900">{formatOrderStatus(orderItem.status)}</span></p>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Current: <span className="font-medium text-gray-900">{formatOrderStatus(orderItem.status)}</span>
+                        </p>
 
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            {nextStatuses.map((s) => (
-                                <Button
-                                    key={s}
-                                    type="button"
-                                    size="sm"
-                                    variant={orderItem.status === s ? 'default' : 'outline'}
-                                    className={orderItem.status === s ? 'bg-orange-500' : ''}
-                                    onClick={() => updateStatus(s)}
-                                    disabled={orderItem.status === 'cancelled' || orderItem.status === 'delivered' || orderItem.status === 'refunded'}
-                                >
-                                    {formatOrderStatus(s)}
-                                </Button>
-                            ))}
+                        <div className="mt-4 space-y-2">
+                            {sellerFlow.map((step, i) => {
+                                const stepIdx = sellerFlow.findIndex((s) => s.status === orderItem.status);
+                                const done = stepIdx > i || orderItem.status === 'delivered';
+                                const active = step.status === orderItem.status;
+
+                                return (
+                                    <div
+                                        key={step.status}
+                                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${
+                                            active ? 'bg-orange-50 text-orange-800' : done ? 'text-green-700' : 'text-gray-400'
+                                        }`}
+                                    >
+                                        <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                                            done ? 'bg-green-500 text-white' : active ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'
+                                        }`}>
+                                            {i + 1}
+                                        </span>
+                                        <span className="font-medium">{step.label}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
+
+                        {orderItem.status === 'awaiting_confirmation' && (
+                            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+                                <p className="font-semibold">Waiting for buyer confirmation</p>
+                                <p className="mt-1 text-blue-700">You marked this as delivered. The buyer must confirm receipt before the order is complete and funds are released.</p>
+                            </div>
+                        )}
+
+                        {orderItem.status === 'delivered' && (
+                            <div className="mt-4 rounded-xl border border-green-100 bg-green-50 p-4 text-sm text-green-800">
+                                <p className="font-semibold">Order complete</p>
+                                <p className="mt-1">Buyer confirmed delivery. Funds have been released to your wallet.</p>
+                            </div>
+                        )}
+
+                        {next && !isTerminal && (
+                            <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                                <p className="text-sm font-medium text-gray-900">
+                                    Next step: {sellerFlow.find((s) => s.status === next)?.label}
+                                </p>
+                                <p className="mt-1 text-xs text-gray-500">{currentStep?.hint}</p>
+                                <Button
+                                    type="button"
+                                    className="mt-3 bg-orange-500 hover:bg-orange-600"
+                                    onClick={advanceStatus}
+                                >
+                                    {sellerFlow.find((s) => s.status === next)?.label}
+                                    <ChevronRight className="ml-1 h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
 
                         <form onSubmit={submit} className="mt-6 space-y-4 border-t border-gray-100 pt-4">
                             <div>
-                                <h4 className="text-sm font-semibold text-gray-900">Your delivery details</h4>
-                                <p className="text-xs text-gray-500">CityShop has no delivery fleet — add your driver and vehicle info when sending the order.</p>
+                                <h4 className="text-sm font-semibold text-gray-900">Delivery details</h4>
+                                <p className="text-xs text-gray-500">Required when sending out for delivery. Buyer will see driver phone and vehicle number.</p>
                             </div>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
@@ -139,7 +199,6 @@ export default function SellerOrderShow({ orderItem }: OrderShowProps) {
                                         onChange={(e) => form.setData('vehicle_number', e.target.value)}
                                         className="mt-1"
                                         placeholder="e.g. GR 1234-20"
-                                        required={form.data.status === 'shipped'}
                                     />
                                 </div>
                                 <div>
@@ -149,7 +208,6 @@ export default function SellerOrderShow({ orderItem }: OrderShowProps) {
                                         onChange={(e) => form.setData('driver_phone', e.target.value)}
                                         className="mt-1"
                                         placeholder="e.g. 024 000 0000"
-                                        required={form.data.status === 'shipped'}
                                     />
                                 </div>
                             </div>
@@ -168,7 +226,6 @@ export default function SellerOrderShow({ orderItem }: OrderShowProps) {
                                     className="mt-2"
                                     onChange={(e) => form.setData('package_image', e.target.files?.[0] ?? null)}
                                 />
-                                <p className="mt-1 text-xs text-gray-400">Photo of packed order before dispatch (optional but recommended).</p>
                             </div>
                             <Button type="submit" disabled={form.processing} className="bg-orange-500 hover:bg-orange-600">
                                 Save delivery info

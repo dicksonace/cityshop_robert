@@ -1,23 +1,11 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Package } from 'lucide-react';
 
-import BuyerOrderHub, { OrderStatusTabs, orderStatusMessage } from '@/components/shop/buyer-order-hub';
+import BuyerOrderHub, { OrderHubCounts, OrderStatusTabs, orderStatusMessage } from '@/components/shop/buyer-order-hub';
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
 import { formatPrice, Order, OrderItem, Paginated, productImageUrl } from '@/types/marketplace';
 import { SharedData } from '@/types';
-
-interface OrderHubCounts {
-    all: number;
-    unpaid: number;
-    processing: number;
-    shipped: number;
-    refunds: number;
-    completed: number;
-    cancelled: number;
-    review: number;
-    invoices: number;
-}
 
 interface BuyerOrder extends Order {
     checkout_id?: number | null;
@@ -156,6 +144,20 @@ export default function Orders({ orders, counts, tab }: OrdersProps) {
                                         )}
 
                                         <div className="mt-4 flex flex-wrap gap-2">
+                                            {tab === 'confirm' && order.items?.some((i) => i.status === 'awaiting_confirmation') && (
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-green-600 hover:bg-green-700"
+                                                    onClick={() => {
+                                                        const item = order.items?.find((i) => i.status === 'awaiting_confirmation');
+                                                        if (item) {
+                                                            router.post(route('orders.confirm-delivery', [order.id, item.id]));
+                                                        }
+                                                    }}
+                                                >
+                                                    Confirm delivery
+                                                </Button>
+                                            )}
                                             {tab === 'completed' && firstItem?.product?.slug ? (
                                                 <Button
                                                     size="sm"

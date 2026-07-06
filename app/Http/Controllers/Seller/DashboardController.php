@@ -35,6 +35,7 @@ class DashboardController extends Controller
             'storeUrl' => $seller->sellerProfile
                 ? route('store.show', $seller->sellerProfile->slug, absolute: true)
                 : null,
+            'orderPipelineCounts' => $this->dashboard->orderPipelineCounts($seller),
         ]);
     }
 

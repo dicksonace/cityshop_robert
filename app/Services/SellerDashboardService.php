@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\OrderStatus;
+use App\Enums\OrderStatus;
 use App\Enums\ProductStatus;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -38,6 +39,23 @@ class SellerDashboardService
             'withdrawn_amount' => $wallet?->withdrawn_amount ?? 0,
             'product_views' => (int) Product::where('seller_id', $sellerId)->sum('views'),
             'average_rating' => round((float) Product::where('seller_id', $sellerId)->where('review_count', '>', 0)->avg('rating'), 1),
+        ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function orderPipelineCounts(User $seller): array
+    {
+        $base = OrderItem::where('seller_id', $seller->id);
+
+        return [
+            'pending' => (clone $base)->where('status', OrderStatus::Pending)->count(),
+            'processing' => (clone $base)->where('status', OrderStatus::Processing)->count(),
+            'packed' => (clone $base)->where('status', OrderStatus::Packed)->count(),
+            'shipped' => (clone $base)->where('status', OrderStatus::Shipped)->count(),
+            'awaiting_confirmation' => (clone $base)->where('status', OrderStatus::AwaitingConfirmation)->count(),
+            'delivered' => (clone $base)->where('status', OrderStatus::Delivered)->count(),
         ];
     }
 

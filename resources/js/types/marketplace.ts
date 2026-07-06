@@ -187,12 +187,21 @@ export function formatPrice(amount: number): string {
 export const orderStatusLabels: Record<string, string> = {
     pending: 'Pending',
     processing: 'Processing',
-    packed: 'Packed',
-    shipped: 'Out for Delivery',
-    delivered: 'Delivered',
+    packed: 'Packing',
+    shipped: 'Out for delivery',
+    awaiting_confirmation: 'Confirm delivery',
+    delivered: 'Completed',
     cancelled: 'Cancelled',
     refunded: 'Refunded',
 };
+
+export const orderFulfillmentSteps = [
+    { key: 'processing', label: 'Processing' },
+    { key: 'packed', label: 'Packing' },
+    { key: 'shipped', label: 'Out for delivery' },
+    { key: 'awaiting_confirmation', label: 'Delivered' },
+    { key: 'delivered', label: 'Completed' },
+] as const;
 
 export function formatOrderStatus(status: string): string {
     return orderStatusLabels[status] ?? status.replace(/_/g, ' ');

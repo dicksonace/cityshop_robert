@@ -472,6 +472,10 @@ class OrderService
             return;
         }
 
+        if ($item->status !== OrderStatus::AwaitingConfirmation) {
+            throw new \RuntimeException('Buyer must confirm delivery before funds are released.');
+        }
+
         if (Dispute::where('order_item_id', $item->id)->whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->exists()) {
             throw new \RuntimeException('Cannot release funds while a dispute is open.');
         }
@@ -492,6 +496,20 @@ class OrderService
         });
     }
 
+    public function confirmBuyerDelivery(OrderItem $item): OrderItem
+    {
+        $item->load('order');
+
+        if ($item->status !== OrderStatus::AwaitingConfirmation) {
+            throw new \RuntimeException('This item is not waiting for delivery confirmation.');
+        }
+
+        $this->releaseSellerFunds($item);
+        $this->syncOrderStatusAfterItemChange($item->order);
+
+        return $item->fresh();
+    }
+
     public function updateOrderItemStatus(OrderItem $item, array $data): OrderItem
     {
         $previousStatus = $item->status->value;
@@ -499,17 +517,44 @@ class OrderService
         $allowed = ['status', 'vehicle_number', 'driver_phone', 'package_image'];
         $payload = array_intersect_key($data, array_flip($allowed));
 
+        if (isset($payload['status'])) {
+            $this->assertValidStatusTransition($item, OrderStatus::from($payload['status']));
+        }
+
         $item->update($payload);
+
+        if ($data['status'] === 'packed' && $previousStatus !== 'packed') {
+            $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'packed'));
+        }
 
         if ($data['status'] === 'shipped' && $previousStatus !== 'shipped') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'shipped'));
         }
 
-        if ($data['status'] === 'delivered') {
-            $this->releaseSellerFunds($item);
+        if ($data['status'] === 'awaiting_confirmation' && $previousStatus !== 'awaiting_confirmation') {
+            $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'awaiting_confirmation'));
         }
 
+        $this->syncOrderStatusAfterItemChange($item->order);
+
         return $item->fresh();
+    }
+
+    private function assertValidStatusTransition(OrderItem $item, OrderStatus $next): void
+    {
+        $flow = [
+            OrderStatus::Pending->value => [OrderStatus::Processing],
+            OrderStatus::Processing->value => [OrderStatus::Packed],
+            OrderStatus::Packed->value => [OrderStatus::Shipped],
+            OrderStatus::Shipped->value => [OrderStatus::AwaitingConfirmation],
+        ];
+
+        $current = $item->status->value;
+        $allowed = $flow[$current] ?? [];
+
+        if (! in_array($next, $allowed, true)) {
+            throw new \RuntimeException("Cannot change status from {$current} to {$next->value}.");
+        }
     }
 
     public function rejectOrderItem(OrderItem $item, string $reason): OrderItem
@@ -520,7 +565,7 @@ class OrderService
             throw new \RuntimeException('This order item can no longer be rejected.');
         }
 
-        if (in_array($item->status, [OrderStatus::Shipped], true)) {
+        if (in_array($item->status, [OrderStatus::Shipped, OrderStatus::AwaitingConfirmation], true)) {
             throw new \RuntimeException('Cannot reject an order that is already out for delivery.');
         }
 
@@ -591,6 +636,30 @@ class OrderService
 
         if ($statuses->contains(OrderStatus::Delivered) && $statuses->every(fn ($s) => in_array($s, [OrderStatus::Delivered, OrderStatus::Cancelled], true))) {
             $order->update(['status' => OrderStatus::Delivered]);
+
+            return;
+        }
+
+        if ($statuses->contains(OrderStatus::AwaitingConfirmation)) {
+            $order->update(['status' => OrderStatus::AwaitingConfirmation]);
+
+            return;
+        }
+
+        if ($statuses->contains(OrderStatus::Shipped)) {
+            $order->update(['status' => OrderStatus::Shipped]);
+
+            return;
+        }
+
+        if ($statuses->contains(OrderStatus::Packed)) {
+            $order->update(['status' => OrderStatus::Packed]);
+
+            return;
+        }
+
+        if ($statuses->contains(OrderStatus::Processing)) {
+            $order->update(['status' => OrderStatus::Processing]);
         }
     }
 

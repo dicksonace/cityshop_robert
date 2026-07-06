@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { PanelNavGroup } from '@/lib/panel-nav-types';
+import { sellerOrdersStageHref } from '@/lib/seller-order-stages';
 
 export type SellerNavKey =
     | 'dashboard'
@@ -72,15 +73,17 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
         },
         {
             key: 'orders',
-            label: 'Orders',
+            label: 'Sales',
             icon: ShoppingCart,
             defaultOpen: section === 'orders',
             items: [
-                { key: 'orders-all', label: 'All Orders', href: route('seller.orders.index'), mobile: true, defaultOnPath: true },
-                { key: 'orders-pending', label: 'New Orders', href: route('seller.orders.index', { status: 'pending' }), badgeKey: 'pending_orders' },
-                { key: 'orders-processing', label: 'Processing', href: route('seller.orders.index', { status: 'processing' }) },
-                { key: 'orders-shipped', label: 'Shipped', href: route('seller.orders.index', { status: 'shipped' }) },
-                { key: 'orders-delivered', label: 'Delivered', href: route('seller.orders.index', { status: 'delivered' }) },
+                { key: 'orders-hub', label: 'Sales center', href: route('seller.orders.index'), mobile: true, defaultOnPath: true },
+                { key: 'orders-new', label: 'New orders', href: sellerOrdersStageHref('new'), badgeKey: 'pending_orders' },
+                { key: 'orders-processing', label: 'Processing', href: sellerOrdersStageHref('processing'), badgeKey: 'processing_orders' },
+                { key: 'orders-packing', label: 'Packing', href: sellerOrdersStageHref('packing'), badgeKey: 'packing_orders' },
+                { key: 'orders-delivery', label: 'Out for delivery', href: sellerOrdersStageHref('delivery'), badgeKey: 'delivery_orders' },
+                { key: 'orders-awaiting', label: 'Awaiting buyer', href: sellerOrdersStageHref('awaiting'), badgeKey: 'awaiting_orders' },
+                { key: 'orders-completed', label: 'Completed', href: sellerOrdersStageHref('completed') },
                 { key: 'orders-refunds', label: 'Refund requests', href: route('seller.refunds.index'), badgeKey: 'open_refunds' },
             ],
         },

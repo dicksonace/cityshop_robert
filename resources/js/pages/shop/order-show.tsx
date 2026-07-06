@@ -1,10 +1,12 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { AlertTriangle, Star } from 'lucide-react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { AlertTriangle, CheckCircle2, Star } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
+import OrderProgress from '@/components/shop/order-progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ShopLayout from '@/layouts/shop-layout';
+import { SharedData } from '@/types';
 import { formatPrice, formatOrderStatus, Order, OrderItem, productImageUrl } from '@/types/marketplace';
 
 interface OrderShowProps {
@@ -129,7 +131,9 @@ function RefundStatus({ dispute }: { dispute: { id: number; status: string; reas
 }
 
 export default function OrderShow({ order, reviews }: OrderShowProps) {
+    const { flash } = usePage<SharedData>().props;
     const paymentPending = order.payment_status === 'pending';
+    const primaryStatus = order.items?.[0]?.status ?? order.status;
 
     return (
         <ShopLayout>
@@ -138,6 +142,17 @@ export default function OrderShow({ order, reviews }: OrderShowProps) {
                 <Link href={route('orders.index')} className="text-sm text-orange-500 hover:underline">
                     &larr; Back to Orders
                 </Link>
+
+                {flash.success && (
+                    <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                        {flash.success}
+                    </div>
+                )}
+                {flash.error && (
+                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {flash.error}
+                    </div>
+                )}
 
                 {paymentPending && order.payment_method !== 'cash' && (
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -161,9 +176,16 @@ export default function OrderShow({ order, reviews }: OrderShowProps) {
                         </span>
                     </div>
 
+                    {order.payment_status === 'paid' && (
+                        <div className="mt-6 border-t pt-6">
+                            <h3 className="mb-4 text-sm font-semibold text-gray-900">Order progress</h3>
+                            <OrderProgress status={primaryStatus} />
+                        </div>
+                    )}
+
                     <div className="mt-6 grid gap-4 sm:grid-cols-2">
                         <div>
-                            <h3 className="text-sm font-semibold text-gray-900">Deliver To</h3>
+                            <h3 className="text-sm font-semibold text-gray-900">Deliver to</h3>
                             <p className="mt-1 text-sm text-gray-600">{order.receiver_name}</p>
                             <p className="text-sm text-gray-600">{order.receiver_phone}</p>
                             <p className="text-sm text-gray-600">{order.city}, {order.region}</p>
@@ -179,24 +201,43 @@ export default function OrderShow({ order, reviews }: OrderShowProps) {
                         {order.items?.map((item) => (
                             <div key={item.id} className="mt-4 border-b border-gray-50 pb-4 last:border-0">
                                 <div className="flex justify-between text-sm">
-                                    <div>
+                                    <div className="min-w-0 flex-1">
                                         <span className="font-medium">{item.product_name} x {item.quantity}</span>
                                         <p className="text-xs text-gray-500">Status: {formatOrderStatus(item.status)}</p>
+
                                         {(item.vehicle_number || item.driver_phone) && (
-                                            <p className="mt-1 text-xs text-gray-600">
-                                                Driver: {item.driver_phone}
-                                                {item.vehicle_number ? ` · Vehicle ${item.vehicle_number}` : ''}
-                                            </p>
+                                            <div className="mt-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-900">
+                                                <p className="font-semibold">Delivery details</p>
+                                                {item.driver_phone && <p>Driver phone: {item.driver_phone}</p>}
+                                                {item.vehicle_number && <p>Vehicle: {item.vehicle_number}</p>}
+                                            </div>
                                         )}
                                         {item.package_image && (
                                             <img
                                                 src={productImageUrl(item.package_image)}
                                                 alt="Package"
-                                                className="mt-2 h-20 w-20 rounded-lg border object-cover"
+                                                className="mt-2 h-24 w-24 rounded-lg border object-cover"
                                             />
                                         )}
+
+                                        {item.status === 'awaiting_confirmation' && (
+                                            <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-4">
+                                                <p className="text-sm font-medium text-green-900">Has your item arrived?</p>
+                                                <p className="mt-1 text-xs text-green-700">
+                                                    Confirm delivery only after you have received the item in good condition.
+                                                </p>
+                                                <Button
+                                                    type="button"
+                                                    className="mt-3 w-full bg-green-600 hover:bg-green-700 sm:w-auto"
+                                                    onClick={() => router.post(route('orders.confirm-delivery', [order.id, item.id]))}
+                                                >
+                                                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                                                    I received my item
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
-                                    <span className="font-medium">{formatPrice(item.unit_price * item.quantity)}</span>
+                                    <span className="ml-4 shrink-0 font-medium">{formatPrice(item.unit_price * item.quantity)}</span>
                                 </div>
 
                                 {item.dispute && item.dispute.status !== 'cancelled' && (
@@ -214,7 +255,7 @@ export default function OrderShow({ order, reviews }: OrderShowProps) {
                                     </p>
                                 )}
 
-                                {['shipped', 'delivered'].includes(item.status) && (!item.dispute || item.dispute.status === 'cancelled') && (
+                                {['shipped', 'awaiting_confirmation', 'delivered'].includes(item.status) && (!item.dispute || item.dispute.status === 'cancelled') && (
                                     <RefundRequestForm orderId={order.id} item={item} />
                                 )}
                             </div>

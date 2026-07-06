@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import RevenueChart from '@/components/seller/revenue-chart';
+import OrderPipelineCards from '@/components/seller/order-pipeline-cards';
 import StoreShareCard from '@/components/seller/store-share-card';
 import SellerLayout from '@/layouts/seller-layout';
 import { formatPrice, formatOrderStatus, OrderItem, SellerProfile } from '@/types/marketplace';
@@ -41,6 +42,7 @@ interface DashboardProps {
     recentWithdrawals: { id: number; amount: number; status: string; created_at: string }[];
     profile: SellerProfile;
     storeUrl: string | null;
+    orderPipelineCounts: Record<string, number>;
 }
 
 export default function SellerDashboard({
@@ -52,12 +54,13 @@ export default function SellerDashboard({
     recentWithdrawals,
     profile,
     storeUrl,
+    orderPipelineCounts,
 }: DashboardProps) {
     const kpis = [
         { label: 'Revenue earned', value: formatPrice(stats.total_earnings), sub: `${stats.delivered_orders} delivered`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', href: route('seller.wallet') },
         { label: 'Available', value: formatPrice(stats.available_balance), sub: 'Withdrawable now', icon: Wallet, color: 'text-green-600', bg: 'bg-green-50', href: route('seller.wallet') },
         { label: 'Pending', value: formatPrice(stats.pending_balance), sub: 'Clearing', icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50', href: route('seller.wallet') },
-        { label: 'Orders', value: stats.total_orders, sub: `${stats.pending_orders} need action`, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50', href: stats.pending_orders > 0 ? route('seller.orders.index', { status: 'pending' }) : route('seller.orders.index') },
+        { label: 'Orders', value: stats.total_orders, sub: `${stats.pending_orders} new`, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50', href: route('seller.orders.index') },
         { label: 'Live products', value: stats.live_products, sub: `${stats.out_of_stock} out of stock`, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', href: route('seller.products.index', { status: 'approved' }) },
         { label: 'Store views', value: stats.product_views, sub: stats.average_rating ? `${stats.average_rating}★ avg rating` : 'No ratings yet', icon: Eye, color: 'text-purple-600', bg: 'bg-purple-50', href: route('seller.store-appearance.index') },
     ];
@@ -97,6 +100,16 @@ export default function SellerDashboard({
                     </ul>
                 </div>
             )}
+
+            <div className="mb-6">
+                <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">Order pipeline</h2>
+                    <Link href={route('seller.orders.index')} className="text-sm text-orange-600 hover:underline">
+                        Open sales center
+                    </Link>
+                </div>
+                <OrderPipelineCards counts={orderPipelineCounts} compact />
+            </div>
 
             <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {kpis.map((kpi) => (

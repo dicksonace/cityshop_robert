@@ -13,39 +13,86 @@ use Inertia\Response;
 
 class OrderController extends Controller
 {
+    private const STAGE_MAP = [
+        'new' => ['status' => OrderStatus::Pending],
+        'processing' => ['status' => OrderStatus::Processing],
+        'packing' => ['status' => OrderStatus::Packed],
+        'delivery' => ['status' => OrderStatus::Shipped],
+        'awaiting' => ['status' => OrderStatus::AwaitingConfirmation],
+        'completed' => ['status' => OrderStatus::Delivered],
+        'cancelled' => ['statuses' => [OrderStatus::Cancelled, OrderStatus::Refunded]],
+        'all' => [],
+    ];
+
     public function __construct(private OrderService $orderService) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
-        $status = $request->string('status')->toString();
+        if ($request->filled('status')) {
+            $stage = $this->legacyStatusToStage($request->string('status')->toString());
 
-        $query = OrderItem::with(['order.buyer', 'product.images'])
-            ->where('seller_id', $request->user()->id);
-
-        if ($status && $status !== 'all') {
-            if ($status === 'active') {
-                $query->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed, OrderStatus::Shipped]);
-            } else {
-                $query->where('status', $status);
-            }
+            return redirect()->route('seller.orders.stage', $stage);
         }
 
-        $orders = $query->latest()->paginate(20)->withQueryString();
+        return $this->hub($request);
+    }
 
-        $counts = [
-            'all' => OrderItem::where('seller_id', $request->user()->id)->count(),
-            'pending' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Pending)->count(),
-            'processing' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Processing)->count(),
-            'packed' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Packed)->count(),
-            'shipped' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Shipped)->count(),
-            'delivered' => OrderItem::where('seller_id', $request->user()->id)->where('status', OrderStatus::Delivered)->count(),
-            'cancelled' => OrderItem::where('seller_id', $request->user()->id)->whereIn('status', [OrderStatus::Cancelled, OrderStatus::Refunded])->count(),
-        ];
+    public function hub(Request $request): Response
+    {
+        $sellerId = $request->user()->id;
+        $counts = $this->orderCounts($sellerId);
 
-        return Inertia::render('seller/orders/index', [
-            'orders' => $orders,
+        $urgent = OrderItem::with(['order.buyer', 'product.images'])
+            ->where('seller_id', $sellerId)
+            ->whereIn('status', [
+                OrderStatus::Pending,
+                OrderStatus::Processing,
+                OrderStatus::Packed,
+                OrderStatus::Shipped,
+            ])
+            ->latest()
+            ->limit(6)
+            ->get();
+
+        $recentCompleted = OrderItem::with(['order.buyer', 'product.images'])
+            ->where('seller_id', $sellerId)
+            ->where('status', OrderStatus::Delivered)
+            ->latest()
+            ->limit(4)
+            ->get();
+
+        return Inertia::render('seller/orders/hub', [
             'counts' => $counts,
-            'activeStatus' => $status ?: 'all',
+            'urgentOrders' => $urgent,
+            'recentCompleted' => $recentCompleted,
+            'needsAction' => $counts['pending'] + $counts['processing'] + $counts['packed'] + $counts['shipped'],
+        ]);
+    }
+
+    public function stage(Request $request, string $stage): Response|RedirectResponse
+    {
+        if (! array_key_exists($stage, self::STAGE_MAP)) {
+            return redirect()->route('seller.orders.index');
+        }
+
+        $sellerId = $request->user()->id;
+        $config = self::STAGE_MAP[$stage];
+
+        $query = OrderItem::with(['order.buyer', 'product.images'])
+            ->where('seller_id', $sellerId);
+
+        if (isset($config['status'])) {
+            $query->where('status', $config['status']);
+        } elseif (isset($config['statuses'])) {
+            $query->whereIn('status', $config['statuses']);
+        }
+
+        $orders = $query->latest()->paginate(12)->withQueryString();
+
+        return Inertia::render('seller/orders/stage', [
+            'orders' => $orders,
+            'counts' => $this->orderCounts($sellerId),
+            'stage' => $stage,
         ]);
     }
 
@@ -62,6 +109,7 @@ class OrderController extends Controller
 
         return Inertia::render('seller/orders/show', [
             'orderItem' => $orderItem,
+            'backStage' => $this->statusToStage($orderItem->status),
         ]);
     }
 
@@ -70,7 +118,7 @@ class OrderController extends Controller
         abort_unless($orderItem->seller_id === $request->user()->id, 403);
 
         $validated = $request->validate([
-            'status' => ['required', 'in:processing,packed,shipped,delivered'],
+            'status' => ['required', 'in:processing,packed,shipped,awaiting_confirmation'],
             'vehicle_number' => ['nullable', 'string', 'max:50'],
             'driver_phone' => ['nullable', 'string', 'max:30'],
             'package_image' => ['nullable', 'image', 'max:5120'],
@@ -99,7 +147,11 @@ class OrderController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Order updated.');
+        $nextStage = $this->statusToStage(OrderStatus::from($validated['status']));
+
+        return redirect()
+            ->route('seller.orders.stage', $nextStage)
+            ->with('success', 'Order moved to the next stage.');
     }
 
     public function reject(Request $request, OrderItem $orderItem): RedirectResponse
@@ -116,6 +168,54 @@ class OrderController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Order rejected. Refund credited to buyer wallet.');
+        return redirect()->route('seller.orders.stage', 'cancelled')
+            ->with('success', 'Order rejected. Refund credited to buyer wallet.');
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function orderCounts(int $sellerId): array
+    {
+        $base = OrderItem::where('seller_id', $sellerId);
+
+        return [
+            'all' => (clone $base)->count(),
+            'pending' => (clone $base)->where('status', OrderStatus::Pending)->count(),
+            'processing' => (clone $base)->where('status', OrderStatus::Processing)->count(),
+            'packed' => (clone $base)->where('status', OrderStatus::Packed)->count(),
+            'shipped' => (clone $base)->where('status', OrderStatus::Shipped)->count(),
+            'awaiting_confirmation' => (clone $base)->where('status', OrderStatus::AwaitingConfirmation)->count(),
+            'delivered' => (clone $base)->where('status', OrderStatus::Delivered)->count(),
+            'cancelled' => (clone $base)->whereIn('status', [OrderStatus::Cancelled, OrderStatus::Refunded])->count(),
+        ];
+    }
+
+    private function legacyStatusToStage(string $status): string
+    {
+        return match ($status) {
+            'pending' => 'new',
+            'packed' => 'packing',
+            'shipped' => 'delivery',
+            'awaiting_confirmation' => 'awaiting',
+            'delivered' => 'completed',
+            'cancelled', 'refunded' => 'cancelled',
+            'all' => 'all',
+            default => $status === 'processing' ? 'processing' : 'new',
+        };
+    }
+
+    private function statusToStage(OrderStatus $status): string
+    {
+        return match ($status) {
+            OrderStatus::Pending => 'new',
+            OrderStatus::Processing => 'processing',
+            OrderStatus::Packed => 'packing',
+            OrderStatus::Shipped => 'delivery',
+            OrderStatus::AwaitingConfirmation => 'awaiting',
+            OrderStatus::Delivered => 'completed',
+            OrderStatus::Cancelled, OrderStatus::Refunded => 'cancelled',
+            default => 'new',
+        };
     }
 }

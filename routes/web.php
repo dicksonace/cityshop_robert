@@ -77,6 +77,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/my-orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/my-orders/{order}', [OrderController::class, 'show'])->name('orders.show');
+    Route::post('/my-orders/{order}/items/{orderItem}/confirm-delivery', [OrderController::class, 'confirmDelivery'])->name('orders.confirm-delivery');
     Route::post('/my-orders/{order}/reviews', [ReviewController::class, 'store'])->name('orders.reviews.store');
     Route::post('/my-orders/{order}/disputes', [DisputeController::class, 'store'])->name('orders.disputes.store');
     Route::post('/disputes/{dispute}/cancel', [DisputeController::class, 'cancel'])->name('disputes.cancel');
@@ -143,6 +144,7 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::post('/reviews/{review}/reply', [SellerReviewController::class, 'reply'])->name('reviews.reply');
 
             Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
+            Route::get('/orders/stage/{stage}', [SellerOrderController::class, 'stage'])->name('orders.stage');
             Route::get('/orders/{orderItem}', [SellerOrderController::class, 'show'])->name('orders.show');
             Route::patch('/orders/{orderItem}', [SellerOrderController::class, 'update'])->name('orders.update');
             Route::post('/orders/{orderItem}/reject', [SellerOrderController::class, 'reject'])->name('orders.reject');

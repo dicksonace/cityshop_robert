@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Review;
+use App\Services\OrderService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,8 @@ use Inertia\Response;
 
 class OrderController extends Controller
 {
+    public function __construct(private OrderService $orderService) {}
+
     public function index(Request $request): Response
     {
         $buyerId = $request->user()->id;
@@ -28,7 +31,8 @@ class OrderController extends Controller
                 ->where('payment_status', PaymentStatus::Paid)
                 ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed])
                 ->count(),
-            'shipped' => Order::where('buyer_id', $buyerId)->where('status', OrderStatus::Shipped)->count(),
+            'delivery' => Order::where('buyer_id', $buyerId)->where('status', OrderStatus::Shipped)->count(),
+            'confirm' => Order::where('buyer_id', $buyerId)->where('status', OrderStatus::AwaitingConfirmation)->count(),
             'refunds' => Order::where('buyer_id', $buyerId)
                 ->where(function (Builder $q) {
                     $q->where('status', OrderStatus::Refunded)
@@ -91,7 +95,8 @@ class OrderController extends Controller
             'processing' => $query
                 ->where('payment_status', PaymentStatus::Paid)
                 ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed]),
-            'shipped' => $query->where('status', OrderStatus::Shipped),
+            'delivery' => $query->where('status', OrderStatus::Shipped),
+            'confirm' => $query->where('status', OrderStatus::AwaitingConfirmation),
             'refunds' => $query->where(function (Builder $q) {
                 $q->where('status', OrderStatus::Refunded)
                     ->orWhere('payment_status', PaymentStatus::Refunded)
@@ -137,5 +142,19 @@ class OrderController extends Controller
             'order' => $order,
             'reviews' => $reviews,
         ]);
+    }
+
+    public function confirmDelivery(Request $request, Order $order, OrderItem $orderItem): RedirectResponse
+    {
+        abort_unless($order->buyer_id === $request->user()->id, 403);
+        abort_unless($orderItem->order_id === $order->id, 404);
+
+        try {
+            $this->orderService->confirmBuyerDelivery($orderItem);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Delivery confirmed. Thank you — you can now leave a review!');
     }
 }

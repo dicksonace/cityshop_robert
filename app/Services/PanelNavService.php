@@ -64,6 +64,10 @@ class PanelNavService
         return [
             'pending_products' => Product::where('seller_id', $sellerId)->where('status', ProductStatus::Pending)->count(),
             'pending_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::Pending)->count(),
+            'processing_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::Processing)->count(),
+            'packing_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::Packed)->count(),
+            'delivery_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::Shipped)->count(),
+            'awaiting_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::AwaitingConfirmation)->count(),
             'open_refunds' => Dispute::where('seller_id', $sellerId)->whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->count(),
         ];
     }

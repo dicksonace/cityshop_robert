@@ -6,6 +6,7 @@ import {
     FileText,
     MessageSquare,
     Package,
+    PackageCheck,
     RotateCcw,
     Star,
     Truck,
@@ -16,7 +17,8 @@ interface OrderHubCounts {
     all: number;
     unpaid: number;
     processing: number;
-    shipped: number;
+    delivery: number;
+    confirm: number;
     refunds: number;
     completed: number;
     cancelled: number;
@@ -32,8 +34,8 @@ interface BuyerOrderHubProps {
 const shortcuts = [
     { key: 'unpaid', label: 'Unpaid', icon: Wallet },
     { key: 'processing', label: 'Processing', icon: Clock },
-    { key: 'shipped', label: 'Shipped', icon: Truck },
-    { key: 'refunds', label: 'Refunds', icon: RotateCcw },
+    { key: 'delivery', label: 'Delivery', icon: Truck },
+    { key: 'confirm', label: 'Confirm', icon: PackageCheck },
     { key: 'completed', label: 'Completed', icon: CheckCircle2 },
     { key: 'review', label: 'Review', icon: Star },
 ] as const;
@@ -126,11 +128,12 @@ export const orderTabs = [
     { key: 'all', label: 'All' },
     { key: 'unpaid', label: 'Unpaid' },
     { key: 'processing', label: 'Processing' },
-    { key: 'shipped', label: 'Shipped' },
-    { key: 'refunds', label: 'Refunds' },
+    { key: 'delivery', label: 'Delivery' },
+    { key: 'confirm', label: 'Confirm delivery' },
     { key: 'completed', label: 'Completed' },
-    { key: 'cancelled', label: 'Cancelled' },
     { key: 'review', label: 'To review' },
+    { key: 'refunds', label: 'Refunds' },
+    { key: 'cancelled', label: 'Cancelled' },
 ] as const;
 
 export function OrderStatusTabs({
@@ -172,7 +175,7 @@ export function OrderStatusTabs({
 export function orderStatusMessage(order: {
     payment_status: string;
     status: string;
-    items?: { status: string; courier_name?: string | null; tracking_number?: string | null }[];
+    items?: { status: string; driver_phone?: string | null; vehicle_number?: string | null }[];
 }): string {
     if (order.payment_status === 'pending') {
         return 'Waiting for payment';
@@ -182,12 +185,18 @@ export function orderStatusMessage(order: {
         if (item?.driver_phone) {
             return `On the way · Driver ${item.driver_phone}${item.vehicle_number ? ` · ${item.vehicle_number}` : ''}`;
         }
-        return 'On the way to you';
+        return 'Out for delivery';
+    }
+    if (order.status === 'awaiting_confirmation') {
+        return 'Delivered — tap Confirm delivery when you receive your item';
     }
     if (order.status === 'delivered') {
         return 'Order completed';
     }
-    if (order.status === 'processing' || order.status === 'packed') {
+    if (order.status === 'packed') {
+        return 'Seller is packing your order';
+    }
+    if (order.status === 'processing' || order.status === 'pending') {
         return 'Seller is preparing your order';
     }
     if (order.status === 'refunded' || order.payment_status === 'refunded') {
@@ -198,3 +207,5 @@ export function orderStatusMessage(order: {
     }
     return 'Processing your order';
 }
+
+export type { OrderHubCounts };
