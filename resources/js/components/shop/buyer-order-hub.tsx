@@ -1,6 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import {
     CheckCircle2,
+    ChevronLeft,
     ChevronRight,
     Clock,
     FileText,
@@ -12,6 +13,7 @@ import {
     Truck,
     Wallet,
 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface OrderHubCounts {
     all: number;
@@ -143,31 +145,104 @@ export function OrderStatusTabs({
     counts: OrderHubCounts;
     activeTab: string;
 }) {
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    const updateScrollState = useCallback(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        setCanScrollLeft(el.scrollLeft > 4);
+        setCanScrollRight(maxScroll > 4 && el.scrollLeft < maxScroll - 4);
+    }, []);
+
+    const scrollBy = (direction: 'left' | 'right') => {
+        scrollRef.current?.scrollBy({
+            left: direction === 'left' ? -180 : 180,
+            behavior: 'smooth',
+        });
+    };
+
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+
+        updateScrollState();
+        el.addEventListener('scroll', updateScrollState, { passive: true });
+
+        const observer = new ResizeObserver(updateScrollState);
+        observer.observe(el);
+
+        return () => {
+            el.removeEventListener('scroll', updateScrollState);
+            observer.disconnect();
+        };
+    }, [updateScrollState]);
+
+    useEffect(() => {
+        tabRefs.current[activeTab]?.scrollIntoView({
+            behavior: 'smooth',
+            inline: 'center',
+            block: 'nearest',
+        });
+    }, [activeTab]);
+
     return (
-        <div className="scrollbar-hide -mx-4 flex gap-1 overflow-x-auto border-b border-gray-100 px-4">
-            {orderTabs.map(({ key, label }) => {
-                const count = counts[key];
-                const active = activeTab === key;
-                return (
-                    <button
-                        key={key}
-                        type="button"
-                        onClick={() =>
-                            router.get(route('orders.index'), key === 'all' ? {} : { tab: key }, {
-                                preserveState: true,
-                            })
-                        }
-                        className={`shrink-0 border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
-                            active
-                                ? 'border-orange-500 text-orange-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-800'
-                        }`}
-                    >
-                        {label}
-                        {count > 0 && <span className="ml-1 text-gray-400">({count})</span>}
-                    </button>
-                );
-            })}
+        <div className="relative -mx-4 border-b border-gray-100">
+            {canScrollLeft && (
+                <button
+                    type="button"
+                    aria-label="Scroll tabs left"
+                    onClick={() => scrollBy('left')}
+                    className="absolute top-0 left-0 z-10 flex h-full w-9 items-center justify-center bg-gradient-to-r from-white via-white/95 to-transparent text-gray-400 hover:text-gray-700"
+                >
+                    <ChevronLeft className="h-4 w-4" />
+                </button>
+            )}
+            {canScrollRight && (
+                <button
+                    type="button"
+                    aria-label="Scroll tabs right"
+                    onClick={() => scrollBy('right')}
+                    className="absolute top-0 right-0 z-10 flex h-full w-9 items-center justify-center bg-gradient-to-l from-white via-white/95 to-transparent text-gray-400 hover:text-gray-700"
+                >
+                    <ChevronRight className="h-4 w-4" />
+                </button>
+            )}
+            <div
+                ref={scrollRef}
+                className="scrollbar-hide flex gap-1 overflow-x-auto scroll-smooth px-4 [-webkit-overflow-scrolling:touch]"
+            >
+                {orderTabs.map(({ key, label }) => {
+                    const count = counts[key];
+                    const active = activeTab === key;
+                    return (
+                        <button
+                            key={key}
+                            ref={(node) => {
+                                tabRefs.current[key] = node;
+                            }}
+                            type="button"
+                            onClick={() =>
+                                router.get(route('orders.index'), key === 'all' ? {} : { tab: key }, {
+                                    preserveState: true,
+                                })
+                            }
+                            className={`shrink-0 border-b-2 px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+                                active
+                                    ? 'border-orange-500 text-orange-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                            }`}
+                        >
+                            {label}
+                            {count > 0 && <span className="ml-1 text-gray-400">({count})</span>}
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }

@@ -151,6 +151,15 @@
     --sidebar-ring: hsl(217.2, 91.2%, 59.8%);
 }
 
+@utility scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
 @layer base {
     * {
         @apply border-border;

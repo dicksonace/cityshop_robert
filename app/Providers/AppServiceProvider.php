@@ -24,8 +24,16 @@ class AppServiceProvider extends ServiceProvider
     {
         ProductImage::observe(ProductImageObserver::class);
 
-        if ($this->app->environment('production') && str_starts_with((string) config('app.url'), 'https://')) {
+        // In production the site is always served over HTTPS (behind an SSL proxy),
+        // so force every generated URL — shared store links, seller invite links,
+        // and emailed links — to use https instead of falling back to http.
+        if ($this->app->environment('production')) {
             URL::forceScheme('https');
+
+            $appUrl = (string) config('app.url');
+            if (str_starts_with($appUrl, 'https://')) {
+                URL::forceRootUrl($appUrl);
+            }
         }
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\OrderStatus;
-use App\Enums\OrderStatus;
 use App\Enums\ProductStatus;
 use App\Models\OrderItem;
 use App\Models\Product;
