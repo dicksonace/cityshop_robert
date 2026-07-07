@@ -8,6 +8,7 @@ import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { useToast } from '@/contexts/toast-context';
 import { SharedData } from '@/types';
 
@@ -90,13 +91,14 @@ export default function AdminLogin({ canResetPassword, status, defaultLogin = ''
                             </div>
                             <div>
                                 <Label htmlFor="password" className="text-slate-300">Password</Label>
-                                <Input
+                                <PasswordInput
                                     id="password"
-                                    type="password"
                                     value={data.password}
                                     onChange={(e) => setData('password', e.target.value)}
                                     required
-                                    className="mt-1 border-slate-700 bg-slate-950 text-white focus-visible:ring-indigo-500"
+                                    wrapperClassName="mt-1"
+                                    className="border-slate-700 bg-slate-950 text-white focus-visible:ring-indigo-500"
+                                    toggleClassName="text-slate-500 hover:text-slate-300"
                                 />
                                 <InputError message={errors.password} />
                             </div>

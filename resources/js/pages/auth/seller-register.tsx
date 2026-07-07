@@ -7,6 +7,7 @@ import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/contexts/toast-context';
 import ShopLayout from '@/layouts/shop-layout';
@@ -545,12 +546,12 @@ export default function SellerRegister({ token, expiresAt, inviteEmail = null, i
                                             <>
                                                 <div>
                                                     <Label>Password</Label>
-                                                    <Input type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} className="mt-1" />
+                                                    <PasswordInput value={data.password} onChange={(e) => setData('password', e.target.value)} wrapperClassName="mt-1" />
                                                     <InputError message={displayErrors.password} />
                                                 </div>
                                                 <div>
                                                     <Label>Confirm Password</Label>
-                                                    <Input type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} className="mt-1" />
+                                                    <PasswordInput value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} wrapperClassName="mt-1" />
                                                     <InputError message={displayErrors.password_confirmation} />
                                                 </div>
                                             </>

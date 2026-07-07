@@ -8,6 +8,7 @@ import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { useToast } from '@/contexts/toast-context';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
@@ -80,13 +81,12 @@ export default function Login({ canResetPassword, status, defaultLogin = '' }: L
                         </div>
                         <div>
                             <Label htmlFor="password">Password</Label>
-                            <Input
+                            <PasswordInput
                                 id="password"
-                                type="password"
                                 value={data.password}
                                 onChange={(e) => setData('password', e.target.value)}
                                 required
-                                className="mt-1"
+                                wrapperClassName="mt-1"
                             />
                             <InputError message={errors.password} />
                         </div>

@@ -6,6 +6,7 @@ import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
@@ -62,12 +63,12 @@ export default function BuyerRegister() {
                         </div>
                         <div>
                             <Label htmlFor="password">Password</Label>
-                            <Input id="password" type="password" value={data.password} onChange={(e) => setData('password', e.target.value)} required className="mt-1" />
+                            <PasswordInput id="password" value={data.password} onChange={(e) => setData('password', e.target.value)} required wrapperClassName="mt-1" />
                             <InputError message={formErrors.password} />
                         </div>
                         <div>
                             <Label htmlFor="password_confirmation">Confirm Password</Label>
-                            <Input id="password_confirmation" type="password" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} required className="mt-1" />
+                            <PasswordInput id="password_confirmation" value={data.password_confirmation} onChange={(e) => setData('password_confirmation', e.target.value)} required wrapperClassName="mt-1" />
                             <InputError message={formErrors.password_confirmation} />
                         </div>
                         <Button type="submit" disabled={processing} className="mt-2 w-full bg-orange-500 hover:bg-orange-600">
