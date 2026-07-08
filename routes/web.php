@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\SellerController as AdminSellerController;
 use App\Http\Controllers\Admin\SellerInviteController as AdminSellerInviteController;
 use App\Http\Controllers\Admin\StoreOversightController as AdminStoreOversightController;
+use App\Http\Controllers\Admin\WalletFundingController as AdminWalletFundingController;
 use App\Http\Controllers\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\Chat\ConversationController as ChatConversationController;
 use App\Http\Controllers\Chat\MessageController as ChatMessageController;
@@ -198,6 +199,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/withdrawals/{withdrawal}/finalize', [AdminWithdrawalController::class, 'finalize'])->name('withdrawals.finalize');
     Route::post('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve'])->name('withdrawals.approve');
     Route::post('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject'])->name('withdrawals.reject');
+
+    Route::get('/wallet-funding', [AdminWalletFundingController::class, 'index'])->name('wallet-funding.index');
+    Route::post('/wallet-funding', [AdminWalletFundingController::class, 'store'])->name('wallet-funding.store');
 
     Route::get('/disputes', [AdminDisputeController::class, 'index'])->name('disputes.index');
     Route::post('/disputes/{dispute}/review', [AdminDisputeController::class, 'review'])->name('disputes.review');

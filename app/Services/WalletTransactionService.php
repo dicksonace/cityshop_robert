@@ -91,6 +91,22 @@ class WalletTransactionService
         );
     }
 
+    public static function recordAdminCredit(int $userId, float $amount, int $adminId, ?string $note = null): WalletTransaction
+    {
+        $description = 'Funds added by admin';
+        if ($note !== null && trim($note) !== '') {
+            $description .= ' — '.trim($note);
+        }
+
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::FundAdded,
+            amount: $amount,
+            description: $description,
+            reference: 'ADMIN-'.$adminId.'-'.now()->format('YmdHis'),
+        );
+    }
+
     public static function recordOrderPayment(int $userId, float $amount, string $checkoutNumber, string $reference): void
     {
         static::record(

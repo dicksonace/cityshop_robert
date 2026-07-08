@@ -22,6 +22,18 @@ class WalletService
         );
     }
 
+    public static function adminCredit(User $target, float $amount, User $admin, ?string $note = null): WalletTransaction
+    {
+        return DB::transaction(function () use ($target, $amount, $admin, $note) {
+            $wallet = Wallet::where('user_id', $target->id)->lockForUpdate()->first()
+                ?? static::ensure($target);
+
+            $wallet->increment('available_balance', $amount);
+
+            return WalletTransactionService::recordAdminCredit($target->id, $amount, $admin->id, $note);
+        });
+    }
+
     public static function creditFromVerifiedTopUp(int $userId, float $amount, string $reference, string $method): bool
     {
         return (bool) DB::transaction(function () use ($userId, $amount, $reference, $method) {

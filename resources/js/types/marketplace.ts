@@ -203,8 +203,13 @@ export const orderFulfillmentSteps = [
     { key: 'delivered', label: 'Completed' },
 ] as const;
 
-export function formatOrderStatus(status: string): string {
-    return orderStatusLabels[status] ?? status.replace(/_/g, ' ');
+export function formatOrderStatus(status: string | { value?: string } | null | undefined): string {
+    const key = typeof status === 'string' ? status : status?.value ?? '';
+    if (!key) {
+        return 'Unknown';
+    }
+
+    return orderStatusLabels[key] ?? key.replace(/_/g, ' ');
 }
 
 export function productImageUrl(path: string | undefined): string {

@@ -52,18 +52,35 @@ function nextSellerStatus(current: string): string | null {
 }
 
 export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderShowProps) {
+    const order = orderItem.order;
+
+    if (!order) {
+        return (
+            <SellerLayout title="Order" active="orders">
+                <Head title="Order" />
+                <Link href={route('seller.orders.index')} className="mb-4 inline-block text-sm text-orange-500 hover:underline">
+                    ← Back to sales center
+                </Link>
+                <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+                    <p className="font-medium text-gray-900">Order details unavailable</p>
+                    <p className="mt-2 text-sm text-gray-500">This order could not be loaded. Try again from your sales queue.</p>
+                </div>
+            </SellerLayout>
+        );
+    }
+
+    const itemStatus = String(orderItem.status);
     const form = useForm({
-        status: orderItem.status,
+        status: itemStatus,
         vehicle_number: orderItem.vehicle_number ?? '',
         driver_phone: orderItem.driver_phone ?? '',
         package_image: null as File | null,
     });
 
     const image = orderItem.product?.images?.[0];
-    const order = orderItem.order;
     const dispute = orderItem.dispute;
-    const next = nextSellerStatus(orderItem.status);
-    const isTerminal = ['cancelled', 'delivered', 'refunded', 'awaiting_confirmation'].includes(orderItem.status);
+    const next = nextSellerStatus(itemStatus);
+    const isTerminal = ['cancelled', 'delivered', 'refunded', 'awaiting_confirmation'].includes(itemStatus);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -92,7 +109,7 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
         }, { preserveScroll: true });
     };
 
-    const currentStep = sellerFlow.find((s) => s.status === orderItem.status);
+    const currentStep = sellerFlow.find((s) => s.status === itemStatus);
 
     return (
         <SellerLayout title={`Order ${order.order_number}`} active="orders">
@@ -128,14 +145,21 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
                     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                         <h3 className="font-semibold text-gray-900">Fulfillment</h3>
                         <p className="mt-1 text-sm text-gray-500">
-                            Current: <span className="font-medium text-gray-900">{formatOrderStatus(orderItem.status)}</span>
+                            Current: <span className="font-medium text-gray-900">{formatOrderStatus(itemStatus)}</span>
                         </p>
+
+                        {itemStatus === 'pending' && (
+                            <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
+                                <p className="font-semibold">New order — payment received</p>
+                                <p className="mt-1 text-amber-800">Tap &quot;Start processing&quot; below when you begin preparing this order.</p>
+                            </div>
+                        )}
 
                         <div className="mt-4 space-y-2">
                             {sellerFlow.map((step, i) => {
-                                const stepIdx = sellerFlow.findIndex((s) => s.status === orderItem.status);
-                                const done = stepIdx > i || orderItem.status === 'delivered';
-                                const active = step.status === orderItem.status;
+                                const stepIdx = sellerFlow.findIndex((s) => s.status === itemStatus);
+                                const done = stepIdx > i || itemStatus === 'delivered';
+                                const active = step.status === itemStatus;
 
                                 return (
                                     <div
@@ -155,14 +179,14 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
                             })}
                         </div>
 
-                        {orderItem.status === 'awaiting_confirmation' && (
+                        {itemStatus === 'awaiting_confirmation' && (
                             <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                                 <p className="font-semibold">Waiting for buyer confirmation</p>
                                 <p className="mt-1 text-blue-700">You marked this as delivered. The buyer must confirm receipt before the order is complete and funds are released.</p>
                             </div>
                         )}
 
-                        {orderItem.status === 'delivered' && (
+                        {itemStatus === 'delivered' && (
                             <div className="mt-4 rounded-xl border border-green-100 bg-green-50 p-4 text-sm text-green-800">
                                 <p className="font-semibold">Order complete</p>
                                 <p className="mt-1">Buyer confirmed delivery. Funds have been released to your wallet.</p>

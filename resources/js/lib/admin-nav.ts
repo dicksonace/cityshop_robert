@@ -20,6 +20,7 @@ export type AdminNavKey =
     | 'categories'
     | 'orders'
     | 'withdrawals'
+    | 'wallet-funding'
     | 'disputes'
     | 'messages'
     | 'chats'
@@ -35,6 +36,7 @@ const sectionMap: Record<AdminNavKey, string> = {
     categories: 'catalog',
     orders: 'orders',
     withdrawals: 'finance',
+    'wallet-funding': 'finance',
     disputes: 'support',
     messages: 'support',
     chats: 'support',
@@ -107,6 +109,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'withdrawals-sellers', label: 'Seller Payouts', href: route('admin.withdrawals.index', { status: 'pending', role: 'seller' }), badgeKey: 'pending_seller_withdrawals' },
                 { key: 'withdrawals-buyers', label: 'Buyer Withdrawals', href: route('admin.withdrawals.index', { status: 'pending', role: 'buyer' }) },
                 { key: 'withdrawals-all', label: 'All Withdrawals', href: route('admin.withdrawals.index', { status: 'all' }) },
+                { key: 'wallet-funding', label: 'Add Funds to Wallet', href: route('admin.wallet-funding.index'), defaultOnPath: true },
             ],
         },
         {

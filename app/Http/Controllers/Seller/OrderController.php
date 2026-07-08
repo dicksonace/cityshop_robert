@@ -102,13 +102,14 @@ class OrderController extends Controller
 
         $orderItem->load([
             'order.buyer',
-            'order.checkout',
             'product.images',
             'dispute',
         ]);
 
+        abort_if($orderItem->order === null, 404);
+
         return Inertia::render('seller/orders/show', [
-            'orderItem' => $orderItem,
+            'orderItem' => $this->serializeOrderItem($orderItem),
             'backStage' => $this->statusToStage($orderItem->status),
         ]);
     }
@@ -217,5 +218,55 @@ class OrderController extends Controller
             OrderStatus::Cancelled, OrderStatus::Refunded => 'cancelled',
             default => 'new',
         };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeOrderItem(OrderItem $orderItem): array
+    {
+        $order = $orderItem->order;
+
+        return [
+            'id' => $orderItem->id,
+            'product_name' => $orderItem->product_name,
+            'quantity' => $orderItem->quantity,
+            'unit_price' => (float) $orderItem->unit_price,
+            'seller_amount' => (float) $orderItem->seller_amount,
+            'status' => $orderItem->status->value,
+            'vehicle_number' => $orderItem->vehicle_number,
+            'driver_phone' => $orderItem->driver_phone,
+            'package_image' => $orderItem->package_image,
+            'product' => $orderItem->product ? [
+                'images' => $orderItem->product->images->map(fn ($image) => [
+                    'path' => $image->path,
+                ])->values()->all(),
+            ] : null,
+            'order' => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'created_at' => $order->created_at?->toIso8601String(),
+                'payment_status' => $order->payment_status->value,
+                'payment_channel' => $order->payment_channel?->value,
+                'direct_payment_reference' => $order->direct_payment_reference,
+                'receiver_name' => $order->receiver_name,
+                'receiver_phone' => $order->receiver_phone,
+                'city' => $order->city,
+                'region' => $order->region,
+                'delivery_notes' => $order->delivery_notes,
+                'buyer' => $order->buyer ? [
+                    'name' => $order->buyer->name,
+                    'email' => $order->buyer->email,
+                    'mobile' => $order->buyer->mobile,
+                ] : null,
+            ],
+            'dispute' => $orderItem->dispute ? [
+                'id' => $orderItem->dispute->id,
+                'reason' => $orderItem->dispute->reason,
+                'description' => $orderItem->dispute->description,
+                'status' => $orderItem->dispute->status->value,
+                'resolution_notes' => $orderItem->dispute->resolution_notes,
+            ] : null,
+        ];
     }
 }
