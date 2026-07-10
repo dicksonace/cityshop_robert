@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { MapPin, User } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -92,12 +92,12 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
 
                 <div className="mt-auto flex gap-2 pt-2">
                     <Button
+                        asChild
                         variant="outline"
                         size="sm"
                         className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50"
-                        onClick={() => router.visit(route('seller.orders.show', item.id))}
                     >
-                        Manage order
+                        <Link href={route('seller.orders.show', item.id)}>Manage order</Link>
                     </Button>
                     {needsPaymentConfirm && (
                         <Button

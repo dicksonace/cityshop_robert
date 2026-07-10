@@ -31,6 +31,7 @@ class WalletController extends Controller
             ->withQueryString();
 
         $payoutMethods = SellerPayoutMethod::where('user_id', $user->id)
+            ->orderByRaw("CASE network WHEN 'mtn' THEN 0 WHEN 'telecel' THEN 1 WHEN 'airteltigo' THEN 2 ELSE 3 END")
             ->orderByDesc('is_default')
             ->latest()
             ->get();

@@ -6,6 +6,8 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
+import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import ShopLayout from '@/layouts/shop-layout';
 import {
     formatPrice,
@@ -75,7 +77,7 @@ export default function BuyerWallet({ wallet, transactions, paystackConfigured }
                 <div className="grid gap-6 lg:grid-cols-2">
                     <form onSubmit={submitAddFunds} className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
                         <h3 className="font-semibold text-gray-900">Add Funds</h3>
-                        <p className="mt-1 text-sm text-gray-500">Top up via Paystack (MoMo or card), pay for orders, or withdraw to MoMo.</p>
+                        <p className="mt-1 text-sm text-gray-500">Top up via Paystack (MoMo or card).</p>
                         <div className="mt-4 space-y-3">
                             <div>
                                 <Label>Amount (GH₵)</Label>
@@ -111,59 +113,65 @@ export default function BuyerWallet({ wallet, transactions, paystackConfigured }
                         </div>
                     </form>
 
-                    <form onSubmit={submitWithdraw} className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-                        <h3 className="font-semibold text-gray-900">Withdraw Funds</h3>
-                        <p className="mt-1 text-sm text-gray-500">Transfer to your MoMo account.</p>
-                        <div className="mt-4 space-y-3">
+                    <WithdrawalHighlight
+                        title="Withdraw to MoMo"
+                        subtitle="Pick your mobile money network first, then enter your MoMo details."
+                    >
+                        <form onSubmit={submitWithdraw} className="space-y-4">
+                            <MomoNetworkPicker
+                                value={withdrawForm.data.network}
+                                onChange={(network) => withdrawForm.setData('network', network)}
+                                hint="Step 1 — choose MTN MoMo, Telecel, or AirtelTigo."
+                            />
                             <div>
-                                <Label>Amount (GH₵)</Label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={withdrawForm.data.amount}
-                                    onChange={(e) => withdrawForm.setData('amount', e.target.value)}
-                                    required
-                                    className="mt-1"
-                                />
-                                <InputError message={withdrawForm.errors.amount} />
-                            </div>
-                            <div>
-                                <Label>MoMo Number</Label>
+                                <Label>MoMo number</Label>
                                 <Input
                                     value={withdrawForm.data.momo_number}
                                     onChange={(e) => withdrawForm.setData('momo_number', e.target.value)}
                                     required
                                     className="mt-1"
+                                    placeholder="0XX XXX XXXX"
                                 />
                                 <InputError message={withdrawForm.errors.momo_number} />
                             </div>
                             <div>
-                                <Label>Account Name</Label>
+                                <Label>Account name</Label>
                                 <Input
                                     value={withdrawForm.data.account_name}
                                     onChange={(e) => withdrawForm.setData('account_name', e.target.value)}
                                     required
                                     className="mt-1"
+                                    placeholder="Name on MoMo account"
                                 />
+                                <InputError message={withdrawForm.errors.account_name} />
                             </div>
                             <div>
-                                <Label>Network</Label>
-                                <select
-                                    value={withdrawForm.data.network}
-                                    onChange={(e) => withdrawForm.setData('network', e.target.value)}
-                                    className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                                <Label>Amount (GH₵)</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="1"
+                                    max={wallet.available_balance}
+                                    value={withdrawForm.data.amount}
+                                    onChange={(e) => withdrawForm.setData('amount', e.target.value)}
+                                    required
+                                    className="mt-1 text-lg"
+                                />
+                                <InputError message={withdrawForm.errors.amount} />
+                                <button
+                                    type="button"
+                                    className="mt-2 text-sm font-medium text-orange-600 hover:underline"
+                                    onClick={() => withdrawForm.setData('amount', String(wallet.available_balance))}
                                 >
-                                    <option value="mtn">MTN</option>
-                                    <option value="telecel">Telecel</option>
-                                    <option value="airteltigo">AirtelTigo</option>
-                                </select>
+                                    Withdraw all ({formatPrice(wallet.available_balance)})
+                                </button>
                             </div>
-                            <Button type="submit" disabled={withdrawForm.processing} className="w-full bg-orange-500 hover:bg-orange-600">
+                            <Button type="submit" disabled={withdrawForm.processing} className="w-full bg-orange-500 py-6 text-base hover:bg-orange-600">
                                 {withdrawForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                Request Withdrawal
+                                Request withdrawal to MoMo
                             </Button>
-                        </div>
-                    </form>
+                        </form>
+                    </WithdrawalHighlight>
                 </div>
 
                 <div className="mt-8 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">

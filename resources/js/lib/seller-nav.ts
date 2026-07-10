@@ -114,7 +114,7 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
             icon: Wallet,
             defaultOpen: section === 'finance',
             items: [
-                { key: 'wallet', label: 'Earnings & Wallet', href: route('seller.wallet'), mobile: true },
+                { key: 'wallet', label: 'Withdraw to MoMo', href: route('seller.wallet'), mobile: true },
                 { key: 'payment-methods', label: 'Payment Methods', href: route('seller.payment-methods.index') },
             ],
         },

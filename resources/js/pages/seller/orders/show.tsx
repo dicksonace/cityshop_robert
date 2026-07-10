@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ChevronRight, FormEventHandler } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { FormEventHandler } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,9 +53,16 @@ function nextSellerStatus(current: string): string | null {
 }
 
 export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderShowProps) {
-    const order = orderItem.order;
+    const order = orderItem?.order;
+    const itemStatus = String(orderItem?.status ?? '');
+    const form = useForm({
+        status: itemStatus,
+        vehicle_number: orderItem?.vehicle_number ?? '',
+        driver_phone: orderItem?.driver_phone ?? '',
+        package_image: null as File | null,
+    });
 
-    if (!order) {
+    if (!orderItem || !order) {
         return (
             <SellerLayout title="Order" active="orders">
                 <Head title="Order" />
@@ -68,14 +76,6 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
             </SellerLayout>
         );
     }
-
-    const itemStatus = String(orderItem.status);
-    const form = useForm({
-        status: itemStatus,
-        vehicle_number: orderItem.vehicle_number ?? '',
-        driver_phone: orderItem.driver_phone ?? '',
-        package_image: null as File | null,
-    });
 
     const image = orderItem.product?.images?.[0];
     const dispute = orderItem.dispute;

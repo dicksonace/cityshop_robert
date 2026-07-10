@@ -246,7 +246,7 @@ class OrderController extends Controller
                 'id' => $order->id,
                 'order_number' => $order->order_number,
                 'created_at' => $order->created_at?->toIso8601String(),
-                'payment_status' => $order->payment_status->value,
+                'payment_status' => $order->payment_status?->value ?? 'pending',
                 'payment_channel' => $order->payment_channel?->value,
                 'direct_payment_reference' => $order->direct_payment_reference,
                 'receiver_name' => $order->receiver_name,
