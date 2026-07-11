@@ -13,6 +13,7 @@ use App\Services\ProductAnalyticsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -78,15 +79,30 @@ class ProductController extends Controller
             return back()->withErrors(['images' => $imageCountError])->withInput();
         }
 
+        $videoError = $this->videoDurationError($request);
+        if ($videoError) {
+            return back()->withErrors(['video' => $videoError])->withInput();
+        }
+
         $specifications = $this->resolveSpecifications($validated['category_id'] ?? null, $request->input('specifications', []));
 
         DB::transaction(function () use ($validated, $files, $request, $specifications, &$product) {
+            $videoPath = null;
+            $videoDuration = null;
+
+            if ($request->hasFile('video')) {
+                $videoPath = $request->file('video')->store('products/videos', 'public');
+                $videoDuration = (int) $request->input('video_duration');
+            }
+
             $product = Product::create([
-                ...collect($validated)->except(['images', 'image_count'])->toArray(),
+                ...collect($validated)->except(['images', 'image_count', 'video', 'video_duration', 'remove_video'])->toArray(),
                 'specifications' => $specifications,
                 'seller_id' => $request->user()->id,
                 'status' => ProductStatus::Approved,
                 'is_preorder' => false,
+                'video_path' => $videoPath,
+                'video_duration' => $videoDuration,
             ]);
 
             foreach ($files as $index => $image) {
@@ -119,6 +135,11 @@ class ProductController extends Controller
         abort_unless($product->seller_id === $request->user()->id, 403);
 
         $validated = $this->validateProduct($request, false);
+
+        $videoError = $this->videoDurationError($request);
+        if ($videoError) {
+            return back()->withErrors(['video' => $videoError])->withInput();
+        }
 
         if ($request->filled('remove_images')) {
             ProductImage::where('product_id', $product->id)
@@ -166,12 +187,15 @@ class ProductController extends Controller
             ? ProductStatus::Draft
             : ProductStatus::Approved;
 
+        $videoUpdates = $this->resolveVideoUpdates($request, $product);
+
         $product->update([
-            ...collect($validated)->except(['images', 'remove_images'])->toArray(),
+            ...collect($validated)->except(['images', 'remove_images', 'video', 'video_duration', 'remove_video'])->toArray(),
             'specifications' => $specifications,
             'status' => $nextStatus,
             'is_preorder' => false,
             'rejection_reason' => null,
+            ...$videoUpdates,
         ]);
 
         $message = $nextStatus === ProductStatus::Approved
@@ -350,6 +374,9 @@ class ProductController extends Controller
             'image_count' => ['nullable', 'integer', 'min:1', 'max:5'],
             'remove_images' => ['nullable', 'array'],
             'remove_images.*' => ['integer', 'exists:product_images,id'],
+            'video' => ['nullable', 'file', 'mimetypes:video/mp4,video/webm,video/quicktime', 'max:51200'],
+            'video_duration' => ['nullable', 'integer', 'min:1', 'max:60'],
+            'remove_video' => ['nullable', 'boolean'],
         ]);
 
         if ($validated['free_shipping'] ?? false) {
@@ -357,6 +384,55 @@ class ProductController extends Controller
         }
 
         return $validated;
+    }
+
+    private function videoDurationError(Request $request): ?string
+    {
+        if (! $request->hasFile('video')) {
+            return null;
+        }
+
+        $duration = $request->input('video_duration');
+
+        if ($duration === null || $duration === '') {
+            return 'Could not verify video length. Please try another file.';
+        }
+
+        if ((int) $duration > 60) {
+            return 'Product video must be 1 minute or less.';
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{video_path?: string|null, video_duration?: int|null}
+     */
+    private function resolveVideoUpdates(Request $request, Product $product): array
+    {
+        if ($request->hasFile('video')) {
+            if ($product->video_path) {
+                Storage::disk('public')->delete($product->video_path);
+            }
+
+            return [
+                'video_path' => $request->file('video')->store('products/videos', 'public'),
+                'video_duration' => (int) $request->input('video_duration'),
+            ];
+        }
+
+        if ($request->boolean('remove_video')) {
+            if ($product->video_path) {
+                Storage::disk('public')->delete($product->video_path);
+            }
+
+            return [
+                'video_path' => null,
+                'video_duration' => null,
+            ];
+        }
+
+        return [];
     }
 
     private function imageUploadCountError(Request $request, int $receivedCount): ?string

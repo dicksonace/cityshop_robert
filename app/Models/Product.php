@@ -43,6 +43,8 @@ class Product extends Model
         'pickup_available',
         'ships_nationwide',
         'in_ghana',
+        'video_path',
+        'video_duration',
         'rating',
         'review_count',
         'views',

@@ -3,6 +3,7 @@ import { LoaderCircle } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import ImageUploader from '@/components/seller/image-uploader';
+import ProductVideoUploader from '@/components/seller/product-video-uploader';
 import CategorySpecFields from '@/components/seller/category-spec-fields';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,9 @@ export default function EditProduct({ product, categories }: EditProductProps) {
     const [imagesConfirmed, setImagesConfirmed] = useState(!!product.images?.length);
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [removeIds, setRemoveIds] = useState<number[]>([]);
+    const [videoFile, setVideoFile] = useState<File | null>(null);
+    const [videoDuration, setVideoDuration] = useState<number | null>(null);
+    const [removeVideo, setRemoveVideo] = useState(false);
 
     const { data, setData, post, processing, errors, transform } = useForm({
         name: product.name,
@@ -54,6 +58,9 @@ export default function EditProduct({ product, categories }: EditProductProps) {
         images: imageFiles,
         image_count: imageFiles.length,
         remove_images: removeIds,
+        video: videoFile,
+        video_duration: videoDuration,
+        remove_video: removeVideo,
     }));
 
     const totalImages = (product.images?.length ?? 0) - removeIds.length + imageFiles.length;
@@ -77,6 +84,23 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                     }}
                     onConfirmedChange={setImagesConfirmed}
                     error={errors.images}
+                />
+
+                <ProductVideoUploader
+                    existingPath={product.video_path}
+                    existingDuration={product.video_duration}
+                    removeExisting={removeVideo}
+                    onChange={(file, duration) => {
+                        setVideoFile(file);
+                        setVideoDuration(duration);
+                        if (file) setRemoveVideo(false);
+                    }}
+                    onRemoveExisting={() => {
+                        setRemoveVideo(true);
+                        setVideoFile(null);
+                        setVideoDuration(null);
+                    }}
+                    error={errors.video ?? errors.video_duration}
                 />
 
                 <div>

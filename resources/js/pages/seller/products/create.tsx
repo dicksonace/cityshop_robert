@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react';
 import { FormEventHandler, useEffect, useMemo, useState } from 'react';
 
 import ImageUploader from '@/components/seller/image-uploader';
+import ProductVideoUploader from '@/components/seller/product-video-uploader';
 import CategorySpecFields from '@/components/seller/category-spec-fields';
 import ProductPreviewPanel, { ProductPreviewData } from '@/components/seller/product-preview-panel';
 import InputError from '@/components/input-error';
@@ -24,6 +25,8 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
     const [imagesConfirmed, setImagesConfirmed] = useState(false);
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+    const [videoFile, setVideoFile] = useState<File | null>(null);
+    const [videoDuration, setVideoDuration] = useState<number | null>(null);
     const [previewMode, setPreviewMode] = useState<'grid' | 'detail'>('grid');
     const [shippingType, setShippingType] = useState<'free' | 'paid' | 'buyer'>('buyer');
 
@@ -54,9 +57,17 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
         ships_nationwide: true,
         specifications: {} as Record<string, string>,
         images: [] as File[],
+        video: null as File | null,
+        video_duration: null as number | null,
     });
 
-    transform((formData) => ({ ...formData, images: imageFiles, image_count: imageFiles.length }));
+    transform((formData) => ({
+        ...formData,
+        images: imageFiles,
+        image_count: imageFiles.length,
+        video: videoFile,
+        video_duration: videoDuration,
+    }));
 
     useEffect(() => {
         const urls = imageFiles.map((f) => URL.createObjectURL(f));
@@ -289,6 +300,15 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                                 onChange={(files) => { setImageFiles(files); setData('images', files); if (!files.length) setImagesConfirmed(false); }}
                                 onConfirmedChange={setImagesConfirmed}
                                 error={errors.images}
+                            />
+                            <ProductVideoUploader
+                                onChange={(file, duration) => {
+                                    setVideoFile(file);
+                                    setVideoDuration(duration);
+                                    setData('video', file);
+                                    setData('video_duration', duration);
+                                }}
+                                error={errors.video ?? errors.video_duration}
                             />
                             <div>
                                 <Label>Description</Label>

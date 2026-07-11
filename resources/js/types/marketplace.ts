@@ -35,6 +35,8 @@ export interface Product {
     is_preorder: boolean;
     free_shipping: boolean;
     in_ghana: boolean;
+    video_path?: string | null;
+    video_duration?: number | null;
     rating: number;
     review_count: number;
     images: ProductImage[];
@@ -214,6 +216,12 @@ export function formatOrderStatus(status: string | { value?: string } | null | u
 
 export function productImageUrl(path: string | undefined): string {
     if (!path) return '/images/product-placeholder.svg';
+    if (path.startsWith('http') || path.startsWith('blob:')) return path;
+    return `/storage/${path}`;
+}
+
+export function productVideoUrl(path: string | undefined): string {
+    if (!path) return '';
     if (path.startsWith('http') || path.startsWith('blob:')) return path;
     return `/storage/${path}`;
 }

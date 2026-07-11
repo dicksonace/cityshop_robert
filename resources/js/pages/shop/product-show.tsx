@@ -47,7 +47,12 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
             <Head title={product.name} />
             <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
                 <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
-                    <ProductImageGallery images={product.images ?? []} productName={product.name} />
+                    <ProductImageGallery
+                        images={product.images ?? []}
+                        productName={product.name}
+                        videoPath={product.video_path}
+                        videoDuration={product.video_duration}
+                    />
 
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
