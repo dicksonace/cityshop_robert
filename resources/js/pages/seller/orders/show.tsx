@@ -1,7 +1,8 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ChevronRight } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { ChevronRight, LoaderCircle } from 'lucide-react';
+import { FormEventHandler, useRef, useState } from 'react';
 
+import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,6 +56,8 @@ function nextSellerStatus(current: string): string | null {
 export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderShowProps) {
     const order = orderItem?.order;
     const itemStatus = String(orderItem?.status ?? '');
+    const deliverySectionRef = useRef<HTMLDivElement>(null);
+    const [advancing, setAdvancing] = useState(false);
     const form = useForm({
         status: itemStatus,
         vehicle_number: orderItem?.vehicle_number ?? '',
@@ -81,6 +84,7 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
     const dispute = orderItem.dispute;
     const next = nextSellerStatus(itemStatus);
     const isTerminal = ['cancelled', 'delivered', 'refunded', 'awaiting_confirmation'].includes(itemStatus);
+    const needsDeliveryDetails = next === 'shipped';
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -94,19 +98,69 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
         });
     };
 
-    const advanceStatus = () => {
-        if (!next) return;
+    const scrollToDeliveryDetails = () => {
+        deliverySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
 
-        if (next === 'shipped' && (!form.data.vehicle_number.trim() || !form.data.driver_phone.trim())) {
-            form.setError('vehicle_number', 'Add vehicle number and driver phone before sending for delivery.');
+    const advanceStatus = () => {
+        if (!next || advancing) return;
+
+        form.clearErrors();
+
+        if (next === 'shipped') {
+            const vehicle = form.data.vehicle_number.trim();
+            const phone = form.data.driver_phone.trim();
+
+            if (!vehicle || !phone) {
+                if (!vehicle) {
+                    form.setError('vehicle_number', 'Vehicle / car number is required.');
+                }
+                if (!phone) {
+                    form.setError('driver_phone', 'Driver phone is required.');
+                }
+                form.setError('status', 'Fill in vehicle number and driver phone above, then tap Out for delivery again.');
+                scrollToDeliveryDetails();
+                return;
+            }
+
+            setAdvancing(true);
+            form.transform((data) => ({
+                ...data,
+                status: 'shipped',
+                vehicle_number: vehicle,
+                driver_phone: phone,
+                _method: 'patch',
+            }));
+            form.post(route('seller.orders.update', orderItem.id), {
+                forceFormData: true,
+                preserveScroll: true,
+                onError: () => scrollToDeliveryDetails(),
+                onFinish: () => {
+                    setAdvancing(false);
+                    form.setData('package_image', null);
+                },
+            });
             return;
         }
 
-        router.patch(route('seller.orders.update', orderItem.id), {
-            status: next,
-            vehicle_number: form.data.vehicle_number,
-            driver_phone: form.data.driver_phone,
-        }, { preserveScroll: true });
+        setAdvancing(true);
+        router.patch(
+            route('seller.orders.update', orderItem.id),
+            {
+                status: next,
+                vehicle_number: form.data.vehicle_number.trim(),
+                driver_phone: form.data.driver_phone.trim(),
+            },
+            {
+                preserveScroll: true,
+                onError: (errors) => {
+                    Object.entries(errors).forEach(([key, message]) => {
+                        form.setError(key as 'vehicle_number' | 'driver_phone' | 'status', String(message));
+                    });
+                },
+                onFinish: () => setAdvancing(false),
+            },
+        );
     };
 
     const currentStep = sellerFlow.find((s) => s.status === itemStatus);
@@ -193,68 +247,143 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
                             </div>
                         )}
 
+                        {needsDeliveryDetails && (
+                            <div
+                                ref={deliverySectionRef}
+                                className="mt-4 space-y-4 rounded-xl border-2 border-orange-200 bg-orange-50/60 p-4"
+                            >
+                                <div>
+                                    <h4 className="text-sm font-semibold text-gray-900">Delivery details required</h4>
+                                    <p className="mt-1 text-xs text-gray-600">
+                                        Enter vehicle number and driver phone before tapping Out for delivery. The buyer will see these details.
+                                    </p>
+                                </div>
+                                {(form.errors.status || form.errors.vehicle_number || form.errors.driver_phone) && (
+                                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                        {form.errors.status || 'Add vehicle number and driver phone to continue.'}
+                                    </div>
+                                )}
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <Label>Vehicle / car number *</Label>
+                                        <Input
+                                            value={form.data.vehicle_number}
+                                            onChange={(e) => {
+                                                form.setData('vehicle_number', e.target.value);
+                                                form.clearErrors('vehicle_number', 'status');
+                                            }}
+                                            className="mt-1 bg-white"
+                                            placeholder="e.g. GR 1234-20"
+                                        />
+                                        <InputError message={form.errors.vehicle_number} />
+                                    </div>
+                                    <div>
+                                        <Label>Driver phone *</Label>
+                                        <Input
+                                            value={form.data.driver_phone}
+                                            onChange={(e) => {
+                                                form.setData('driver_phone', e.target.value);
+                                                form.clearErrors('driver_phone', 'status');
+                                            }}
+                                            className="mt-1 bg-white"
+                                            placeholder="e.g. 024 000 0000"
+                                            inputMode="tel"
+                                        />
+                                        <InputError message={form.errors.driver_phone} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label>Package photo (optional)</Label>
+                                    {orderItem.package_image && (
+                                        <img
+                                            src={productImageUrl(orderItem.package_image)}
+                                            alt="Package"
+                                            className="mt-2 h-32 w-32 rounded-lg border object-cover"
+                                        />
+                                    )}
+                                    <Input
+                                        type="file"
+                                        accept="image/*"
+                                        className="mt-2 bg-white"
+                                        onChange={(e) => form.setData('package_image', e.target.files?.[0] ?? null)}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         {next && !isTerminal && (
                             <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
                                 <p className="text-sm font-medium text-gray-900">
                                     Next step: {sellerFlow.find((s) => s.status === next)?.label}
                                 </p>
-                                <p className="mt-1 text-xs text-gray-500">{currentStep?.hint}</p>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    {needsDeliveryDetails
+                                        ? 'Fill vehicle number and driver phone above, then tap the button.'
+                                        : currentStep?.hint}
+                                </p>
                                 <Button
                                     type="button"
-                                    className="mt-3 bg-orange-500 hover:bg-orange-600"
+                                    className="mt-3 w-full bg-orange-500 hover:bg-orange-600 sm:w-auto"
                                     onClick={advanceStatus}
+                                    disabled={advancing}
                                 >
+                                    {advancing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
                                     {sellerFlow.find((s) => s.status === next)?.label}
                                     <ChevronRight className="ml-1 h-4 w-4" />
                                 </Button>
                             </div>
                         )}
 
-                        <form onSubmit={submit} className="mt-6 space-y-4 border-t border-gray-100 pt-4">
-                            <div>
-                                <h4 className="text-sm font-semibold text-gray-900">Delivery details</h4>
-                                <p className="text-xs text-gray-500">Required when sending out for delivery. Buyer will see driver phone and vehicle number.</p>
-                            </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
+                        {!needsDeliveryDetails && (
+                            <form onSubmit={submit} className="mt-6 space-y-4 border-t border-gray-100 pt-4">
                                 <div>
-                                    <Label>Vehicle / car number</Label>
-                                    <Input
-                                        value={form.data.vehicle_number}
-                                        onChange={(e) => form.setData('vehicle_number', e.target.value)}
-                                        className="mt-1"
-                                        placeholder="e.g. GR 1234-20"
-                                    />
+                                    <h4 className="text-sm font-semibold text-gray-900">Delivery details</h4>
+                                    <p className="text-xs text-gray-500">Required when sending out for delivery. Buyer will see driver phone and vehicle number.</p>
+                                </div>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <Label>Vehicle / car number</Label>
+                                        <Input
+                                            value={form.data.vehicle_number}
+                                            onChange={(e) => form.setData('vehicle_number', e.target.value)}
+                                            className="mt-1"
+                                            placeholder="e.g. GR 1234-20"
+                                        />
+                                        <InputError message={form.errors.vehicle_number} />
+                                    </div>
+                                    <div>
+                                        <Label>Driver phone</Label>
+                                        <Input
+                                            value={form.data.driver_phone}
+                                            onChange={(e) => form.setData('driver_phone', e.target.value)}
+                                            className="mt-1"
+                                            placeholder="e.g. 024 000 0000"
+                                            inputMode="tel"
+                                        />
+                                        <InputError message={form.errors.driver_phone} />
+                                    </div>
                                 </div>
                                 <div>
-                                    <Label>Driver phone</Label>
+                                    <Label>Package photo</Label>
+                                    {orderItem.package_image && (
+                                        <img
+                                            src={productImageUrl(orderItem.package_image)}
+                                            alt="Package"
+                                            className="mt-2 h-32 w-32 rounded-lg border object-cover"
+                                        />
+                                    )}
                                     <Input
-                                        value={form.data.driver_phone}
-                                        onChange={(e) => form.setData('driver_phone', e.target.value)}
-                                        className="mt-1"
-                                        placeholder="e.g. 024 000 0000"
+                                        type="file"
+                                        accept="image/*"
+                                        className="mt-2"
+                                        onChange={(e) => form.setData('package_image', e.target.files?.[0] ?? null)}
                                     />
                                 </div>
-                            </div>
-                            <div>
-                                <Label>Package photo</Label>
-                                {orderItem.package_image && (
-                                    <img
-                                        src={productImageUrl(orderItem.package_image)}
-                                        alt="Package"
-                                        className="mt-2 h-32 w-32 rounded-lg border object-cover"
-                                    />
-                                )}
-                                <Input
-                                    type="file"
-                                    accept="image/*"
-                                    className="mt-2"
-                                    onChange={(e) => form.setData('package_image', e.target.files?.[0] ?? null)}
-                                />
-                            </div>
-                            <Button type="submit" disabled={form.processing} className="bg-orange-500 hover:bg-orange-600">
-                                Save delivery info
-                            </Button>
-                        </form>
+                                <Button type="submit" disabled={form.processing} className="bg-orange-500 hover:bg-orange-600">
+                                    Save delivery info
+                                </Button>
+                            </form>
+                        )}
                     </div>
                 </div>
 
