@@ -130,7 +130,7 @@ function RefundStatus({ dispute }: { dispute: { id: number; status: string; reas
     );
 }
 
-export default function OrderShow({ order, reviews }: OrderShowProps) {
+export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }: OrderShowProps & { checkoutNumber?: string | null; checkoutId?: number | null }) {
     const { flash } = usePage<SharedData>().props;
     const paymentPending = order.payment_status === 'pending';
     const primaryStatus = order.items?.[0]?.status ?? order.status;
@@ -139,8 +139,11 @@ export default function OrderShow({ order, reviews }: OrderShowProps) {
         <ShopLayout>
             <Head title={`Order ${order.order_number}`} />
             <div className="mx-auto max-w-3xl px-4 py-8">
-                <Link href={route('orders.index')} className="text-sm text-orange-500 hover:underline">
-                    &larr; Back to Orders
+                <Link
+                    href={checkoutId ? route('checkouts.show', checkoutId) : route('orders.index')}
+                    className="text-sm text-orange-500 hover:underline"
+                >
+                    &larr; {checkoutId ? `Back to purchase ${checkoutNumber ?? ''}`.trim() : 'Back to Orders'}
                 </Link>
 
                 {flash.success && (
@@ -157,7 +160,10 @@ export default function OrderShow({ order, reviews }: OrderShowProps) {
                 {paymentPending && order.payment_method !== 'cash' && (
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
                         <p className="font-medium text-amber-800">Payment pending</p>
-                        <Link href={route('checkout.payment', order.id)} className="mt-2 inline-block text-sm text-orange-600 hover:underline">
+                        <Link
+                            href={checkoutId ? route('checkout.payment', checkoutId) : route('checkout.payment', order.id)}
+                            className="mt-2 inline-block text-sm text-orange-600 hover:underline"
+                        >
                             Complete payment &rarr;
                         </Link>
                     </div>
@@ -260,7 +266,15 @@ export default function OrderShow({ order, reviews }: OrderShowProps) {
                                 )}
                             </div>
                         ))}
-                        <div className="mt-4 flex justify-between border-t pt-4 text-lg font-bold">
+                        <div className="mt-4 flex justify-between border-t pt-4 text-sm">
+                            <span className="text-gray-600">Items</span>
+                            <span>{formatPrice(order.subtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Delivery</span>
+                            <span>{formatPrice(order.shipping_cost)}</span>
+                        </div>
+                        <div className="mt-2 flex justify-between border-t pt-2 text-lg font-bold">
                             <span>Total</span>
                             <span className="text-orange-500">{formatPrice(order.total)}</span>
                         </div>

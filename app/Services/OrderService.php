@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\CouponType;
 use App\Enums\DisputeStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentChannel;
@@ -75,6 +76,7 @@ class OrderService
 
             $totalDiscount = 0;
             $totalCommission = 0;
+            $totalShipping = 0;
 
             $grouped = $cartItems->groupBy(fn ($item) => $item->product->seller_id);
 
@@ -96,12 +98,19 @@ class OrderService
                     $appliedCoupon = $result['coupon'];
                 }
 
-                $orderTotal = max(0, round($orderSubtotal - $couponDiscount, 2));
+                $shippingCost = static::shippingCostForSellerItems($items);
+                if ($appliedCoupon?->type === CouponType::FreeShipping) {
+                    $shippingCost = 0;
+                }
+
+                $goodsTotal = max(0, round($orderSubtotal - $couponDiscount, 2));
                 $orderCommission = $channel === PaymentChannel::Marketplace
-                    ? round($orderTotal * ($commissionRate / 100), 2)
+                    ? round($goodsTotal * ($commissionRate / 100), 2)
                     : 0;
+                $orderTotal = round($goodsTotal + $shippingCost, 2);
                 $totalDiscount += $couponDiscount;
                 $totalCommission += $orderCommission;
+                $totalShipping += $shippingCost;
                 $methodId = $sellerPayments[$sellerId]['method_id'] ?? null;
 
                 if ($channel === PaymentChannel::Direct && $methodId) {
@@ -132,7 +141,7 @@ class OrderService
                     'digital_address' => $shipping['digital_address'] ?? null,
                     'delivery_notes' => $shipping['delivery_notes'] ?? null,
                     'subtotal' => $orderSubtotal,
-                    'shipping_cost' => 0,
+                    'shipping_cost' => $shippingCost,
                     'commission_amount' => $orderCommission,
                     'discount_amount' => $couponDiscount,
                     'seller_coupon_id' => $couponId,
@@ -182,7 +191,8 @@ class OrderService
             $checkout->update([
                 'discount_amount' => $totalDiscount,
                 'commission_amount' => $totalCommission,
-                'total' => max(0, $subtotal - $totalDiscount),
+                'shipping_cost' => $totalShipping,
+                'total' => max(0, round($subtotal - $totalDiscount + $totalShipping, 2)),
             ]);
 
             CartItem::where('user_id', $buyer->id)->delete();
@@ -325,6 +335,10 @@ class OrderService
                 $seller = User::find($item->seller_id);
                 $seller?->sellerProfile?->increment('total_sales');
                 $seller?->notify(new PaymentConfirmedNotification($order, $item));
+            }
+
+            if ($order->payment_channel === PaymentChannel::Marketplace && (float) $order->shipping_cost > 0) {
+                $this->creditSellerShippingPending($order);
             }
 
             if (! $skipBuyerNotify) {
@@ -606,7 +620,18 @@ class OrderService
                 }
             }
 
-            $this->syncOrderStatusAfterItemChange($order);
+            $this->syncOrderStatusAfterItemChange($order->fresh('items'));
+
+            // If the whole seller package was cancelled after payment, refund delivery too.
+            $order->refresh()->load('items');
+            if (
+                $wasPaid
+                && $order->payment_channel === PaymentChannel::Marketplace
+                && (float) $order->shipping_cost > 0
+                && $order->items->every(fn ($i) => $i->status === OrderStatus::Cancelled)
+            ) {
+                $this->refundSellerShipping($order);
+            }
 
             $order->buyer->notify(new OrderStatusUpdatedNotification($item, 'cancelled', refunded: $wasPaid, refundAmount: $refundAmount));
 
@@ -636,6 +661,7 @@ class OrderService
 
         if ($statuses->contains(OrderStatus::Delivered) && $statuses->every(fn ($s) => in_array($s, [OrderStatus::Delivered, OrderStatus::Cancelled], true))) {
             $order->update(['status' => OrderStatus::Delivered]);
+            $this->releaseSellerShipping($order);
 
             return;
         }
@@ -661,6 +687,147 @@ class OrderService
         if ($statuses->contains(OrderStatus::Processing)) {
             $order->update(['status' => OrderStatus::Processing]);
         }
+    }
+
+    /**
+     * Flat delivery fee per seller package = highest paid delivery fee among that seller's cart lines.
+     * Free shipping and "arrange with buyer" count as 0 for that line.
+     */
+    public static function shippingCostForSellerItems(Collection $items): float
+    {
+        $fees = [];
+
+        foreach ($items as $item) {
+            $product = $item->product;
+            if (! $product) {
+                continue;
+            }
+
+            if ($product->free_shipping) {
+                $fees[] = 0.0;
+
+                continue;
+            }
+
+            $fee = $product->delivery_fee;
+            $fees[] = ($fee !== null && (float) $fee > 0) ? (float) $fee : 0.0;
+        }
+
+        return round($fees === [] ? 0.0 : max($fees), 2);
+    }
+
+    /**
+     * @return array{cost: float, label: string, note: string|null}
+     */
+    public static function shippingMetaForSellerItems(Collection $items): array
+    {
+        $cost = static::shippingCostForSellerItems($items);
+        $products = $items->map(fn ($item) => $item->product)->filter();
+
+        $allFree = $products->isNotEmpty() && $products->every(fn (Product $p) => $p->free_shipping);
+        $anyPaid = $products->contains(fn (Product $p) => ! $p->free_shipping && $p->delivery_fee !== null && (float) $p->delivery_fee > 0);
+        $anyArrange = $products->contains(fn (Product $p) => ! $p->free_shipping && ($p->delivery_fee === null || (float) $p->delivery_fee <= 0));
+
+        if ($cost > 0) {
+            return [
+                'cost' => $cost,
+                'label' => 'Delivery',
+                'note' => $products->count() > 1 ? 'One delivery fee for this seller’s package' : null,
+            ];
+        }
+
+        if ($allFree) {
+            return ['cost' => 0.0, 'label' => 'Free delivery', 'note' => null];
+        }
+
+        if ($anyArrange && ! $anyPaid) {
+            return [
+                'cost' => 0.0,
+                'label' => 'Arrange with seller',
+                'note' => 'Delivery fee is agreed after order',
+            ];
+        }
+
+        return ['cost' => 0.0, 'label' => 'Free delivery', 'note' => null];
+    }
+
+    private function creditSellerShippingPending(Order $order): void
+    {
+        $amount = (float) $order->shipping_cost;
+        if ($amount <= 0 || ! $order->seller_id) {
+            return;
+        }
+
+        if (WalletTransactionService::shippingPendingExists($order->id)) {
+            return;
+        }
+
+        $wallet = Wallet::firstOrCreate(
+            ['user_id' => $order->seller_id],
+            ['available_balance' => 0, 'pending_balance' => 0, 'total_earnings' => 0, 'withdrawn_amount' => 0]
+        );
+
+        $wallet->increment('pending_balance', $amount);
+        $wallet->increment('total_earnings', $amount);
+
+        WalletTransactionService::recordShippingPending($order);
+    }
+
+    private function releaseSellerShipping(Order $order): void
+    {
+        $amount = (float) $order->shipping_cost;
+        if ($amount <= 0 || ! $order->seller_id) {
+            return;
+        }
+
+        if (! WalletTransactionService::shippingPendingExists($order->id)) {
+            return;
+        }
+
+        if (WalletTransactionService::shippingReleasedExists($order->id)) {
+            return;
+        }
+
+        $wallet = Wallet::where('user_id', $order->seller_id)->first();
+        if (! $wallet) {
+            return;
+        }
+
+        $move = min($amount, (float) $wallet->pending_balance);
+        if ($move > 0) {
+            $wallet->decrement('pending_balance', $move);
+            $wallet->increment('available_balance', $move);
+        }
+
+        WalletTransactionService::recordShippingReleased($order, $amount);
+    }
+
+    private function refundSellerShipping(Order $order): void
+    {
+        $amount = (float) $order->shipping_cost;
+        if ($amount <= 0 || ! $order->seller_id) {
+            return;
+        }
+
+        if (! WalletTransactionService::shippingPendingExists($order->id)) {
+            return;
+        }
+
+        if (WalletTransactionService::shippingRefundedExists($order->id)) {
+            return;
+        }
+
+        $buyerWallet = WalletService::ensure($order->buyer);
+        $buyerWallet->increment('available_balance', $amount);
+        WalletTransactionService::recordShippingRefund($order, $amount);
+
+        $sellerWallet = Wallet::where('user_id', $order->seller_id)->first();
+        if ($sellerWallet) {
+            $sellerWallet->decrement('pending_balance', min($amount, (float) $sellerWallet->pending_balance));
+            $sellerWallet->decrement('total_earnings', min($amount, (float) $sellerWallet->total_earnings));
+        }
+
+        WalletTransactionService::recordShippingReversed($order, $amount);
     }
 
     public function recalculateProductRating(Product $product): void

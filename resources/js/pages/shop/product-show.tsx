@@ -63,6 +63,11 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                                 </span>
                             )}
                             {product.free_shipping && <span className="rounded-md bg-green-500 px-2 py-1 text-xs font-bold text-white">FREE DELIVERY</span>}
+                            {!product.free_shipping && product.delivery_fee != null && Number(product.delivery_fee) > 0 && (
+                                <span className="rounded-md bg-blue-500 px-2 py-1 text-xs font-bold text-white">
+                                    DELIVERY {formatPrice(Number(product.delivery_fee))}
+                                </span>
+                            )}
                         </div>
 
                         <h1 className="mt-4 text-2xl font-bold text-gray-900 md:text-3xl">{product.name}</h1>
@@ -89,7 +94,16 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                         <div className="mt-4 text-sm text-gray-500">
                             {product.brand && <p>Brand: {product.brand}</p>}
                             <p>Stock: {product.quantity > 0 ? `${product.quantity} available` : 'Out of stock'}</p>
-                            <p className="mt-1 text-gray-400">Delivered by the seller</p>
+                            {product.free_shipping ? (
+                                <p className="mt-1 font-medium text-emerald-600">Free delivery</p>
+                            ) : product.delivery_fee != null && Number(product.delivery_fee) > 0 ? (
+                                <p className="mt-1 font-medium text-blue-600">
+                                    Paid delivery: {formatPrice(Number(product.delivery_fee))}
+                                    {product.delivery_days ? ` · about ${product.delivery_days} day${product.delivery_days === 1 ? '' : 's'}` : ''}
+                                </p>
+                            ) : (
+                                <p className="mt-1 text-gray-400">Delivery arranged with the seller</p>
+                            )}
                         </div>
 
                         {product.seller?.seller_profile && (

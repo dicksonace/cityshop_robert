@@ -33,6 +33,7 @@ class CheckoutController extends Controller
         $sellerGroups = $grouped->map(function ($items, $sellerId) {
             $seller = $items->first()->product->seller;
             $profile = $seller->sellerProfile;
+            $shipping = OrderService::shippingMetaForSellerItems($items);
 
             return [
                 'seller_id' => (int) $sellerId,
@@ -42,12 +43,20 @@ class CheckoutController extends Controller
                 'payment_methods' => $profile?->paymentMethods?->where('is_active', true)->values() ?? [],
                 'items' => $items,
                 'subtotal' => $items->sum(fn ($item) => $item->subtotal()),
+                'shipping_cost' => $shipping['cost'],
+                'shipping_label' => $shipping['label'],
+                'shipping_note' => $shipping['note'],
+                'package_total' => round($items->sum(fn ($item) => $item->subtotal()) + $shipping['cost'], 2),
             ];
         })->values();
+
+        $shippingTotal = $sellerGroups->sum('shipping_cost');
 
         return Inertia::render('shop/checkout', [
             'sellerGroups' => $sellerGroups,
             'subtotal' => $subtotal,
+            'shippingTotal' => $shippingTotal,
+            'grandTotal' => round($subtotal + $shippingTotal, 2),
             'user' => $request->user(),
             'wallet' => WalletService::ensure($request->user()),
             'paystackPublicKey' => config('services.paystack.public_key'),

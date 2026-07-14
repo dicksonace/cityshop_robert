@@ -70,13 +70,30 @@ class ProductController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // Oversized multipart uploads can empty the whole request (PHP post_max_size).
+        if ($request->server('CONTENT_LENGTH') && empty($request->all()) && empty($request->allFiles())) {
+            return back()->withErrors([
+                'images' => 'Upload was too large and could not be received. Use smaller photos (under 5MB) and keep video under 50MB / 1 minute.',
+            ]);
+        }
+
         $validated = $this->validateProduct($request, true);
 
         $files = $request->file('images') ?? [];
+        if (! is_array($files)) {
+            $files = $files ? [$files] : [];
+        }
+
         $imageCountError = $this->imageUploadCountError($request, count($files));
 
         if ($imageCountError) {
             return back()->withErrors(['images' => $imageCountError])->withInput();
+        }
+
+        if (count($files) < 1) {
+            return back()->withErrors([
+                'images' => 'Add at least one product photo, then publish again.',
+            ])->withInput();
         }
 
         $videoError = $this->videoDurationError($request);

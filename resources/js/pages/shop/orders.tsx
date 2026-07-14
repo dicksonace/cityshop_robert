@@ -4,34 +4,47 @@ import { Package } from 'lucide-react';
 import BuyerOrderHub, { OrderHubCounts, OrderStatusTabs, orderStatusMessage } from '@/components/shop/buyer-order-hub';
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
-import { formatPrice, Order, OrderItem, Paginated, productImageUrl } from '@/types/marketplace';
+import { formatOrderStatus, formatPrice, Paginated, productImageUrl } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
-interface BuyerOrder extends Order {
-    checkout_id?: number | null;
-    items?: (OrderItem & { product?: { slug: string; images?: { path: string }[] } })[];
-    seller?: {
-        name: string;
-        seller_profile?: { business_name?: string | null; slug?: string };
-    };
-    checkout?: {
-        invoices?: { id: number; invoice_number: string }[];
-    };
+interface PurchasePackage {
+    id: number;
+    order_number: string;
+    status: string;
+    payment_status: string;
+    subtotal: number;
+    shipping_cost: number;
+    total: number;
+    seller_name: string;
+    store_slug?: string | null;
+    item_count: number;
+    product_count: number;
+    image?: string | null;
+    first_product_name?: string | null;
+    awaiting_item_id?: number | null;
+}
+
+interface Purchase {
+    id: number;
+    checkout_number: string;
+    payment_status: string;
+    status: string;
+    subtotal: number;
+    shipping_cost: number;
+    total: number;
+    created_at: string;
+    invoice?: { id: number; invoice_number: string } | null;
+    packages: PurchasePackage[];
 }
 
 interface OrdersProps {
-    orders: Paginated<BuyerOrder>;
+    purchases: Paginated<Purchase>;
     counts: OrderHubCounts;
     tab: string;
 }
 
-export default function Orders({ orders, counts, tab }: OrdersProps) {
+export default function Orders({ purchases, counts, tab }: OrdersProps) {
     const { auth } = usePage<SharedData>().props;
-
-    const handleBuyAgain = (productSlug?: string) => {
-        if (!productSlug) return;
-        router.visit(route('products.show', productSlug));
-    };
 
     return (
         <ShopLayout>
@@ -44,7 +57,7 @@ export default function Orders({ orders, counts, tab }: OrdersProps) {
                     </div>
                     <div>
                         <h1 className="text-lg font-bold text-gray-900">{auth.user?.name}</h1>
-                        <p className="text-sm text-gray-500">Manage orders</p>
+                        <p className="text-sm text-gray-500">Purchases & packages</p>
                     </div>
                 </div>
 
@@ -55,10 +68,10 @@ export default function Orders({ orders, counts, tab }: OrdersProps) {
                         <OrderStatusTabs counts={counts} activeTab={tab} />
                     </div>
 
-                    {orders.data.length === 0 ? (
+                    {purchases.data.length === 0 ? (
                         <div className="px-4 py-16 text-center">
                             <Package className="mx-auto h-12 w-12 text-gray-300" />
-                            <p className="mt-4 font-medium text-gray-900">No orders in this section</p>
+                            <p className="mt-4 font-medium text-gray-900">No purchases in this section</p>
                             <p className="mt-1 text-sm text-gray-500">
                                 {tab === 'all' ? "You haven't placed any orders yet." : 'Try another tab or start shopping.'}
                             </p>
@@ -71,126 +84,120 @@ export default function Orders({ orders, counts, tab }: OrdersProps) {
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-50">
-                            {orders.data.map((order) => {
-                                const sellerName =
-                                    order.seller?.seller_profile?.business_name ?? order.seller?.name ?? 'Seller';
-                                const firstItem = order.items?.[0];
-                                const image = firstItem?.product?.images?.[0]?.path;
-                                const itemCount = order.items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
-                                const productCount = order.items?.length ?? 0;
-                                const detailUrl = order.checkout_id
-                                    ? route('checkouts.show', order.checkout_id)
-                                    : route('orders.show', order.id);
-                                const masterInvoice = order.checkout?.invoices?.[0];
+                            {purchases.data.map((purchase) => {
+                                const packageCount = purchase.packages.length;
+                                const detailUrl = route('checkouts.show', purchase.id);
 
                                 return (
-                                    <article key={order.id} className="p-4">
-                                        <div className="flex items-center justify-between gap-2 text-sm">
-                                            <div className="min-w-0">
-                                                {order.seller?.seller_profile?.slug ? (
-                                                    <Link
-                                                        href={route('store.show', order.seller.seller_profile.slug)}
-                                                        className="truncate font-semibold text-gray-900 hover:text-orange-500"
-                                                    >
-                                                        {sellerName}
-                                                    </Link>
-                                                ) : (
-                                                    <p className="truncate font-semibold text-gray-900">{sellerName}</p>
-                                                )}
+                                    <article key={purchase.id} className="p-4">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <p className="font-semibold text-gray-900">{purchase.checkout_number}</p>
                                                 <p className="text-xs text-gray-400">
-                                                    {new Date(order.created_at).toLocaleDateString('en-GB', {
+                                                    {new Date(purchase.created_at).toLocaleDateString('en-GB', {
                                                         year: 'numeric',
                                                         month: 'short',
                                                         day: 'numeric',
                                                     })}
+                                                    {' · '}
+                                                    {packageCount} package{packageCount === 1 ? '' : 's'}
                                                 </p>
                                             </div>
-                                            <span className="shrink-0 text-xs font-medium capitalize text-gray-500">
-                                                {order.order_number}
-                                            </span>
+                                            <div className="text-right">
+                                                <p className="text-base font-bold text-gray-900">{formatPrice(purchase.total)}</p>
+                                                <p className="text-xs capitalize text-gray-500">{purchase.payment_status}</p>
+                                            </div>
                                         </div>
 
-                                        <Link href={detailUrl} className="mt-3 flex gap-3">
-                                            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-gray-50 p-2">
-                                                <img
-                                                    src={productImageUrl(image)}
-                                                    alt=""
-                                                    className="max-h-full max-w-full object-contain"
-                                                />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="line-clamp-2 text-sm font-medium text-gray-900">
-                                                    {firstItem?.product_name ?? 'Order items'}
-                                                </p>
-                                                <p className="mt-1 text-xs text-gray-500">
-                                                    {productCount} product{productCount !== 1 ? 's' : ''}, {itemCount} item
-                                                    {itemCount !== 1 ? 's' : ''}
-                                                </p>
-                                                <p className="mt-2 text-base font-bold text-gray-900">
-                                                    Total {formatPrice(order.total)}
-                                                </p>
-                                            </div>
-                                        </Link>
+                                        <div className="mt-3 space-y-2">
+                                            {purchase.packages.map((pkg, index) => (
+                                                <Link
+                                                    key={pkg.id}
+                                                    href={route('orders.show', { order: pkg.id, package: 1 })}
+                                                    className="flex gap-3 rounded-xl border border-gray-100 bg-gray-50/70 p-3 hover:border-orange-200 hover:bg-orange-50/40"
+                                                >
+                                                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-white p-1.5">
+                                                        <img
+                                                            src={productImageUrl(pkg.image ?? undefined)}
+                                                            alt=""
+                                                            className="max-h-full max-w-full object-contain"
+                                                        />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-medium text-gray-400">
+                                                                    Package {index + 1}
+                                                                </p>
+                                                                <p className="truncate text-sm font-semibold text-gray-900">
+                                                                    {pkg.seller_name}
+                                                                </p>
+                                                                <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">
+                                                                    {pkg.first_product_name}
+                                                                    {pkg.product_count > 1
+                                                                        ? ` +${pkg.product_count - 1} more`
+                                                                        : ''}
+                                                                </p>
+                                                            </div>
+                                                            <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-medium capitalize text-gray-700 ring-1 ring-gray-100">
+                                                                {formatOrderStatus(pkg.status)}
+                                                            </span>
+                                                        </div>
+                                                        <p className="mt-1 text-xs text-gray-500">
+                                                            {orderStatusMessage({
+                                                                status: pkg.status,
+                                                                payment_status: pkg.payment_status,
+                                                            })}
+                                                            {pkg.shipping_cost > 0
+                                                                ? ` · Delivery ${formatPrice(pkg.shipping_cost)}`
+                                                                : ''}
+                                                        </p>
+                                                    </div>
+                                                </Link>
+                                            ))}
+                                        </div>
 
-                                        <p className="mt-3 text-sm text-gray-600">{orderStatusMessage(order)}</p>
-
-                                        {masterInvoice && (
+                                        {purchase.invoice && (
                                             <Link
-                                                href={route('invoices.show', masterInvoice.id)}
+                                                href={route('invoices.show', purchase.invoice.id)}
                                                 className="mt-2 inline-block text-xs text-orange-500 hover:underline"
                                             >
-                                                Invoice {masterInvoice.invoice_number}
+                                                Invoice {purchase.invoice.invoice_number}
                                             </Link>
                                         )}
 
                                         <div className="mt-4 flex flex-wrap gap-2">
-                                            {tab === 'confirm' && order.items?.some((i) => i.status === 'awaiting_confirmation') && (
+                                            {tab === 'confirm' &&
+                                                purchase.packages
+                                                    .filter((pkg) => pkg.awaiting_item_id)
+                                                    .map((pkg) => (
+                                                        <Button
+                                                            key={pkg.id}
+                                                            size="sm"
+                                                            className="bg-green-600 hover:bg-green-700"
+                                                            onClick={() =>
+                                                                router.post(
+                                                                    route('orders.confirm-delivery', [
+                                                                        pkg.id,
+                                                                        pkg.awaiting_item_id!,
+                                                                    ]),
+                                                                )
+                                                            }
+                                                        >
+                                                            Confirm · {pkg.seller_name}
+                                                        </Button>
+                                                    ))}
+                                            {purchase.payment_status === 'pending' && (
                                                 <Button
                                                     size="sm"
-                                                    className="bg-green-600 hover:bg-green-700"
-                                                    onClick={() => {
-                                                        const item = order.items?.find((i) => i.status === 'awaiting_confirmation');
-                                                        if (item) {
-                                                            router.post(route('orders.confirm-delivery', [order.id, item.id]));
-                                                        }
-                                                    }}
+                                                    className="bg-orange-500 hover:bg-orange-600"
+                                                    onClick={() => router.visit(route('checkout.payment', purchase.id))}
                                                 >
-                                                    Confirm delivery
+                                                    Pay now
                                                 </Button>
-                                            )}
-                                            {tab === 'completed' && firstItem?.product?.slug ? (
-                                                <Button
-                                                    size="sm"
-                                                    className="w-full bg-orange-500 hover:bg-orange-600 sm:w-auto"
-                                                    onClick={() => handleBuyAgain(firstItem.product?.slug)}
-                                                >
-                                                    Buy again
-                                                </Button>
-                                            ) : (
-                                                <>
-                                                    {order.payment_status === 'pending' && order.checkout_id && (
-                                                        <Button
-                                                            size="sm"
-                                                            className="bg-orange-500 hover:bg-orange-600"
-                                                            onClick={() => router.visit(route('checkout.payment', order.checkout_id!))}
-                                                        >
-                                                            Pay now
-                                                        </Button>
-                                                    )}
-                                                    {firstItem?.product?.slug && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="border-orange-200 text-orange-600 hover:bg-orange-50"
-                                                            onClick={() => handleBuyAgain(firstItem.product?.slug)}
-                                                        >
-                                                            Buy again
-                                                        </Button>
-                                                    )}
-                                                </>
                                             )}
                                             <Button size="sm" variant="outline" asChild>
-                                                <Link href={detailUrl}>View details</Link>
+                                                <Link href={detailUrl}>View purchase</Link>
                                             </Button>
                                         </div>
                                     </article>
@@ -199,9 +206,9 @@ export default function Orders({ orders, counts, tab }: OrdersProps) {
                         </div>
                     )}
 
-                    {orders.last_page > 1 && (
+                    {purchases.last_page > 1 && (
                         <div className="flex flex-wrap justify-center gap-2 border-t border-gray-50 p-4">
-                            {orders.links.map((link, i) => (
+                            {purchases.links.map((link, i) => (
                                 <Link
                                     key={i}
                                     href={link.url ?? '#'}

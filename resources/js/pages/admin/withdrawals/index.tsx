@@ -1,25 +1,31 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { Check, Download, Play, X } from 'lucide-react';
+import { FormEvent, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import AdminLayout from '@/layouts/admin-layout';
-import { formatPrice, Paginated, Withdrawal } from '@/types/marketplace';
+import { formatPrice, Paginated, productImageUrl, Withdrawal } from '@/types/marketplace';
 
 interface WithdrawalsIndexProps {
     withdrawals: Paginated<Withdrawal & { user: { name: string; email: string; role?: string } }>;
     status: string;
     role: string;
-    counts: { pending_sellers: number; pending_buyers: number };
+    counts: { pending_sellers: number; pending_buyers: number; processing: number };
     paystackConfigured: boolean;
 }
 
 export default function WithdrawalsIndex({ withdrawals, status, role, counts, paystackConfigured }: WithdrawalsIndexProps) {
-    const { flash } = usePage<{ flash?: { withdrawal_otp?: { withdrawal_id: number; transfer_code?: string | null } } }>().props;
+    const { flash } = usePage<{ flash?: { withdrawal_otp?: { withdrawal_id: number; transfer_code?: string | null }; success?: string; error?: string } }>().props;
     const [rejectId, setRejectId] = useState<number | null>(null);
     const [reason, setReason] = useState('');
+    const [completeId, setCompleteId] = useState<number | null>(null);
+    const [completeNotes, setCompleteNotes] = useState('');
+    const [proofFile, setProofFile] = useState<File | null>(null);
     const [otpWithdrawalId, setOtpWithdrawalId] = useState<number | null>(flash?.withdrawal_otp?.withdrawal_id ?? null);
     const [otp, setOtp] = useState('');
+    const [busyId, setBusyId] = useState<number | null>(null);
 
     const statusTabs = ['pending', 'processing', 'paid', 'rejected', 'all'];
     const roleTabs = [
@@ -52,17 +58,48 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
     const listHref = (nextStatus: string, nextRole: string = role) =>
         route('admin.withdrawals.index', { status: nextStatus, role: nextRole === 'all' ? undefined : nextRole });
 
+    const startProcessing = (id: number) => {
+        setBusyId(id);
+        router.post(route('admin.withdrawals.start', id), {}, { onFinish: () => setBusyId(null) });
+    };
+
+    const submitComplete = (e: FormEvent) => {
+        e.preventDefault();
+        if (!completeId) return;
+
+        const formData = new FormData();
+        if (completeNotes.trim()) formData.append('admin_notes', completeNotes.trim());
+        if (proofFile) formData.append('proof', proofFile);
+
+        setBusyId(completeId);
+        router.post(route('admin.withdrawals.approve', completeId), formData, {
+            forceFormData: true,
+            onFinish: () => {
+                setBusyId(null);
+                setCompleteId(null);
+                setCompleteNotes('');
+                setProofFile(null);
+            },
+        });
+    };
+
     return (
         <AdminLayout title="Withdrawals" active="withdrawals">
             <Head title="Withdrawals" />
 
             <p className="mb-4 text-sm text-gray-500">
-                Process seller earnings payouts and buyer wallet withdrawals. Choose Paystack for automated MoMo transfer or manual when you pay outside the system.
+                1) Press <strong>Start</strong> so the seller sees Processing. 2) Send MoMo. 3) Mark complete with optional proof photo, or reject with a reason.
             </p>
+
+            {(flash?.success || flash?.error) && (
+                <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${flash.error ? 'border border-red-200 bg-red-50 text-red-800' : 'border border-green-200 bg-green-50 text-green-800'}`}>
+                    {flash.error || flash.success}
+                </div>
+            )}
 
             {!paystackConfigured && (
                 <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    Paystack is not configured. You can still use manual payout after sending MoMo yourself.
+                    Paystack auto-payout is optional. Use Start → Complete with proof for manual MoMo transfers.
                 </div>
             )}
 
@@ -89,7 +126,7 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
                             status === tab ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200'
                         }`}
                     >
-                        {tab}
+                        {tab === 'processing' ? `processing (${counts.processing})` : tab}
                     </Link>
                 ))}
             </div>
@@ -104,7 +141,7 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
                         return (
                             <div key={w.id} className="rounded-xl bg-white p-4 shadow-sm">
                                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                    <div>
+                                    <div className="min-w-0">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <p className="text-lg font-bold">{formatPrice(w.amount)}</p>
                                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${statusColor(w.status)}`}>
@@ -128,14 +165,25 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
                                         {isSeller && (
                                             <p className="mt-1 text-xs text-orange-600">Seller earnings withdrawal</p>
                                         )}
-                                        {w.paystack_reference && (
-                                            <p className="mt-1 text-xs text-gray-400">Paystack ref: {w.paystack_reference}</p>
-                                        )}
-                                        {w.failure_reason && (
-                                            <p className="mt-1 text-xs text-red-600">{w.failure_reason}</p>
+                                        {w.admin_notes && (
+                                            <p className="mt-1 text-xs text-gray-600">Note: {w.admin_notes}</p>
                                         )}
                                         {w.rejection_reason && (
-                                            <p className="mt-1 text-xs text-red-600">{w.rejection_reason}</p>
+                                            <p className="mt-1 text-xs text-red-600">Rejected: {w.rejection_reason}</p>
+                                        )}
+                                        {w.failure_reason && w.failure_reason !== w.rejection_reason && (
+                                            <p className="mt-1 text-xs text-red-600">{w.failure_reason}</p>
+                                        )}
+                                        {w.proof_path && (
+                                            <a
+                                                href={productImageUrl(w.proof_path)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+                                            >
+                                                <Download className="h-4 w-4" />
+                                                View / download proof
+                                            </a>
                                         )}
                                     </div>
 
@@ -144,30 +192,49 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
                                             <>
                                                 <Button
                                                     size="sm"
-                                                    className="bg-green-600 hover:bg-green-700"
-                                                    disabled={!paystackConfigured}
-                                                    onClick={() => router.post(route('admin.withdrawals.process', w.id))}
+                                                    className="bg-blue-600 hover:bg-blue-700"
+                                                    disabled={busyId === w.id}
+                                                    onClick={() => startProcessing(w.id)}
                                                 >
-                                                    Paystack payout
+                                                    <Play className="mr-1 h-4 w-4" />
+                                                    Start processing
                                                 </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => router.post(route('admin.withdrawals.approve', w.id))}
-                                                >
-                                                    Manual payout
-                                                </Button>
-                                                <Button size="sm" variant="destructive" onClick={() => setRejectId(w.id)}>
+                                                {paystackConfigured && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled={busyId === w.id}
+                                                        onClick={() => router.post(route('admin.withdrawals.process', w.id))}
+                                                    >
+                                                        Paystack payout
+                                                    </Button>
+                                                )}
+                                                <Button size="sm" variant="destructive" onClick={() => { setRejectId(w.id); setReason(''); }}>
+                                                    <X className="mr-1 h-4 w-4" />
                                                     Reject
                                                 </Button>
                                             </>
                                         )}
                                         {w.status === 'processing' && (
                                             <>
-                                                <Button size="sm" variant="outline" onClick={() => setOtpWithdrawalId(w.id)}>
-                                                    Enter Paystack OTP
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                                    onClick={() => {
+                                                        setCompleteId(w.id);
+                                                        setCompleteNotes('');
+                                                        setProofFile(null);
+                                                    }}
+                                                >
+                                                    <Check className="mr-1 h-4 w-4" />
+                                                    Mark complete
                                                 </Button>
-                                                <Button size="sm" variant="destructive" onClick={() => setRejectId(w.id)}>
+                                                {paystackConfigured && (
+                                                    <Button size="sm" variant="outline" onClick={() => setOtpWithdrawalId(w.id)}>
+                                                        Enter Paystack OTP
+                                                    </Button>
+                                                )}
+                                                <Button size="sm" variant="destructive" onClick={() => { setRejectId(w.id); setReason(''); }}>
                                                     Reject & refund
                                                 </Button>
                                             </>
@@ -180,18 +247,57 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
                 )}
             </div>
 
+            {completeId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <form onSubmit={submitComplete} className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+                        <h3 className="font-semibold text-gray-900">Mark payout complete</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Seller will see Paid. Attach a MoMo receipt screenshot if you have one.
+                        </p>
+                        <div className="mt-4 space-y-3">
+                            <div>
+                                <Label>Note to seller (optional)</Label>
+                                <Input
+                                    className="mt-1"
+                                    placeholder="e.g. Sent via MTN MoMo"
+                                    value={completeNotes}
+                                    onChange={(e) => setCompleteNotes(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <Label>Proof image (optional)</Label>
+                                <Input
+                                    type="file"
+                                    accept="image/*"
+                                    className="mt-1"
+                                    onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                                />
+                                <p className="mt-1 text-xs text-gray-400">JPG/PNG up to 5MB. Seller can view and download it.</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 flex gap-2">
+                            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={busyId === completeId}>
+                                Confirm paid
+                            </Button>
+                            <Button type="button" variant="outline" onClick={() => setCompleteId(null)}>Cancel</Button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
             {rejectId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                     <div className="w-full max-w-md rounded-xl bg-white p-6">
-                        <h3 className="font-semibold">Reject Withdrawal</h3>
-                        <p className="mt-1 text-sm text-gray-500">Funds will be returned to the user&apos;s wallet.</p>
-                        <Input className="mt-3" placeholder="Reason..." value={reason} onChange={(e) => setReason(e.target.value)} />
+                        <h3 className="font-semibold">Reject withdrawal</h3>
+                        <p className="mt-1 text-sm text-gray-500">Funds return to the wallet. Seller will see your reason.</p>
+                        <Input className="mt-3" placeholder="Reason (required)..." value={reason} onChange={(e) => setReason(e.target.value)} />
                         <div className="mt-4 flex gap-2">
                             <Button
                                 variant="destructive"
+                                disabled={!reason.trim()}
                                 onClick={() => router.post(route('admin.withdrawals.reject', rejectId), { rejection_reason: reason }, { onSuccess: () => { setRejectId(null); setReason(''); } })}
                             >
-                                Confirm
+                                Confirm reject
                             </Button>
                             <Button variant="outline" onClick={() => setRejectId(null)}>Cancel</Button>
                         </div>

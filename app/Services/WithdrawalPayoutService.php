@@ -109,7 +109,7 @@ class WithdrawalPayoutService
         }
     }
 
-    public function markAsPaid(Withdrawal $withdrawal, string $payoutChannel = 'paystack'): void
+    public function markAsPaid(Withdrawal $withdrawal, string $payoutChannel = 'paystack', ?string $proofPath = null, ?string $adminNotes = null): void
     {
         if ($withdrawal->status === WithdrawalStatus::Paid) {
             return;
@@ -120,11 +120,26 @@ class WithdrawalPayoutService
             'processed_at' => now(),
             'paystack_status' => $payoutChannel === 'paystack' ? 'success' : $withdrawal->paystack_status,
             'payout_channel' => $payoutChannel,
+            'proof_path' => $proofPath ?? $withdrawal->proof_path,
+            'admin_notes' => $adminNotes ?? $withdrawal->admin_notes,
         ]);
 
         $withdrawal->user->wallet?->increment('withdrawn_amount', $withdrawal->amount);
 
         WalletTransactionService::recordWithdrawalCompleted($withdrawal);
+    }
+
+    public function startProcessing(Withdrawal $withdrawal, User $admin): void
+    {
+        if ($withdrawal->status !== WithdrawalStatus::Pending) {
+            throw new \RuntimeException('Only pending withdrawals can be started.');
+        }
+
+        $withdrawal->update([
+            'status' => WithdrawalStatus::Processing,
+            'processed_by' => $admin->id,
+            'payout_channel' => $withdrawal->payout_channel ?? 'manual',
+        ]);
     }
 
     public function markAsFailed(Withdrawal $withdrawal, string $reason): void

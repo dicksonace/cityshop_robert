@@ -30,16 +30,22 @@ interface SellerGroup {
     payment_methods: SellerPaymentMethod[];
     items: CartItem[];
     subtotal: number;
+    shipping_cost: number;
+    shipping_label: string;
+    shipping_note?: string | null;
+    package_total: number;
 }
 
 interface CheckoutProps {
     sellerGroups: SellerGroup[];
     subtotal: number;
+    shippingTotal: number;
+    grandTotal: number;
     user: User;
     wallet: Wallet;
 }
 
-export default function Checkout({ sellerGroups, subtotal, user, wallet }: CheckoutProps) {
+export default function Checkout({ sellerGroups, subtotal, shippingTotal, grandTotal, user, wallet }: CheckoutProps) {
     const initialSellerPayments: Record<string, { channel: string; method_id?: number }> = {};
     sellerGroups.forEach((group) => {
         if (group.accept_direct_payments && !group.accept_marketplace_payments) {
@@ -79,7 +85,7 @@ export default function Checkout({ sellerGroups, subtotal, user, wallet }: Check
     const marketplaceTotal = sellerGroups.reduce((sum, group) => {
         const choice = data.seller_payments[String(group.seller_id)] ?? { channel: 'marketplace' };
         const usesMarketplace = choice.channel === 'marketplace' && group.accept_marketplace_payments;
-        return usesMarketplace ? sum + group.subtotal : sum;
+        return usesMarketplace ? sum + group.package_total : sum;
     }, 0);
 
     const hasMarketplaceOrders = marketplaceTotal > 0;
@@ -92,7 +98,9 @@ export default function Checkout({ sellerGroups, subtotal, user, wallet }: Check
             <Head title="Checkout" />
             <div className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-8">
                 <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
-                <p className="mt-1 text-sm text-gray-500">One checkout — separate orders per seller behind the scenes.</p>
+                <p className="mt-1 text-sm text-gray-500">
+                    One purchase — {sellerGroups.length} package{sellerGroups.length === 1 ? '' : 's'} (one per store). Each store ships separately.
+                </p>
 
                 <form onSubmit={submit} className="mt-6 grid gap-8 lg:grid-cols-2">
                     <div className="space-y-6">
@@ -183,9 +191,14 @@ export default function Checkout({ sellerGroups, subtotal, user, wallet }: Check
 
                             return (
                                 <div key={group.seller_id} className="rounded-xl bg-white p-6 shadow-sm">
-                                    <div className="flex items-center justify-between">
-                                        <h2 className="font-semibold text-gray-900">{group.seller_name}</h2>
-                                        <span className="text-sm font-medium text-orange-500">{formatPrice(group.subtotal)}</span>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div>
+                                            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                                                Package · {sellerGroups.findIndex((g) => g.seller_id === group.seller_id) + 1} of {sellerGroups.length}
+                                            </p>
+                                            <h2 className="font-semibold text-gray-900">{group.seller_name}</h2>
+                                        </div>
+                                        <span className="text-sm font-medium text-orange-500">{formatPrice(group.package_total)}</span>
                                     </div>
                                     <div className="mt-3 space-y-2">
                                         {group.items.map((item) => (
@@ -197,6 +210,21 @@ export default function Checkout({ sellerGroups, subtotal, user, wallet }: Check
                                                 </div>
                                             </div>
                                         ))}
+                                    </div>
+                                    <div className="mt-3 space-y-1 border-t pt-3 text-sm">
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>Items</span>
+                                            <span>{formatPrice(group.subtotal)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>
+                                                {group.shipping_label}
+                                                {group.shipping_note ? (
+                                                    <span className="mt-0.5 block text-xs text-gray-400">{group.shipping_note}</span>
+                                                ) : null}
+                                            </span>
+                                            <span>{group.shipping_cost > 0 ? formatPrice(group.shipping_cost) : group.shipping_label === 'Arrange with seller' ? '—' : formatPrice(0)}</span>
+                                        </div>
                                     </div>
 
                                     {data.payment_method !== 'cash' &&
@@ -252,9 +280,19 @@ export default function Checkout({ sellerGroups, subtotal, user, wallet }: Check
                         })}
 
                         <div className="rounded-xl bg-white p-6 shadow-sm">
-                            <div className="flex justify-between text-lg font-bold">
-                                <span>Total</span>
-                                <span className="text-orange-500">{formatPrice(subtotal)}</span>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Items ({sellerGroups.length} package{sellerGroups.length === 1 ? '' : 's'})</span>
+                                    <span>{formatPrice(subtotal)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Delivery</span>
+                                    <span>{shippingTotal > 0 ? formatPrice(shippingTotal) : formatPrice(0)}</span>
+                                </div>
+                                <div className="flex justify-between border-t pt-2 text-lg font-bold">
+                                    <span>Total</span>
+                                    <span className="text-orange-500">{formatPrice(grandTotal)}</span>
+                                </div>
                             </div>
                             <Button type="submit" disabled={processing} className="mt-6 w-full bg-orange-500 py-6 hover:bg-orange-600">
                                 {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}

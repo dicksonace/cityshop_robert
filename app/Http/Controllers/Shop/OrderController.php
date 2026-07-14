@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Shop;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Checkout;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Review;
@@ -25,38 +26,63 @@ class OrderController extends Controller
         $tab = (string) $request->query('tab', 'all');
 
         $counts = [
-            'all' => Order::where('buyer_id', $buyerId)->count(),
-            'unpaid' => Order::where('buyer_id', $buyerId)->where('payment_status', PaymentStatus::Pending)->count(),
-            'processing' => Order::where('buyer_id', $buyerId)
-                ->where('payment_status', PaymentStatus::Paid)
-                ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed])
+            'all' => Checkout::where('buyer_id', $buyerId)->count(),
+            'unpaid' => Checkout::where('buyer_id', $buyerId)
+                ->whereHas('orders', fn (Builder $q) => $q->where('payment_status', PaymentStatus::Pending))
                 ->count(),
-            'delivery' => Order::where('buyer_id', $buyerId)->where('status', OrderStatus::Shipped)->count(),
-            'confirm' => Order::where('buyer_id', $buyerId)->where('status', OrderStatus::AwaitingConfirmation)->count(),
-            'refunds' => Order::where('buyer_id', $buyerId)
-                ->where(function (Builder $q) {
-                    $q->where('status', OrderStatus::Refunded)
-                        ->orWhere('payment_status', PaymentStatus::Refunded)
-                        ->orWhereHas('items.dispute');
+            'processing' => Checkout::where('buyer_id', $buyerId)
+                ->whereHas('orders', fn (Builder $q) => $q
+                    ->where('payment_status', PaymentStatus::Paid)
+                    ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed]))
+                ->count(),
+            'delivery' => Checkout::where('buyer_id', $buyerId)
+                ->whereHas('orders', fn (Builder $q) => $q->where('status', OrderStatus::Shipped))
+                ->count(),
+            'confirm' => Checkout::where('buyer_id', $buyerId)
+                ->whereHas('orders', fn (Builder $q) => $q->where('status', OrderStatus::AwaitingConfirmation))
+                ->count(),
+            'refunds' => Checkout::where('buyer_id', $buyerId)
+                ->whereHas('orders', function (Builder $q) {
+                    $q->where(function (Builder $inner) {
+                        $inner->where('status', OrderStatus::Refunded)
+                            ->orWhere('payment_status', PaymentStatus::Refunded)
+                            ->orWhereHas('items.dispute');
+                    });
                 })
                 ->count(),
-            'completed' => Order::where('buyer_id', $buyerId)
-                ->where('status', OrderStatus::Delivered)
-                ->where('payment_status', PaymentStatus::Paid)
+            'completed' => Checkout::where('buyer_id', $buyerId)
+                ->whereHas('orders', fn (Builder $q) => $q
+                    ->where('status', OrderStatus::Delivered)
+                    ->where('payment_status', PaymentStatus::Paid))
                 ->count(),
-            'cancelled' => Order::where('buyer_id', $buyerId)->where('status', OrderStatus::Cancelled)->count(),
-            'review' => $this->pendingReviewCount($buyerId),
-            'invoices' => Order::where('buyer_id', $buyerId)
-                ->whereHas('checkout.invoices', fn (Builder $q) => $q
+            'cancelled' => Checkout::where('buyer_id', $buyerId)
+                ->whereHas('orders', fn (Builder $q) => $q->where('status', OrderStatus::Cancelled))
+                ->count(),
+            'review' => $this->pendingReviewCount($buyerId) > 0
+                ? Checkout::where('buyer_id', $buyerId)
+                    ->whereHas('orders.items', function (Builder $q) use ($buyerId) {
+                        $q->where('status', OrderStatus::Delivered)
+                            ->whereNotExists(function ($sub) use ($buyerId) {
+                                $sub->selectRaw('1')
+                                    ->from('reviews')
+                                    ->whereColumn('reviews.order_id', 'order_items.order_id')
+                                    ->whereColumn('reviews.product_id', 'order_items.product_id')
+                                    ->where('reviews.user_id', $buyerId);
+                            });
+                    })
+                    ->count()
+                : 0,
+            'invoices' => Checkout::where('buyer_id', $buyerId)
+                ->whereHas('invoices', fn (Builder $q) => $q
                     ->where('user_id', $buyerId)
                     ->whereIn('type', ['customer', 'customer_master']))
                 ->count(),
         ];
 
-        $orders = Order::with([
-            'items.product.images',
-            'seller.sellerProfile',
-            'checkout.invoices' => fn ($q) => $q
+        $purchases = Checkout::with([
+            'orders.items.product.images',
+            'orders.seller.sellerProfile',
+            'invoices' => fn ($q) => $q
                 ->where('user_id', $buyerId)
                 ->whereIn('type', ['customer', 'customer_master']),
         ])
@@ -64,10 +90,44 @@ class OrderController extends Controller
             ->when($tab !== 'all', fn (Builder $q) => $this->applyTabFilter($q, $tab, $buyerId))
             ->latest()
             ->paginate(10)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn (Checkout $checkout) => [
+                'id' => $checkout->id,
+                'checkout_number' => $checkout->checkout_number,
+                'payment_status' => $checkout->payment_status->value,
+                'status' => $checkout->status->value,
+                'subtotal' => (float) $checkout->subtotal,
+                'shipping_cost' => (float) $checkout->shipping_cost,
+                'total' => (float) $checkout->total,
+                'created_at' => $checkout->created_at?->toIso8601String(),
+                'invoice' => $checkout->invoices->first() ? [
+                    'id' => $checkout->invoices->first()->id,
+                    'invoice_number' => $checkout->invoices->first()->invoice_number,
+                ] : null,
+                'packages' => $checkout->orders->map(function (Order $order) {
+                    $sellerProfile = $order->seller?->sellerProfile;
+
+                    return [
+                        'id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'status' => $order->status->value,
+                        'payment_status' => $order->payment_status->value,
+                        'subtotal' => (float) $order->subtotal,
+                        'shipping_cost' => (float) $order->shipping_cost,
+                        'total' => (float) $order->total,
+                        'seller_name' => $sellerProfile?->displayName() ?? $order->seller?->name ?? 'Seller',
+                        'store_slug' => $sellerProfile?->slug,
+                        'item_count' => $order->items->sum('quantity'),
+                        'product_count' => $order->items->count(),
+                        'image' => $order->items->first()?->product?->images?->first()?->path,
+                        'first_product_name' => $order->items->first()?->product_name,
+                        'awaiting_item_id' => $order->items->firstWhere('status', OrderStatus::AwaitingConfirmation)?->id,
+                    ];
+                })->values(),
+            ]);
 
         return Inertia::render('shop/orders', [
-            'orders' => $orders,
+            'purchases' => $purchases,
             'counts' => $counts,
             'tab' => $tab,
         ]);
@@ -91,22 +151,24 @@ class OrderController extends Controller
     private function applyTabFilter(Builder $query, string $tab, int $buyerId): void
     {
         match ($tab) {
-            'unpaid' => $query->where('payment_status', PaymentStatus::Pending),
-            'processing' => $query
+            'unpaid' => $query->whereHas('orders', fn (Builder $q) => $q->where('payment_status', PaymentStatus::Pending)),
+            'processing' => $query->whereHas('orders', fn (Builder $q) => $q
                 ->where('payment_status', PaymentStatus::Paid)
-                ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed]),
-            'delivery' => $query->where('status', OrderStatus::Shipped),
-            'confirm' => $query->where('status', OrderStatus::AwaitingConfirmation),
-            'refunds' => $query->where(function (Builder $q) {
-                $q->where('status', OrderStatus::Refunded)
-                    ->orWhere('payment_status', PaymentStatus::Refunded)
-                    ->orWhereHas('items.dispute');
+                ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed])),
+            'delivery' => $query->whereHas('orders', fn (Builder $q) => $q->where('status', OrderStatus::Shipped)),
+            'confirm' => $query->whereHas('orders', fn (Builder $q) => $q->where('status', OrderStatus::AwaitingConfirmation)),
+            'refunds' => $query->whereHas('orders', function (Builder $q) {
+                $q->where(function (Builder $inner) {
+                    $inner->where('status', OrderStatus::Refunded)
+                        ->orWhere('payment_status', PaymentStatus::Refunded)
+                        ->orWhereHas('items.dispute');
+                });
             }),
-            'completed' => $query
+            'completed' => $query->whereHas('orders', fn (Builder $q) => $q
                 ->where('status', OrderStatus::Delivered)
-                ->where('payment_status', PaymentStatus::Paid),
-            'cancelled' => $query->where('status', OrderStatus::Cancelled),
-            'review' => $query->whereHas('items', function (Builder $q) use ($buyerId) {
+                ->where('payment_status', PaymentStatus::Paid)),
+            'cancelled' => $query->whereHas('orders', fn (Builder $q) => $q->where('status', OrderStatus::Cancelled)),
+            'review' => $query->whereHas('orders.items', function (Builder $q) use ($buyerId) {
                 $q->where('status', OrderStatus::Delivered)
                     ->whereNotExists(function ($sub) use ($buyerId) {
                         $sub->selectRaw('1')
@@ -116,7 +178,7 @@ class OrderController extends Controller
                             ->where('reviews.user_id', $buyerId);
                     });
             }),
-            'invoices' => $query->whereHas('checkout.invoices', fn (Builder $q) => $q
+            'invoices' => $query->whereHas('invoices', fn (Builder $q) => $q
                 ->where('user_id', $buyerId)
                 ->whereIn('type', ['customer', 'customer_master'])),
             default => null,
@@ -127,11 +189,20 @@ class OrderController extends Controller
     {
         abort_unless($order->buyer_id === $request->user()->id, 403);
 
+        // Prefer the purchase hub when there are sibling packages.
         if ($order->checkout_id) {
-            return redirect()->route('checkouts.show', $order->checkout_id);
+            $siblingCount = Order::where('checkout_id', $order->checkout_id)->count();
+            if ($siblingCount > 1 && ! $request->boolean('package')) {
+                return redirect()->route('checkouts.show', $order->checkout_id);
+            }
         }
 
-        $order->load(['items.product.images', 'items.dispute']);
+        $order->load([
+            'items.product.images',
+            'items.dispute',
+            'seller.sellerProfile',
+            'checkout',
+        ]);
 
         $reviews = Review::where('order_id', $order->id)
             ->where('user_id', $request->user()->id)
@@ -141,6 +212,8 @@ class OrderController extends Controller
         return Inertia::render('shop/order-show', [
             'order' => $order,
             'reviews' => $reviews,
+            'checkoutNumber' => $order->checkout?->checkout_number,
+            'checkoutId' => $order->checkout_id,
         ]);
     }
 

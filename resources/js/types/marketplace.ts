@@ -34,6 +34,8 @@ export interface Product {
     status: string;
     is_preorder: boolean;
     free_shipping: boolean;
+    delivery_fee?: number | null;
+    delivery_days?: number | null;
     in_ghana: boolean;
     video_path?: string | null;
     video_duration?: number | null;
@@ -96,7 +98,10 @@ export interface Withdrawal {
     payout_channel?: string | null;
     failure_reason?: string | null;
     rejection_reason?: string | null;
+    proof_path?: string | null;
+    admin_notes?: string | null;
     created_at?: string;
+    processed_at?: string;
 }
 
 export interface WalletTransaction {

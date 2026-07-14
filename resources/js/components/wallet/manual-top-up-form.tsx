@@ -1,0 +1,272 @@
+import { Link, useForm, usePage } from '@inertiajs/react';
+import { ArrowLeft, Copy, LoaderCircle } from 'lucide-react';
+import { FormEventHandler, useState } from 'react';
+
+import InputError from '@/components/input-error';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { formatPrice } from '@/types/marketplace';
+import { SharedData } from '@/types';
+
+export type FundingAccount = {
+    type: 'momo' | 'bank';
+    label: string;
+    account_name: string;
+    account_number: string;
+    network?: string | null;
+    bank_name?: string | null;
+};
+
+export type TopUpHistoryItem = {
+    id: number;
+    amount: number;
+    payment_reference: string;
+    status: string;
+    admin_notes: string | null;
+    proof_url: string | null;
+    created_at: string | null;
+    reviewed_at: string | null;
+};
+
+interface Props {
+    settings: {
+        enabled: boolean;
+        instructions: string;
+        accounts: FundingAccount[];
+    };
+    requests: TopUpHistoryItem[];
+    walletRoute: string;
+    submitRoute: string;
+}
+
+function formatDate(value?: string | null): string {
+    if (!value) return '—';
+    return new Date(value).toLocaleString('en-GH', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+export default function ManualTopUpForm({ settings, requests, walletRoute, submitRoute }: Props) {
+    const { flash } = usePage<SharedData>().props;
+    const [copied, setCopied] = useState<string | null>(null);
+
+    const form = useForm({
+        amount: '',
+        payment_reference: '',
+        sender_name: '',
+        sender_number: '',
+        network: 'mtn',
+        user_note: '',
+        proof: null as File | null,
+    });
+
+    const copyText = async (text: string, key: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(key);
+            setTimeout(() => setCopied(null), 1500);
+        } catch {
+            // ignore
+        }
+    };
+
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        form.post(submitRoute, { forceFormData: true });
+    };
+
+    const statusColor: Record<string, string> = {
+        pending: 'bg-amber-100 text-amber-800',
+        approved: 'bg-emerald-100 text-emerald-800',
+        rejected: 'bg-red-100 text-red-800',
+    };
+
+    return (
+        <div className="mx-auto max-w-3xl space-y-6">
+            <Link href={walletRoute} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
+                <ArrowLeft className="h-4 w-4" />
+                Back to wallet
+            </Link>
+
+            <div>
+                <h1 className="text-2xl font-bold text-gray-900">Manual top-up</h1>
+                <p className="mt-1 text-sm text-gray-500">
+                    For larger amounts: send payment to CityShop, then upload proof and your transaction reference.
+                </p>
+            </div>
+
+            {flash.success && (
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                    {flash.success}
+                </div>
+            )}
+            {flash.error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{flash.error}</div>
+            )}
+
+            {settings.instructions && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                    {settings.instructions}
+                </div>
+            )}
+
+            <div className="space-y-3">
+                <h2 className="text-sm font-semibold text-gray-900">Send payment to</h2>
+                {settings.accounts.map((account, index) => (
+                    <div key={index} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                        <p className="font-medium text-gray-900">{account.label}</p>
+                        <dl className="mt-2 space-y-1 text-sm">
+                            {account.type === 'bank' && account.bank_name && (
+                                <div className="flex justify-between gap-2">
+                                    <dt className="text-gray-500">Bank</dt>
+                                    <dd className="text-gray-900">{account.bank_name}</dd>
+                                </div>
+                            )}
+                            {account.type === 'momo' && account.network && (
+                                <div className="flex justify-between gap-2">
+                                    <dt className="text-gray-500">Network</dt>
+                                    <dd className="uppercase text-gray-900">{account.network}</dd>
+                                </div>
+                            )}
+                            <div className="flex justify-between gap-2">
+                                <dt className="text-gray-500">Name</dt>
+                                <dd className="text-gray-900">{account.account_name}</dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                                <dt className="text-gray-500">Number</dt>
+                                <dd className="flex items-center gap-2 font-mono font-semibold text-gray-900">
+                                    {account.account_number}
+                                    <button
+                                        type="button"
+                                        onClick={() => copyText(account.account_number, `n-${index}`)}
+                                        className="text-blue-600 hover:text-blue-700"
+                                        title="Copy"
+                                    >
+                                        <Copy className="h-3.5 w-3.5" />
+                                    </button>
+                                    {copied === `n-${index}` && <span className="text-xs text-green-600">Copied</span>}
+                                </dd>
+                            </div>
+                        </dl>
+                    </div>
+                ))}
+            </div>
+
+            <form onSubmit={submit} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+                <h2 className="font-semibold text-gray-900">After you pay — submit proof</h2>
+                <p className="mt-1 text-sm text-gray-500">We credit your wallet once an admin verifies the transfer.</p>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <Label>Amount sent (GH₵)</Label>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            min="10"
+                            value={form.data.amount}
+                            onChange={(e) => form.setData('amount', e.target.value)}
+                            required
+                            className="mt-1"
+                        />
+                        <InputError message={form.errors.amount} />
+                    </div>
+                    <div>
+                        <Label>Payment reference / ID</Label>
+                        <Input
+                            value={form.data.payment_reference}
+                            onChange={(e) => form.setData('payment_reference', e.target.value)}
+                            required
+                            className="mt-1"
+                            placeholder="From MoMo or bank SMS"
+                        />
+                        <InputError message={form.errors.payment_reference} />
+                    </div>
+                    <div>
+                        <Label>Name on account you sent from</Label>
+                        <Input
+                            value={form.data.sender_name}
+                            onChange={(e) => form.setData('sender_name', e.target.value)}
+                            required
+                            className="mt-1"
+                        />
+                        <InputError message={form.errors.sender_name} />
+                    </div>
+                    <div>
+                        <Label>Your MoMo / account number (optional)</Label>
+                        <Input
+                            value={form.data.sender_number}
+                            onChange={(e) => form.setData('sender_number', e.target.value)}
+                            className="mt-1"
+                        />
+                        <InputError message={form.errors.sender_number} />
+                    </div>
+                    <div>
+                        <Label>Network (if MoMo)</Label>
+                        <select
+                            value={form.data.network}
+                            onChange={(e) => form.setData('network', e.target.value)}
+                            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                        >
+                            <option value="mtn">MTN</option>
+                            <option value="telecel">Telecel</option>
+                            <option value="airteltigo">AirtelTigo</option>
+                            <option value="bank">Bank</option>
+                        </select>
+                    </div>
+                    <div>
+                        <Label>Screenshot / receipt (required)</Label>
+                        <Input
+                            type="file"
+                            accept="image/*"
+                            className="mt-1"
+                            onChange={(e) => form.setData('proof', e.target.files?.[0] ?? null)}
+                            required
+                        />
+                        <InputError message={form.errors.proof} />
+                    </div>
+                    <div className="sm:col-span-2">
+                        <Label>Note (optional)</Label>
+                        <Input
+                            value={form.data.user_note}
+                            onChange={(e) => form.setData('user_note', e.target.value)}
+                            className="mt-1"
+                            placeholder="Anything else we should know"
+                        />
+                    </div>
+                </div>
+
+                <Button type="submit" disabled={form.processing} className="mt-4 w-full bg-green-600 hover:bg-green-700 sm:w-auto">
+                    {form.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                    Submit for verification
+                </Button>
+            </form>
+
+            {requests.length > 0 && (
+                <div>
+                    <h2 className="mb-3 text-sm font-semibold text-gray-900">Your recent requests</h2>
+                    <div className="space-y-2">
+                        {requests.map((item) => (
+                            <div key={item.id} className="rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm shadow-sm">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="font-semibold text-gray-900">{formatPrice(item.amount)}</span>
+                                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[item.status] ?? 'bg-gray-100'}`}>
+                                        {item.status}
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-gray-500">
+                                    Ref: {item.payment_reference} · {formatDate(item.created_at)}
+                                </p>
+                                {item.admin_notes && <p className="mt-1 text-gray-700">Admin: {item.admin_notes}</p>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

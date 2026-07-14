@@ -8,6 +8,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\PaystackService;
+use App\Services\PlatformSettings;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use Illuminate\Http\RedirectResponse;
@@ -33,11 +34,14 @@ class WalletController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        $funding = PlatformSettings::manualFundingAccounts();
+
         return Inertia::render('shop/wallet', [
             'wallet' => $wallet,
             'transactions' => $transactions,
             'paystackConfigured' => $this->paystack->isConfigured(),
             'paystackPublicKey' => config('services.paystack.public_key'),
+            'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
         ]);
     }
 

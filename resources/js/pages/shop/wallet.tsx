@@ -22,6 +22,7 @@ interface BuyerWalletProps {
     transactions: Paginated<WalletTransaction>;
     paystackConfigured: boolean;
     paystackPublicKey: string;
+    manualTopUpEnabled?: boolean;
 }
 
 function formatDate(value?: string): string {
@@ -35,7 +36,7 @@ function formatDate(value?: string): string {
     });
 }
 
-export default function BuyerWallet({ wallet, transactions, paystackConfigured }: BuyerWalletProps) {
+export default function BuyerWallet({ wallet, transactions, paystackConfigured, manualTopUpEnabled }: BuyerWalletProps) {
     const addFundsForm = useForm({ amount: '', method: 'momo' });
     const withdrawForm = useForm({
         amount: '',
@@ -109,6 +110,18 @@ export default function BuyerWallet({ wallet, transactions, paystackConfigured }
                             </Button>
                             {!paystackConfigured && (
                                 <p className="text-xs text-amber-600">Online top-up requires Paystack to be configured.</p>
+                            )}
+                            {manualTopUpEnabled && (
+                                <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/60 px-3 py-3 text-sm">
+                                    <p className="font-medium text-blue-900">Large amount?</p>
+                                    <p className="mt-0.5 text-blue-800/80">Pay to our MoMo/bank account and submit proof for admin credit.</p>
+                                    <Link
+                                        href={route('wallet.manual-top-up')}
+                                        className="mt-2 inline-block font-medium text-blue-700 hover:underline"
+                                    >
+                                        Use manual payment →
+                                    </Link>
+                                </div>
                             )}
                         </div>
                     </form>

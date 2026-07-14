@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SellerPayoutMethod;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\PlatformSettings;
 use App\Services\WalletTransactionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,6 +37,8 @@ class WalletController extends Controller
             ->latest()
             ->get();
 
+        $funding = PlatformSettings::manualFundingAccounts();
+
         return Inertia::render('seller/wallet', [
             'wallet' => $user->wallet,
             'transactions' => $transactions,
@@ -44,6 +47,7 @@ class WalletController extends Controller
             'hasPendingWithdrawal' => Withdrawal::where('user_id', $user->id)
                 ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
                 ->exists(),
+            'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
         ]);
     }
 

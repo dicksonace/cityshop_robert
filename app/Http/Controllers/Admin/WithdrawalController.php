@@ -40,6 +40,7 @@ class WithdrawalController extends Controller
             'pending_buyers' => Withdrawal::where('status', WithdrawalStatus::Pending)
                 ->whereHas('user', fn ($q) => $q->where('role', UserRole::Buyer))
                 ->count(),
+            'processing' => Withdrawal::where('status', WithdrawalStatus::Processing)->count(),
         ];
 
         return Inertia::render('admin/withdrawals/index', [
@@ -49,6 +50,20 @@ class WithdrawalController extends Controller
             'counts' => $counts,
             'paystackConfigured' => $this->paystack->isConfigured(),
         ]);
+    }
+
+    /**
+     * Play button — mark withdrawal as processing so the seller sees progress.
+     */
+    public function start(Request $request, Withdrawal $withdrawal): RedirectResponse
+    {
+        try {
+            $this->payouts->startProcessing($withdrawal, $request->user());
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Withdrawal marked as processing. The seller can see this status now.');
     }
 
     public function process(Request $request, Withdrawal $withdrawal): RedirectResponse
@@ -87,17 +102,38 @@ class WithdrawalController extends Controller
         return back()->with('success', 'OTP confirmed. Payout will complete shortly.');
     }
 
+    /**
+     * Complete payout — optionally attach proof image and notes for the seller.
+     */
     public function approve(Request $request, Withdrawal $withdrawal): RedirectResponse
     {
         if (! in_array($withdrawal->status, [WithdrawalStatus::Pending, WithdrawalStatus::Processing], true)) {
             return back()->with('error', 'This withdrawal cannot be marked paid.');
         }
 
-        $withdrawal->update(['processed_by' => $request->user()->id]);
+        $validated = $request->validate([
+            'admin_notes' => ['nullable', 'string', 'max:1000'],
+            'proof' => ['nullable', 'image', 'max:5120'],
+        ]);
 
-        $this->payouts->markAsPaid($withdrawal->fresh(), 'manual');
+        $proofPath = null;
+        if ($request->hasFile('proof')) {
+            $proofPath = $request->file('proof')->store('withdrawal-proofs', 'public');
+        }
 
-        return back()->with('success', 'Manual payout recorded. Funds marked as sent.');
+        $withdrawal->update([
+            'processed_by' => $request->user()->id,
+            'admin_notes' => $validated['admin_notes'] ?? null,
+        ]);
+
+        $this->payouts->markAsPaid(
+            $withdrawal->fresh(),
+            'manual',
+            $proofPath,
+            $validated['admin_notes'] ?? null,
+        );
+
+        return back()->with('success', 'Payout marked complete. Seller can view'.($proofPath ? ' and download the proof.' : ' the update.'));
     }
 
     public function reject(Request $request, Withdrawal $withdrawal): RedirectResponse

@@ -23,6 +23,8 @@ class Withdrawal extends Model
         'status',
         'rejection_reason',
         'failure_reason',
+        'proof_path',
+        'admin_notes',
         'processed_by',
         'processed_at',
     ];

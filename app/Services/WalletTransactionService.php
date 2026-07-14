@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\WalletTransactionType;
 use App\Enums\WithdrawalStatus;
+use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
@@ -151,6 +152,88 @@ class WalletTransactionService
             description: "Sale reversed: {$item->product_name} (Order {$orderNumber})",
             orderItemId: $item->id,
             reference: $orderNumber,
+        );
+    }
+
+    public static function shippingPendingExists(int $orderId): bool
+    {
+        return WalletTransaction::where('reference', 'SHIP-'.$orderId)
+            ->where('type', WalletTransactionType::SalePending)
+            ->exists();
+    }
+
+    public static function shippingReleasedExists(int $orderId): bool
+    {
+        return WalletTransaction::where('reference', 'SHIP-REL-'.$orderId)
+            ->where('type', WalletTransactionType::SaleReleased)
+            ->exists();
+    }
+
+    public static function shippingRefundedExists(int $orderId): bool
+    {
+        return WalletTransaction::where('reference', 'SHIP-REF-'.$orderId)
+            ->where('type', WalletTransactionType::OrderRefund)
+            ->exists();
+    }
+
+    public static function recordShippingPending(Order $order): void
+    {
+        if (static::shippingPendingExists($order->id)) {
+            return;
+        }
+
+        static::record(
+            userId: (int) $order->seller_id,
+            type: WalletTransactionType::SalePending,
+            amount: (float) $order->shipping_cost,
+            description: "Delivery fee (Order {$order->order_number}) — pending delivery",
+            reference: 'SHIP-'.$order->id,
+        );
+    }
+
+    public static function recordShippingReleased(Order $order, float $amount): void
+    {
+        if (static::shippingReleasedExists($order->id)) {
+            return;
+        }
+
+        static::record(
+            userId: (int) $order->seller_id,
+            type: WalletTransactionType::SaleReleased,
+            amount: $amount,
+            description: "Delivery fee released (Order {$order->order_number})",
+            reference: 'SHIP-REL-'.$order->id,
+        );
+    }
+
+    public static function recordShippingRefund(Order $order, float $amount): void
+    {
+        if (static::shippingRefundedExists($order->id)) {
+            return;
+        }
+
+        static::record(
+            userId: (int) $order->buyer_id,
+            type: WalletTransactionType::OrderRefund,
+            amount: $amount,
+            description: "Delivery fee refund (Order {$order->order_number})",
+            reference: 'SHIP-REF-'.$order->id,
+        );
+    }
+
+    public static function recordShippingReversed(Order $order, float $amount): void
+    {
+        $reference = 'SHIP-REV-'.$order->id;
+        if (WalletTransaction::where('reference', $reference)->exists()) {
+            return;
+        }
+
+        static::record(
+            userId: (int) $order->seller_id,
+            type: WalletTransactionType::SaleReversed,
+            amount: -1 * $amount,
+            description: "Delivery fee reversed (Order {$order->order_number})",
+            reference: $reference,
         );
     }
 

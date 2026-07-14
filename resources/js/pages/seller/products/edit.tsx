@@ -25,6 +25,14 @@ export default function EditProduct({ product, categories }: EditProductProps) {
     const [videoDuration, setVideoDuration] = useState<number | null>(null);
     const [removeVideo, setRemoveVideo] = useState(false);
 
+    const initialFee = (product as Product & { delivery_fee?: number | null }).delivery_fee;
+    const initialShipping: 'free' | 'paid' | 'buyer' = product.free_shipping
+        ? 'free'
+        : initialFee != null && Number(initialFee) > 0
+            ? 'paid'
+            : 'buyer';
+    const [shippingType, setShippingType] = useState<'free' | 'paid' | 'buyer'>(initialShipping);
+
     const { data, setData, post, processing, errors, transform } = useForm({
         name: product.name,
         description: product.description ?? '',
@@ -158,13 +166,78 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                     errors={errors as Record<string, string>}
                 />
 
-                <div className="flex flex-wrap gap-4">
-                    <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={data.free_shipping} onChange={(e) => setData('free_shipping', e.target.checked)} />
-                        Free Delivery
-                    </label>
+                <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div>
+                        <h3 className="font-semibold text-gray-900">Delivery</h3>
+                        <p className="text-xs text-gray-500">Buyers see this on the product page.</p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        {[
+                            { id: 'free' as const, title: 'Free delivery', desc: 'You cover shipping' },
+                            { id: 'paid' as const, title: 'Paid delivery', desc: 'Charge a delivery fee' },
+                            { id: 'buyer' as const, title: 'Arrange with buyer', desc: 'Discuss after order' },
+                        ].map((opt) => (
+                            <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => {
+                                    setShippingType(opt.id);
+                                    if (opt.id === 'free') {
+                                        setData((d) => ({ ...d, free_shipping: true, delivery_fee: '' }));
+                                    } else if (opt.id === 'paid') {
+                                        setData((d) => ({ ...d, free_shipping: false }));
+                                    } else {
+                                        setData((d) => ({ ...d, free_shipping: false, delivery_fee: '' }));
+                                    }
+                                }}
+                                className={`rounded-xl border bg-white p-3 text-left transition ${
+                                    shippingType === opt.id ? 'border-orange-500 ring-1 ring-orange-200' : 'border-gray-200'
+                                }`}
+                            >
+                                <p className="text-sm font-semibold text-gray-900">{opt.title}</p>
+                                <p className="mt-1 text-xs text-gray-500">{opt.desc}</p>
+                            </button>
+                        ))}
+                    </div>
+                    {shippingType === 'paid' && (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <Label>Delivery fee (GH₵)</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={data.delivery_fee}
+                                    onChange={(e) => setData('delivery_fee', e.target.value)}
+                                    className="mt-1 bg-white"
+                                    required
+                                />
+                                <InputError message={errors.delivery_fee} />
+                            </div>
+                            <div>
+                                <Label>Estimated days</Label>
+                                <Input
+                                    type="number"
+                                    value={data.delivery_days}
+                                    onChange={(e) => setData('delivery_days', e.target.value)}
+                                    className="mt-1 bg-white"
+                                    placeholder="e.g. 3"
+                                />
+                            </div>
+                        </div>
+                    )}
+                    {shippingType !== 'paid' && (
+                        <div>
+                            <Label>Estimated delivery (days)</Label>
+                            <Input
+                                type="number"
+                                value={data.delivery_days}
+                                onChange={(e) => setData('delivery_days', e.target.value)}
+                                className="mt-1 bg-white"
+                                placeholder="Optional"
+                            />
+                        </div>
+                    )}
                 </div>
-                <p className="text-xs text-gray-500">You arrange delivery to the buyer. Free delivery means you deliver at no extra charge.</p>
 
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-3">
                     <h3 className="font-semibold text-gray-900">Advanced & SEO</h3>
