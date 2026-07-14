@@ -4,13 +4,29 @@ import { useEffect, useRef } from 'react';
 import { useToast } from '@/contexts/toast-context';
 import { SharedData } from '@/types';
 
+/**
+ * Flash → toast for panels that do not already show a layout flash banner.
+ * Shop pages skip this because ShopLayout renders flash at the top.
+ */
 export default function FlashToastListener() {
-    const { flash } = usePage<SharedData>().props;
+    const page = usePage<SharedData>();
+    const flash = page.props.flash;
     const toast = useToast();
     const lastSuccess = useRef<string | undefined>();
     const lastError = useRef<string | undefined>();
 
+    const pageName = typeof page.component === 'string' ? page.component : '';
+    const shopHandled =
+        pageName.startsWith('shop/') ||
+        pageName === 'home' ||
+        pageName === 'welcome' ||
+        pageName.startsWith('store');
+
     useEffect(() => {
+        if (shopHandled) {
+            return;
+        }
+
         if (flash?.success && flash.success !== lastSuccess.current) {
             lastSuccess.current = flash.success;
             toast.success(flash.success);
@@ -19,7 +35,7 @@ export default function FlashToastListener() {
             lastError.current = flash.error;
             toast.error(flash.error);
         }
-    }, [flash?.success, flash?.error, toast]);
+    }, [flash?.success, flash?.error, toast, shopHandled]);
 
     return null;
 }

@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangle, CheckCircle2, Star } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
@@ -6,7 +6,6 @@ import OrderProgress from '@/components/shop/order-progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ShopLayout from '@/layouts/shop-layout';
-import { SharedData } from '@/types';
 import { formatPrice, formatOrderStatus, Order, OrderItem, productImageUrl } from '@/types/marketplace';
 
 interface OrderShowProps {
@@ -131,7 +130,6 @@ function RefundStatus({ dispute }: { dispute: { id: number; status: string; reas
 }
 
 export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }: OrderShowProps & { checkoutNumber?: string | null; checkoutId?: number | null }) {
-    const { flash } = usePage<SharedData>().props;
     const paymentPending = order.payment_status === 'pending';
     const primaryStatus = order.items?.[0]?.status ?? order.status;
 
@@ -145,17 +143,6 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                 >
                     &larr; {checkoutId ? `Back to purchase ${checkoutNumber ?? ''}`.trim() : 'Back to Orders'}
                 </Link>
-
-                {flash.success && (
-                    <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                        {flash.success}
-                    </div>
-                )}
-                {flash.error && (
-                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {flash.error}
-                    </div>
-                )}
 
                 {paymentPending && order.payment_method !== 'cash' && (
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">

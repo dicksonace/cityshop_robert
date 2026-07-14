@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangle, CheckCircle2, FileText, Star } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
@@ -6,7 +6,6 @@ import OrderProgress from '@/components/shop/order-progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ShopLayout from '@/layouts/shop-layout';
-import { SharedData } from '@/types';
 import { formatOrderStatus, formatPrice, Order, OrderItem, productImageUrl } from '@/types/marketplace';
 
 interface CheckoutShowProps {
@@ -160,8 +159,6 @@ function RefundStatus({ dispute }: { dispute: { id: number; status: string; reas
 }
 
 export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
-    const { flash } = usePage<SharedData>().props;
-
     return (
         <ShopLayout>
             <Head title={`Purchase ${checkout.checkout_number}`} />
@@ -172,24 +169,15 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                         <p className="mt-1 text-sm text-gray-500">
                             Payment: <span className="capitalize">{checkout.payment_status}</span>
                             {' · '}
-                            {checkout.orders.length} package{checkout.orders.length === 1 ? '' : 's'} from different stores
+                            {checkout.orders.length === 1
+                                ? '1 package'
+                                : `${checkout.orders.length} packages from different stores`}
                         </p>
                     </div>
                     <Link href={route('orders.index')} className="text-sm text-orange-500 hover:underline">
                         ← All purchases
                     </Link>
                 </div>
-
-                {flash.success && (
-                    <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                        {flash.success}
-                    </div>
-                )}
-                {flash.error && (
-                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {flash.error}
-                    </div>
-                )}
 
                 <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
                     <h2 className="font-semibold">Shared delivery address</h2>
