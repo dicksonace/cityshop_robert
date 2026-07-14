@@ -9,7 +9,8 @@ import { productVideoUrl } from '@/types/marketplace';
 const MAX_DURATION_SECONDS = 60;
 const MAX_SIZE_MB = 50;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-const ACCEPTED = 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov';
+const ACCEPTED = 'video/mp4,video/webm,video/quicktime,video/3gpp,video/x-m4v,.mp4,.webm,.mov,.m4v,.3gp';
+const VIDEO_EXT = /\.(mp4|webm|mov|m4v|3gp|3gpp)$/i;
 
 interface ProductVideoUploaderProps {
     existingPath?: string | null;
@@ -21,15 +22,33 @@ interface ProductVideoUploaderProps {
     className?: string;
 }
 
+function isLikelyVideoFile(file: File): boolean {
+    if (file.type.startsWith('video/')) {
+        return true;
+    }
+
+    return VIDEO_EXT.test(file.name);
+}
+
 function readVideoDuration(file: File): Promise<number> {
     return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
         const video = document.createElement('video');
         video.preload = 'metadata';
+        video.muted = true;
+        video.playsInline = true;
+
+        const cleanup = () => URL.revokeObjectURL(url);
+
+        const timer = window.setTimeout(() => {
+            cleanup();
+            reject(new Error('Could not read video length. Try exporting as MP4 under 1 minute.'));
+        }, 15000);
 
         video.onloadedmetadata = () => {
+            window.clearTimeout(timer);
             const duration = video.duration;
-            URL.revokeObjectURL(url);
+            cleanup();
             if (!Number.isFinite(duration) || duration <= 0) {
                 reject(new Error('Could not read video length. Try another file.'));
                 return;
@@ -38,8 +57,9 @@ function readVideoDuration(file: File): Promise<number> {
         };
 
         video.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject(new Error('Could not read this video. Use MP4 or WebM.'));
+            window.clearTimeout(timer);
+            cleanup();
+            reject(new Error('Could not read this video. Use MP4, WebM, or MOV under 1 minute.'));
         };
 
         video.src = url;
@@ -94,14 +114,14 @@ export default function ProductVideoUploader({
             return;
         }
 
-        if (!selected.type.startsWith('video/')) {
-            setLocalError('Please choose a video file (MP4, WebM, or MOV).');
+        if (!isLikelyVideoFile(selected)) {
+            setLocalError('Please choose a video file (MP4, WebM, MOV, or 3GP).');
             clearSelection();
             return;
         }
 
         if (selected.size > MAX_SIZE_BYTES) {
-            setLocalError(`Video must be ${MAX_SIZE_MB}MB or smaller.`);
+            setLocalError(`Video must be ${MAX_SIZE_MB}MB or smaller. This file is ${(selected.size / (1024 * 1024)).toFixed(1)}MB.`);
             clearSelection();
             return;
         }
@@ -109,7 +129,7 @@ export default function ProductVideoUploader({
         setChecking(true);
         try {
             const seconds = await readVideoDuration(selected);
-            if (seconds > MAX_DURATION_SECONDS) {
+            if (seconds > MAX_DURATION_SECONDS + 0.5) {
                 setLocalError(`Video must be 1 minute or less. This one is ${formatDuration(seconds)}.`);
                 clearSelection();
                 return;
@@ -117,7 +137,7 @@ export default function ProductVideoUploader({
 
             setFile(selected);
             setDuration(seconds);
-            onChange(selected, Math.round(seconds));
+            onChange(selected, Math.max(1, Math.round(seconds)));
         } catch (err) {
             setLocalError(err instanceof Error ? err.message : 'Could not validate video.');
             clearSelection();
@@ -138,7 +158,7 @@ export default function ProductVideoUploader({
                 <div>
                     <p className="font-semibold text-gray-900">Product video (optional)</p>
                     <p className="mt-0.5 text-sm text-gray-500">
-                        Show buyers a short clip of the item. Max <strong>1 minute</strong>, MP4/WebM/MOV, up to {MAX_SIZE_MB}MB.
+                        Show buyers a short clip of the item. Max <strong>1 minute</strong>, MP4/WebM/MOV/3GP, up to {MAX_SIZE_MB}MB.
                     </p>
                 </div>
             </div>

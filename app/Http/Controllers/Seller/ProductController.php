@@ -73,7 +73,8 @@ class ProductController extends Controller
         // Oversized multipart uploads can empty the whole request (PHP post_max_size).
         if ($request->server('CONTENT_LENGTH') && empty($request->all()) && empty($request->allFiles())) {
             return back()->withErrors([
-                'images' => 'Upload was too large and could not be received. Use smaller photos (under 5MB) and keep video under 50MB / 1 minute.',
+                'images' => 'Upload was too large and could not be received. Use smaller photos (under 5MB each) and a video under 50MB / 1 minute. If this keeps happening, ask support to raise the server upload limit.',
+                'video' => 'The video file was too large for the server to accept. Use a clip under 50MB and 1 minute.',
             ]);
         }
 
@@ -391,8 +392,8 @@ class ProductController extends Controller
             'image_count' => ['nullable', 'integer', 'min:1', 'max:5'],
             'remove_images' => ['nullable', 'array'],
             'remove_images.*' => ['integer', 'exists:product_images,id'],
-            'video' => ['nullable', 'file', 'mimetypes:video/mp4,video/webm,video/quicktime', 'max:51200'],
-            'video_duration' => ['nullable', 'integer', 'min:1', 'max:60'],
+            'video' => ['nullable', 'file', 'mimes:mp4,webm,mov,qt,m4v,3gp,3gpp', 'max:51200'],
+            'video_duration' => ['nullable', 'integer', 'min:0', 'max:60'],
             'remove_video' => ['nullable', 'boolean'],
         ]);
 
@@ -415,7 +416,7 @@ class ProductController extends Controller
             return 'Could not verify video length. Please try another file.';
         }
 
-        if ((int) $duration > 60) {
+        if ((int) $duration < 0 || (int) $duration > 60) {
             return 'Product video must be 1 minute or less.';
         }
 
