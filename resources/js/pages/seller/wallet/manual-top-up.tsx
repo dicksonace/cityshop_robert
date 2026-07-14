@@ -20,7 +20,7 @@ export default function SellerManualTopUp(props: Props) {
     return (
         <SellerLayout title="Manual top-up" active="wallet">
             <Head title="Manual top-up" />
-            <ManualTopUpForm {...props} submitRoute={route('seller.wallet.manual-top-up.store')} />
+            <ManualTopUpForm {...props} submitRoute={route('seller.wallet.manual-top-up.store')} showFlash />
         </SellerLayout>
     );
 }

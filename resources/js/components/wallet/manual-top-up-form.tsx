@@ -38,6 +38,8 @@ interface Props {
     requests: TopUpHistoryItem[];
     walletRoute: string;
     submitRoute: string;
+    /** Seller layout has no flash banner — show inline. Shop layout already shows flash at top. */
+    showFlash?: boolean;
 }
 
 function formatDate(value?: string | null): string {
@@ -51,7 +53,7 @@ function formatDate(value?: string | null): string {
     });
 }
 
-export default function ManualTopUpForm({ settings, requests, walletRoute, submitRoute }: Props) {
+export default function ManualTopUpForm({ settings, requests, walletRoute, submitRoute, showFlash = false }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [copied, setCopied] = useState<string | null>(null);
 
@@ -100,12 +102,12 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                 </p>
             </div>
 
-            {flash.success && (
+            {showFlash && flash.success && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
                     {flash.success}
                 </div>
             )}
-            {flash.error && (
+            {showFlash && flash.error && (
                 <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{flash.error}</div>
             )}
 

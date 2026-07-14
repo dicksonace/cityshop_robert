@@ -50,21 +50,9 @@ export default function Contact({ contact, subjects, defaults }: ContactProps) {
                     <p className="mt-2 text-gray-500">We&apos;re here to help buyers and sellers across Ghana.</p>
                 </div>
 
-                {flash.success && (
-                    <div className="mt-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                        {flash.success}
-                    </div>
-                )}
-
                 {flash.info && (
                     <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                         {flash.info}
-                    </div>
-                )}
-
-                {flash.error && (
-                    <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {flash.error}
                     </div>
                 )}
 
