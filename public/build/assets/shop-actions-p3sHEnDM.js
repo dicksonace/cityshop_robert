@@ -1,0 +1,1 @@
+import{S as t}from"./app-BC5T1xU8.js";function c(e,r){t.post(route("cart.store"),{product_id:e,quantity:1},{preserveScroll:!0,onSuccess:r==null?void 0:r.onSuccess})}function s(){var e;(e=document.getElementById("customer-reviews"))==null||e.scrollIntoView({behavior:"smooth",block:"start"})}export{c as a,s};

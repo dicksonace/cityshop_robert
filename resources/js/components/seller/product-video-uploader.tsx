@@ -13,6 +13,9 @@ const ACCEPTED = 'video/mp4,video/webm,video/quicktime,video/3gpp,video/x-m4v,.m
 const VIDEO_EXT = /\.(mp4|webm|mov|m4v|3gp|3gpp)$/i;
 
 interface ProductVideoUploaderProps {
+    /** Keeps selection when the wizard remounts this step (e.g. after changing shipping). */
+    value?: File | null;
+    durationValue?: number | null;
     existingPath?: string | null;
     existingDuration?: number | null;
     onChange: (file: File | null, duration: number | null) => void;
@@ -73,6 +76,8 @@ function formatDuration(seconds: number): string {
 }
 
 export default function ProductVideoUploader({
+    value = null,
+    durationValue = null,
     existingPath,
     existingDuration,
     onChange,
@@ -82,11 +87,19 @@ export default function ProductVideoUploader({
     className,
 }: ProductVideoUploaderProps) {
     const inputRef = useRef<HTMLInputElement>(null);
-    const [file, setFile] = useState<File | null>(null);
+    const [file, setFile] = useState<File | null>(value);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [duration, setDuration] = useState<number | null>(null);
+    const [duration, setDuration] = useState<number | null>(durationValue);
     const [localError, setLocalError] = useState<string | null>(null);
     const [checking, setChecking] = useState(false);
+
+    // Restore selection when parent still has the file (wizard step remount).
+    useEffect(() => {
+        if (value) {
+            setFile(value);
+            setDuration(durationValue);
+        }
+    }, [value, durationValue]);
 
     useEffect(() => {
         if (!file) {

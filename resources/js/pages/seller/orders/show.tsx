@@ -26,6 +26,7 @@ interface OrderShowProps {
             payment_status: string;
             payment_channel?: string;
             direct_payment_reference?: string | null;
+            direct_payment_proof_path?: string | null;
             receiver_name: string;
             receiver_phone: string;
             city: string;
@@ -411,6 +412,21 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
                         <h3 className="font-semibold text-gray-900">Payment</h3>
                         <p className="mt-2 text-sm capitalize text-gray-600">{order.payment_channel === 'direct' ? 'Direct payment' : 'CityShop'} · {order.payment_status}</p>
                         {order.direct_payment_reference && <p className="mt-1 text-xs text-gray-500">Ref: {order.direct_payment_reference}</p>}
+                        {order.direct_payment_proof_path && (
+                            <a
+                                href={productImageUrl(order.direct_payment_proof_path)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-3 block"
+                            >
+                                <img
+                                    src={productImageUrl(order.direct_payment_proof_path)}
+                                    alt="Buyer payment screenshot"
+                                    className="max-h-48 rounded-lg border border-gray-200 object-contain"
+                                />
+                                <p className="mt-1 text-xs text-orange-600 hover:underline">View payment screenshot</p>
+                            </a>
+                        )}
                         {order.payment_channel === 'direct' && order.payment_status === 'pending' && (
                             <Button className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => router.post(route('seller.orders.confirm-direct-payment', order.id))}>
                                 Confirm payment received

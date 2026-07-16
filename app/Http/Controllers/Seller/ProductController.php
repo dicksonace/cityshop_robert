@@ -78,6 +78,11 @@ class ProductController extends Controller
             ]);
         }
 
+        $videoUploadError = $this->videoUploadError($request);
+        if ($videoUploadError) {
+            return back()->withErrors(['video' => $videoUploadError])->withInput();
+        }
+
         $validated = $this->validateProduct($request, true);
 
         $files = $request->file('images') ?? [];
@@ -151,6 +156,11 @@ class ProductController extends Controller
     public function update(Request $request, Product $product): RedirectResponse
     {
         abort_unless($product->seller_id === $request->user()->id, 403);
+
+        $videoUploadError = $this->videoUploadError($request);
+        if ($videoUploadError) {
+            return back()->withErrors(['video' => $videoUploadError])->withInput();
+        }
 
         $validated = $this->validateProduct($request, false);
 
@@ -379,6 +389,7 @@ class ProductController extends Controller
             'quantity' => ['required', 'integer', 'min:0'],
             'low_stock_alert' => ['nullable', 'integer', 'min:0'],
             'weight' => ['nullable', 'numeric', 'min:0'],
+            'shipping_type' => ['nullable', 'in:free,paid,buyer'],
             'free_shipping' => ['boolean'],
             'delivery_fee' => ['nullable', 'numeric', 'min:0'],
             'delivery_days' => ['nullable', 'integer', 'min:1', 'max:90'],
@@ -397,17 +408,53 @@ class ProductController extends Controller
             'remove_video' => ['nullable', 'boolean'],
         ]);
 
-        if ($validated['free_shipping'] ?? false) {
+        $shippingType = $request->input('shipping_type');
+
+        if ($shippingType === 'paid') {
+            $request->validate([
+                'delivery_fee' => ['required', 'numeric', 'min:0.01'],
+            ]);
+            $validated['free_shipping'] = false;
+            $validated['delivery_fee'] = $request->input('delivery_fee');
+        } elseif ($shippingType === 'free') {
+            $validated['free_shipping'] = true;
+            $validated['delivery_fee'] = null;
+        } elseif ($shippingType === 'buyer') {
+            $validated['free_shipping'] = false;
+            $validated['delivery_fee'] = null;
+        } elseif ($validated['free_shipping'] ?? false) {
             $validated['delivery_fee'] = null;
         }
 
+        unset($validated['shipping_type']);
+
         return $validated;
+    }
+
+    private function videoUploadError(Request $request): ?string
+    {
+        $uploaded = $request->files->get('video');
+
+        if ($uploaded instanceof \Symfony\Component\HttpFoundation\File\UploadedFile && ! $uploaded->isValid()) {
+            return match ($uploaded->getError()) {
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'The video file was too large for the server to accept. Use a clip under 50MB and 1 minute.',
+                UPLOAD_ERR_PARTIAL => 'The video upload was interrupted. Please try again.',
+                default => 'Video upload failed. Please try another file.',
+            };
+        }
+
+        return null;
     }
 
     private function videoDurationError(Request $request): ?string
     {
         if (! $request->hasFile('video')) {
             return null;
+        }
+
+        $file = $request->file('video');
+        if ($file && ! $file->isValid()) {
+            return $this->videoUploadError($request) ?? 'Video upload failed. Please try another file.';
         }
 
         $duration = $request->input('video_duration');

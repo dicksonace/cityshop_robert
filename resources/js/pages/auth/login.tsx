@@ -1,15 +1,13 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler, useEffect } from 'react';
+import { FormEventHandler } from 'react';
 
 import LoginErrorBanner from '@/components/auth/login-error-banner';
-import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
-import { useToast } from '@/contexts/toast-context';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 
@@ -20,8 +18,7 @@ interface LoginProps {
 }
 
 export default function Login({ canResetPassword, status, defaultLogin = '' }: LoginProps) {
-    const { flash, errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
-    const { error: toastError } = useToast();
+    const { errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
     const { data, setData, post, processing, errors: formErrors, reset } = useForm({
         login: defaultLogin,
         password: '',
@@ -35,20 +32,8 @@ export default function Login({ canResetPassword, status, defaultLogin = '' }: L
         e.preventDefault();
         post(route('login'), {
             onFinish: () => reset('password'),
-            onError: (errs) => {
-                const first = Object.values(errs)[0];
-                if (typeof first === 'string') {
-                    toastError(first);
-                }
-            },
         });
     };
-
-    useEffect(() => {
-        if (flash?.error) {
-            toastError(flash.error);
-        }
-    }, [flash?.error, toastError]);
 
     return (
         <ShopLayout>
@@ -63,7 +48,7 @@ export default function Login({ canResetPassword, status, defaultLogin = '' }: L
 
                     {status && <p className="mb-4 text-sm text-green-600">{status}</p>}
 
-                    <LoginErrorBanner flashError={flash?.error} errors={errors} />
+                    <LoginErrorBanner errors={errors} />
 
                     <form className="mt-6 flex flex-col gap-4" onSubmit={submit}>
                         <div>
@@ -77,7 +62,6 @@ export default function Login({ canResetPassword, status, defaultLogin = '' }: L
                                 className="mt-1"
                                 placeholder="0241234567 or email@example.com"
                             />
-                            <InputError message={errors.login} />
                         </div>
                         <div>
                             <Label htmlFor="password">Password</Label>
@@ -88,7 +72,6 @@ export default function Login({ canResetPassword, status, defaultLogin = '' }: L
                                 required
                                 wrapperClassName="mt-1"
                             />
-                            <InputError message={errors.password} />
                         </div>
                         <label className="flex items-center gap-2 text-sm">
                             <input type="checkbox" checked={data.remember} onChange={(e) => setData('remember', e.target.checked)} />

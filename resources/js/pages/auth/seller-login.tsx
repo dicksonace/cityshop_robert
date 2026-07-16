@@ -1,15 +1,13 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { BarChart3, LoaderCircle, Package, Store, Truck, Wallet } from 'lucide-react';
-import { FormEventHandler, useEffect } from 'react';
+import { FormEventHandler } from 'react';
 
 import LoginErrorBanner from '@/components/auth/login-error-banner';
-import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
-import { useToast } from '@/contexts/toast-context';
 import { SharedData } from '@/types';
 
 interface SellerLoginProps {
@@ -27,7 +25,6 @@ const highlights = [
 
 export default function SellerLogin({ canResetPassword, status, defaultLogin = '' }: SellerLoginProps) {
     const { flash, errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
-    const { error: toastError } = useToast();
     const { data, setData, post, processing, errors: formErrors, reset } = useForm({
         login: defaultLogin,
         password: '',
@@ -41,20 +38,8 @@ export default function SellerLogin({ canResetPassword, status, defaultLogin = '
         e.preventDefault();
         post(route('login'), {
             onFinish: () => reset('password'),
-            onError: (errs) => {
-                const first = Object.values(errs)[0];
-                if (typeof first === 'string') {
-                    toastError(first);
-                }
-            },
         });
     };
-
-    useEffect(() => {
-        if (flash?.error) {
-            toastError(flash.error);
-        }
-    }, [flash?.error, toastError]);
 
     return (
         <>
@@ -127,7 +112,6 @@ export default function SellerLogin({ canResetPassword, status, defaultLogin = '
                                     className="mt-1 border-emerald-100 focus-visible:ring-emerald-500"
                                     placeholder="0241234567 or seller@email.com"
                                 />
-                                <InputError message={errors.login} />
                             </div>
                             <div>
                                 <Label htmlFor="password">Password</Label>
@@ -139,7 +123,6 @@ export default function SellerLogin({ canResetPassword, status, defaultLogin = '
                                     wrapperClassName="mt-1"
                                     className="border-emerald-100 focus-visible:ring-emerald-500"
                                 />
-                                <InputError message={errors.password} />
                             </div>
                             <label className="flex items-center gap-2 text-sm text-gray-600">
                                 <input type="checkbox" checked={data.remember} onChange={(e) => setData('remember', e.target.checked)} />

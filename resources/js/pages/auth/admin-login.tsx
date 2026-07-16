@@ -1,15 +1,13 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { LoaderCircle, Lock, Shield } from 'lucide-react';
-import { FormEventHandler, useEffect } from 'react';
+import { FormEventHandler } from 'react';
 
 import LoginErrorBanner from '@/components/auth/login-error-banner';
-import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
-import { useToast } from '@/contexts/toast-context';
 import { SharedData } from '@/types';
 
 interface AdminLoginProps {
@@ -20,7 +18,6 @@ interface AdminLoginProps {
 
 export default function AdminLogin({ canResetPassword, status, defaultLogin = '' }: AdminLoginProps) {
     const { flash, errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
-    const { error: toastError } = useToast();
     const { data, setData, post, processing, errors: formErrors, reset } = useForm({
         login: defaultLogin,
         password: '',
@@ -34,20 +31,8 @@ export default function AdminLogin({ canResetPassword, status, defaultLogin = ''
         e.preventDefault();
         post(route('login'), {
             onFinish: () => reset('password'),
-            onError: (errs) => {
-                const first = Object.values(errs)[0];
-                if (typeof first === 'string') {
-                    toastError(first);
-                }
-            },
         });
     };
-
-    useEffect(() => {
-        if (flash?.error) {
-            toastError(flash.error);
-        }
-    }, [flash?.error, toastError]);
 
     return (
         <>
@@ -87,7 +72,6 @@ export default function AdminLogin({ canResetPassword, status, defaultLogin = ''
                                     className="mt-1 border-slate-700 bg-slate-950 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500"
                                     placeholder="admin@cityshop.com"
                                 />
-                                <InputError message={errors.login} />
                             </div>
                             <div>
                                 <Label htmlFor="password" className="text-slate-300">Password</Label>
@@ -100,7 +84,6 @@ export default function AdminLogin({ canResetPassword, status, defaultLogin = ''
                                     className="border-slate-700 bg-slate-950 text-white focus-visible:ring-indigo-500"
                                     toggleClassName="text-slate-500 hover:text-slate-300"
                                 />
-                                <InputError message={errors.password} />
                             </div>
                             <label className="flex items-center gap-2 text-sm text-slate-400">
                                 <input

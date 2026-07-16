@@ -227,12 +227,27 @@ class CheckoutController extends Controller
         abort_unless($order->buyer_id === $request->user()->id, 403);
         abort_unless($order->payment_channel === PaymentChannel::Direct, 422);
 
+        if ($order->payment_status === PaymentStatus::Paid) {
+            return back()->with('error', 'This payment is already confirmed.');
+        }
+
         $validated = $request->validate([
             'reference' => ['required', 'string', 'max:255'],
+            'proof' => ['nullable', 'image', 'max:5120'],
         ]);
 
-        $this->orderService->submitDirectPaymentReference($order, $validated['reference']);
+        $proofPath = null;
+        if ($request->hasFile('proof')) {
+            $proofPath = $request->file('proof')->store('direct-payment-proofs', 'public');
+        }
 
-        return back()->with('success', 'Payment reference submitted. The seller will confirm once received.');
+        $this->orderService->submitDirectPaymentReference($order, $validated['reference'], $proofPath);
+
+        return back()->with(
+            'success',
+            $proofPath
+                ? 'Payment reference and screenshot submitted. The seller will confirm once received.'
+                : 'Payment reference submitted. The seller will confirm once received.',
+        );
     }
 }

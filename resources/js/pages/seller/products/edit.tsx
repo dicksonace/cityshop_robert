@@ -61,21 +61,34 @@ export default function EditProduct({ product, categories }: EditProductProps) {
         _method: 'PUT',
     });
 
-    transform((formData) => ({
-        ...formData,
-        images: imageFiles,
-        image_count: imageFiles.length,
-        remove_images: removeIds,
-        video: videoFile,
-        video_duration: videoDuration,
-        remove_video: removeVideo,
-    }));
+    transform((formData) => {
+        const payload: Record<string, unknown> = {
+            ...formData,
+            images: imageFiles,
+            image_count: imageFiles.length,
+            remove_images: removeIds,
+            shipping_type: shippingType,
+            video_duration: videoDuration,
+            remove_video: removeVideo,
+        };
+
+        if (videoFile) {
+            payload.video = videoFile;
+        } else {
+            delete payload.video;
+        }
+
+        return payload;
+    });
 
     const totalImages = (product.images?.length ?? 0) - removeIds.length + imageFiles.length;
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         if (totalImages === 0 || !imagesConfirmed) return;
+        if (shippingType === 'paid' && (!data.delivery_fee || Number(data.delivery_fee) <= 0)) {
+            return;
+        }
         post(route('seller.products.update', product.id), { forceFormData: true });
     };
 
@@ -95,6 +108,8 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                 />
 
                 <ProductVideoUploader
+                    value={videoFile}
+                    durationValue={videoDuration}
                     existingPath={product.video_path}
                     existingDuration={product.video_duration}
                     removeExisting={removeVideo}
@@ -202,16 +217,16 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                     {shippingType === 'paid' && (
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div>
-                                <Label>Delivery fee (GH₵)</Label>
+                                <Label>Delivery fee (GH₵) *</Label>
                                 <Input
                                     type="number"
                                     step="0.01"
+                                    min="0.01"
                                     value={data.delivery_fee}
                                     onChange={(e) => setData('delivery_fee', e.target.value)}
                                     className="mt-1 bg-white"
-                                    required
                                 />
-                                <InputError message={errors.delivery_fee} />
+                                <InputError message={errors.delivery_fee ?? (shippingType === 'paid' && (!data.delivery_fee || Number(data.delivery_fee) <= 0) ? 'Enter a delivery fee greater than 0.' : undefined)} />
                             </div>
                             <div>
                                 <Label>Estimated days</Label>

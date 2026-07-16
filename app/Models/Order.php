@@ -23,6 +23,7 @@ class Order extends Model
         'payment_reference',
         'seller_payment_method_id',
         'direct_payment_reference',
+        'direct_payment_proof_path',
         'direct_payment_confirmed_at',
         'receiver_name',
         'receiver_phone',

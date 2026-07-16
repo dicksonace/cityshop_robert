@@ -47,6 +47,9 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
                             {product.free_shipping && (
                                 <span className="flex items-center gap-0.5 text-xs text-green-600"><Truck className="h-3 w-3" /> Free delivery</span>
                             )}
+                            {product.ships_nationwide && (
+                                <span className="text-xs text-indigo-600">Ships nationwide</span>
+                            )}
                         </div>
                     </div>
                     <div className="mt-3 flex items-end justify-between gap-2 sm:mt-0">

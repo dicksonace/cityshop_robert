@@ -23,6 +23,7 @@ use App\Notifications\OrderStatusUpdatedNotification;
 use App\Notifications\PaymentConfirmedNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class OrderService
@@ -359,13 +360,22 @@ class OrderService
         });
     }
 
-    public function submitDirectPaymentReference(Order $order, string $reference): Order
+    public function submitDirectPaymentReference(Order $order, string $reference, ?string $proofPath = null): Order
     {
         if ($order->payment_channel !== PaymentChannel::Direct) {
             throw new \RuntimeException('This order does not use direct seller payment.');
         }
 
-        $order->update(['direct_payment_reference' => $reference]);
+        $payload = ['direct_payment_reference' => $reference];
+
+        if ($proofPath !== null) {
+            if ($order->direct_payment_proof_path) {
+                Storage::disk('public')->delete($order->direct_payment_proof_path);
+            }
+            $payload['direct_payment_proof_path'] = $proofPath;
+        }
+
+        $order->update($payload);
 
         return $order;
     }

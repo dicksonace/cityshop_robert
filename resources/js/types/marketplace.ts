@@ -37,6 +37,10 @@ export interface Product {
     delivery_fee?: number | null;
     delivery_days?: number | null;
     in_ghana: boolean;
+    is_negotiable?: boolean;
+    cash_on_delivery?: boolean;
+    pickup_available?: boolean;
+    ships_nationwide?: boolean;
     video_path?: string | null;
     video_duration?: number | null;
     rating: number;

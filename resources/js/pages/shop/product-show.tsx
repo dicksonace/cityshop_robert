@@ -68,6 +68,18 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                                     DELIVERY {formatPrice(Number(product.delivery_fee))}
                                 </span>
                             )}
+                            {product.ships_nationwide && (
+                                <span className="rounded-md bg-indigo-500 px-2 py-1 text-xs font-bold text-white">SHIPS NATIONWIDE</span>
+                            )}
+                            {product.pickup_available && (
+                                <span className="rounded-md bg-slate-700 px-2 py-1 text-xs font-bold text-white">PICKUP</span>
+                            )}
+                            {product.is_negotiable && (
+                                <span className="rounded-md bg-amber-500 px-2 py-1 text-xs font-bold text-white">NEGOTIABLE</span>
+                            )}
+                            {product.cash_on_delivery && (
+                                <span className="rounded-md bg-teal-600 px-2 py-1 text-xs font-bold text-white">CASH ON DELIVERY</span>
+                            )}
                         </div>
 
                         <h1 className="mt-4 text-2xl font-bold text-gray-900 md:text-3xl">{product.name}</h1>
@@ -103,6 +115,18 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                                 </p>
                             ) : (
                                 <p className="mt-1 text-gray-400">Delivery arranged with the seller</p>
+                            )}
+                            {product.ships_nationwide && (
+                                <p className="mt-1 font-medium text-indigo-600">Ships nationwide across Ghana</p>
+                            )}
+                            {product.pickup_available && (
+                                <p className="mt-1 text-gray-600">Pickup available from the seller</p>
+                            )}
+                            {product.cash_on_delivery && (
+                                <p className="mt-1 text-gray-600">Cash on delivery available</p>
+                            )}
+                            {product.is_negotiable && (
+                                <p className="mt-1 text-amber-700">Price is negotiable — chat the seller</p>
                             )}
                         </div>
 

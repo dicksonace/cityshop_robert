@@ -87,18 +87,28 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
         video_duration: null as number | null,
     });
 
-    transform((formData) => ({
-        ...formData,
-        images: imageFiles,
-        image_count: imageFiles.length,
-        video: videoFile,
-        video_duration: videoDuration,
-    }));
+    transform((formData) => {
+        const payload: Record<string, unknown> = {
+            ...formData,
+            images: imageFiles,
+            image_count: imageFiles.length,
+            shipping_type: shippingType,
+            video_duration: videoDuration,
+        };
+
+        if (videoFile) {
+            payload.video = videoFile;
+        } else {
+            delete payload.video;
+        }
+
+        return payload;
+    });
 
     useEffect(() => {
         if (Object.keys(errors).length === 0) return;
         setStep(stepForErrors(errors as Record<string, string>));
-        setStepHint('Could not publish — fix the highlighted errors and try again. Photos must be re-added after a failed upload.');
+        setStepHint('Could not publish — fix the highlighted errors and try again. Photos and video stay selected when possible.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [errors]);
 
@@ -143,6 +153,11 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
             }
             if (data.quantity === '' || Number(data.quantity) < 0) {
                 return 'Enter stock quantity to continue.';
+            }
+        }
+        if (step === 2 && shippingType === 'paid') {
+            if (data.delivery_fee === '' || Number.isNaN(Number(data.delivery_fee)) || Number(data.delivery_fee) <= 0) {
+                return 'Enter a delivery fee greater than 0 for paid delivery.';
             }
         }
         if (step === 4) {
@@ -361,8 +376,9 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                                 {shippingType === 'paid' && (
                                     <div className="grid gap-4 sm:grid-cols-2">
                                         <div>
-                                            <Label>Delivery fee (GH₵)</Label>
-                                            <Input type="number" step="0.01" inputMode="decimal" value={data.delivery_fee} onChange={(e) => setData('delivery_fee', e.target.value)} className="mt-1" />
+                                            <Label>Delivery fee (GH₵) *</Label>
+                                            <Input type="number" step="0.01" min="0.01" inputMode="decimal" value={data.delivery_fee} onChange={(e) => setData('delivery_fee', e.target.value)} className="mt-1" />
+                                            <InputError message={errors.delivery_fee} />
                                         </div>
                                         <div>
                                             <Label>Estimated days</Label>
@@ -433,6 +449,8 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                                     error={errors.images}
                                 />
                                 <ProductVideoUploader
+                                    value={videoFile}
+                                    durationValue={videoDuration}
                                     onChange={(file, duration) => {
                                         setVideoFile(file);
                                         setVideoDuration(duration);
