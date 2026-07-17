@@ -24,7 +24,7 @@ export default function HeroBanner({ slides }: HeroBannerProps) {
 
     return (
         <section className="relative overflow-hidden">
-            <div className={`bg-gradient-to-br ${slide.accent} transition-all duration-700`}>
+            <div className={`bg-[#ea580c] bg-gradient-to-br ${slide.accent} transition-all duration-700`}>
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIvPjwvZz48L2c+PC9zdmc+')] opacity-60" />
                 <div className="relative mx-auto max-w-7xl px-3 py-8 sm:px-4 sm:py-14 md:py-20">
                     <div className="grid items-center gap-6 md:grid-cols-2 md:gap-8">
