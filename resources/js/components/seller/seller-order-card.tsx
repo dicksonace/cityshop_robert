@@ -38,11 +38,14 @@ function timeAgo(date: string): string {
     return `${days}d ago`;
 }
 
+const SELLER_CANCELLABLE = new Set(['pending', 'processing', 'packed']);
+
 export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProps) {
     const image = item.product?.images?.[0];
     const order = item.order;
     const stage = stageSlug ? getSellerOrderStage(stageSlug) : undefined;
     const needsPaymentConfirm = order.payment_channel === 'direct' && order.payment_status === 'pending';
+    const canCancel = SELLER_CANCELLABLE.has(String(item.status));
 
     return (
         <article className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:border-orange-200 hover:shadow-md">
@@ -90,15 +93,25 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
                     </p>
                 )}
 
-                <div className="mt-auto flex gap-2 pt-2">
+                <div className="mt-auto flex flex-wrap gap-2 pt-2">
                     <Button
                         asChild
                         variant="outline"
                         size="sm"
-                        className="flex-1 border-orange-200 text-orange-600 hover:bg-orange-50"
+                        className="min-w-0 flex-1 border-orange-200 text-orange-600 hover:bg-orange-50"
                     >
                         <Link href={route('seller.orders.show', item.id)}>Manage order</Link>
                     </Button>
+                    {canCancel && (
+                        <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                            <Link href={`${route('seller.orders.show', item.id)}?cancel=1`}>Cancel</Link>
+                        </Button>
+                    )}
                     {needsPaymentConfirm && (
                         <Button
                             size="sm"

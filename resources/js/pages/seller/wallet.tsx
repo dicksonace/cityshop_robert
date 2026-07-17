@@ -271,7 +271,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                                 <p><span className="text-gray-500">Number:</span> {selectedMethod.account_number}</p>
                                 <p><span className="text-gray-500">Name:</span> {selectedMethod.account_name}</p>
                                 <p className="text-2xl font-bold text-orange-500">{formatPrice(parseFloat(withdrawForm.data.amount) || 0)}</p>
-                                <p className="text-xs text-gray-500">Admin will send via Paystack or manual MoMo after review.</p>
+                                <p className="text-xs text-gray-500">Admin reviews your request and pays you manually via MoMo.</p>
                             </div>
                         )}
 

@@ -198,6 +198,34 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                                         <span className="font-medium">{item.product_name} x {item.quantity}</span>
                                         <p className="text-xs text-gray-500">Status: {formatOrderStatus(item.status)}</p>
 
+                                        {item.status === 'cancelled' && (
+                                            <div className="mt-2 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-900">
+                                                <p className="font-semibold">
+                                                    {item.cancelled_by === 'admin'
+                                                        ? 'Cancelled by CityShop support'
+                                                        : 'Cancelled by seller'}
+                                                </p>
+                                                {item.rejection_reason && (
+                                                    <p className="mt-1">Reason: {item.rejection_reason}</p>
+                                                )}
+                                                {item.refund_status === 'completed' && (
+                                                    <p className="mt-1 font-medium text-emerald-700">
+                                                        Refund completed — credited to your CityShop wallet.
+                                                    </p>
+                                                )}
+                                                {item.refund_status === 'not_applicable' && (
+                                                    <p className="mt-1">
+                                                        No automatic wallet refund for this payment type. Contact support if you need help.
+                                                    </p>
+                                                )}
+                                                {item.refund_status === 'failed' && (
+                                                    <p className="mt-1 font-medium text-red-700">
+                                                        Refund failed — please contact CityShop support.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+
                                         {(item.vehicle_number || item.driver_phone) && (
                                             <div className="mt-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-900">
                                                 <p className="font-semibold">Delivery details</p>

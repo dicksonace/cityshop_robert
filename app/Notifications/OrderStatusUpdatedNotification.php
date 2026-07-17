@@ -32,7 +32,9 @@ class OrderStatusUpdatedNotification extends Notification implements ShouldQueue
             'shipped' => 'Your order is out for delivery',
             'awaiting_confirmation' => 'Your order was delivered — please confirm receipt',
             'delivered' => 'Your order is complete',
-            'cancelled' => 'Your order was cancelled by the seller',
+            'cancelled' => $this->isAdminCancel()
+                ? 'Your order was cancelled by CityShop support'
+                : 'Your order was cancelled by the seller',
         ];
 
         $statusLabel = $this->statusLabel();
@@ -78,8 +80,15 @@ class OrderStatusUpdatedNotification extends Notification implements ShouldQueue
             'shipped' => 'out for delivery',
             'awaiting_confirmation' => 'delivered — confirm receipt',
             'delivered' => 'complete',
-            'cancelled' => 'cancelled',
+            'cancelled' => $this->isAdminCancel() ? 'cancelled by CityShop support' : 'cancelled',
             default => $this->status,
         };
+    }
+
+    private function isAdminCancel(): bool
+    {
+        $reason = (string) ($this->orderItem->rejection_reason ?? '');
+
+        return str_starts_with(mb_strtolower($reason), 'admin');
     }
 }

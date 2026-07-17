@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Withdrawal;
-use App\Services\PaystackService;
 use App\Services\WithdrawalPayoutService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +16,6 @@ class WithdrawalController extends Controller
 {
     public function __construct(
         private WithdrawalPayoutService $payouts,
-        private PaystackService $paystack,
     ) {}
 
     public function index(Request $request): Response
@@ -48,7 +46,6 @@ class WithdrawalController extends Controller
             'status' => $status,
             'role' => $role,
             'counts' => $counts,
-            'paystackConfigured' => $this->paystack->isConfigured(),
         ]);
     }
 
@@ -64,42 +61,6 @@ class WithdrawalController extends Controller
         }
 
         return back()->with('success', 'Withdrawal marked as processing. The seller can see this status now.');
-    }
-
-    public function process(Request $request, Withdrawal $withdrawal): RedirectResponse
-    {
-        try {
-            $result = $this->payouts->process($withdrawal, $request->user());
-        } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        if ($result['otp_required']) {
-            return back()->with([
-                'success' => $result['message'],
-                'withdrawal_otp' => [
-                    'withdrawal_id' => $withdrawal->id,
-                    'transfer_code' => $result['transfer_code'],
-                ],
-            ]);
-        }
-
-        return back()->with('success', $result['message']);
-    }
-
-    public function finalize(Request $request, Withdrawal $withdrawal): RedirectResponse
-    {
-        $validated = $request->validate([
-            'otp' => ['required', 'string', 'max:10'],
-        ]);
-
-        try {
-            $this->payouts->finalizeWithOtp($withdrawal, $validated['otp'], $request->user());
-        } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        return back()->with('success', 'OTP confirmed. Payout will complete shortly.');
     }
 
     /**

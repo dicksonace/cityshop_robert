@@ -13,18 +13,15 @@ interface WithdrawalsIndexProps {
     status: string;
     role: string;
     counts: { pending_sellers: number; pending_buyers: number; processing: number };
-    paystackConfigured: boolean;
 }
 
-export default function WithdrawalsIndex({ withdrawals, status, role, counts, paystackConfigured }: WithdrawalsIndexProps) {
-    const { flash } = usePage<{ flash?: { withdrawal_otp?: { withdrawal_id: number; transfer_code?: string | null }; success?: string; error?: string } }>().props;
+export default function WithdrawalsIndex({ withdrawals, status, role, counts }: WithdrawalsIndexProps) {
+    const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
     const [rejectId, setRejectId] = useState<number | null>(null);
     const [reason, setReason] = useState('');
     const [completeId, setCompleteId] = useState<number | null>(null);
     const [completeNotes, setCompleteNotes] = useState('');
     const [proofFile, setProofFile] = useState<File | null>(null);
-    const [otpWithdrawalId, setOtpWithdrawalId] = useState<number | null>(flash?.withdrawal_otp?.withdrawal_id ?? null);
-    const [otp, setOtp] = useState('');
     const [busyId, setBusyId] = useState<number | null>(null);
 
     const statusTabs = ['pending', 'processing', 'paid', 'rejected', 'all'];
@@ -88,18 +85,13 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
             <Head title="Withdrawals" />
 
             <p className="mb-4 text-sm text-gray-500">
-                1) Press <strong>Start</strong> so the seller sees Processing. 2) Send MoMo. 3) Mark complete with optional proof photo, or reject with a reason.
+                Manual payouts only: 1) Press <strong>Start</strong> so the seller sees Processing. 2) Send MoMo yourself.
+                3) Mark complete with optional proof photo, or reject with a reason.
             </p>
 
             {(flash?.success || flash?.error) && (
                 <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${flash.error ? 'border border-red-200 bg-red-50 text-red-800' : 'border border-green-200 bg-green-50 text-green-800'}`}>
                     {flash.error || flash.success}
-                </div>
-            )}
-
-            {!paystackConfigured && (
-                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    Paystack auto-payout is optional. Use Start → Complete with proof for manual MoMo transfers.
                 </div>
             )}
 
@@ -150,11 +142,6 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
                                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${roleBadge(w.user?.role)}`}>
                                                 {w.user?.role ?? 'user'}
                                             </span>
-                                            {w.payout_channel && (
-                                                <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium capitalize text-gray-700">
-                                                    {w.payout_channel} payout
-                                                </span>
-                                            )}
                                         </div>
                                         <p className="mt-1 text-sm text-gray-600">
                                             {w.user?.name} · {w.account_name}
@@ -199,16 +186,6 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
                                                     <Play className="mr-1 h-4 w-4" />
                                                     Start processing
                                                 </Button>
-                                                {paystackConfigured && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        disabled={busyId === w.id}
-                                                        onClick={() => router.post(route('admin.withdrawals.process', w.id))}
-                                                    >
-                                                        Paystack payout
-                                                    </Button>
-                                                )}
                                                 <Button size="sm" variant="destructive" onClick={() => { setRejectId(w.id); setReason(''); }}>
                                                     <X className="mr-1 h-4 w-4" />
                                                     Reject
@@ -229,11 +206,6 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
                                                     <Check className="mr-1 h-4 w-4" />
                                                     Mark complete
                                                 </Button>
-                                                {paystackConfigured && (
-                                                    <Button size="sm" variant="outline" onClick={() => setOtpWithdrawalId(w.id)}>
-                                                        Enter Paystack OTP
-                                                    </Button>
-                                                )}
                                                 <Button size="sm" variant="destructive" onClick={() => { setRejectId(w.id); setReason(''); }}>
                                                     Reject & refund
                                                 </Button>
@@ -300,26 +272,6 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, pa
                                 Confirm reject
                             </Button>
                             <Button variant="outline" onClick={() => setRejectId(null)}>Cancel</Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {otpWithdrawalId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="w-full max-w-md rounded-xl bg-white p-6">
-                        <h3 className="font-semibold">Paystack OTP</h3>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Enter the OTP sent to your Paystack business phone to authorize this payout.
-                        </p>
-                        <Input className="mt-3" placeholder="OTP code" value={otp} onChange={(e) => setOtp(e.target.value)} />
-                        <div className="mt-4 flex gap-2">
-                            <Button
-                                onClick={() => router.post(route('admin.withdrawals.finalize', otpWithdrawalId), { otp }, { onSuccess: () => { setOtpWithdrawalId(null); setOtp(''); } })}
-                            >
-                                Confirm payout
-                            </Button>
-                            <Button variant="outline" onClick={() => setOtpWithdrawalId(null)}>Cancel</Button>
                         </div>
                     </div>
                 </div>

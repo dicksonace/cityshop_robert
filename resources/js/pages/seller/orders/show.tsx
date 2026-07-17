@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ChevronRight, LoaderCircle } from 'lucide-react';
-import { FormEventHandler, useRef, useState } from 'react';
+import { FormEventHandler, useEffect, useRef, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -36,8 +36,15 @@ interface OrderShowProps {
         };
         product?: { images?: { path: string }[] };
         dispute?: DisputeInfo | null;
+        rejection_reason?: string | null;
+        cancellation_code?: string | null;
+        cancelled_by?: string | null;
+        cancelled_at?: string | null;
+        refund_status?: string | null;
     };
     backStage?: string;
+    cancellationReasons: Record<string, string>;
+    canCancel: boolean;
 }
 
 const sellerFlow: { status: string; label: string; hint: string }[] = [
@@ -54,17 +61,38 @@ function nextSellerStatus(current: string): string | null {
     return sellerFlow[idx + 1].status;
 }
 
-export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderShowProps) {
+export default function SellerOrderShow({
+    orderItem,
+    backStage = 'new',
+    cancellationReasons = {},
+    canCancel = false,
+}: OrderShowProps) {
     const order = orderItem?.order;
     const itemStatus = String(orderItem?.status ?? '');
     const deliverySectionRef = useRef<HTMLDivElement>(null);
     const [advancing, setAdvancing] = useState(false);
+    const [showCancel, setShowCancel] = useState(false);
+    const cancelSectionRef = useRef<HTMLDivElement>(null);
     const form = useForm({
         status: itemStatus,
         vehicle_number: orderItem?.vehicle_number ?? '',
         driver_phone: orderItem?.driver_phone ?? '',
         package_image: null as File | null,
     });
+    const cancelForm = useForm({
+        cancellation_code: 'out_of_stock',
+        rejection_reason: '',
+    });
+
+    useEffect(() => {
+        if (!canCancel) return;
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('cancel') !== '1') return;
+        setShowCancel(true);
+        window.setTimeout(() => {
+            cancelSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }, [canCancel]);
 
     if (!orderItem || !order) {
         return (
@@ -165,6 +193,14 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
     };
 
     const currentStep = sellerFlow.find((s) => s.status === itemStatus);
+
+    const submitCancel: FormEventHandler = (e) => {
+        e.preventDefault();
+        cancelForm.post(route('seller.orders.reject', orderItem.id), {
+            preserveScroll: true,
+            onSuccess: () => setShowCancel(false),
+        });
+    };
 
     return (
         <SellerLayout title={`Order ${order.order_number}`} active="orders">
@@ -312,6 +348,21 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
                             </div>
                         )}
 
+                        {itemStatus === 'cancelled' && (
+                            <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-900">
+                                <p className="font-semibold">Order cancelled</p>
+                                {orderItem.rejection_reason && (
+                                    <p className="mt-1">Reason: {orderItem.rejection_reason}</p>
+                                )}
+                                {orderItem.refund_status === 'completed' && (
+                                    <p className="mt-1 text-red-700">Buyer refunded to CityShop wallet.</p>
+                                )}
+                                {orderItem.refund_status === 'not_applicable' && (
+                                    <p className="mt-1 text-red-700">No automatic wallet refund (direct payment or unpaid).</p>
+                                )}
+                            </div>
+                        )}
+
                         {next && !isTerminal && (
                             <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
                                 <p className="text-sm font-medium text-gray-900">
@@ -332,6 +383,79 @@ export default function SellerOrderShow({ orderItem, backStage = 'new' }: OrderS
                                     {sellerFlow.find((s) => s.status === next)?.label}
                                     <ChevronRight className="ml-1 h-4 w-4" />
                                 </Button>
+                            </div>
+                        )}
+
+                        {canCancel && !isTerminal && (
+                            <div ref={cancelSectionRef} className="mt-4 rounded-xl border border-red-100 bg-white p-4">
+                                {!showCancel ? (
+                                    <>
+                                        <p className="text-sm font-medium text-gray-900">Can&apos;t fulfill this order?</p>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            Cancel before shipping if you&apos;re out of stock or unable to fulfill.
+                                            Paid CityShop orders refund the buyer&apos;s wallet automatically.
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="mt-3 border-red-200 text-red-700 hover:bg-red-50"
+                                            onClick={() => setShowCancel(true)}
+                                        >
+                                            Cancel order
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <form onSubmit={submitCancel} className="space-y-3">
+                                        <p className="text-sm font-semibold text-red-800">Cancel order</p>
+                                        <div>
+                                            <Label>Reason *</Label>
+                                            <select
+                                                value={cancelForm.data.cancellation_code}
+                                                onChange={(e) => cancelForm.setData('cancellation_code', e.target.value)}
+                                                className="mt-1 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
+                                            >
+                                                {Object.entries(cancellationReasons).map(([code, label]) => (
+                                                    <option key={code} value={code}>{label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <Label>
+                                                {cancelForm.data.cancellation_code === 'other'
+                                                    ? 'Explain *'
+                                                    : 'Extra note (optional)'}
+                                            </Label>
+                                            <textarea
+                                                value={cancelForm.data.rejection_reason}
+                                                onChange={(e) => cancelForm.setData('rejection_reason', e.target.value)}
+                                                className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm"
+                                                rows={3}
+                                                placeholder="Shown to the buyer"
+                                            />
+                                            <InputError message={cancelForm.errors.rejection_reason ?? cancelForm.errors.cancellation_code} />
+                                        </div>
+                                        <p className="text-xs text-gray-500">
+                                            {order.payment_channel === 'direct'
+                                                ? 'Direct payment: cancelling does not auto-refund CityShop wallet — settle with the buyer separately if needed.'
+                                                : order.payment_status === 'paid'
+                                                    ? 'Buyer will get a full product refund in their CityShop wallet.'
+                                                    : 'Order is not paid yet — no wallet refund needed.'}
+                                        </p>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button
+                                                type="submit"
+                                                disabled={cancelForm.processing}
+                                                className="bg-red-600 hover:bg-red-700"
+                                            >
+                                                {cancelForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                                Confirm cancel
+                                            </Button>
+                                            <Button type="button" variant="outline" onClick={() => setShowCancel(false)}>
+                                                Back
+                                            </Button>
+                                        </div>
+                                    </form>
+                                )}
                             </div>
                         )}
 

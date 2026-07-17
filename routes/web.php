@@ -199,12 +199,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy'])->name('categories.destroy');
 
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/unprocessed', [AdminOrderController::class, 'unprocessed'])->name('orders.unprocessed');
+    Route::post('/orders/items/{orderItem}/cancel-unprocessed', [AdminOrderController::class, 'cancelUnprocessed'])->name('orders.unprocessed.cancel');
+    Route::get('/orders/cancellations', [AdminOrderController::class, 'cancellations'])->name('orders.cancellations');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
 
     Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals.index');
     Route::post('/withdrawals/{withdrawal}/start', [AdminWithdrawalController::class, 'start'])->name('withdrawals.start');
-    Route::post('/withdrawals/{withdrawal}/process', [AdminWithdrawalController::class, 'process'])->name('withdrawals.process');
-    Route::post('/withdrawals/{withdrawal}/finalize', [AdminWithdrawalController::class, 'finalize'])->name('withdrawals.finalize');
     Route::post('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve'])->name('withdrawals.approve');
     Route::post('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject'])->name('withdrawals.reject');
 

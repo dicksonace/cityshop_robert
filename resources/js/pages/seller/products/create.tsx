@@ -47,7 +47,6 @@ function stepForErrors(errors: Record<string, string>): number {
 export default function CreateProduct({ categories, profile }: CreateProductProps) {
     const { flash } = usePage<SharedData>().props;
     const [step, setStep] = useState(0);
-    const [imagesConfirmed, setImagesConfirmed] = useState(false);
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
     const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -162,10 +161,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
         }
         if (step === 4) {
             if (imageFiles.length === 0) {
-                return 'Add at least one product photo.';
-            }
-            if (!imagesConfirmed) {
-                return 'Confirm your photos with “Looks good — continue” before publishing.';
+                return 'Add at least one product photo before publishing.';
             }
         }
         return null;
@@ -175,6 +171,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
         const blocker = stepBlocker();
         if (blocker) {
             setStepHint(blocker);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
         setStepHint(null);
@@ -193,6 +190,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
         const blocker = stepBlocker();
         if (blocker) {
             setStepHint(blocker);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
         setStepHint(null);
@@ -439,11 +437,9 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                                     onChange={(files) => {
                                         setImageFiles(files);
                                         setData('images', files);
-                                        if (!files.length) setImagesConfirmed(false);
                                         setStepHint(null);
                                     }}
                                     onConfirmedChange={(confirmed) => {
-                                        setImagesConfirmed(confirmed);
                                         if (confirmed) setStepHint(null);
                                     }}
                                     error={errors.images}
@@ -464,6 +460,12 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                                     <textarea value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 w-full rounded-md border px-3 py-2 text-sm" rows={6} placeholder="Describe your product, features, what's included..." />
                                 </div>
                             </>
+                        )}
+
+                        {stepHint && (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                                {stepHint}
+                            </div>
                         )}
 
                         <div className="flex gap-3 border-t pt-4">

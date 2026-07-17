@@ -16,6 +16,21 @@ export default function AdminOrdersIndex({ orders }: OrdersIndexProps) {
     return (
         <AdminLayout title="Orders" active="orders">
             <Head title="Orders" />
+            <div className="mb-4 flex flex-wrap gap-2">
+                <span className="rounded-full bg-orange-500 px-4 py-1.5 text-sm font-medium text-white">All orders</span>
+                <Link
+                    href={route('admin.orders.unprocessed')}
+                    className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
+                >
+                    Unprocessed 24h+
+                </Link>
+                <Link
+                    href={route('admin.orders.cancellations')}
+                    className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
+                >
+                    Seller cancellations
+                </Link>
+            </div>
             <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="min-w-[720px] w-full text-sm">
                     <thead className="border-b bg-gray-50">

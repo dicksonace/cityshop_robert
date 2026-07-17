@@ -19,6 +19,8 @@ export type AdminNavKey =
     | 'products'
     | 'categories'
     | 'orders'
+    | 'orders-unprocessed'
+    | 'orders-cancellations'
     | 'withdrawals'
     | 'wallet-funding'
     | 'manual-funding-settings'
@@ -37,6 +39,8 @@ const sectionMap: Record<AdminNavKey, string> = {
     products: 'catalog',
     categories: 'catalog',
     orders: 'orders',
+    'orders-unprocessed': 'orders',
+    'orders-cancellations': 'orders',
     withdrawals: 'finance',
     'wallet-funding': 'finance',
     'manual-funding-settings': 'finance',
@@ -101,7 +105,21 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
             label: 'Orders',
             icon: ShoppingCart,
             defaultOpen: section === 'orders',
-            items: [{ key: 'orders-all', label: 'All Orders', href: route('admin.orders.index') }],
+            items: [
+                { key: 'orders-all', label: 'All Orders', href: route('admin.orders.index') },
+                {
+                    key: 'orders-unprocessed',
+                    label: 'Unprocessed 24h+',
+                    href: route('admin.orders.unprocessed'),
+                    badgeKey: 'stale_unprocessed_orders',
+                    defaultOnPath: true,
+                },
+                {
+                    key: 'orders-cancellations',
+                    label: 'Seller cancellations',
+                    href: route('admin.orders.cancellations'),
+                },
+            ],
         },
         {
             key: 'finance',

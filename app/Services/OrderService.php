@@ -581,53 +581,77 @@ class OrderService
         }
     }
 
-    public function rejectOrderItem(OrderItem $item, string $reason): OrderItem
-    {
+    public function rejectOrderItem(
+        OrderItem $item,
+        string $reason,
+        ?string $cancellationCode = null,
+        string $cancelledBy = \App\Support\OrderCancellation::BY_SELLER,
+    ): OrderItem {
         $item->load(['order', 'product', 'seller.sellerProfile']);
 
         if (in_array($item->status, [OrderStatus::Delivered, OrderStatus::Cancelled, OrderStatus::Refunded], true)) {
-            throw new \RuntimeException('This order item can no longer be rejected.');
+            throw new \RuntimeException('This order item can no longer be cancelled.');
         }
 
         if (in_array($item->status, [OrderStatus::Shipped, OrderStatus::AwaitingConfirmation], true)) {
-            throw new \RuntimeException('Cannot reject an order that is already out for delivery.');
+            throw new \RuntimeException('Cannot cancel an order that is already out for delivery.');
         }
 
         if (Dispute::where('order_item_id', $item->id)->whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->exists()) {
-            throw new \RuntimeException('Cannot reject while a dispute is open.');
+            throw new \RuntimeException('Cannot cancel while a dispute is open.');
         }
 
-        return DB::transaction(function () use ($item, $reason) {
+        return DB::transaction(function () use ($item, $reason, $cancellationCode, $cancelledBy) {
             $order = $item->order;
             $refundAmount = $item->lineTotal();
             $wasPaid = $order->payment_status === PaymentStatus::Paid;
+            $refundStatus = \App\Support\OrderCancellation::REFUND_NOT_APPLICABLE;
 
             $item->update([
                 'status' => OrderStatus::Cancelled,
                 'rejection_reason' => $reason,
+                'cancellation_code' => $cancellationCode,
+                'cancelled_by' => $cancelledBy,
+                'cancelled_at' => now(),
+                'refund_status' => $refundStatus,
             ]);
 
             if ($wasPaid && $order->payment_channel === PaymentChannel::Marketplace) {
-                $buyerWallet = WalletService::ensure($order->buyer);
-                $buyerWallet->increment('available_balance', $refundAmount);
+                try {
+                    $buyerWallet = WalletService::ensure($order->buyer);
+                    $buyerWallet->increment('available_balance', $refundAmount);
 
-                WalletTransactionService::recordOrderRefund($item, $refundAmount);
+                    WalletTransactionService::recordOrderRefund($item, $refundAmount);
 
-                $sellerWallet = Wallet::where('user_id', $item->seller_id)->first();
-                if ($sellerWallet) {
-                    $sellerAmount = (float) $item->seller_amount;
-                    $sellerWallet->decrement('pending_balance', min($sellerAmount, (float) $sellerWallet->pending_balance));
-                    $sellerWallet->decrement('total_earnings', min($sellerAmount, (float) $sellerWallet->total_earnings));
+                    $sellerWallet = Wallet::where('user_id', $item->seller_id)->first();
+                    if ($sellerWallet) {
+                        $sellerAmount = (float) $item->seller_amount;
+                        $sellerWallet->decrement('pending_balance', min($sellerAmount, (float) $sellerWallet->pending_balance));
+                        $sellerWallet->decrement('total_earnings', min($sellerAmount, (float) $sellerWallet->total_earnings));
+                    }
+
+                    WalletTransactionService::recordSaleReversed($item);
+
+                    $item->seller?->sellerProfile?->decrement('total_sales');
+
+                    $product = Product::find($item->product_id);
+                    if ($product && ! $product->is_preorder) {
+                        $product->increment('quantity', $item->quantity);
+                    }
+
+                    $refundStatus = \App\Support\OrderCancellation::REFUND_COMPLETED;
+                    $item->update(['refund_status' => $refundStatus]);
+                } catch (\Throwable $e) {
+                    $item->update(['refund_status' => \App\Support\OrderCancellation::REFUND_FAILED]);
+                    throw $e;
                 }
-
-                WalletTransactionService::recordSaleReversed($item);
-
-                $item->seller?->sellerProfile?->decrement('total_sales');
-
+            } elseif ($wasPaid) {
+                // Direct / other channels: restore stock only; no CityShop wallet refund.
                 $product = Product::find($item->product_id);
                 if ($product && ! $product->is_preorder) {
                     $product->increment('quantity', $item->quantity);
                 }
+                $item->update(['refund_status' => \App\Support\OrderCancellation::REFUND_NOT_APPLICABLE]);
             }
 
             $this->syncOrderStatusAfterItemChange($order->fresh('items'));
@@ -643,10 +667,94 @@ class OrderService
                 $this->refundSellerShipping($order);
             }
 
-            $order->buyer->notify(new OrderStatusUpdatedNotification($item, 'cancelled', refunded: $wasPaid, refundAmount: $refundAmount));
+            $order->buyer->notify(new OrderStatusUpdatedNotification(
+                $item->fresh(),
+                'cancelled',
+                refunded: $wasPaid && $order->payment_channel === PaymentChannel::Marketplace,
+                refundAmount: $refundAmount,
+            ));
 
             return $item->fresh();
         });
+    }
+
+    /**
+     * Paid marketplace items still at "pending" (seller never started) for 24+ hours.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\OrderItem>
+     */
+    public function staleUnprocessedItemsQuery(int $hours = 24)
+    {
+        $cutoff = now()->subHours($hours);
+
+        return OrderItem::query()
+            ->where('status', OrderStatus::Pending)
+            ->whereHas('order', function ($q) use ($cutoff) {
+                $q->where('payment_status', PaymentStatus::Paid)
+                    ->where(function ($channel) {
+                        $channel->where('payment_channel', PaymentChannel::Marketplace)
+                            ->orWhereNull('payment_channel');
+                    })
+                    ->where(function ($paid) use ($cutoff) {
+                        $paid->whereHas('payments', function ($p) use ($cutoff) {
+                            $p->whereNotNull('paid_at')->where('paid_at', '<=', $cutoff);
+                        })->orWhereHas('checkout.payments', function ($p) use ($cutoff) {
+                            $p->whereNotNull('paid_at')->where('paid_at', '<=', $cutoff);
+                        });
+                    });
+            });
+    }
+
+    public function itemPaidAt(OrderItem $item): ?\Carbon\CarbonInterface
+    {
+        $item->loadMissing(['order.payments', 'order.checkout.payments']);
+
+        $dates = collect()
+            ->merge($item->order->payments ?? [])
+            ->merge($item->order->checkout?->payments ?? [])
+            ->pluck('paid_at')
+            ->filter();
+
+        return $dates->min();
+    }
+
+    /**
+     * Admin cancels a stale unpaid-by-seller item and refunds the buyer wallet.
+     */
+    public function adminCancelUnprocessedItem(OrderItem $item, string $reason): OrderItem
+    {
+        $item->load(['order', 'seller']);
+
+        if ($item->status !== OrderStatus::Pending) {
+            throw new \RuntimeException('Only unprocessed (pending) items can be cancelled from this queue.');
+        }
+
+        $order = $item->order;
+        if ($order->payment_status !== PaymentStatus::Paid) {
+            throw new \RuntimeException('This order is not paid yet.');
+        }
+
+        if ($order->payment_channel === PaymentChannel::Direct) {
+            throw new \RuntimeException('Direct-to-seller payments cannot be auto-refunded to the CityShop wallet. Handle those manually.');
+        }
+
+        $paidAt = $this->itemPaidAt($item);
+        if (! $paidAt || $paidAt->gt(now()->subDay())) {
+            throw new \RuntimeException('Seller still has time — cancel only after 24 hours with no action.');
+        }
+
+        $adminReason = trim($reason) !== ''
+            ? $reason
+            : 'Admin cancelled: seller did not process the order within 24 hours.';
+
+        $cancelled = $this->rejectOrderItem(
+            $item,
+            $adminReason,
+            'unable_to_fulfill',
+            \App\Support\OrderCancellation::BY_ADMIN,
+        );
+
+        return $cancelled;
     }
 
     private function syncOrderStatusAfterItemChange(Order $order): void

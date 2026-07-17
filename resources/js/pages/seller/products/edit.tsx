@@ -18,7 +18,6 @@ interface EditProductProps {
 }
 
 export default function EditProduct({ product, categories }: EditProductProps) {
-    const [imagesConfirmed, setImagesConfirmed] = useState(!!product.images?.length);
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [removeIds, setRemoveIds] = useState<number[]>([]);
     const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -83,12 +82,21 @@ export default function EditProduct({ product, categories }: EditProductProps) {
 
     const totalImages = (product.images?.length ?? 0) - removeIds.length + imageFiles.length;
 
+    const [formHint, setFormHint] = useState<string | null>(null);
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        if (totalImages === 0 || !imagesConfirmed) return;
-        if (shippingType === 'paid' && (!data.delivery_fee || Number(data.delivery_fee) <= 0)) {
+        if (totalImages === 0) {
+            setFormHint('Add at least one product photo before saving.');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
+        if (shippingType === 'paid' && (!data.delivery_fee || Number(data.delivery_fee) <= 0)) {
+            setFormHint('Enter a delivery fee greater than 0 for paid delivery.');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+        setFormHint(null);
         post(route('seller.products.update', product.id), { forceFormData: true });
     };
 
@@ -103,7 +111,6 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                         setImageFiles(files);
                         setRemoveIds(removed);
                     }}
-                    onConfirmedChange={setImagesConfirmed}
                     error={errors.images}
                 />
 
@@ -268,9 +275,15 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                     </div>
                 </div>
 
+                {formHint && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                        {formHint}
+                    </div>
+                )}
+
                 <Button
                     type="submit"
-                    disabled={processing || !imagesConfirmed || totalImages === 0}
+                    disabled={processing || totalImages === 0}
                     className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50"
                 >
                     {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}

@@ -159,6 +159,10 @@ export interface OrderItem {
     seller_amount: number;
     status: string;
     rejection_reason?: string | null;
+    cancellation_code?: string | null;
+    cancelled_by?: string | null;
+    cancelled_at?: string | null;
+    refund_status?: string | null;
     courier_name?: string;
     tracking_number?: string;
     vehicle_number?: string | null;
@@ -166,6 +170,13 @@ export interface OrderItem {
     package_image?: string | null;
     product?: Product;
     order?: Order;
+    dispute?: {
+        id: number;
+        status: string;
+        reason: string;
+        description?: string;
+        resolution_notes?: string | null;
+    } | null;
 }
 
 export interface SpecField {

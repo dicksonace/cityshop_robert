@@ -280,6 +280,23 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                                                                 <p className="text-xs text-gray-500">
                                                                     Status: {formatOrderStatus(item.status)}
                                                                 </p>
+                                                                {item.status === 'cancelled' && (
+                                                                    <div className="mt-2 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-900">
+                                                                        <p className="font-semibold">
+                                                                            {item.cancelled_by === 'admin'
+                                                                                ? 'Cancelled by CityShop support'
+                                                                                : 'Cancelled by seller'}
+                                                                        </p>
+                                                                        {item.rejection_reason && (
+                                                                            <p className="mt-1">Reason: {item.rejection_reason}</p>
+                                                                        )}
+                                                                        {item.refund_status === 'completed' && (
+                                                                            <p className="mt-1 font-medium text-emerald-700">
+                                                                                Refund completed — credited to your CityShop wallet.
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                             <span className="shrink-0 font-medium">
                                                                 {formatPrice(item.unit_price * item.quantity)}

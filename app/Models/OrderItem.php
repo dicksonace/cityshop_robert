@@ -21,6 +21,10 @@ class OrderItem extends Model
         'seller_amount',
         'status',
         'rejection_reason',
+        'cancellation_code',
+        'cancelled_by',
+        'cancelled_at',
+        'refund_status',
         'courier_name',
         'tracking_number',
         'vehicle_number',
@@ -36,6 +40,7 @@ class OrderItem extends Model
             'commission_amount' => 'decimal:2',
             'seller_amount' => 'decimal:2',
             'status' => OrderStatus::class,
+            'cancelled_at' => 'datetime',
         ];
     }
 

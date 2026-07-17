@@ -111,6 +111,12 @@ class OrderController extends Controller
         return Inertia::render('seller/orders/show', [
             'orderItem' => $this->serializeOrderItem($orderItem),
             'backStage' => $this->statusToStage($orderItem->status),
+            'cancellationReasons' => \App\Support\OrderCancellation::reasons(),
+            'canCancel' => in_array(
+                $orderItem->status->value,
+                \App\Support\OrderCancellation::sellerCancellableStatuses(),
+                true
+            ),
         ]);
     }
 
@@ -159,18 +165,40 @@ class OrderController extends Controller
     {
         abort_unless($orderItem->seller_id === $request->user()->id, 403);
 
+        $reasons = array_keys(\App\Support\OrderCancellation::reasons());
+
         $validated = $request->validate([
-            'rejection_reason' => ['required', 'string', 'max:1000'],
+            'cancellation_code' => ['required', 'string', 'in:'.implode(',', $reasons)],
+            'rejection_reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $code = $validated['cancellation_code'];
+        $label = \App\Support\OrderCancellation::label($code);
+        $custom = trim((string) ($validated['rejection_reason'] ?? ''));
+
+        if ($code === 'other' && $custom === '') {
+            return back()->withErrors(['rejection_reason' => 'Please explain why you are cancelling.'])->withInput();
+        }
+
+        $reason = $code === 'other' ? $custom : ($custom !== '' ? "{$label}: {$custom}" : $label);
+
         try {
-            $this->orderService->rejectOrderItem($orderItem, $validated['rejection_reason']);
+            $this->orderService->rejectOrderItem(
+                $orderItem,
+                $reason,
+                $code,
+                \App\Support\OrderCancellation::BY_SELLER,
+            );
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
 
+        $msg = $orderItem->fresh()->refund_status === \App\Support\OrderCancellation::REFUND_COMPLETED
+            ? 'Order cancelled. The buyer has been refunded to their CityShop wallet.'
+            : 'Order cancelled.';
+
         return redirect()->route('seller.orders.stage', 'cancelled')
-            ->with('success', 'Order rejected. Refund credited to buyer wallet.');
+            ->with('success', $msg);
     }
 
     /**
@@ -234,6 +262,11 @@ class OrderController extends Controller
             'unit_price' => (float) $orderItem->unit_price,
             'seller_amount' => (float) $orderItem->seller_amount,
             'status' => $orderItem->status->value,
+            'rejection_reason' => $orderItem->rejection_reason,
+            'cancellation_code' => $orderItem->cancellation_code,
+            'cancelled_by' => $orderItem->cancelled_by,
+            'cancelled_at' => $orderItem->cancelled_at?->toIso8601String(),
+            'refund_status' => $orderItem->refund_status,
             'vehicle_number' => $orderItem->vehicle_number,
             'driver_phone' => $orderItem->driver_phone,
             'package_image' => $orderItem->package_image,
