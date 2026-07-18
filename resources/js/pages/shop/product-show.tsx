@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { MessageSquare, ShoppingBag } from 'lucide-react';
+import { MapPin, MessageSquare, Package, ShoppingBag, Store, Truck } from 'lucide-react';
 
 import ProductCard from '@/components/shop/product-card';
 import ProductImageGallery from '@/components/shop/product-image-gallery';
@@ -101,33 +101,114 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                             <p className="text-sm text-gray-400 line-through">{formatPrice(product.price)}</p>
                         )}
 
-                        <p className="mt-4 text-gray-600">{product.description}</p>
+                        <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-slate-100 bg-gradient-to-b from-slate-50/90 to-white shadow-sm">
+                            <div className="border-b border-slate-100 px-4 py-4">
+                                {product.description ? (
+                                    <p className="text-[15px] leading-relaxed text-slate-700">{product.description}</p>
+                                ) : (
+                                    <p className="text-sm text-slate-400">No description provided.</p>
+                                )}
 
-                        <div className="mt-4 text-sm text-gray-500">
-                            {product.brand && <p>Brand: {product.brand}</p>}
-                            <p>Stock: {product.quantity > 0 ? `${product.quantity} available` : 'Out of stock'}</p>
-                            {product.free_shipping ? (
-                                <p className="mt-1 font-medium text-emerald-600">Free delivery</p>
-                            ) : product.delivery_fee != null && Number(product.delivery_fee) > 0 ? (
-                                <p className="mt-1 font-medium text-blue-600">
-                                    Paid delivery: {formatPrice(Number(product.delivery_fee))}
-                                    {product.delivery_days ? ` · about ${product.delivery_days} day${product.delivery_days === 1 ? '' : 's'}` : ''}
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {product.brand && (
+                                        <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                                            Brand · {product.brand}
+                                        </span>
+                                    )}
+                                    <span
+                                        className={
+                                            product.quantity > 0
+                                                ? 'inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100'
+                                                : 'inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-red-100'
+                                        }
+                                    >
+                                        <Package className="h-3.5 w-3.5" />
+                                        {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2.5 p-3 sm:p-4">
+                                <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                                    Delivery & pickup
                                 </p>
-                            ) : (
-                                <p className="mt-1 text-gray-400">Delivery arranged with the seller</p>
-                            )}
-                            {product.ships_nationwide && (
-                                <p className="mt-1 font-medium text-indigo-600">Ships nationwide across Ghana</p>
-                            )}
-                            {product.pickup_available && (
-                                <p className="mt-1 text-gray-600">Pickup available from the seller</p>
-                            )}
-                            {product.cash_on_delivery && (
-                                <p className="mt-1 text-gray-600">Cash on delivery available</p>
-                            )}
-                            {product.is_negotiable && (
-                                <p className="mt-1 text-amber-700">Price is negotiable — chat the seller</p>
-                            )}
+
+                                {product.free_shipping ? (
+                                    <div className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/90 px-3.5 py-3">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                                            <Truck className="h-4 w-4" strokeWidth={2} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-emerald-800">Free delivery</p>
+                                            <p className="text-xs text-emerald-700/80">Seller covers shipping to you</p>
+                                        </div>
+                                    </div>
+                                ) : product.delivery_fee != null && Number(product.delivery_fee) > 0 ? (
+                                    <div className="flex items-start gap-3 rounded-2xl border border-sky-100 bg-sky-50/90 px-3.5 py-3">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                                            <Truck className="h-4 w-4" strokeWidth={2} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-sky-800">
+                                                Paid delivery: {formatPrice(Number(product.delivery_fee))}
+                                            </p>
+                                            {product.delivery_days ? (
+                                                <p className="text-xs text-sky-700/80">
+                                                    Delivery Time: {product.delivery_days}day{product.delivery_days === 1 ? '' : 's'}
+                                                </p>
+                                            ) : (
+                                                <p className="text-xs text-sky-700/80">Delivery fee added at checkout</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-white px-3.5 py-3">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                                            <Truck className="h-4 w-4" strokeWidth={2} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-700">Delivery arranged with seller</p>
+                                            <p className="text-xs text-slate-500">Chat to agree on delivery details</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {product.ships_nationwide && (
+                                    <div className="flex items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/90 px-3.5 py-3">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                                            <MapPin className="h-4 w-4" strokeWidth={2} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-semibold text-indigo-800">Ships nationwide across Ghana</p>
+                                            <p className="text-xs text-indigo-700/80">Available beyond the seller&apos;s local area</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {product.pickup_available && (
+                                    <div className="flex items-start gap-3 rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 via-amber-50 to-white px-3.5 py-3 shadow-sm">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white shadow-sm shadow-orange-200">
+                                            <Store className="h-4 w-4" strokeWidth={2.25} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-orange-900">Pickup available from the seller shop</p>
+                                            <p className="mt-0.5 text-xs text-orange-800/80">
+                                                Collect in person
+                                                {product.seller?.seller_profile?.store_name
+                                                    ? ` at ${product.seller.seller_profile.store_name}`
+                                                    : ' from the seller'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {product.cash_on_delivery && (
+                                    <p className="px-1 text-sm font-medium text-teal-700">Cash on delivery available</p>
+                                )}
+                                {product.is_negotiable && (
+                                    <p className="px-1 text-sm font-medium text-amber-700">Price is negotiable — chat the seller</p>
+                                )}
+                            </div>
                         </div>
 
                         {product.seller?.seller_profile && (

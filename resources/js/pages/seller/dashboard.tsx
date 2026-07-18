@@ -7,12 +7,12 @@ import {
     ShoppingCart,
     Star,
     TrendingUp,
-    Wallet,
 } from 'lucide-react';
 
 import RevenueChart from '@/components/seller/revenue-chart';
 import OrderPipelineCards from '@/components/seller/order-pipeline-cards';
 import StoreShareCard from '@/components/seller/store-share-card';
+import WalletBalanceCard from '@/components/seller/wallet-balance-card';
 import SellerLayout from '@/layouts/seller-layout';
 import { formatPrice, formatOrderStatus, OrderItem, SellerProfile } from '@/types/marketplace';
 
@@ -57,12 +57,10 @@ export default function SellerDashboard({
     orderPipelineCounts,
 }: DashboardProps) {
     const kpis = [
-        { label: 'Revenue earned', value: formatPrice(stats.total_earnings), sub: `${stats.delivered_orders} delivered`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', href: route('seller.wallet') },
-        { label: 'Available', value: formatPrice(stats.available_balance), sub: 'Withdrawable now', icon: Wallet, color: 'text-green-600', bg: 'bg-green-50', href: route('seller.wallet') },
-        { label: 'Pending', value: formatPrice(stats.pending_balance), sub: 'Clearing', icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50', href: route('seller.wallet') },
-        { label: 'Orders', value: stats.total_orders, sub: `${stats.pending_orders} new`, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50', href: route('seller.orders.index') },
-        { label: 'Live products', value: stats.live_products, sub: `${stats.out_of_stock} out of stock`, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50', href: route('seller.products.index', { status: 'approved' }) },
-        { label: 'Store views', value: stats.product_views, sub: stats.average_rating ? `${stats.average_rating}★ avg rating` : 'No ratings yet', icon: Eye, color: 'text-purple-600', bg: 'bg-purple-50', href: route('seller.store-appearance.index') },
+        { label: 'Revenue earned', value: formatPrice(stats.total_earnings), sub: `${stats.delivered_orders} delivered`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'border-emerald-100', href: route('seller.wallet') },
+        { label: 'Orders', value: stats.total_orders, sub: `${stats.pending_orders} new`, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50', ring: 'border-orange-100', href: route('seller.orders.index') },
+        { label: 'Live products', value: stats.live_products, sub: `${stats.out_of_stock} out of stock`, icon: Package, color: 'text-sky-600', bg: 'bg-sky-50', ring: 'border-sky-100', href: route('seller.products.index', { status: 'approved' }) },
+        { label: 'Store views', value: stats.product_views, sub: stats.average_rating ? `${stats.average_rating}★ avg rating` : 'No ratings yet', icon: Eye, color: 'text-violet-600', bg: 'bg-violet-50', ring: 'border-violet-100', href: route('seller.store-appearance.index') },
     ];
 
     return (
@@ -101,6 +99,37 @@ export default function SellerDashboard({
                 </div>
             )}
 
+            <div className="mb-6 grid gap-4 lg:grid-cols-5">
+                <WalletBalanceCard
+                    className="lg:col-span-2"
+                    balance={stats.available_balance}
+                    pendingBalance={stats.pending_balance}
+                    withdrawHref={`${route('seller.wallet')}#withdraw`}
+                    historyHref={`${route('seller.wallet')}#history`}
+                />
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:col-span-3 lg:grid-cols-2">
+                    {kpis.map((kpi) => (
+                        <Link
+                            key={kpi.label}
+                            href={kpi.href}
+                            className={`group rounded-[1.5rem] border bg-white p-4 shadow-sm transition hover:shadow-md ${kpi.ring}`}
+                        >
+                            <div className="flex items-start gap-3">
+                                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${kpi.bg}`}>
+                                    <kpi.icon className={`h-5 w-5 ${kpi.color}`} strokeWidth={1.75} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-slate-500">{kpi.label}</p>
+                                    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{kpi.value}</p>
+                                    <p className="mt-0.5 text-xs text-slate-400">{kpi.sub}</p>
+                                </div>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            </div>
+
             <div className="mb-6">
                 <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-gray-900">Order pipeline</h2>
@@ -109,27 +138,6 @@ export default function SellerDashboard({
                     </Link>
                 </div>
                 <OrderPipelineCards counts={orderPipelineCounts} compact />
-            </div>
-
-            <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {kpis.map((kpi) => (
-                    <Link
-                        key={kpi.label}
-                        href={kpi.href}
-                        className="group rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-orange-200 hover:shadow-md"
-                    >
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500">{kpi.label}</p>
-                                <p className="mt-1 text-2xl font-bold text-gray-900">{kpi.value}</p>
-                                <p className="mt-0.5 text-xs text-gray-400">{kpi.sub}</p>
-                            </div>
-                            <div className={`rounded-xl p-2.5 transition group-hover:scale-105 ${kpi.bg}`}>
-                                <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
-                            </div>
-                        </div>
-                    </Link>
-                ))}
             </div>
 
             <div className="mb-6 grid gap-6 lg:grid-cols-3">
@@ -161,9 +169,9 @@ export default function SellerDashboard({
                     ) : (
                         <div className="mt-4 divide-y">
                             {recentOrders.map((item) => (
-                                <Link key={item.id} href={route('seller.orders.show', item.id)} className="flex items-center justify-between py-3 text-sm hover:bg-gray-50 -mx-2 px-2 rounded-lg">
+                                <Link key={item.id} href={route('seller.orders.show', item.id)} className="flex items-center justify-between rounded-lg px-2 py-3 -mx-2 text-sm hover:bg-gray-50">
                                     <div className="min-w-0">
-                                        <p className="font-medium truncate">{item.product_name}</p>
+                                        <p className="truncate font-medium">{item.product_name}</p>
                                         <p className="text-gray-500">Qty {item.quantity} · {formatOrderStatus(item.status)}</p>
                                     </div>
                                     <p className="shrink-0 font-semibold text-orange-500">{formatPrice(item.unit_price * item.quantity)}</p>
@@ -198,7 +206,7 @@ export default function SellerDashboard({
                     <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                         <div className="flex items-center justify-between">
                             <h3 className="font-semibold text-gray-900">Withdrawals</h3>
-                            <Link href={route('seller.wallet')} className="text-sm text-orange-500 hover:underline">Finance</Link>
+                            <Link href={`${route('seller.wallet')}#history`} className="text-sm text-orange-500 hover:underline">Finance</Link>
                         </div>
                         {recentWithdrawals.length === 0 ? (
                             <p className="mt-3 text-sm text-gray-500">No withdrawals yet.</p>

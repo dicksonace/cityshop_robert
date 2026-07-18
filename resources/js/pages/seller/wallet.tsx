@@ -159,6 +159,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                 </div>
             )}
 
+            <div id="withdraw" className="scroll-mt-24">
             <WithdrawalHighlight
                 subtitle={
                     wallet.available_balance >= 10
@@ -293,6 +294,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                     </form>
                 )}
             </WithdrawalHighlight>
+            </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -373,7 +375,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                 </div>
             </div>
 
-            <div className="mt-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div id="history" className="mt-8 scroll-mt-24 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                 <h3 className="font-semibold text-gray-900">Withdrawal history</h3>
                 {withdrawals.data.length === 0 ? (
                     <p className="mt-4 text-sm text-gray-500">No withdrawal requests yet.</p>
