@@ -30,6 +30,7 @@ use App\Http\Controllers\Seller\ProductController as SellerProductController;
 use App\Http\Controllers\Seller\ReviewController as SellerReviewController;
 use App\Http\Controllers\Seller\StoreCustomizationController as SellerStoreCustomizationController;
 use App\Http\Controllers\Seller\WalletController as SellerWalletController;
+use App\Http\Controllers\Shop\AccountController;
 use App\Http\Controllers\Shop\AddressController;
 use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\CheckoutController;
@@ -91,6 +92,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
     Route::delete('/wishlist/{wishlist}', [WishlistController::class, 'destroy'])->name('wishlist.destroy');
+
+    Route::get('/account', [AccountController::class, 'index'])->middleware('buyer.shop')->name('account.index');
 
     Route::get('/addresses', [AddressController::class, 'index'])->middleware('buyer.shop')->name('addresses.index');
     Route::get('/addresses/create', [AddressController::class, 'create'])->middleware('buyer.shop')->name('addresses.create');

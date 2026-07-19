@@ -33,6 +33,7 @@ export default function FloatingChatWidget() {
     if (!mounted || !auth.user) return null;
 
     const unread = unreadMessages ?? 0;
+    const isBuyer = auth.user.role === 'buyer';
     const otherName =
         activeConversation?.other.seller_profile?.business_name ??
         activeConversation?.other.seller_profile?.store_name ??
@@ -40,13 +41,20 @@ export default function FloatingChatWidget() {
     const hasActiveChat = Boolean(activeConversation);
 
     return (
-        <div className="fixed right-0 bottom-0 z-[100] flex flex-col items-end gap-3 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:right-4 sm:bottom-4 sm:p-0">
+        <div
+            className={cn(
+                'fixed right-0 z-[100] flex flex-col items-end gap-3 p-3 sm:right-4 sm:bottom-4 sm:p-0',
+                isBuyer
+                    ? 'bottom-[calc(4.25rem+env(safe-area-inset-bottom))] pb-3 sm:bottom-4'
+                    : 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+            )}
+        >
             {isOpen && (
                 <div
                     className={cn(
                         'flex flex-col overflow-hidden border border-gray-200 bg-white shadow-2xl',
                         'animate-in slide-in-from-bottom-4 fade-in duration-200',
-                        'h-[min(100dvh-5rem,520px)] w-full rounded-t-2xl sm:h-[min(520px,calc(100vh-6rem))] sm:w-[min(100vw-2rem,380px)] sm:rounded-2xl',
+                        'h-[min(100dvh-8rem,520px)] w-full rounded-t-2xl sm:h-[min(520px,calc(100vh-6rem))] sm:w-[min(100vw-2rem,380px)] sm:rounded-2xl',
                     )}
                 >
                     <div className="flex items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 text-white">
@@ -86,7 +94,10 @@ export default function FloatingChatWidget() {
                 <button
                     type="button"
                     onClick={openWidget}
-                    className="relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30 transition-transform hover:scale-105 active:scale-95 sm:h-14 sm:w-14"
+                    className={cn(
+                        'relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30 transition-transform hover:scale-105 active:scale-95 sm:h-14 sm:w-14',
+                        isBuyer && 'hidden sm:flex',
+                    )}
                     aria-label={hasActiveChat ? `Continue chat with ${otherName}` : 'Open messages'}
                     title={hasActiveChat ? `Continue chat with ${otherName}` : 'Open messages'}
                 >

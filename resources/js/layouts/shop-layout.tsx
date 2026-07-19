@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
+import BuyerMobileNav from '@/components/shop/buyer-mobile-nav';
 import ShopHeader from '@/components/shop/shop-header';
 import { SharedData } from '@/types';
 
@@ -11,9 +12,16 @@ interface ShopLayoutProps {
 
 export default function ShopLayout({ children, hideHeaderSearch = false }: ShopLayoutProps) {
     const { auth, flash } = usePage<SharedData>().props;
+    const showBuyerNav = auth.user?.role === 'buyer';
 
     return (
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-50 to-white pb-20 sm:pb-0">
+        <div
+            className={
+                showBuyerNav
+                    ? 'min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-50 to-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:pb-0'
+                    : 'min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-50 to-white'
+            }
+        >
             <ShopHeader hideSearch={hideHeaderSearch} />
             {flash?.success && (
                 <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-800">
@@ -94,6 +102,7 @@ export default function ShopLayout({ children, hideHeaderSearch = false }: ShopL
                     <p className="mt-8 text-center text-xs text-gray-400">&copy; {new Date().getFullYear()} CityShop. All rights reserved.</p>
                 </div>
             </footer>
+            {showBuyerNav && <BuyerMobileNav />}
         </div>
     );
 }
