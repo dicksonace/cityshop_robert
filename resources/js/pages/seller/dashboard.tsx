@@ -2,12 +2,12 @@ import { Head, Link, router } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowRight,
+    Clock,
     Eye,
     Package,
     RefreshCw,
     ShoppingCart,
     Star,
-    TrendingUp,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -104,7 +104,16 @@ export default function SellerDashboard({
     const newOrdersCount = orderPipelineCounts.pending ?? stats.pending_orders ?? 0;
 
     const kpis = [
-        { label: 'Revenue earned', value: formatPrice(stats.total_earnings), sub: `${stats.delivered_orders} delivered`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'border-emerald-100', href: route('seller.wallet') },
+        {
+            label: 'Pending funds',
+            value: formatPrice(stats.pending_balance),
+            sub: 'Awaiting admin release',
+            icon: Clock,
+            color: 'text-amber-600',
+            bg: 'bg-amber-50',
+            ring: 'border-amber-100',
+            href: route('seller.wallet'),
+        },
         { label: 'Orders', value: stats.total_orders, sub: `${stats.pending_orders} new`, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50', ring: 'border-orange-100', href: route('seller.orders.index') },
         { label: 'Live products', value: stats.live_products, sub: `${stats.out_of_stock} out of stock`, icon: Package, color: 'text-sky-600', bg: 'bg-sky-50', ring: 'border-sky-100', href: route('seller.products.index', { status: 'approved' }) },
         { label: 'Store views', value: stats.product_views, sub: stats.average_rating ? `${stats.average_rating}★ avg rating` : 'No ratings yet', icon: Eye, color: 'text-violet-600', bg: 'bg-violet-50', ring: 'border-violet-100', href: route('seller.store-appearance.index') },
