@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { DollarSign, Package, ShoppingCart, Store, Users } from 'lucide-react';
+import { DollarSign, ShoppingCart, Store, Users } from 'lucide-react';
 
 import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Order, SellerProfile } from '@/types/marketplace';
@@ -20,7 +20,6 @@ interface AdminDashboardProps {
         total_sellers: number;
         pending_sellers: number;
         total_products: number;
-        pending_products: number;
         total_orders: number;
         total_revenue: number;
         pending_withdrawals: number;
@@ -53,13 +52,6 @@ export default function AdminDashboard({
             icon: Store,
             color: 'text-yellow-500',
             href: route('admin.sellers.index', { status: 'pending' }),
-        },
-        {
-            label: 'Pending Products',
-            value: stats.pending_products,
-            icon: Package,
-            color: 'text-yellow-500',
-            href: route('admin.products.index', { status: 'pending' }),
         },
         {
             label: 'Pending Payouts',

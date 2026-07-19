@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\ProductStatus;
 use App\Enums\SellerStatus;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
@@ -23,7 +22,6 @@ class DashboardController extends Controller
             'total_sellers' => User::where('role', 'seller')->count(),
             'pending_sellers' => SellerProfile::where('status', SellerStatus::Pending)->count(),
             'total_products' => Product::count(),
-            'pending_products' => Product::where('status', ProductStatus::Pending)->count(),
             'total_orders' => Order::count(),
             'total_revenue' => Order::where('payment_status', 'paid')->sum('total'),
             'pending_withdrawals' => Withdrawal::where('status', WithdrawalStatus::Pending)->count(),

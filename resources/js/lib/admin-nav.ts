@@ -97,7 +97,6 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
             items: [
                 { key: 'products-all', label: 'All Products', href: route('admin.products.index', { status: 'all' }) },
                 { key: 'products-approved', label: 'Live Products', href: route('admin.products.index', { status: 'approved' }) },
-                { key: 'products-pending', label: 'Pending Review', href: route('admin.products.index', { status: 'pending' }), badgeKey: 'pending_products' },
                 { key: 'products-rejected', label: 'Rejected', href: route('admin.products.index', { status: 'rejected' }) },
                 { key: 'categories', label: 'Categories', href: route('admin.categories.index'), defaultOnPath: true },
             ],

@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Enums\DisputeStatus;
 use App\Enums\FundsReleaseStatus;
 use App\Enums\OrderStatus;
-use App\Enums\ProductStatus;
 use App\Enums\SellerReportStatus;
 use App\Enums\SellerStatus;
 use App\Enums\UserRole;
@@ -14,7 +13,6 @@ use App\Enums\WalletTopUpStatus;
 use App\Models\ContactMessage;
 use App\Models\Dispute;
 use App\Models\OrderItem;
-use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\SellerReport;
 use App\Models\User;
@@ -46,7 +44,6 @@ class PanelNavService
     {
         return [
             'pending_sellers' => SellerProfile::where('status', SellerStatus::Pending)->count(),
-            'pending_products' => Product::where('status', ProductStatus::Pending)->count(),
             'pending_withdrawals' => Withdrawal::where('status', WithdrawalStatus::Pending)->count(),
             'pending_seller_withdrawals' => Withdrawal::where('status', WithdrawalStatus::Pending)
                 ->whereHas('user', fn ($q) => $q->where('role', UserRole::Seller))
@@ -68,7 +65,6 @@ class PanelNavService
         $sellerId = $user->id;
 
         return [
-            'pending_products' => Product::where('seller_id', $sellerId)->where('status', ProductStatus::Pending)->count(),
             'pending_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::Pending)->count(),
             'processing_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::Processing)->count(),
             'packing_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::Packed)->count(),

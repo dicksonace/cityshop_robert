@@ -14,7 +14,6 @@ interface ProductsIndexProps {
 const tabs = [
     { value: 'all', label: 'All' },
     { value: 'approved', label: 'Live' },
-    { value: 'pending', label: 'Pending' },
     { value: 'rejected', label: 'Removed' },
 ];
 
