@@ -1,6 +1,5 @@
 import { Link, router } from '@inertiajs/react';
 import { ArrowDownToLine, History, RefreshCw, Wallet } from 'lucide-react';
-import { useState } from 'react';
 
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/types/marketplace';
@@ -11,6 +10,9 @@ interface WalletBalanceCardProps {
     withdrawHref: string;
     historyHref: string;
     className?: string;
+    onRefresh?: () => void;
+    refreshing?: boolean;
+    countdownSec?: number;
 }
 
 export default function WalletBalanceCard({
@@ -19,17 +21,10 @@ export default function WalletBalanceCard({
     withdrawHref,
     historyHref,
     className,
+    onRefresh,
+    refreshing = false,
+    countdownSec,
 }: WalletBalanceCardProps) {
-    const [refreshing, setRefreshing] = useState(false);
-
-    const refreshBalance = () => {
-        setRefreshing(true);
-        router.reload({
-            only: ['stats'],
-            onFinish: () => setRefreshing(false),
-        });
-    };
-
     return (
         <div
             className={cn(
@@ -42,17 +37,24 @@ export default function WalletBalanceCard({
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
                         <Wallet className="h-5 w-5" strokeWidth={1.75} />
                     </div>
-                    <p className="text-base font-medium text-slate-500">Wallet Balance</p>
+                    <div>
+                        <p className="text-base font-medium text-slate-500">Wallet Balance</p>
+                        {countdownSec != null && (
+                            <p className="text-xs text-slate-400">Auto refresh in {countdownSec}s</p>
+                        )}
+                    </div>
                 </div>
-                <button
-                    type="button"
-                    onClick={refreshBalance}
-                    disabled={refreshing}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-600 shadow-sm transition hover:bg-sky-50 disabled:opacity-60"
-                >
-                    <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                    Refresh
-                </button>
+                {onRefresh && (
+                    <button
+                        type="button"
+                        onClick={onRefresh}
+                        disabled={refreshing}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-600 shadow-sm transition hover:bg-sky-50 disabled:opacity-60"
+                    >
+                        <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+                        Refresh
+                    </button>
+                )}
             </div>
 
             <p className="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">

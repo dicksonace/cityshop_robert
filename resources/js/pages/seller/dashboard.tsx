@@ -1,20 +1,34 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowRight,
     Eye,
     Package,
+    RefreshCw,
     ShoppingCart,
     Star,
     TrendingUp,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 import RevenueChart from '@/components/seller/revenue-chart';
 import OrderPipelineCards from '@/components/seller/order-pipeline-cards';
 import StoreShareCard from '@/components/seller/store-share-card';
 import WalletBalanceCard from '@/components/seller/wallet-balance-card';
 import SellerLayout from '@/layouts/seller-layout';
+import { sellerOrdersStageHref } from '@/lib/seller-order-stages';
 import { formatPrice, formatOrderStatus, OrderItem, SellerProfile } from '@/types/marketplace';
+
+const AUTO_REFRESH_SECONDS = 60;
+const DASHBOARD_RELOAD_KEYS = [
+    'stats',
+    'orderPipelineCounts',
+    'recentOrders',
+    'recentReviews',
+    'recentWithdrawals',
+    'revenueChart',
+    'storeHealth',
+] as const;
 
 interface DashboardProps {
     stats: {
@@ -56,6 +70,39 @@ export default function SellerDashboard({
     storeUrl,
     orderPipelineCounts,
 }: DashboardProps) {
+    const [secondsLeft, setSecondsLeft] = useState(AUTO_REFRESH_SECONDS);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const refreshDashboard = useCallback(() => {
+        setRefreshing(true);
+        router.reload({
+            only: [...DASHBOARD_RELOAD_KEYS],
+            onFinish: () => {
+                setRefreshing(false);
+                setSecondsLeft(AUTO_REFRESH_SECONDS);
+            },
+        });
+    }, []);
+
+    useEffect(() => {
+        if (refreshing) {
+            return;
+        }
+
+        if (secondsLeft <= 0) {
+            refreshDashboard();
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            setSecondsLeft((s) => s - 1);
+        }, 1000);
+
+        return () => window.clearTimeout(timer);
+    }, [secondsLeft, refreshing, refreshDashboard]);
+
+    const newOrdersCount = orderPipelineCounts.pending ?? stats.pending_orders ?? 0;
+
     const kpis = [
         { label: 'Revenue earned', value: formatPrice(stats.total_earnings), sub: `${stats.delivered_orders} delivered`, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'border-emerald-100', href: route('seller.wallet') },
         { label: 'Orders', value: stats.total_orders, sub: `${stats.pending_orders} new`, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50', ring: 'border-orange-100', href: route('seller.orders.index') },
@@ -106,6 +153,9 @@ export default function SellerDashboard({
                     pendingBalance={stats.pending_balance}
                     withdrawHref={`${route('seller.wallet')}#withdraw`}
                     historyHref={`${route('seller.wallet')}#history`}
+                    onRefresh={refreshDashboard}
+                    refreshing={refreshing}
+                    countdownSec={secondsLeft}
                 />
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:col-span-3 lg:grid-cols-2">
@@ -131,11 +181,28 @@ export default function SellerDashboard({
             </div>
 
             <div className="mb-6">
-                <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Order pipeline</h2>
-                    <Link href={route('seller.orders.index')} className="text-sm text-orange-600 hover:underline">
-                        Open sales center
-                    </Link>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h2 className="text-lg font-semibold text-gray-900">Order pipeline</h2>
+                        <p className="text-xs text-gray-500">
+                            New orders: <span className="font-semibold text-orange-600">{newOrdersCount}</span>
+                            {' · '}Auto refresh in {secondsLeft}s
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={refreshDashboard}
+                            disabled={refreshing}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-white px-3 py-1.5 text-xs font-semibold text-orange-600 shadow-sm transition hover:bg-orange-50 disabled:opacity-60"
+                        >
+                            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                            Refresh
+                        </button>
+                        <Link href={sellerOrdersStageHref('new')} className="text-sm text-orange-600 hover:underline">
+                            Open new orders
+                        </Link>
+                    </div>
                 </div>
                 <OrderPipelineCards counts={orderPipelineCounts} compact />
             </div>
