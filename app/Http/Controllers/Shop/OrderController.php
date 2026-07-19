@@ -84,6 +84,7 @@ class OrderController extends Controller
 
         $purchases = Checkout::with([
             'orders.items.product.images',
+            'orders.items.dispute',
             'orders.seller.sellerProfile',
             'invoices' => fn ($q) => $q
                 ->where('user_id', $buyerId)
@@ -94,40 +95,65 @@ class OrderController extends Controller
             ->latest()
             ->paginate(10)
             ->withQueryString()
-            ->through(fn (Checkout $checkout) => [
-                'id' => $checkout->id,
-                'checkout_number' => $checkout->checkout_number,
-                'payment_status' => $checkout->payment_status->value,
-                'status' => $checkout->status->value,
-                'subtotal' => (float) $checkout->subtotal,
-                'shipping_cost' => (float) $checkout->shipping_cost,
-                'total' => (float) $checkout->total,
-                'created_at' => $checkout->created_at?->toIso8601String(),
-                'invoice' => $checkout->invoices->first() ? [
-                    'id' => $checkout->invoices->first()->id,
-                    'invoice_number' => $checkout->invoices->first()->invoice_number,
-                ] : null,
-                'packages' => $checkout->orders->map(function (Order $order) {
-                    $sellerProfile = $order->seller?->sellerProfile;
+            ->through(function (Checkout $checkout) use ($buyerId) {
+                $reviewedByOrder = Review::where('user_id', $buyerId)
+                    ->whereIn('order_id', $checkout->orders->pluck('id'))
+                    ->get()
+                    ->groupBy('order_id');
 
-                    return [
-                        'id' => $order->id,
-                        'order_number' => $order->order_number,
-                        'status' => $order->status->value,
-                        'payment_status' => $order->payment_status->value,
-                        'subtotal' => (float) $order->subtotal,
-                        'shipping_cost' => (float) $order->shipping_cost,
-                        'total' => (float) $order->total,
-                        'seller_name' => $sellerProfile?->displayName() ?? $order->seller?->name ?? 'Seller',
-                        'store_slug' => $sellerProfile?->slug,
-                        'item_count' => $order->items->sum('quantity'),
-                        'product_count' => $order->items->count(),
-                        'image' => $order->items->first()?->product?->images?->first()?->path,
-                        'first_product_name' => $order->items->first()?->product_name,
-                        'awaiting_item_id' => $order->items->firstWhere('status', OrderStatus::AwaitingConfirmation)?->id,
-                    ];
-                })->values(),
-            ]);
+                return [
+                    'id' => $checkout->id,
+                    'checkout_number' => $checkout->checkout_number,
+                    'payment_status' => $checkout->payment_status->value,
+                    'status' => $checkout->status->value,
+                    'subtotal' => (float) $checkout->subtotal,
+                    'shipping_cost' => (float) $checkout->shipping_cost,
+                    'total' => (float) $checkout->total,
+                    'created_at' => $checkout->created_at?->toIso8601String(),
+                    'invoice' => $checkout->invoices->first() ? [
+                        'id' => $checkout->invoices->first()->id,
+                        'invoice_number' => $checkout->invoices->first()->invoice_number,
+                    ] : null,
+                    'packages' => $checkout->orders->map(function (Order $order) use ($reviewedByOrder) {
+                        $sellerProfile = $order->seller?->sellerProfile;
+                        $firstItem = $order->items->first();
+                        $awaiting = $order->items->firstWhere('status', OrderStatus::AwaitingConfirmation);
+                        $shippedOrDelivered = $order->items->contains(
+                            fn (OrderItem $item) => in_array($item->status, [OrderStatus::Shipped, OrderStatus::Delivered, OrderStatus::AwaitingConfirmation], true)
+                        );
+                        $hasOpenDispute = $order->items->contains(
+                            fn (OrderItem $item) => $item->relationLoaded('dispute') && $item->dispute !== null
+                        );
+                        $reviewedProductIds = $reviewedByOrder->get($order->id)?->pluck('product_id')->all() ?? [];
+                        $needsReview = $order->items->contains(
+                            fn (OrderItem $item) => $item->status === OrderStatus::Delivered
+                                && ! in_array($item->product_id, $reviewedProductIds, true)
+                        );
+
+                        return [
+                            'id' => $order->id,
+                            'order_number' => $order->order_number,
+                            'status' => $order->status->value,
+                            'payment_status' => $order->payment_status->value,
+                            'subtotal' => (float) $order->subtotal,
+                            'shipping_cost' => (float) $order->shipping_cost,
+                            'total' => (float) $order->total,
+                            'seller_name' => $sellerProfile?->displayName() ?? $order->seller?->name ?? 'Seller',
+                            'store_slug' => $sellerProfile?->slug,
+                            'item_count' => $order->items->sum('quantity'),
+                            'product_count' => $order->items->count(),
+                            'image' => $firstItem?->product?->images?->first()?->path,
+                            'first_product_name' => $firstItem?->product_name,
+                            'first_product_slug' => $firstItem?->product?->slug,
+                            'awaiting_item_id' => $awaiting?->id,
+                            'needs_review' => $needsReview,
+                            'can_refund' => $shippedOrDelivered && ! $hasOpenDispute && $order->status !== OrderStatus::Cancelled,
+                            'driver_phone' => $order->items->first(fn (OrderItem $i) => filled($i->driver_phone))?->driver_phone,
+                            'vehicle_number' => $order->items->first(fn (OrderItem $i) => filled($i->vehicle_number))?->vehicle_number,
+                        ];
+                    })->values(),
+                ];
+            });
 
         return Inertia::render('shop/orders', [
             'purchases' => $purchases,
