@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Check, Download, LoaderCircle, Plus, Trash2, Wallet as WalletIcon } from 'lucide-react';
+import { Check, Download, LoaderCircle, Plus, RefreshCw, Trash2, Wallet as WalletIcon } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -61,6 +61,7 @@ function formatDate(value?: string): string {
 export default function SellerWallet({ wallet, transactions, withdrawals, payoutMethods, hasPendingWithdrawal, manualTopUpEnabled }: WalletProps) {
     const [withdrawStep, setWithdrawStep] = useState<'method' | 'amount' | 'review'>('method');
     const [showAddMethod, setShowAddMethod] = useState(payoutMethods.length === 0);
+    const [refreshing, setRefreshing] = useState(false);
 
     const methodForm = useForm({
         network: 'mtn',
@@ -75,6 +76,14 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
     });
 
     const selectedMethod = payoutMethods.find((m) => m.id === Number(withdrawForm.data.payout_method_id));
+
+    const refreshBalance = () => {
+        setRefreshing(true);
+        router.reload({
+            only: ['wallet', 'transactions', 'withdrawals', 'hasPendingWithdrawal'],
+            onFinish: () => setRefreshing(false),
+        });
+    };
 
     const saveMethod: FormEventHandler = (e) => {
         e.preventDefault();
@@ -122,6 +131,20 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
     return (
         <SellerLayout title="Finance" active="wallet">
             <Head title="Finance" />
+
+            <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-gray-900">Balances</h2>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={refreshBalance}
+                    disabled={refreshing}
+                >
+                    <RefreshCw className={`mr-1.5 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    Refresh
+                </Button>
+            </div>
 
             <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {[

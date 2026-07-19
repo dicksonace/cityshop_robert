@@ -1,5 +1,6 @@
-import { Link } from '@inertiajs/react';
-import { ArrowDownToLine, History, Wallet } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { ArrowDownToLine, History, RefreshCw, Wallet } from 'lucide-react';
+import { useState } from 'react';
 
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/types/marketplace';
@@ -19,6 +20,16 @@ export default function WalletBalanceCard({
     historyHref,
     className,
 }: WalletBalanceCardProps) {
+    const [refreshing, setRefreshing] = useState(false);
+
+    const refreshBalance = () => {
+        setRefreshing(true);
+        router.reload({
+            only: ['stats'],
+            onFinish: () => setRefreshing(false),
+        });
+    };
+
     return (
         <div
             className={cn(
@@ -26,11 +37,22 @@ export default function WalletBalanceCard({
                 className,
             )}
         >
-            <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
-                    <Wallet className="h-5 w-5" strokeWidth={1.75} />
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                        <Wallet className="h-5 w-5" strokeWidth={1.75} />
+                    </div>
+                    <p className="text-base font-medium text-slate-500">Wallet Balance</p>
                 </div>
-                <p className="text-base font-medium text-slate-500">Wallet Balance</p>
+                <button
+                    type="button"
+                    onClick={refreshBalance}
+                    disabled={refreshing}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-600 shadow-sm transition hover:bg-sky-50 disabled:opacity-60"
+                >
+                    <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                    Refresh
+                </button>
             </div>
 
             <p className="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">

@@ -1,6 +1,6 @@
-import { Head, Link, useForm } from '@inertiajs/react';
-import { LoaderCircle, Wallet as WalletIcon } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { LoaderCircle, RefreshCw, Wallet as WalletIcon } from 'lucide-react';
+import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ function formatDate(value?: string): string {
 }
 
 export default function BuyerWallet({ wallet, transactions, paystackConfigured, manualTopUpEnabled }: BuyerWalletProps) {
+    const [refreshing, setRefreshing] = useState(false);
     const addFundsForm = useForm({ amount: '', method: 'momo' });
     const withdrawForm = useForm({
         amount: '',
@@ -44,6 +45,14 @@ export default function BuyerWallet({ wallet, transactions, paystackConfigured, 
         account_name: '',
         network: 'mtn',
     });
+
+    const refreshBalance = () => {
+        setRefreshing(true);
+        router.reload({
+            only: ['wallet', 'transactions'],
+            onFinish: () => setRefreshing(false),
+        });
+    };
 
     const submitAddFunds: FormEventHandler = (e) => {
         e.preventDefault();
@@ -70,8 +79,23 @@ export default function BuyerWallet({ wallet, transactions, paystackConfigured, 
                 </div>
 
                 <div className="mb-8 rounded-2xl bg-gradient-to-r from-slate-900 via-blue-900 to-orange-900 p-6 text-white shadow-lg">
-                    <p className="text-sm text-white/70">Available balance</p>
-                    <p className="mt-1 text-4xl font-bold">{formatPrice(wallet.available_balance)}</p>
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <p className="text-sm text-white/70">Available balance</p>
+                            <p className="mt-1 text-4xl font-bold">{formatPrice(wallet.available_balance)}</p>
+                        </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={refreshBalance}
+                            disabled={refreshing}
+                            className="shrink-0 border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+                        >
+                            <RefreshCw className={`mr-1.5 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                            Refresh
+                        </Button>
+                    </div>
                     <p className="mt-2 text-xs text-white/60">Use your balance at checkout or withdraw to MoMo. Refunds are credited here.</p>
                 </div>
 

@@ -4,9 +4,9 @@ return [
 
     'contact' => [
         'email' => env('MARKETPLACE_SUPPORT_EMAIL', 'support@cityshop.com'),
-        'phone' => env('MARKETPLACE_SUPPORT_PHONE', '+233 30 000 0000'),
-        'whatsapp' => env('MARKETPLACE_SUPPORT_WHATSAPP', '+233 24 000 0000'),
-        'address' => 'Oxford Street, Osu, Accra, Ghana',
+        'phone' => env('MARKETPLACE_SUPPORT_PHONE', '+233 24 862 0718'),
+        'whatsapp' => env('MARKETPLACE_SUPPORT_WHATSAPP', '+233 24 862 0718'),
+        'address' => env('MARKETPLACE_SUPPORT_ADDRESS', 'Sefwi Bekwai, Western North, Ghana'),
         'hours' => 'Monday – Saturday, 8:00 AM – 6:00 PM GMT',
     ],
 
