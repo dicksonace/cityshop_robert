@@ -6,6 +6,7 @@ import {
     LayoutDashboard,
     LogIn,
     LogOut,
+    MapPin,
     Menu,
     MessageCircle,
     Package,
@@ -37,6 +38,7 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
         { label: 'Shop', href: route('home') },
         { label: 'Wallet', href: route('wallet.index'), auth: true, buyerOnly: true },
         { label: 'Wishlist', href: route('wishlist.index'), auth: true, buyerOnly: true },
+        { label: 'Addresses', href: route('addresses.index'), auth: true, buyerOnly: true },
         { label: 'My Orders', href: route('orders.index'), auth: true, buyerOnly: true },
         { label: 'Messages', href: route('chat.index'), auth: true, chat: true },
         { label: 'Contact', href: route('contact') },
@@ -204,6 +206,12 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                                                 <Link href={route('wishlist.index')} className="flex w-full cursor-pointer items-center">
                                                     <Heart className="mr-2 h-4 w-4" />
                                                     Wishlist
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link href={route('addresses.index')} className="flex w-full cursor-pointer items-center">
+                                                    <MapPin className="mr-2 h-4 w-4" />
+                                                    Addresses
                                                 </Link>
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />

@@ -187,7 +187,9 @@ export default function Orders({ purchases, counts, tab }: OrdersProps) {
                                                             Confirm · {pkg.seller_name}
                                                         </Button>
                                                     ))}
-                                            {purchase.payment_status === 'pending' && (
+                                            {purchase.payment_status === 'pending'
+                                                && purchase.status !== 'cancelled'
+                                                && purchase.packages.some((pkg) => pkg.status !== 'cancelled') && (
                                                 <Button
                                                     size="sm"
                                                     className="bg-orange-500 hover:bg-orange-600"

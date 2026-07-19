@@ -28,7 +28,10 @@ class OrderController extends Controller
         $counts = [
             'all' => Checkout::where('buyer_id', $buyerId)->count(),
             'unpaid' => Checkout::where('buyer_id', $buyerId)
-                ->whereHas('orders', fn (Builder $q) => $q->where('payment_status', PaymentStatus::Pending))
+                ->where('status', '!=', OrderStatus::Cancelled)
+                ->whereHas('orders', fn (Builder $q) => $q
+                    ->where('payment_status', PaymentStatus::Pending)
+                    ->where('status', '!=', OrderStatus::Cancelled))
                 ->count(),
             'processing' => Checkout::where('buyer_id', $buyerId)
                 ->whereHas('orders', fn (Builder $q) => $q
@@ -151,7 +154,11 @@ class OrderController extends Controller
     private function applyTabFilter(Builder $query, string $tab, int $buyerId): void
     {
         match ($tab) {
-            'unpaid' => $query->whereHas('orders', fn (Builder $q) => $q->where('payment_status', PaymentStatus::Pending)),
+            'unpaid' => $query
+                ->where('status', '!=', OrderStatus::Cancelled)
+                ->whereHas('orders', fn (Builder $q) => $q
+                    ->where('payment_status', PaymentStatus::Pending)
+                    ->where('status', '!=', OrderStatus::Cancelled)),
             'processing' => $query->whereHas('orders', fn (Builder $q) => $q
                 ->where('payment_status', PaymentStatus::Paid)
                 ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed])),

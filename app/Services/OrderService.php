@@ -485,8 +485,29 @@ class OrderService
     {
         $checkout->load('orders');
 
-        $allPaid = $checkout->orders->every(fn (Order $o) => $o->payment_status === PaymentStatus::Paid);
-        $anyPaid = $checkout->orders->contains(fn (Order $o) => $o->payment_status === PaymentStatus::Paid);
+        if ($checkout->orders->isNotEmpty()
+            && $checkout->orders->every(fn (Order $o) => $o->status === OrderStatus::Cancelled)) {
+            $allRefunded = $checkout->orders->every(fn (Order $o) => $o->payment_status === PaymentStatus::Refunded);
+            $anyPaidOrRefunded = $checkout->orders->contains(fn (Order $o) => in_array($o->payment_status, [
+                PaymentStatus::Paid,
+                PaymentStatus::Refunded,
+            ], true));
+
+            $checkout->update([
+                'status' => OrderStatus::Cancelled,
+                'payment_status' => $allRefunded
+                    ? PaymentStatus::Refunded
+                    : ($anyPaidOrRefunded ? PaymentStatus::Partial : PaymentStatus::Failed),
+            ]);
+
+            return;
+        }
+
+        $openOrders = $checkout->orders->reject(fn (Order $o) => $o->status === OrderStatus::Cancelled);
+        $paymentOrders = $openOrders->isNotEmpty() ? $openOrders : $checkout->orders;
+
+        $allPaid = $paymentOrders->every(fn (Order $o) => $o->payment_status === PaymentStatus::Paid);
+        $anyPaid = $paymentOrders->contains(fn (Order $o) => $o->payment_status === PaymentStatus::Paid);
 
         $checkout->update([
             'payment_status' => $allPaid ? PaymentStatus::Paid : ($anyPaid ? PaymentStatus::Partial : PaymentStatus::Pending),
@@ -814,15 +835,21 @@ class OrderService
         $statuses = $order->items->pluck('status');
 
         if ($statuses->every(fn ($s) => $s === OrderStatus::Cancelled)) {
+            $nextPaymentStatus = match (true) {
+                $order->payment_status === PaymentStatus::Paid,
+                $order->payment_status === PaymentStatus::Refunded => PaymentStatus::Refunded,
+                default => PaymentStatus::Failed,
+            };
+
             $order->update([
                 'status' => OrderStatus::Cancelled,
-                'payment_status' => $order->payment_status === PaymentStatus::Paid
-                    ? PaymentStatus::Refunded
-                    : $order->payment_status,
+                'payment_status' => $nextPaymentStatus,
             ]);
 
             if ($order->checkout_id) {
-                $this->syncCheckoutPaymentStatus($order->checkout);
+                $this->syncCheckoutPaymentStatus(
+                    $order->checkout()->with('orders')->firstOrFail()
+                );
             }
 
             return;

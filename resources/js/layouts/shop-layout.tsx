@@ -74,6 +74,9 @@ export default function ShopLayout({ children, hideHeaderSearch = false }: ShopL
                                         <li>
                                             <Link href={route('wishlist.index')}>Wishlist</Link>
                                         </li>
+                                        <li>
+                                            <Link href={route('addresses.index')}>Addresses</Link>
+                                        </li>
                                     </>
                                 ) : (
                                     <>

@@ -30,6 +30,7 @@ use App\Http\Controllers\Seller\ProductController as SellerProductController;
 use App\Http\Controllers\Seller\ReviewController as SellerReviewController;
 use App\Http\Controllers\Seller\StoreCustomizationController as SellerStoreCustomizationController;
 use App\Http\Controllers\Seller\WalletController as SellerWalletController;
+use App\Http\Controllers\Shop\AddressController;
 use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\CheckoutController;
 use App\Http\Controllers\Shop\CheckoutSessionController;
@@ -90,6 +91,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
     Route::delete('/wishlist/{wishlist}', [WishlistController::class, 'destroy'])->name('wishlist.destroy');
+
+    Route::get('/addresses', [AddressController::class, 'index'])->middleware('buyer.shop')->name('addresses.index');
+    Route::get('/addresses/create', [AddressController::class, 'create'])->middleware('buyer.shop')->name('addresses.create');
+    Route::post('/addresses', [AddressController::class, 'store'])->middleware('buyer.shop')->name('addresses.store');
+    Route::get('/addresses/{address}/edit', [AddressController::class, 'edit'])->middleware('buyer.shop')->name('addresses.edit');
+    Route::put('/addresses/{address}', [AddressController::class, 'update'])->middleware('buyer.shop')->name('addresses.update');
+    Route::delete('/addresses/{address}', [AddressController::class, 'destroy'])->middleware('buyer.shop')->name('addresses.destroy');
+    Route::post('/addresses/{address}/default', [AddressController::class, 'setDefault'])->middleware('buyer.shop')->name('addresses.default');
 
     Route::get('/wallet', [BuyerWalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet/add-funds', [BuyerWalletController::class, 'addFunds'])->name('wallet.add-funds');

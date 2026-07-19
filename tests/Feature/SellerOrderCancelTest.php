@@ -200,4 +200,81 @@ class SellerOrderCancelTest extends TestCase
 
         $this->assertSame(OrderStatus::Shipped, $item->fresh()->status);
     }
+
+    public function test_cancelling_unpaid_direct_order_marks_order_cancelled_not_pending(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = $this->approvedSeller();
+
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Electric bike',
+            'slug' => 'bike-'.uniqid(),
+            'price' => 150,
+            'quantity' => 2,
+            'status' => ProductStatus::Approved,
+        ]);
+
+        $checkout = Checkout::create([
+            'checkout_number' => 'CHK'.uniqid(),
+            'buyer_id' => $buyer->id,
+            'status' => OrderStatus::Pending,
+            'payment_status' => PaymentStatus::Pending,
+            'receiver_name' => 'Buyer',
+            'receiver_phone' => '0240000000',
+            'region' => 'Western North',
+            'city' => 'Bibiani',
+            'subtotal' => 150,
+            'shipping_cost' => 200,
+            'total' => 350,
+        ]);
+
+        $order = Order::create([
+            'checkout_id' => $checkout->id,
+            'order_number' => Order::generateOrderNumber(),
+            'buyer_id' => $buyer->id,
+            'seller_id' => $seller->id,
+            'status' => OrderStatus::Pending,
+            'payment_status' => PaymentStatus::Pending,
+            'payment_channel' => PaymentChannel::Direct,
+            'payment_method' => 'direct',
+            'receiver_name' => 'Buyer',
+            'receiver_phone' => '0240000000',
+            'region' => 'Western North',
+            'city' => 'Bibiani',
+            'subtotal' => 150,
+            'shipping_cost' => 200,
+            'commission_amount' => 0,
+            'total' => 350,
+        ]);
+
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'seller_id' => $seller->id,
+            'product_name' => 'Electric bike',
+            'quantity' => 1,
+            'unit_price' => 150,
+            'commission_rate' => 0,
+            'commission_amount' => 0,
+            'seller_amount' => 150,
+            'status' => OrderStatus::Pending,
+        ]);
+
+        $this->actingAs($seller)
+            ->post(route('seller.orders.reject', $item), [
+                'cancellation_code' => 'other',
+                'rejection_reason' => 'not pay',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $order->refresh();
+        $checkout->refresh();
+
+        $this->assertSame(OrderStatus::Cancelled, $item->fresh()->status);
+        $this->assertSame(OrderStatus::Cancelled, $order->status);
+        $this->assertSame(PaymentStatus::Failed, $order->payment_status);
+        $this->assertSame(OrderStatus::Cancelled, $checkout->status);
+        $this->assertSame(PaymentStatus::Failed, $checkout->payment_status);
+    }
 }

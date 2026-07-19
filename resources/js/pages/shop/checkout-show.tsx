@@ -167,7 +167,17 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Purchase {checkout.checkout_number}</h1>
                         <p className="mt-1 text-sm text-gray-500">
-                            Payment: <span className="capitalize">{checkout.payment_status}</span>
+                            {checkout.status === 'cancelled' ? (
+                                <>
+                                    Status: <span className="font-medium text-red-700">Cancelled</span>
+                                    {' · '}
+                                    Payment: <span className="capitalize">{checkout.payment_status === 'failed' ? 'not paid' : checkout.payment_status}</span>
+                                </>
+                            ) : (
+                                <>
+                                    Payment: <span className="capitalize">{checkout.payment_status}</span>
+                                </>
+                            )}
                             {' · '}
                             {checkout.orders.length === 1
                                 ? '1 package'
@@ -244,11 +254,17 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold text-orange-500">{formatPrice(order.total)}</p>
-                                        <p className="text-xs capitalize text-gray-500">
-                                            {order.payment_channel === 'direct' ? 'Direct payment' : 'CityShop payment'} ·{' '}
-                                            {order.payment_status}
-                                        </p>
-                                        <p className="mt-1 text-xs font-medium text-gray-700">{formatOrderStatus(order.status)}</p>
+                                        {order.status === 'cancelled' ? (
+                                            <p className="mt-1 text-xs font-medium text-red-700">Cancelled</p>
+                                        ) : (
+                                            <>
+                                                <p className="text-xs capitalize text-gray-500">
+                                                    {order.payment_channel === 'direct' ? 'Direct payment' : 'CityShop payment'} ·{' '}
+                                                    {order.payment_status}
+                                                </p>
+                                                <p className="mt-1 text-xs font-medium text-gray-700">{formatOrderStatus(order.status)}</p>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 

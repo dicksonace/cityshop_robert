@@ -252,6 +252,12 @@ export function orderStatusMessage(order: {
     status: string;
     items?: { status: string; driver_phone?: string | null; vehicle_number?: string | null }[];
 }): string {
+    const allItemsCancelled =
+        (order.items?.length ?? 0) > 0 && order.items!.every((i) => i.status === 'cancelled');
+
+    if (order.status === 'cancelled' || allItemsCancelled) {
+        return 'Order cancelled';
+    }
     if (order.payment_status === 'pending') {
         return 'Waiting for payment';
     }
@@ -276,9 +282,6 @@ export function orderStatusMessage(order: {
     }
     if (order.status === 'refunded' || order.payment_status === 'refunded') {
         return 'Refund processed';
-    }
-    if (order.status === 'cancelled') {
-        return 'Order cancelled';
     }
     return 'Processing your order';
 }

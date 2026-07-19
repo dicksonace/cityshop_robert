@@ -1,6 +1,6 @@
-import { Head, Link, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { LoaderCircle, MapPin, Pencil } from 'lucide-react';
+import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
 import { CartItem, formatPrice, productImageUrl, Wallet } from '@/types/marketplace';
-import { User } from '@/types';
+import { BuyerAddress } from '@/types/buyer-address';
 
 interface SellerPaymentMethod {
     id: number;
@@ -41,11 +41,23 @@ interface CheckoutProps {
     subtotal: number;
     shippingTotal: number;
     grandTotal: number;
-    user: User;
     wallet: Wallet;
+    addresses: BuyerAddress[];
+    selectedAddressId: number | null;
 }
 
-export default function Checkout({ sellerGroups, subtotal, shippingTotal, grandTotal, user, wallet }: CheckoutProps) {
+export default function Checkout({
+    sellerGroups,
+    subtotal,
+    shippingTotal,
+    grandTotal,
+    wallet,
+    addresses,
+    selectedAddressId,
+}: CheckoutProps) {
+    const [pickingAddress, setPickingAddress] = useState(false);
+    const [activeAddressId, setActiveAddressId] = useState<number | null>(selectedAddressId);
+
     const initialSellerPayments: Record<string, { channel: string; method_id?: number }> = {};
     sellerGroups.forEach((group) => {
         if (group.accept_direct_payments && !group.accept_marketplace_payments) {
@@ -58,17 +70,19 @@ export default function Checkout({ sellerGroups, subtotal, shippingTotal, grandT
         }
     });
 
-    const { data, setData, post, processing, errors } = useForm({
-        receiver_name: user.name || '',
-        receiver_phone: (user.mobile as string) || '',
-        region: (user.region as string) || '',
-        city: (user.city as string) || '',
-        digital_address: (user.digital_address as string) || '',
-        delivery_notes: '',
+    const { data, setData, errors } = useForm({
+        address_id: selectedAddressId,
         payment_method: 'momo',
         seller_payments: initialSellerPayments,
         seller_coupons: {} as Record<string, string>,
     });
+    const [submitting, setSubmitting] = useState(false);
+
+    const selected =
+        addresses.find((a) => a.id === (activeAddressId ?? data.address_id))
+        ?? addresses.find((a) => a.is_default)
+        ?? addresses[0]
+        ?? null;
 
     const setSellerChannel = (sellerId: number, channel: string, methodId?: number) => {
         setData('seller_payments', {
@@ -77,9 +91,29 @@ export default function Checkout({ sellerGroups, subtotal, shippingTotal, grandT
         });
     };
 
+    const chooseAddress = (id: number) => {
+        setActiveAddressId(id);
+        setData('address_id', id);
+        setPickingAddress(false);
+    };
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('checkout.store'));
+        if (! selected) {
+            router.visit(route('addresses.create', { return: 'checkout' }));
+            return;
+        }
+        setSubmitting(true);
+        router.post(
+            route('checkout.store'),
+            {
+                address_id: selected.id,
+                payment_method: data.payment_method,
+                seller_payments: data.seller_payments,
+                seller_coupons: data.seller_coupons,
+            },
+            { onFinish: () => setSubmitting(false) },
+        );
     };
 
     const marketplaceTotal = sellerGroups.reduce((sum, group) => {
@@ -104,36 +138,99 @@ export default function Checkout({ sellerGroups, subtotal, shippingTotal, grandT
 
                 <form onSubmit={submit} className="mt-6 grid gap-8 lg:grid-cols-2">
                     <div className="space-y-6">
-                        <div className="space-y-4 rounded-xl bg-white p-6 shadow-sm">
-                            <h2 className="font-semibold text-gray-900">Delivery Details</h2>
-                            <div>
-                                <Label>Receiver Name</Label>
-                                <Input value={data.receiver_name} onChange={(e) => setData('receiver_name', e.target.value)} required className="mt-1" />
-                                <InputError message={errors.receiver_name} />
+                        <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
+                            <div className="flex items-center justify-between gap-2">
+                                <h2 className="flex items-center gap-2 font-semibold text-gray-900">
+                                    <MapPin className="h-4 w-4 text-orange-500" />
+                                    Ship to
+                                </h2>
+                                {addresses.length > 0 && (
+                                    <button
+                                        type="button"
+                                        className="text-sm font-medium text-orange-600 hover:underline"
+                                        onClick={() => setPickingAddress((v) => !v)}
+                                    >
+                                        {pickingAddress ? 'Done' : 'Change address'}
+                                    </button>
+                                )}
                             </div>
-                            <div>
-                                <Label>Phone Number</Label>
-                                <Input value={data.receiver_phone} onChange={(e) => setData('receiver_phone', e.target.value)} required className="mt-1" />
-                                <InputError message={errors.receiver_phone} />
-                            </div>
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <div>
-                                    <Label>Region</Label>
-                                    <Input value={data.region} onChange={(e) => setData('region', e.target.value)} required className="mt-1" />
+
+                            {! selected ? (
+                                <div className="mt-4 text-center">
+                                    <p className="text-sm text-gray-500">Add a delivery address to continue.</p>
+                                    <Button asChild className="mt-4 bg-orange-500 hover:bg-orange-600">
+                                        <Link href={route('addresses.create', { return: 'checkout' })}>Add address</Link>
+                                    </Button>
                                 </div>
-                                <div>
-                                    <Label>City</Label>
-                                    <Input value={data.city} onChange={(e) => setData('city', e.target.value)} required className="mt-1" />
+                            ) : pickingAddress ? (
+                                <ul className="mt-4 space-y-2">
+                                    {addresses.map((address) => (
+                                        <li key={address.id}>
+                                            <button
+                                                type="button"
+                                                onClick={() => chooseAddress(address.id)}
+                                                className={`w-full rounded-lg border p-3 text-left text-sm transition ${
+                                                    selected.id === address.id
+                                                        ? 'border-orange-400 bg-orange-50'
+                                                        : 'border-gray-100 hover:border-orange-200'
+                                                }`}
+                                            >
+                                                <p className="font-medium text-gray-900">
+                                                    {address.full_name}
+                                                    {address.is_default ? ' · Default' : ''}
+                                                </p>
+                                                <p className="mt-0.5 text-gray-600">{address.address_line}</p>
+                                                <p className="text-gray-500">
+                                                    {address.city}, {address.region} · {address.phone}
+                                                </p>
+                                            </button>
+                                        </li>
+                                    ))}
+                                    <li>
+                                        <Link
+                                            href={route('addresses.create', { return: 'checkout' })}
+                                            className="block rounded-lg border border-dashed border-orange-200 p-3 text-center text-sm font-medium text-orange-600 hover:bg-orange-50"
+                                        >
+                                            + Add new address
+                                        </Link>
+                                    </li>
+                                </ul>
+                            ) : (
+                                <div className="mt-4 space-y-1 text-sm text-gray-700">
+                                    <p>
+                                        <span className="text-gray-500">Name:</span> {selected.full_name}
+                                    </p>
+                                    <p>
+                                        <span className="text-gray-500">Zone:</span> {selected.region}
+                                    </p>
+                                    <p>
+                                        <span className="text-gray-500">Town:</span> {selected.city}
+                                    </p>
+                                    <p>
+                                        <span className="text-gray-500">Address:</span> {selected.address_line}
+                                    </p>
+                                    {selected.additional_details && (
+                                        <p>
+                                            <span className="text-gray-500">Details:</span> {selected.additional_details}
+                                        </p>
+                                    )}
+                                    <p>
+                                        <span className="text-gray-500">Mobile:</span> {selected.phone}
+                                    </p>
+                                    {selected.secondary_phone && (
+                                        <p>
+                                            <span className="text-gray-500">Secondary mobile:</span> {selected.secondary_phone}
+                                        </p>
+                                    )}
+                                    <Button asChild size="sm" variant="outline" className="mt-3">
+                                        <Link href={route('addresses.edit', { address: selected.id, return: 'checkout' })}>
+                                            <Pencil className="mr-1 h-3.5 w-3.5" />
+                                            Edit address
+                                        </Link>
+                                    </Button>
                                 </div>
-                            </div>
-                            <div>
-                                <Label>Digital Address</Label>
-                                <Input value={data.digital_address} onChange={(e) => setData('digital_address', e.target.value)} className="mt-1" />
-                            </div>
-                            <div>
-                                <Label>Delivery Notes</Label>
-                                <Input value={data.delivery_notes} onChange={(e) => setData('delivery_notes', e.target.value)} className="mt-1" />
-                            </div>
+                            )}
+                            <InputError message={errors.address_id} className="mt-2" />
                         </div>
 
                         <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -294,8 +391,12 @@ export default function Checkout({ sellerGroups, subtotal, shippingTotal, grandT
                                     <span className="text-orange-500">{formatPrice(grandTotal)}</span>
                                 </div>
                             </div>
-                            <Button type="submit" disabled={processing} className="mt-6 w-full bg-orange-500 py-6 hover:bg-orange-600">
-                                {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                            <Button
+                                type="submit"
+                                disabled={submitting || !selected}
+                                className="mt-6 w-full bg-orange-500 py-6 hover:bg-orange-600"
+                            >
+                                {submitting && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
                                 {data.payment_method === 'cash'
                                     ? 'Place Order'
                                     : data.payment_method === 'wallet'

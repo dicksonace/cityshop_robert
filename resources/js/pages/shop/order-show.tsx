@@ -130,8 +130,30 @@ function RefundStatus({ dispute }: { dispute: { id: number; status: string; reas
 }
 
 export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }: OrderShowProps & { checkoutNumber?: string | null; checkoutId?: number | null }) {
-    const paymentPending = order.payment_status === 'pending';
+    const isCancelled =
+        order.status === 'cancelled'
+        || (order.items?.length > 0 && order.items.every((item) => item.status === 'cancelled'));
+    const paymentPending = order.payment_status === 'pending' && ! isCancelled;
     const primaryStatus = order.items?.[0]?.status ?? order.status;
+
+    const headerBadge = (() => {
+        if (isCancelled) {
+            return { label: 'Cancelled', className: 'bg-red-100 text-red-800' };
+        }
+        if (order.payment_status === 'paid') {
+            return { label: 'Paid', className: 'bg-green-100 text-green-800' };
+        }
+        if (order.payment_status === 'refunded') {
+            return { label: 'Refunded', className: 'bg-blue-100 text-blue-800' };
+        }
+        if (order.payment_status === 'failed') {
+            return { label: 'Not paid', className: 'bg-gray-100 text-gray-700' };
+        }
+        return {
+            label: order.payment_status,
+            className: 'bg-yellow-100 text-yellow-800',
+        };
+    })();
 
     return (
         <ShopLayout>
@@ -162,10 +184,8 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                             <h1 className="text-xl font-bold text-gray-900">{order.order_number}</h1>
                             <p className="text-sm text-gray-500">Placed on {new Date(order.created_at).toLocaleString()}</p>
                         </div>
-                        <span className={`rounded-full px-3 py-1 text-sm font-medium capitalize ${
-                            order.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                            {order.payment_status}
+                        <span className={`rounded-full px-3 py-1 text-sm font-medium capitalize ${headerBadge.className}`}>
+                            {headerBadge.label}
                         </span>
                     </div>
 

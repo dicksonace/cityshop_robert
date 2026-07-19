@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Shop;
 
+use App\Enums\OrderStatus;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Models\BuyerAddress;
 use App\Models\Checkout;
 use App\Models\Order;
 use App\Services\OrderService;
@@ -52,6 +54,19 @@ class CheckoutController extends Controller
 
         $shippingTotal = $sellerGroups->sum('shipping_cost');
 
+        $addresses = $request->user()
+            ->buyerAddresses()
+            ->orderByDesc('is_default')
+            ->latest()
+            ->get()
+            ->map->toInertia()
+            ->values();
+
+        $selectedId = $request->integer('address') ?: null;
+        $selected = $addresses->firstWhere('id', $selectedId)
+            ?? $addresses->firstWhere('is_default', true)
+            ?? $addresses->first();
+
         return Inertia::render('shop/checkout', [
             'sellerGroups' => $sellerGroups,
             'subtotal' => $subtotal,
@@ -60,18 +75,15 @@ class CheckoutController extends Controller
             'user' => $request->user(),
             'wallet' => WalletService::ensure($request->user()),
             'paystackPublicKey' => config('services.paystack.public_key'),
+            'addresses' => $addresses,
+            'selectedAddressId' => $selected['id'] ?? null,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'receiver_name' => ['required', 'string', 'max:255'],
-            'receiver_phone' => ['required', 'string', 'max:20'],
-            'region' => ['required', 'string', 'max:100'],
-            'city' => ['required', 'string', 'max:100'],
-            'digital_address' => ['nullable', 'string', 'max:100'],
-            'delivery_notes' => ['nullable', 'string', 'max:500'],
+        $request->validate([
+            'address_id' => ['required', 'integer'],
             'payment_method' => ['required', 'in:momo,card,cash,wallet'],
             'seller_payments' => ['nullable', 'array'],
             'seller_payments.*.channel' => ['required_with:seller_payments', 'in:marketplace,direct'],
@@ -80,13 +92,20 @@ class CheckoutController extends Controller
             'seller_coupons.*' => ['nullable', 'string', 'max:30'],
         ]);
 
+        $address = BuyerAddress::query()
+            ->whereKey($request->integer('address_id'))
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        $shipping = $address->toShippingArray();
+
         try {
             $checkout = $this->orderService->createCheckoutFromCart(
                 $request->user(),
-                $validated,
-                $validated['payment_method'],
-                $validated['seller_payments'] ?? [],
-                $validated['seller_coupons'] ?? [],
+                $shipping,
+                $request->string('payment_method')->toString(),
+                $request->input('seller_payments', []),
+                $request->input('seller_coupons', []),
             );
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
@@ -94,14 +113,14 @@ class CheckoutController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        if ($validated['payment_method'] === 'cash') {
+        if ($request->string('payment_method')->toString() === 'cash') {
             $this->orderService->confirmCashOnDelivery($checkout);
 
             return redirect()->route('checkouts.show', $checkout)
                 ->with('success', 'Order placed! Pay on delivery.');
         }
 
-        if ($validated['payment_method'] === 'wallet') {
+        if ($request->string('payment_method')->toString() === 'wallet') {
             try {
                 $this->orderService->payCheckoutWithWallet($checkout, $request->user());
             } catch (ValidationException $e) {
@@ -133,12 +152,19 @@ class CheckoutController extends Controller
 
         $checkout->load(['orders.items', 'orders.sellerPaymentMethod', 'orders.seller.sellerProfile']);
 
+        if ($checkout->status === OrderStatus::Cancelled
+            || $checkout->orders->every(fn ($o) => $o->status === OrderStatus::Cancelled)) {
+            return redirect()->route('checkouts.show', $checkout)
+                ->with('error', 'This order was cancelled. Payment is no longer required.');
+        }
+
         $marketplaceTotal = $checkout->orders
             ->where('payment_channel', PaymentChannel::Marketplace)
             ->sum('total');
 
         $directOrders = $checkout->orders
             ->where('payment_channel', PaymentChannel::Direct)
+            ->reject(fn ($o) => $o->status === OrderStatus::Cancelled)
             ->values();
 
         return Inertia::render('shop/payment', [
@@ -229,6 +255,11 @@ class CheckoutController extends Controller
 
         if ($order->payment_status === PaymentStatus::Paid) {
             return back()->with('error', 'This payment is already confirmed.');
+        }
+
+        if ($order->status === OrderStatus::Cancelled
+            || $order->items()->where('status', '!=', OrderStatus::Cancelled)->doesntExist()) {
+            return back()->with('error', 'This order was cancelled. You cannot submit payment.');
         }
 
         $validated = $request->validate([
