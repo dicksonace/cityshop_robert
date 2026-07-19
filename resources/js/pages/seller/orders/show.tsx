@@ -553,10 +553,27 @@ export default function SellerOrderShow({
                     </div>
 
                     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                        <h3 className="font-semibold text-gray-900">Customer payment (manual)</h3>
-                        <p className="mt-2 text-sm capitalize text-gray-600">
-                            {order.payment_channel === 'direct' ? 'Pay to seller' : 'CityShop'} · {order.payment_status}
-                        </p>
+                        {order.payment_channel === 'direct' ? (
+                            <>
+                                <h3 className="font-semibold text-gray-900">Customer payment (manual)</h3>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    Pay to seller · <span className="capitalize">{order.payment_status}</span>
+                                </p>
+                                <p className="mt-1 text-xs text-amber-700">
+                                    Buyer pays you directly (MoMo/bank). Confirm only if you received the money.
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className="font-semibold text-gray-900">Automatic Pay</h3>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    Secured payment to CityShop · <span className="capitalize">{order.payment_status}</span>
+                                </p>
+                                <p className="mt-1 text-xs text-emerald-700">
+                                    Buyer paid through CityShop (Paystack / wallet). Funds settle via your seller wallet.
+                                </p>
+                            </>
+                        )}
                         {order.direct_payment_reference && (
                             <p className="mt-1 text-xs text-gray-500">Ref: {order.direct_payment_reference}</p>
                         )}
