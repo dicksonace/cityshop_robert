@@ -264,7 +264,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                                         }}
                                         onInput={(e) => setData('name', (e.target as HTMLInputElement).value)}
                                         className="mt-1"
-                                        placeholder="e.g. Itel power switch"
+                                        placeholder="E.g. iPhone 17 Pro Max"
                                         autoComplete="off"
                                     />
                                     <InputError message={errors.name} />

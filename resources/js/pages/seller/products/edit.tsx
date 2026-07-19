@@ -135,7 +135,13 @@ export default function EditProduct({ product, categories }: EditProductProps) {
 
                 <div>
                     <Label>Product Name</Label>
-                    <Input value={data.name} onChange={(e) => setData('name', e.target.value)} required className="mt-1" />
+                    <Input
+                        value={data.name}
+                        onChange={(e) => setData('name', e.target.value)}
+                        required
+                        className="mt-1"
+                        placeholder="E.g. iPhone 17 Pro Max"
+                    />
                     <InputError message={errors.name} />
                 </div>
                 <div>
