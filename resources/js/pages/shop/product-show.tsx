@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { MapPin, MessageSquare, Package, ShoppingBag, Store, Truck } from 'lucide-react';
 
 import ProductCard from '@/components/shop/product-card';
@@ -23,12 +23,15 @@ interface ProductShowProps {
 }
 
 export default function ProductShow({ product, related, reviews, reviewable }: ProductShowProps) {
-    const { auth } = usePage<SharedData>().props;
+    const { auth, canShop = true } = usePage<SharedData>().props;
     const price = product.discount_price ?? product.price;
 
     const handleAddToCart = () => {
         if (!auth.user) {
             router.visit(route('login'));
+            return;
+        }
+        if (!canShop) {
             return;
         }
         addProductToCart(product.id);
@@ -37,6 +40,9 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
     const handleRelatedAddToCart = (productId: number) => {
         if (!auth.user) {
             router.visit(route('login'));
+            return;
+        }
+        if (!canShop) {
             return;
         }
         addProductToCart(productId);
@@ -220,25 +226,52 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                             />
                         )}
 
-                        <div className="mt-6 grid grid-cols-2 gap-2">
-                            <Button
-                                onClick={handleAddToCart}
-                                className="w-full bg-orange-500 py-4 text-sm hover:bg-orange-600 sm:py-6 sm:text-lg"
-                            >
-                                <ShoppingBag className="mr-1.5 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-                                Add to Cart
-                            </Button>
-                            {product.seller && auth.user?.id !== product.seller.id ? (
-                                <MessageSellerButton
-                                    sellerId={product.seller.id}
-                                    productId={product.id}
-                                    label="Chat Seller"
-                                    className="w-full py-4 text-sm sm:py-6 sm:text-lg"
-                                />
+                        <div className="mt-6 space-y-3">
+                            {!canShop && auth.user ? (
+                                <>
+                                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                        <p className="font-semibold">Seller accounts cannot buy products</p>
+                                        <p className="mt-1 text-amber-800/90">
+                                            Use a buyer account to shop. You can still manage your store from Seller Centre.
+                                        </p>
+                                        <Link
+                                            href={route('seller.dashboard')}
+                                            className="mt-2 inline-flex text-sm font-semibold text-orange-600 hover:underline"
+                                        >
+                                            Go to Seller Centre →
+                                        </Link>
+                                    </div>
+                                    {product.seller && auth.user.id !== product.seller.id && (
+                                        <MessageSellerButton
+                                            sellerId={product.seller.id}
+                                            productId={product.id}
+                                            label="Chat Seller"
+                                            className="w-full py-3 text-sm"
+                                        />
+                                    )}
+                                </>
                             ) : (
-                                <div />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        onClick={handleAddToCart}
+                                        className="w-full bg-orange-500 py-4 text-sm hover:bg-orange-600 sm:py-6 sm:text-lg"
+                                    >
+                                        <ShoppingBag className="mr-1.5 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
+                                        Add to Cart
+                                    </Button>
+                                    {product.seller && auth.user?.id !== product.seller.id ? (
+                                        <MessageSellerButton
+                                            sellerId={product.seller.id}
+                                            productId={product.id}
+                                            label="Chat Seller"
+                                            className="w-full py-4 text-sm sm:py-6 sm:text-lg"
+                                        />
+                                    ) : (
+                                        <div />
+                                    )}
+                                </div>
                             )}
-                            <div className="col-span-2 flex justify-center sm:justify-start">
+                            <div className="flex justify-center sm:justify-start">
                                 <WishlistButton productId={product.id} size="md" />
                             </div>
                         </div>

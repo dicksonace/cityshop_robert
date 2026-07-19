@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Services\ProductDiscoveryService;
 use App\Services\ProductSearchService;
+use App\Support\InfiniteScroll;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,7 +20,7 @@ class SearchController extends Controller
         private ProductSearchService $search,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|JsonResponse
     {
         $search = trim((string) $request->get('q', $request->get('search', '')));
 
@@ -36,7 +37,11 @@ class SearchController extends Controller
         $rankingSeed = $this->discovery->resolveRandomSeed($request);
         $this->discovery->applySort($query, $sort, $rankingSeed, $request->user());
 
-        $products = $query->paginate(24)->withQueryString();
+        $products = $query->paginate(20)->withQueryString();
+
+        if (InfiniteScroll::wants($request)) {
+            return InfiniteScroll::json($products);
+        }
 
         $categories = Category::where('is_active', true)
             ->withCount(['products' => fn ($q) => $q->visibleInShop()])
@@ -51,6 +56,7 @@ class SearchController extends Controller
             'categories' => $categories,
             'query' => $search,
             'sort' => $sort,
+            'category' => $request->get('category') ? (string) $request->get('category') : '',
         ]);
     }
 

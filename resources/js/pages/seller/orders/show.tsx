@@ -27,6 +27,7 @@ interface OrderShowProps {
             payment_channel?: string;
             direct_payment_reference?: string | null;
             direct_payment_proof_path?: string | null;
+            direct_payment_rejection_reason?: string | null;
             receiver_name: string;
             receiver_phone: string;
             city: string;
@@ -72,6 +73,7 @@ export default function SellerOrderShow({
     const deliverySectionRef = useRef<HTMLDivElement>(null);
     const [advancing, setAdvancing] = useState(false);
     const [showCancel, setShowCancel] = useState(false);
+    const [showRejectPayment, setShowRejectPayment] = useState(false);
     const cancelSectionRef = useRef<HTMLDivElement>(null);
     const form = useForm({
         status: itemStatus,
@@ -82,6 +84,9 @@ export default function SellerOrderShow({
     const cancelForm = useForm({
         cancellation_code: 'out_of_stock',
         rejection_reason: '',
+    });
+    const rejectPaymentForm = useForm({
+        reason: '',
     });
 
     useEffect(() => {
@@ -199,6 +204,21 @@ export default function SellerOrderShow({
         cancelForm.post(route('seller.orders.reject', orderItem.id), {
             preserveScroll: true,
             onSuccess: () => setShowCancel(false),
+        });
+    };
+
+    const hasPaymentClaim = Boolean(order.direct_payment_reference || order.direct_payment_proof_path);
+    const needsPaymentReview =
+        order.payment_channel === 'direct' && order.payment_status === 'pending' && hasPaymentClaim;
+
+    const submitRejectPayment: FormEventHandler = (e) => {
+        e.preventDefault();
+        rejectPaymentForm.post(route('seller.orders.reject-direct-payment', order.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setShowRejectPayment(false);
+                rejectPaymentForm.reset();
+            },
         });
     };
 
@@ -533,9 +553,13 @@ export default function SellerOrderShow({
                     </div>
 
                     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                        <h3 className="font-semibold text-gray-900">Payment</h3>
-                        <p className="mt-2 text-sm capitalize text-gray-600">{order.payment_channel === 'direct' ? 'Direct payment' : 'CityShop'} · {order.payment_status}</p>
-                        {order.direct_payment_reference && <p className="mt-1 text-xs text-gray-500">Ref: {order.direct_payment_reference}</p>}
+                        <h3 className="font-semibold text-gray-900">Customer payment (manual)</h3>
+                        <p className="mt-2 text-sm capitalize text-gray-600">
+                            {order.payment_channel === 'direct' ? 'Pay to seller' : 'CityShop'} · {order.payment_status}
+                        </p>
+                        {order.direct_payment_reference && (
+                            <p className="mt-1 text-xs text-gray-500">Ref: {order.direct_payment_reference}</p>
+                        )}
                         {order.direct_payment_proof_path && (
                             <a
                                 href={productImageUrl(order.direct_payment_proof_path)}
@@ -551,10 +575,64 @@ export default function SellerOrderShow({
                                 <p className="mt-1 text-xs text-orange-600 hover:underline">View payment screenshot</p>
                             </a>
                         )}
-                        {order.payment_channel === 'direct' && order.payment_status === 'pending' && (
-                            <Button className="mt-3 w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => router.post(route('seller.orders.confirm-direct-payment', order.id))}>
-                                Confirm payment received
-                            </Button>
+                        {order.payment_channel === 'direct' && order.payment_status === 'pending' && !hasPaymentClaim && (
+                            <p className="mt-3 text-sm text-amber-700">Waiting for the buyer to submit their payment claim.</p>
+                        )}
+                        {needsPaymentReview && (
+                            <div className="mt-3 space-y-2">
+                                <p className="text-xs text-amber-800">
+                                    Confirm only if you received the money. Reject if the buyer claimed payment but you did not get paid.
+                                </p>
+                                <Button
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700"
+                                    onClick={() => router.post(route('seller.orders.confirm-direct-payment', order.id))}
+                                >
+                                    Confirm payment received
+                                </Button>
+                                {!showRejectPayment ? (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full border-red-200 text-red-600 hover:bg-red-50"
+                                        onClick={() => setShowRejectPayment(true)}
+                                    >
+                                        Reject payment claim
+                                    </Button>
+                                ) : (
+                                    <form onSubmit={submitRejectPayment} className="space-y-2 rounded-xl border border-red-100 bg-red-50 p-3">
+                                        <Label htmlFor="reject-payment-reason">Why are you rejecting?</Label>
+                                        <Input
+                                            id="reject-payment-reason"
+                                            placeholder="e.g. Money not received on MoMo"
+                                            value={rejectPaymentForm.data.reason}
+                                            onChange={(e) => rejectPaymentForm.setData('reason', e.target.value)}
+                                            required
+                                            minLength={5}
+                                        />
+                                        <InputError message={rejectPaymentForm.errors.reason} />
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="submit"
+                                                disabled={rejectPaymentForm.processing}
+                                                className="flex-1 bg-red-600 hover:bg-red-700"
+                                            >
+                                                {rejectPaymentForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                                Reject claim
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setShowRejectPayment(false);
+                                                    rejectPaymentForm.reset();
+                                                }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>

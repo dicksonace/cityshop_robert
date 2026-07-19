@@ -64,6 +64,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user ? $user->load('sellerProfile') : null,
             ],
+            'canShop' => $user ? ! $user->isSeller() : true,
             'cartCount' => $cartCount,
             'wishlistProductIds' => $wishlistProductIds,
             'wishlistCount' => $wishlistCount,

@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Plus, ShoppingBag, Truck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import RatingDisplay from '@/components/shop/rating-display';
 import SellerStoreLink from '@/components/shop/seller-store-link';
 import WishlistButton from '@/components/shop/wishlist-button';
 import { formatPrice, Product, productImageUrl } from '@/types/marketplace';
+import { SharedData } from '@/types';
 
 interface ProductCardProps {
     product: Product;
@@ -14,11 +15,13 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, onAddToCart, variant = 'grid' }: ProductCardProps) {
+    const { canShop = true } = usePage<SharedData>().props;
     const price = product.discount_price ?? product.price;
     const hasDiscount = product.discount_price && product.discount_price < product.price;
     const discountPct = hasDiscount ? Math.round((1 - product.discount_price! / product.price) * 100) : 0;
     const image = product.images?.[0];
     const sellerName = product.seller?.seller_profile?.business_name ?? product.seller?.name;
+    const showAdd = Boolean(onAddToCart) && canShop;
 
     if (variant === 'list') {
         return (
@@ -57,8 +60,8 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
                             <p className="text-lg font-bold text-orange-500 sm:text-xl">{formatPrice(price)}</p>
                             {hasDiscount && <p className="text-sm text-gray-400 line-through">{formatPrice(product.price)}</p>}
                         </div>
-                        {onAddToCart && (
-                            <Button onClick={() => onAddToCart(product.id)} size="sm" className="bg-orange-500 hover:bg-orange-600 sm:size-default">
+                        {showAdd && (
+                            <Button onClick={() => onAddToCart?.(product.id)} size="sm" className="bg-orange-500 hover:bg-orange-600 sm:size-default">
                                 <ShoppingBag className="h-4 w-4 sm:mr-2" />
                                 <span className="hidden sm:inline">Add to Cart</span>
                             </Button>
@@ -128,11 +131,11 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
                     </div>
                     <div className="flex shrink-0 gap-0.5 sm:gap-1">
                         <WishlistButton productId={product.id} />
-                        {onAddToCart && (
+                        {showAdd && (
                             <Button
                                 size="icon"
                                 className="h-7 w-7 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm hover:from-orange-600 hover:to-orange-700 sm:h-8 sm:w-8"
-                                onClick={() => onAddToCart(product.id)}
+                                onClick={() => onAddToCart?.(product.id)}
                             >
                                 <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Button>

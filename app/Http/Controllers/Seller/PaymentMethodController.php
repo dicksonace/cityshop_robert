@@ -97,6 +97,21 @@ class PaymentMethodController extends Controller
 
         $orders->confirmDirectPayment($order, $request->user());
 
-        return back()->with('success', 'Direct payment confirmed. You can now process the order.');
+        return back()->with('success', 'Customer manual payment confirmed. You can now process the order.');
+    }
+
+    public function rejectDirectPayment(Request $request, Order $order, OrderService $orders): RedirectResponse
+    {
+        abort_unless($order->seller_id === $request->user()->id, 403);
+        abort_unless($order->payment_channel === PaymentChannel::Direct, 422);
+        abort_unless($order->payment_status === PaymentStatus::Pending, 422);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        $orders->rejectDirectPayment($order, $request->user(), $validated['reason']);
+
+        return back()->with('success', 'Payment claim rejected. The buyer can submit a new payment reference.');
     }
 }

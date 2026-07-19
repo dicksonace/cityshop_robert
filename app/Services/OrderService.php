@@ -18,6 +18,7 @@ use App\Models\SellerPaymentMethod;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Notifications\DirectPaymentRejectedNotification;
 use App\Notifications\OrderPlacedNotification;
 use App\Notifications\OrderStatusUpdatedNotification;
 use App\Notifications\PaymentConfirmedNotification;
@@ -39,6 +40,10 @@ class OrderService
      */
     public function createCheckoutFromCart(User $buyer, array $shipping, string $paymentMethod, array $sellerPayments = [], array $sellerCoupons = []): Checkout
     {
+        if ($buyer->isSeller()) {
+            throw new \RuntimeException(\App\Http\Middleware\PreventSellerShopping::MESSAGE);
+        }
+
         return DB::transaction(function () use ($buyer, $shipping, $paymentMethod, $sellerPayments, $sellerCoupons) {
             $cartItems = CartItem::with(['product.seller.sellerProfile.paymentMethods'])
                 ->where('user_id', $buyer->id)
@@ -366,7 +371,10 @@ class OrderService
             throw new \RuntimeException('This order does not use direct seller payment.');
         }
 
-        $payload = ['direct_payment_reference' => $reference];
+        $payload = [
+            'direct_payment_reference' => $reference,
+            'direct_payment_rejection_reason' => null,
+        ];
 
         if ($proofPath !== null) {
             if ($order->direct_payment_proof_path) {
@@ -395,6 +403,7 @@ class OrderService
                 'payment_status' => PaymentStatus::Paid,
                 'status' => OrderStatus::Processing,
                 'direct_payment_confirmed_at' => now(),
+                'direct_payment_rejection_reason' => null,
             ]);
 
             foreach ($order->items as $item) {
@@ -428,6 +437,48 @@ class OrderService
 
             return $order->fresh('items');
         });
+    }
+
+    public function rejectDirectPayment(Order $order, User $rejector, string $reason): Order
+    {
+        if ($order->seller_id !== $rejector->id) {
+            throw new \RuntimeException('Only the selling store can reject this payment claim.');
+        }
+
+        if ($order->payment_channel !== PaymentChannel::Direct) {
+            throw new \RuntimeException('Not a direct payment order.');
+        }
+
+        if ($order->payment_status === PaymentStatus::Paid) {
+            throw new \RuntimeException('This payment is already confirmed.');
+        }
+
+        if (! filled($order->direct_payment_reference) && ! filled($order->direct_payment_proof_path)) {
+            throw ValidationException::withMessages([
+                'reason' => 'The buyer has not submitted a payment claim to reject.',
+            ]);
+        }
+
+        $trimmed = trim($reason);
+        if ($trimmed === '') {
+            throw ValidationException::withMessages([
+                'reason' => 'Please explain why you are rejecting this payment.',
+            ]);
+        }
+
+        if ($order->direct_payment_proof_path) {
+            Storage::disk('public')->delete($order->direct_payment_proof_path);
+        }
+
+        $order->update([
+            'direct_payment_reference' => null,
+            'direct_payment_proof_path' => null,
+            'direct_payment_rejection_reason' => $trimmed,
+        ]);
+
+        $order->buyer->notify(new DirectPaymentRejectedNotification($order->fresh(), $trimmed));
+
+        return $order->fresh('items');
     }
 
     public function syncCheckoutPaymentStatus(Checkout $checkout): void

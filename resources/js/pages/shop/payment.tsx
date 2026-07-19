@@ -133,6 +133,7 @@ export default function Payment({ checkout, marketplaceTotal, directOrders, pays
 function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] & {
     direct_payment_reference?: string | null;
     direct_payment_proof_path?: string | null;
+    direct_payment_rejection_reason?: string | null;
 } }) {
     const method = order.seller_payment_method;
     const { data, setData, post, processing, errors } = useForm<{
@@ -180,6 +181,13 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
             )}
             {order.payment_status !== 'paid' && (
                 <form onSubmit={submit} className="mt-4 space-y-3">
+                    {order.direct_payment_rejection_reason && !order.direct_payment_reference && (
+                        <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+                            <p className="font-medium">Seller rejected your payment claim</p>
+                            <p className="mt-1">{order.direct_payment_rejection_reason}</p>
+                            <p className="mt-1 text-xs">Submit a valid transaction reference or screenshot again.</p>
+                        </div>
+                    )}
                     <div>
                         <Label htmlFor={`ref-${order.id}`}>Transaction ID / reference</Label>
                         <Input

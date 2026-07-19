@@ -65,19 +65,19 @@ Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle']);
 Route::middleware(['auth'])->group(function () {
     Route::post('/sellers/report', [SellerReportController::class, 'store'])->name('sellers.report');
 
-    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-    Route::post('/cart', [CartController::class, 'store'])->name('cart.store');
-    Route::patch('/cart/{cartItem}', [CartController::class, 'update'])->name('cart.update');
-    Route::delete('/cart/{cartItem}', [CartController::class, 'destroy'])->name('cart.destroy');
+    Route::get('/cart', [CartController::class, 'index'])->middleware('buyer.shop')->name('cart.index');
+    Route::post('/cart', [CartController::class, 'store'])->middleware('buyer.shop')->name('cart.store');
+    Route::patch('/cart/{cartItem}', [CartController::class, 'update'])->middleware('buyer.shop')->name('cart.update');
+    Route::delete('/cart/{cartItem}', [CartController::class, 'destroy'])->middleware('buyer.shop')->name('cart.destroy');
 
-    Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
-    Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
-    Route::get('/checkout/payment/{checkout}', [CheckoutController::class, 'payment'])->name('checkout.payment');
-    Route::get('/checkout/callback', [CheckoutController::class, 'callback'])->name('checkout.callback');
-    Route::post('/checkout/payment/{checkout}/initialize', [CheckoutController::class, 'initializePayment'])->name('checkout.initialize');
+    Route::get('/checkout', [CheckoutController::class, 'index'])->middleware('buyer.shop')->name('checkout.index');
+    Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('buyer.shop')->name('checkout.store');
+    Route::get('/checkout/payment/{checkout}', [CheckoutController::class, 'payment'])->middleware('buyer.shop')->name('checkout.payment');
+    Route::get('/checkout/callback', [CheckoutController::class, 'callback'])->middleware('buyer.shop')->name('checkout.callback');
+    Route::post('/checkout/payment/{checkout}/initialize', [CheckoutController::class, 'initializePayment'])->middleware('buyer.shop')->name('checkout.initialize');
     Route::get('/checkouts/{checkout}', [CheckoutSessionController::class, 'show'])->name('checkouts.show');
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
-    Route::post('/orders/{order}/direct-payment', [CheckoutController::class, 'submitDirectReference'])->name('orders.direct-payment');
+    Route::post('/orders/{order}/direct-payment', [CheckoutController::class, 'submitDirectReference'])->middleware('buyer.shop')->name('orders.direct-payment');
 
     Route::get('/my-orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('/my-orders/{order}', [OrderController::class, 'show'])->name('orders.show');
@@ -169,6 +169,7 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::post('/payment-methods', [SellerPaymentMethodController::class, 'store'])->name('payment-methods.store');
             Route::delete('/payment-methods/{method}', [SellerPaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
             Route::post('/orders/{order}/confirm-direct-payment', [SellerPaymentMethodController::class, 'confirmDirectPayment'])->name('orders.confirm-direct-payment');
+            Route::post('/orders/{order}/reject-direct-payment', [SellerPaymentMethodController::class, 'rejectDirectPayment'])->name('orders.reject-direct-payment');
         });
     });
 });

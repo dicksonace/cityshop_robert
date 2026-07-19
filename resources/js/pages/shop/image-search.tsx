@@ -45,11 +45,17 @@ export default function ImageSearchPage({ results, preview, keywords, method, vi
             <div className="border-b border-gray-100 bg-gradient-to-b from-orange-50/80 to-white">
                 <div className="mx-auto max-w-4xl px-4 py-8 sm:py-10">
                     <div className="flex items-center justify-center gap-2 text-orange-500">
-                        <Camera className="h-6 w-6" />
-                        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">Search by photo</h1>
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                            <Camera className="h-5 w-5" />
+                        </span>
+                        <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+                            {hasSearched ? 'Deep Search Results' : 'Search by photo'}
+                        </h1>
                     </div>
                     <p className="mt-2 text-center text-sm text-gray-500">
-                        Upload a product photo — we only show items that look like your image, not random guesses
+                        {hasSearched
+                            ? 'Products matched from your photo using CityShop Deep Search'
+                            : 'Upload a product photo — we only show items that look like your image, not random guesses'}
                     </p>
                 </div>
             </div>
@@ -107,12 +113,19 @@ export default function ImageSearchPage({ results, preview, keywords, method, vi
                         <div className="min-w-0 flex-1">
                             {hasResults ? (
                                 <>
-                                    <p className="mb-4 text-sm text-gray-600">
-                                        <span className="font-semibold text-gray-900">{results.length}</span> similar product{results.length !== 1 ? 's' : ''} found
-                                        {method === 'visual' && (
-                                            <span className="ml-2 text-xs text-gray-400">(color &amp; pattern matching)</span>
-                                        )}
-                                    </p>
+                                    <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+                                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-white">
+                                            <Sparkles className="h-3.5 w-3.5" />
+                                        </span>
+                                        <div>
+                                            <p className="text-sm font-semibold text-emerald-900">Deep Search complete</p>
+                                            <p className="text-xs text-emerald-700/90">
+                                                <span className="font-semibold">{results.length}</span> similar product{results.length !== 1 ? 's' : ''} ranked by visual match
+                                                {method === 'visual' && ' · color & pattern matching'}
+                                                {method === 'ai_visual' && ' · AI vision'}
+                                            </p>
+                                        </div>
+                                    </div>
 
                                     <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
                                         {results.map(({ product, match_percent }) => (

@@ -283,6 +283,7 @@ class OrderController extends Controller
                 'payment_channel' => $order->payment_channel?->value,
                 'direct_payment_reference' => $order->direct_payment_reference,
                 'direct_payment_proof_path' => $order->direct_payment_proof_path,
+                'direct_payment_rejection_reason' => $order->direct_payment_rejection_reason,
                 'receiver_name' => $order->receiver_name,
                 'receiver_phone' => $order->receiver_phone,
                 'city' => $order->city,

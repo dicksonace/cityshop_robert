@@ -14,6 +14,7 @@ export type SellerOrderListItem = OrderItem & {
         payment_status?: string;
         payment_channel?: string;
         direct_payment_reference?: string | null;
+        direct_payment_proof_path?: string | null;
         receiver_name?: string;
         receiver_phone?: string;
         city?: string;
@@ -44,8 +45,23 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
     const image = item.product?.images?.[0];
     const order = item.order;
     const stage = stageSlug ? getSellerOrderStage(stageSlug) : undefined;
-    const needsPaymentConfirm = order.payment_channel === 'direct' && order.payment_status === 'pending';
+    const hasPaymentClaim = Boolean(order.direct_payment_reference || order.direct_payment_proof_path);
+    const needsPaymentReview =
+        order.payment_channel === 'direct' && order.payment_status === 'pending' && hasPaymentClaim;
     const canCancel = SELLER_CANCELLABLE.has(String(item.status));
+
+    const rejectPayment = () => {
+        const reason = window.prompt(
+            'Reject this customer payment claim?\nExplain why (e.g. money not received, wrong amount):',
+        );
+        if (reason === null) return;
+        const trimmed = reason.trim();
+        if (trimmed.length < 5) {
+            window.alert('Please enter a short reason (at least 5 characters).');
+            return;
+        }
+        router.post(route('seller.orders.reject-direct-payment', order.id), { reason: trimmed });
+    };
 
     return (
         <article className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:border-orange-200 hover:shadow-md">
@@ -92,6 +108,11 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
                         {item.vehicle_number && <> · {item.vehicle_number}</>}
                     </p>
                 )}
+                {needsPaymentReview && (
+                    <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+                        Customer submitted a manual payment claim — confirm only if you received the money.
+                    </p>
+                )}
 
                 <div className="mt-auto flex flex-wrap gap-2 pt-2">
                     <Button
@@ -112,14 +133,24 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
                             <Link href={`${route('seller.orders.show', item.id)}?cancel=1`}>Cancel</Link>
                         </Button>
                     )}
-                    {needsPaymentConfirm && (
-                        <Button
-                            size="sm"
-                            className="shrink-0 bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => router.post(route('seller.orders.confirm-direct-payment', order.id))}
-                        >
-                            Confirm pay
-                        </Button>
+                    {needsPaymentReview && (
+                        <>
+                            <Button
+                                size="sm"
+                                className="shrink-0 bg-emerald-600 hover:bg-emerald-700"
+                                onClick={() => router.post(route('seller.orders.confirm-direct-payment', order.id))}
+                            >
+                                Confirm
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="shrink-0 border-red-200 text-red-600 hover:bg-red-50"
+                                onClick={rejectPayment}
+                            >
+                                Reject
+                            </Button>
+                        </>
                     )}
                 </div>
             </div>

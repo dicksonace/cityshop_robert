@@ -1,9 +1,9 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Grid3X3, LayoutList, SlidersHorizontal } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import HeroBanner from '@/components/shop/hero-banner';
-import ProductCard from '@/components/shop/product-card';
+import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
 import ProductFilters, { ActiveFilterChips, applyFilters, ShopFilters } from '@/components/shop/product-filters';
 import SearchBox from '@/components/shop/search-box';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -48,6 +48,11 @@ export default function Home({ products, categories, brands, priceRange, filters
     const { auth } = usePage<SharedData>().props;
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+    const resetKey = useMemo(
+        () => JSON.stringify({ ...filters, page: products.current_page, total: products.total }),
+        [filters, products.current_page, products.total],
+    );
+
     const handleAddToCart = (productId: number) => {
         if (!auth.user) {
             router.visit(route('login'));
@@ -63,7 +68,6 @@ export default function Home({ products, categories, brands, priceRange, filters
             <Head title="Shop" />
             <HeroBanner slides={heroSlides} />
 
-            {/* Quick stats bar */}
             <div className="border-b border-gray-100 bg-white">
                 <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-4 py-3 text-center text-xs text-gray-500 md:justify-between md:text-sm">
                     <span><strong className="text-gray-900">{counts.total}</strong> products</span>
@@ -76,16 +80,13 @@ export default function Home({ products, categories, brands, priceRange, filters
 
             <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">
                 <div className="flex gap-6">
-                    {/* Desktop sidebar filters */}
                     <div className="hidden w-64 shrink-0 lg:block">
                         <div className="sticky top-24">
                             <ProductFilters {...filterProps} />
                         </div>
                     </div>
 
-                    {/* Main content */}
                     <div className="min-w-0 flex-1">
-                        {/* Search — next to product listings */}
                         <div className="mb-4 rounded-2xl border border-orange-100 bg-white p-3 shadow-sm sm:p-4">
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Search products</p>
                             <SearchBox
@@ -95,7 +96,6 @@ export default function Home({ products, categories, brands, priceRange, filters
                             />
                         </div>
 
-                        {/* Toolbar */}
                         <div className="mb-4 flex flex-col gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
@@ -149,7 +149,6 @@ export default function Home({ products, categories, brands, priceRange, filters
                             </select>
                         </div>
 
-                        {/* Quick filter pills */}
                         <div className="mb-4 flex flex-wrap gap-2">
                             {quickFilters.map((qf) => {
                                 const active = filters[qf.key as keyof ShopFilters];
@@ -184,39 +183,13 @@ export default function Home({ products, categories, brands, priceRange, filters
                                     Clear all filters
                                 </button>
                             </div>
-                        ) : viewMode === 'grid' ? (
-                            <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3">
-                                {products.data.map((product) => (
-                                    <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
-                                ))}
-                            </div>
                         ) : (
-                            <div className="space-y-4">
-                                {products.data.map((product) => (
-                                    <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} variant="list" />
-                                ))}
-                            </div>
-                        )}
-
-                        {products.last_page > 1 && (
-                            <div className="mt-8 overflow-x-auto pb-2">
-                                <div className="flex min-w-min justify-center gap-1 px-1">
-                                {products.links.map((link, i) =>
-                                    link.url ? (
-                                        <Link
-                                            key={i}
-                                            href={link.url}
-                                            className={`min-w-[2.5rem] rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                                                link.active
-                                                    ? 'bg-orange-500 text-white shadow-sm'
-                                                    : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50'
-                                            }`}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ) : null,
-                                )}
-                                </div>
-                            </div>
+                            <InfiniteProductGrid
+                                initial={products}
+                                resetKey={resetKey}
+                                onAddToCart={handleAddToCart}
+                                variant={viewMode}
+                            />
                         )}
                     </div>
                 </div>

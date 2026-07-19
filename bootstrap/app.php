@@ -37,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureRole::class,
             'seller.approved' => EnsureApprovedSeller::class,
             'seller.store-setup' => EnsureStoreSetupComplete::class,
+            'buyer.shop' => \App\Http\Middleware\PreventSellerShopping::class,
         ]);
 
         $middleware->web(append: [

@@ -26,6 +26,7 @@ export interface SharedData {
     csrfToken?: string;
     quote: { message: string; author: string };
     auth: Auth;
+    canShop?: boolean;
     cartCount: number;
     wishlistProductIds: number[];
     wishlistCount: number;

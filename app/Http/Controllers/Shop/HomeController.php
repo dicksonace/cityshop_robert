@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\ProductDiscoveryService;
+use App\Support\InfiniteScroll;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,7 +17,7 @@ class HomeController extends Controller
 {
     public function __construct(private ProductDiscoveryService $discovery) {}
 
-    public function index(Request $request): Response|RedirectResponse
+    public function index(Request $request): Response|RedirectResponse|JsonResponse
     {
         if ($seed = $this->discovery->needsRandomSeedRedirect($request)) {
             return redirect()->route('home', array_merge($request->query(), ['seed' => $seed]));
@@ -69,7 +71,11 @@ class HomeController extends Controller
         $rankingSeed = $this->discovery->resolveRandomSeed($request);
         $this->discovery->applySort($query, $sort, $rankingSeed, $request->user());
 
-        $products = $query->paginate(12)->withQueryString();
+        $products = $query->paginate(20)->withQueryString();
+
+        if (InfiniteScroll::wants($request)) {
+            return InfiniteScroll::json($products);
+        }
 
         $priceStats = Product::visibleInShop()
             ->selectRaw('MIN(COALESCE(discount_price, price)) as min_price, MAX(COALESCE(discount_price, price)) as max_price')

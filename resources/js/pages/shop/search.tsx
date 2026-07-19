@@ -1,7 +1,8 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Camera, Search } from 'lucide-react';
+import { useMemo } from 'react';
 
-import ProductCard from '@/components/shop/product-card';
+import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
 import SearchBox from '@/components/shop/search-box';
 import ShopLayout from '@/layouts/shop-layout';
 import { addProductToCart } from '@/lib/shop-actions';
@@ -13,6 +14,7 @@ interface SearchPageProps {
     categories: { id: number; name: string; slug: string; products_count: number }[];
     query: string;
     sort: string;
+    category?: string;
 }
 
 const sortOptions = [
@@ -24,8 +26,19 @@ const sortOptions = [
     { value: 'popular', label: 'Most popular' },
 ];
 
-export default function SearchPage({ products, categories, query, sort }: SearchPageProps) {
+export default function SearchPage({ products, categories, query, sort, category = '' }: SearchPageProps) {
     const { auth } = usePage<SharedData>().props;
+
+    const resetKey = useMemo(
+        () => JSON.stringify({
+            query,
+            sort,
+            category,
+            page: products.current_page,
+            total: products.total,
+        }),
+        [query, sort, category, products.current_page, products.total],
+    );
 
     const handleAddToCart = (productId: number) => {
         if (!auth.user) {
@@ -108,25 +121,13 @@ export default function SearchPage({ products, categories, query, sort }: Search
                         </Link>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-                        {products.data.map((product) => (
-                            <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
-                        ))}
-                    </div>
-                )}
-
-                {products.last_page > 1 && (
-                    <div className="mt-8 flex flex-wrap justify-center gap-2">
-                        {products.links.map((link, i) => (
-                            <Link
-                                key={i}
-                                href={link.url ?? '#'}
-                                preserveScroll
-                                className={`rounded-lg px-3 py-1.5 text-sm ${link.active ? 'bg-orange-500 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-200'}`}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
-                        ))}
-                    </div>
+                    <InfiniteProductGrid
+                        initial={products}
+                        resetKey={resetKey}
+                        onAddToCart={handleAddToCart}
+                        gridClassName="lg:grid-cols-4"
+                        skeletonCount={8}
+                    />
                 )}
             </div>
         </ShopLayout>
