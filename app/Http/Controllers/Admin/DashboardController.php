@@ -26,17 +26,35 @@ class DashboardController extends Controller
             'pending_products' => Product::where('status', ProductStatus::Pending)->count(),
             'total_orders' => Order::count(),
             'total_revenue' => Order::where('payment_status', 'paid')->sum('total'),
-            'total_commission' => Order::where('payment_status', 'paid')->sum('commission_amount'),
             'pending_withdrawals' => Withdrawal::where('status', WithdrawalStatus::Pending)->count(),
         ];
 
         $recentOrders = Order::with('buyer')->latest()->limit(5)->get();
         $pendingSellers = SellerProfile::with('user')->where('status', SellerStatus::Pending)->latest()->limit(5)->get();
+        $pendingWithdrawals = Withdrawal::with('user:id,name,email,role')
+            ->where('status', WithdrawalStatus::Pending)
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn (Withdrawal $w) => [
+                'id' => $w->id,
+                'amount' => (float) $w->amount,
+                'network' => $w->network,
+                'momo_number' => $w->momo_number,
+                'account_name' => $w->account_name,
+                'created_at' => $w->created_at?->toIso8601String(),
+                'user' => $w->user ? [
+                    'name' => $w->user->name,
+                    'email' => $w->user->email,
+                    'role' => $w->user->role?->value,
+                ] : null,
+            ]);
 
         return Inertia::render('admin/dashboard', [
             'stats' => $stats,
             'recentOrders' => $recentOrders,
             'pendingSellers' => $pendingSellers,
+            'pendingWithdrawals' => $pendingWithdrawals,
         ]);
     }
 }

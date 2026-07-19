@@ -61,12 +61,12 @@ return [
                     'answer' => 'Seller registration is by invitation only. Contact support with the subject "Become a Seller" and tell us about your business. If approved, we will email you a private registration link valid for 24 hours. Upload your Ghana Card, business documents (if applicable), and shop photo. Our team reviews applications within 1–3 business days.',
                 ],
                 [
-                    'question' => 'What commission does CityShop charge?',
-                    'answer' => 'CityShop charges a 10% commission on each completed sale. The remaining 90% is credited to your seller wallet after the buyer confirms delivery.',
+                    'question' => 'Does CityShop charge sellers a commission?',
+                    'answer' => 'No. CityShop does not take a commission on sales. When a buyer pays through CityShop, the full product amount (minus any discounts) goes to your seller wallet as Pending Fund. After the buyer confirms delivery, CityShop admin approves the release to your Available balance so you can withdraw.',
                 ],
                 [
                     'question' => 'How do I get paid as a seller?',
-                    'answer' => 'Earnings go to your seller wallet. Once funds are available, request a withdrawal to your Mobile Money number from the Wallet page. Withdrawals are reviewed and processed by our admin team.',
+                    'answer' => 'Earnings go to your seller wallet. After admin releases Pending funds to Available, request a withdrawal to your Mobile Money number from the Wallet page. Admin processes payouts manually (Start → send MoMo → Mark paid).',
                 ],
                 [
                     'question' => 'How do I add product specifications?',

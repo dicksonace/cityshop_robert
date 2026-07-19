@@ -30,7 +30,7 @@ class PlatformSettings
 
     public static function commissionRate(): float
     {
-        return (float) static::get('commission_rate', 10);
+        return (float) static::get('commission_rate', 0);
     }
 
     /**

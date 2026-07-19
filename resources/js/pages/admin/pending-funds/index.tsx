@@ -141,7 +141,6 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
                                         <p className="font-semibold text-gray-900">{item.product_name}</p>
                                         <p className="mt-0.5 text-sm text-gray-500">
                                             Qty {item.quantity} · Seller earns {formatPrice(item.seller_amount)}
-                                            {item.commission_amount > 0 ? ` · Commission ${formatPrice(item.commission_amount)}` : ''}
                                         </p>
                                         {item.order && (
                                             <p className="mt-1 text-sm text-gray-600">

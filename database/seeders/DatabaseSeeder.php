@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        PlatformSetting::create(['key' => 'commission_rate', 'value' => '10']);
+        PlatformSetting::create(['key' => 'commission_rate', 'value' => '0']);
 
         User::create([
             'name' => 'Super Admin',

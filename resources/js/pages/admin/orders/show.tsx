@@ -97,10 +97,6 @@ export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps)
                                 <dd className="font-bold">{formatPrice(checkout.total)}</dd>
                             </div>
                             <div className="flex justify-between">
-                                <dt className="text-gray-500">Commission</dt>
-                                <dd>{formatPrice(checkout.commission_amount)}</dd>
-                            </div>
-                            <div className="flex justify-between">
                                 <dt className="text-gray-500">Vendor orders</dt>
                                 <dd>{checkout.orders?.length ?? 0}</dd>
                             </div>
