@@ -158,6 +158,8 @@ export interface OrderItem {
     unit_price: number;
     seller_amount: number;
     status: string;
+    funds_release_status?: string | null;
+    funds_release_notes?: string | null;
     rejection_reason?: string | null;
     cancellation_code?: string | null;
     cancelled_by?: string | null;

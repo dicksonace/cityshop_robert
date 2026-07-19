@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\SellerInviteController as AdminSellerInviteContro
 use App\Http\Controllers\Admin\StoreOversightController as AdminStoreOversightController;
 use App\Http\Controllers\Admin\ManualFundingSettingsController as AdminManualFundingSettingsController;
 use App\Http\Controllers\Admin\ManualTopUpController as AdminManualTopUpController;
+use App\Http\Controllers\Admin\PendingFundController as AdminPendingFundController;
 use App\Http\Controllers\Admin\WalletFundingController as AdminWalletFundingController;
 use App\Http\Controllers\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\WalletManualTopUpController;
@@ -230,6 +231,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/manual-top-ups', [AdminManualTopUpController::class, 'index'])->name('manual-top-ups.index');
     Route::post('/manual-top-ups/{topUp}/approve', [AdminManualTopUpController::class, 'approve'])->name('manual-top-ups.approve');
     Route::post('/manual-top-ups/{topUp}/reject', [AdminManualTopUpController::class, 'reject'])->name('manual-top-ups.reject');
+
+    Route::get('/pending-funds', [AdminPendingFundController::class, 'index'])->name('pending-funds.index');
+    Route::post('/pending-funds/{orderItem}/approve', [AdminPendingFundController::class, 'approve'])->name('pending-funds.approve');
+    Route::post('/pending-funds/{orderItem}/reject', [AdminPendingFundController::class, 'reject'])->name('pending-funds.reject');
 
     Route::get('/disputes', [AdminDisputeController::class, 'index'])->name('disputes.index');
     Route::post('/disputes/{dispute}/review', [AdminDisputeController::class, 'review'])->name('disputes.review');

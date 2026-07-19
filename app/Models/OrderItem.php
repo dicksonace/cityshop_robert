@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FundsReleaseStatus;
 use App\Enums\OrderStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,10 @@ class OrderItem extends Model
         'cancelled_by',
         'cancelled_at',
         'refund_status',
+        'funds_release_status',
+        'funds_release_notes',
+        'funds_reviewed_by',
+        'funds_released_at',
         'courier_name',
         'tracking_number',
         'vehicle_number',
@@ -40,8 +45,15 @@ class OrderItem extends Model
             'commission_amount' => 'decimal:2',
             'seller_amount' => 'decimal:2',
             'status' => OrderStatus::class,
+            'funds_release_status' => FundsReleaseStatus::class,
             'cancelled_at' => 'datetime',
+            'funds_released_at' => 'datetime',
         ];
+    }
+
+    public function fundsReviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'funds_reviewed_by');
     }
 
     public function order(): BelongsTo

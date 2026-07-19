@@ -262,6 +262,8 @@ class OrderController extends Controller
             'unit_price' => (float) $orderItem->unit_price,
             'seller_amount' => (float) $orderItem->seller_amount,
             'status' => $orderItem->status->value,
+            'funds_release_status' => $orderItem->funds_release_status?->value,
+            'funds_release_notes' => $orderItem->funds_release_notes,
             'rejection_reason' => $orderItem->rejection_reason,
             'cancellation_code' => $orderItem->cancellation_code,
             'cancelled_by' => $orderItem->cancelled_by,

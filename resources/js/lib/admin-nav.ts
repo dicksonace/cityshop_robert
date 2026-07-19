@@ -25,6 +25,7 @@ export type AdminNavKey =
     | 'wallet-funding'
     | 'manual-funding-settings'
     | 'manual-top-ups'
+    | 'pending-funds'
     | 'disputes'
     | 'messages'
     | 'chats'
@@ -45,6 +46,7 @@ const sectionMap: Record<AdminNavKey, string> = {
     'wallet-funding': 'finance',
     'manual-funding-settings': 'finance',
     'manual-top-ups': 'finance',
+    'pending-funds': 'finance',
     disputes: 'support',
     messages: 'support',
     chats: 'support',
@@ -132,6 +134,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'withdrawals-buyers', label: 'Buyer Withdrawals', href: route('admin.withdrawals.index', { status: 'pending', role: 'buyer' }) },
                 { key: 'withdrawals-all', label: 'All Withdrawals', href: route('admin.withdrawals.index', { status: 'all' }) },
                 { key: 'manual-top-ups', label: 'Manual Top-ups', href: route('admin.manual-top-ups.index'), badgeKey: 'pending_manual_top_ups', defaultOnPath: true },
+                { key: 'pending-funds', label: 'Pending Funds', href: route('admin.pending-funds.index'), badgeKey: 'pending_fund_releases', defaultOnPath: true },
                 { key: 'manual-funding-settings', label: 'Receive Accounts', href: route('admin.manual-funding.settings') },
                 { key: 'wallet-funding', label: 'Add Funds to Wallet', href: route('admin.wallet-funding.index'), defaultOnPath: true },
             ],

@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Enums\CouponType;
 use App\Enums\DisputeStatus;
+use App\Enums\FundsReleaseStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
+use App\Enums\UserRole;
 use App\Models\CartItem;
 use App\Models\Checkout;
 use App\Models\Dispute;
@@ -19,9 +21,11 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Notifications\DirectPaymentRejectedNotification;
+use App\Notifications\DisputeOpenedNotification;
 use App\Notifications\OrderPlacedNotification;
 use App\Notifications\OrderStatusUpdatedNotification;
 use App\Notifications\PaymentConfirmedNotification;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -562,46 +566,125 @@ class OrderService
         return PaymentChannel::Marketplace;
     }
 
-    public function releaseSellerFunds(OrderItem $item): void
+    public function releaseSellerFunds(OrderItem $item, ?int $reviewedBy = null): void
     {
-        if ($item->status === OrderStatus::Delivered) {
+        $item->load(['order', 'seller']);
+
+        if ($item->funds_release_status === FundsReleaseStatus::Released) {
             return;
         }
 
-        if ($item->status !== OrderStatus::AwaitingConfirmation) {
+        if ($item->status !== OrderStatus::Delivered) {
             throw new \RuntimeException('Buyer must confirm delivery before funds are released.');
+        }
+
+        if (! in_array($item->funds_release_status, [FundsReleaseStatus::Pending, FundsReleaseStatus::Held], true)) {
+            throw new \RuntimeException('This item is not waiting for fund release approval.');
         }
 
         if (Dispute::where('order_item_id', $item->id)->whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->exists()) {
             throw new \RuntimeException('Cannot release funds while a dispute is open.');
         }
 
-        DB::transaction(function () use ($item) {
-            $wallet = Wallet::where('user_id', $item->seller_id)->firstOrFail();
-            $amount = (float) $item->seller_amount;
+        DB::transaction(function () use ($item, $reviewedBy) {
+            if ($item->order->payment_channel === PaymentChannel::Marketplace) {
+                $wallet = Wallet::where('user_id', $item->seller_id)->firstOrFail();
+                $amount = (float) $item->seller_amount;
 
-            $wallet->decrement('pending_balance', $amount);
-            $wallet->increment('available_balance', $amount);
+                $wallet->decrement('pending_balance', $amount);
+                $wallet->increment('available_balance', $amount);
 
-            $item->update(['status' => OrderStatus::Delivered]);
+                WalletTransactionService::recordSaleReleased($item);
+            }
 
-            WalletTransactionService::recordSaleReleased($item);
+            $item->update([
+                'funds_release_status' => FundsReleaseStatus::Released,
+                'funds_release_notes' => null,
+                'funds_reviewed_by' => $reviewedBy,
+                'funds_released_at' => now(),
+            ]);
+        });
 
-            $item->seller->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
-            $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
+        $this->maybeReleaseSellerShipping($item->order->fresh('items'));
+    }
+
+    /**
+     * Admin reject: keep sale in pending balance and open a dispute for review.
+     */
+    public function holdSellerFunds(OrderItem $item, string $reason, int $reviewedBy): void
+    {
+        $item->load(['order', 'seller', 'order.buyer']);
+
+        if ($item->status !== OrderStatus::Delivered) {
+            throw new \RuntimeException('Only confirmed deliveries can have funds held.');
+        }
+
+        if ($item->funds_release_status !== FundsReleaseStatus::Pending) {
+            throw new \RuntimeException('This item is not waiting for fund release approval.');
+        }
+
+        DB::transaction(function () use ($item, $reason, $reviewedBy) {
+            $item->update([
+                'funds_release_status' => FundsReleaseStatus::Held,
+                'funds_release_notes' => $reason,
+                'funds_reviewed_by' => $reviewedBy,
+            ]);
+
+            $existing = Dispute::where('order_item_id', $item->id)
+                ->whereNotIn('status', [DisputeStatus::Cancelled])
+                ->exists();
+
+            if ($existing) {
+                return;
+            }
+
+            $dispute = Dispute::create([
+                'order_id' => $item->order_id,
+                'order_item_id' => $item->id,
+                'buyer_id' => $item->order->buyer_id,
+                'seller_id' => $item->seller_id,
+                'reason' => 'other',
+                'description' => 'Admin held pending fund release: '.$reason,
+                'status' => DisputeStatus::Open,
+            ]);
+
+            $dispute->load('order');
+
+            $item->seller->notify(new DisputeOpenedNotification($dispute));
+            $item->order->buyer->notify(new DisputeOpenedNotification($dispute));
+
+            $admins = User::where('role', UserRole::Admin)->get();
+            Notification::send($admins, new DisputeOpenedNotification($dispute));
         });
     }
 
     public function confirmBuyerDelivery(OrderItem $item): OrderItem
     {
-        $item->load('order');
+        $item->load(['order', 'seller']);
 
         if ($item->status !== OrderStatus::AwaitingConfirmation) {
             throw new \RuntimeException('This item is not waiting for delivery confirmation.');
         }
 
-        $this->releaseSellerFunds($item);
-        $this->syncOrderStatusAfterItemChange($item->order);
+        if (Dispute::where('order_item_id', $item->id)->whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->exists()) {
+            throw new \RuntimeException('Cannot confirm delivery while a dispute is open.');
+        }
+
+        DB::transaction(function () use ($item) {
+            $isMarketplace = $item->order->payment_channel === PaymentChannel::Marketplace;
+
+            $item->update([
+                'status' => OrderStatus::Delivered,
+                'funds_release_status' => $isMarketplace
+                    ? FundsReleaseStatus::Pending
+                    : FundsReleaseStatus::NotApplicable,
+            ]);
+
+            $item->seller->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
+            $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
+        });
+
+        $this->syncOrderStatusAfterItemChange($item->order->fresh('items'));
 
         return $item->fresh();
     }
@@ -857,7 +940,7 @@ class OrderService
 
         if ($statuses->contains(OrderStatus::Delivered) && $statuses->every(fn ($s) => in_array($s, [OrderStatus::Delivered, OrderStatus::Cancelled], true))) {
             $order->update(['status' => OrderStatus::Delivered]);
-            $this->releaseSellerShipping($order);
+            $this->maybeReleaseSellerShipping($order);
 
             return;
         }
@@ -967,6 +1050,35 @@ class OrderService
         $wallet->increment('total_earnings', $amount);
 
         WalletTransactionService::recordShippingPending($order);
+    }
+
+    /**
+     * Release shipping only after every active marketplace line has funds released by admin.
+     */
+    private function maybeReleaseSellerShipping(Order $order): void
+    {
+        $order->loadMissing('items');
+
+        if ($order->payment_channel !== PaymentChannel::Marketplace) {
+            return;
+        }
+
+        $active = $order->items->filter(fn (OrderItem $item) => $item->status !== OrderStatus::Cancelled);
+
+        if ($active->isEmpty()) {
+            return;
+        }
+
+        $ready = $active->every(
+            fn (OrderItem $item) => $item->status === OrderStatus::Delivered
+                && $item->funds_release_status === FundsReleaseStatus::Released
+        );
+
+        if (! $ready) {
+            return;
+        }
+
+        $this->releaseSellerShipping($order);
     }
 
     private function releaseSellerShipping(Order $order): void
