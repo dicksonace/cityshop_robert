@@ -10,6 +10,8 @@ interface InfiniteProductGridProps {
     onAddToCart?: (productId: number) => void;
     variant?: 'grid' | 'list';
     gridClassName?: string;
+    /** When true, gridClassName fully replaces the default grid layout classes. */
+    replaceGridClass?: boolean;
     skeletonCount?: number;
 }
 
@@ -19,6 +21,7 @@ export default function InfiniteProductGrid({
     onAddToCart,
     variant = 'grid',
     gridClassName,
+    replaceGridClass = false,
     skeletonCount = 8,
 }: InfiniteProductGridProps) {
     const { items, loading, hasMore, error, sentinelRef, retry } = useInfiniteProducts({
@@ -29,7 +32,9 @@ export default function InfiniteProductGrid({
     const listClass =
         variant === 'list'
             ? 'space-y-4'
-            : cn('grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3', gridClassName);
+            : replaceGridClass && gridClassName
+              ? gridClassName
+              : cn('grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3', gridClassName);
 
     return (
         <div>

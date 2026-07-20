@@ -31,8 +31,12 @@ interface SearchBoxProps {
     showButton?: boolean;
     compact?: boolean;
     onSubmitted?: () => void;
-    /** `search` = /search?q= ; `home` = shop homepage with ?search= */
-    target?: 'search' | 'home';
+    /** `search` = /search?q= ; `home` = shop homepage with ?search= ; `store` = store page with ?search= */
+    target?: 'search' | 'home' | 'store';
+    /** When set, suggestions and submit stay inside this seller's catalog. */
+    sellerId?: number;
+    storeSlug?: string;
+    storeName?: string;
 }
 
 export default function SearchBox({
@@ -43,6 +47,9 @@ export default function SearchBox({
     compact = false,
     onSubmitted,
     target = 'search',
+    sellerId,
+    storeSlug,
+    storeName,
 }: SearchBoxProps) {
     const [query, setQuery] = useState(initialQuery);
     const [open, setOpen] = useState(false);
@@ -52,26 +59,35 @@ export default function SearchBox({
     const wrapperRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-    const fetchSuggestions = useCallback(async (q: string) => {
-        if (q.length < 2) {
-            setProducts([]);
-            setCategories([]);
-            return;
-        }
+    const isStoreSearch = target === 'store' && Boolean(storeSlug);
 
-        setLoading(true);
-        try {
-            const res = await fetch(`${route('search.suggest')}?q=${encodeURIComponent(q)}`);
-            const data = await res.json();
-            setProducts(data.products ?? []);
-            setCategories(data.categories ?? []);
-        } catch {
-            setProducts([]);
-            setCategories([]);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const fetchSuggestions = useCallback(
+        async (q: string) => {
+            if (q.length < 2) {
+                setProducts([]);
+                setCategories([]);
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const params = new URLSearchParams({ q });
+                if (sellerId) {
+                    params.set('seller_id', String(sellerId));
+                }
+                const res = await fetch(`${route('search.suggest')}?${params.toString()}`);
+                const data = await res.json();
+                setProducts(data.products ?? []);
+                setCategories(data.categories ?? []);
+            } catch {
+                setProducts([]);
+                setCategories([]);
+            } finally {
+                setLoading(false);
+            }
+        },
+        [sellerId],
+    );
 
     useEffect(() => {
         setQuery(initialQuery);
@@ -94,15 +110,31 @@ export default function SearchBox({
         debounceRef.current = setTimeout(() => fetchSuggestions(value), 280);
     };
 
-    const goToSearch = (q?: string) => {
+    const goToSearch = (q?: string, categoryId?: number) => {
         const term = (q ?? query).trim();
         setOpen(false);
         onSubmitted?.();
-        if (target === 'home') {
-            router.get(route('home'), term ? { search: term } : {});
+
+        if (isStoreSearch && storeSlug) {
+            const params: Record<string, string | number> = {};
+            if (term) params.search = term;
+            if (categoryId) params.category = categoryId;
+            router.get(route('store.show', storeSlug), params);
             return;
         }
-        router.get(route('search'), term ? { q: term } : {});
+
+        if (target === 'home') {
+            const params: Record<string, string | number> = {};
+            if (term) params.search = term;
+            if (categoryId) params.category = categoryId;
+            router.get(route('home'), params);
+            return;
+        }
+
+        const params: Record<string, string | number> = {};
+        if (term) params.q = term;
+        if (categoryId) params.category = categoryId;
+        router.get(route('search'), params);
     };
 
     const handleSubmit = (e: FormEvent) => {
@@ -110,16 +142,30 @@ export default function SearchBox({
         goToSearch();
     };
 
+    const imageSearchHref = isStoreSearch
+        ? route('search.image', { seller_id: sellerId, store: storeSlug })
+        : route('search.image');
+
+    const placeholder = isStoreSearch
+        ? compact
+            ? `Search ${storeName || 'store'}...`
+            : `Search products in ${storeName || 'this store'}...`
+        : compact
+          ? 'Search...'
+          : 'Search products, brands, categories...';
+
     const hasResults = products.length > 0 || categories.length > 0;
     const showDropdown = open && query.length >= 2;
 
     return (
         <div ref={wrapperRef} className={`relative ${className}`}>
             <form onSubmit={handleSubmit} className="flex w-full">
-                <div className={`flex w-full overflow-hidden rounded-2xl border-2 border-orange-100 bg-gray-50 transition-colors focus-within:border-orange-300 focus-within:bg-white ${compact ? 'rounded-xl' : ''}`}>
+                <div
+                    className={`flex w-full overflow-hidden rounded-2xl border-2 border-orange-100 bg-gray-50 transition-colors focus-within:border-orange-300 focus-within:bg-white ${compact ? 'rounded-xl' : ''}`}
+                >
                     <Input
                         type="search"
-                        placeholder={compact ? 'Search...' : 'Search products, brands, categories...'}
+                        placeholder={placeholder}
                         value={query}
                         onChange={(e) => onChange(e.target.value)}
                         onFocus={() => query.length >= 2 && setOpen(true)}
@@ -129,9 +175,9 @@ export default function SearchBox({
                     {showButton && (
                         <>
                             <Link
-                                href={route('search.image')}
+                                href={imageSearchHref}
                                 className={`flex shrink-0 items-center justify-center border-l border-orange-100 bg-white px-3 text-gray-500 transition-colors hover:bg-orange-50 hover:text-orange-500 ${compact ? '' : 'px-4'}`}
-                                title="Search by photo"
+                                title={isStoreSearch ? `Search ${storeName || 'store'} by photo` : 'Search by photo'}
                             >
                                 <Camera className="h-4 w-4" />
                             </Link>
@@ -157,26 +203,25 @@ export default function SearchBox({
                     )}
 
                     {!loading && !hasResults && (
-                        <p className="px-4 py-6 text-center text-sm text-gray-500">No products found for &ldquo;{query}&rdquo;</p>
+                        <p className="px-4 py-6 text-center text-sm text-gray-500">
+                            No products found for &ldquo;{query}&rdquo;
+                            {isStoreSearch ? ' in this store' : ''}
+                        </p>
                     )}
 
                     {!loading && categories.length > 0 && (
                         <div className="border-b border-gray-50 px-3 py-2">
                             <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Categories</p>
                             {categories.map((cat) => (
-                                <Link
+                                <button
                                     key={cat.id}
-                                    href={
-                                        target === 'home'
-                                            ? route('home', { search: query, category: cat.id })
-                                            : route('search', { q: query, category: cat.id })
-                                    }
-                                    className="flex items-center justify-between rounded-lg px-2 py-2 text-sm hover:bg-orange-50"
-                                    onClick={() => setOpen(false)}
+                                    type="button"
+                                    className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-sm hover:bg-orange-50"
+                                    onClick={() => goToSearch(query, cat.id)}
                                 >
                                     <span className="font-medium text-gray-800">{cat.name}</span>
                                     <span className="text-xs text-gray-400">{cat.products_count} items</span>
-                                </Link>
+                                </button>
                             ))}
                         </div>
                     )}
@@ -190,7 +235,10 @@ export default function SearchBox({
                                         <Link
                                             href={route('products.show', product.slug)}
                                             className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-orange-50"
-                                            onClick={() => { setOpen(false); onSubmitted?.(); }}
+                                            onClick={() => {
+                                                setOpen(false);
+                                                onSubmitted?.();
+                                            }}
                                         >
                                             <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50 to-orange-50/30 p-1.5">
                                                 <img
@@ -227,6 +275,7 @@ export default function SearchBox({
                             className="w-full border-t border-gray-100 bg-gray-50 px-4 py-3 text-center text-sm font-medium text-orange-600 hover:bg-orange-50"
                         >
                             See all results for &ldquo;{query}&rdquo;
+                            {isStoreSearch ? ' in this store' : ''}
                         </button>
                     )}
                 </div>

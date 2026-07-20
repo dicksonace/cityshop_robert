@@ -68,8 +68,14 @@ class SearchController extends Controller
             return response()->json(['products' => [], 'categories' => []]);
         }
 
+        $sellerId = $request->integer('seller_id') ?: null;
+
         $products = Product::with(['images', 'category'])
             ->visibleInShop();
+
+        if ($sellerId) {
+            $products->where('seller_id', $sellerId);
+        }
 
         $this->search->apply($products, $q);
 
@@ -91,7 +97,12 @@ class SearchController extends Controller
             ->where(function ($query) use ($q) {
                 $query->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($q).'%']);
             })
-            ->withCount(['products' => fn ($cq) => $cq->visibleInShop()])
+            ->withCount(['products' => function ($cq) use ($sellerId) {
+                $cq->visibleInShop();
+                if ($sellerId) {
+                    $cq->where('seller_id', $sellerId);
+                }
+            }])
             ->limit(6)
             ->get()
             ->filter(fn ($c) => $c->products_count > 0)

@@ -29,7 +29,7 @@ class ImageSearchService
     /**
      * @return array{products: Collection<int, array{product: Product, score: float, match_percent: int}>, preview: string, keywords: string[], method: string}
      */
-    public function search(UploadedFile $file): array
+    public function search(UploadedFile $file, ?int $sellerId = null): array
     {
         $contents = file_get_contents($file->getRealPath());
         $querySignature = $this->buildSignatureFromBytes($contents ?: '');
@@ -40,9 +40,14 @@ class ImageSearchService
             return $this->emptyResult($preview, $keywords);
         }
 
-        $candidates = Product::with(['images', 'seller.sellerProfile', 'category'])
-            ->visibleInShop()
-            ->get();
+        $candidatesQuery = Product::with(['images', 'seller.sellerProfile', 'category'])
+            ->visibleInShop();
+
+        if ($sellerId) {
+            $candidatesQuery->where('seller_id', $sellerId);
+        }
+
+        $candidates = $candidatesQuery->get();
 
         $scored = [];
 

@@ -19,12 +19,25 @@ interface ImageSearchPageProps {
     keywords: string[];
     method: 'visual' | 'ai_visual' | null;
     visionEnabled: boolean;
+    seller_id?: number | null;
+    store_slug?: string | null;
+    store_name?: string | null;
 }
 
-export default function ImageSearchPage({ results, preview, keywords, method, visionEnabled }: ImageSearchPageProps) {
+export default function ImageSearchPage({
+    results,
+    preview,
+    keywords,
+    method,
+    visionEnabled,
+    seller_id = null,
+    store_slug = null,
+    store_name = null,
+}: ImageSearchPageProps) {
     const { auth } = usePage<SharedData>().props;
     const hasSearched = preview !== null;
     const hasResults = results.length > 0;
+    const scopedStore = Boolean(seller_id && store_slug);
 
     const handleAddToCart = (productId: number) => {
         if (!auth.user) {
@@ -35,12 +48,16 @@ export default function ImageSearchPage({ results, preview, keywords, method, vi
     };
 
     const resetSearch = () => {
-        router.visit(route('search.image'));
+        router.visit(
+            scopedStore
+                ? route('search.image', { seller_id, store: store_slug })
+                : route('search.image'),
+        );
     };
 
     return (
         <ShopLayout>
-            <Head title="Search by image" />
+            <Head title={scopedStore ? `Search ${store_name || 'store'} by image` : 'Search by image'} />
 
             <div className="border-b border-gray-100 bg-gradient-to-b from-orange-50/80 to-white">
                 <div className="mx-auto max-w-4xl px-4 py-8 sm:py-10">
@@ -54,15 +71,30 @@ export default function ImageSearchPage({ results, preview, keywords, method, vi
                     </div>
                     <p className="mt-2 text-center text-sm text-gray-500">
                         {hasSearched
-                            ? 'Products matched from your photo using CityShop Deep Search'
-                            : 'Upload a product photo — we only show items that look like your image, not random guesses'}
+                            ? scopedStore
+                                ? `Matches from ${store_name || 'this store'} using CityShop Deep Search`
+                                : 'Products matched from your photo using CityShop Deep Search'
+                            : scopedStore
+                              ? `Upload a photo — we only search products in ${store_name || 'this store'}`
+                              : 'Upload a product photo — we only show items that look like your image, not random guesses'}
                     </p>
+                    {scopedStore && store_slug && (
+                        <p className="mt-3 text-center">
+                            <Link href={route('store.show', store_slug)} className="text-sm font-medium text-orange-600 hover:underline">
+                                ← Back to {store_name || 'store'}
+                            </Link>
+                        </p>
+                    )}
                 </div>
             </div>
 
             <div className="mx-auto max-w-7xl px-3 py-6 sm:px-4">
                 {!hasSearched ? (
-                    <ImageSearchUpload visionEnabled={visionEnabled} />
+                    <ImageSearchUpload
+                        visionEnabled={visionEnabled}
+                        sellerId={seller_id}
+                        storeSlug={store_slug}
+                    />
                 ) : (
                     <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start">
                         <div className="shrink-0 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:w-64">

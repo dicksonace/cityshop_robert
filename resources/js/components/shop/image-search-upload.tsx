@@ -9,9 +9,17 @@ interface ImageSearchUploadProps {
     processing?: boolean;
     visionEnabled?: boolean;
     compact?: boolean;
+    sellerId?: number | null;
+    storeSlug?: string | null;
 }
 
-export default function ImageSearchUpload({ processing = false, visionEnabled = false, compact = false }: ImageSearchUploadProps) {
+export default function ImageSearchUpload({
+    processing = false,
+    visionEnabled = false,
+    compact = false,
+    sellerId = null,
+    storeSlug = null,
+}: ImageSearchUploadProps) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [preview, setPreview] = useState<string | null>(null);
     const [dragOver, setDragOver] = useState(false);
@@ -33,7 +41,11 @@ export default function ImageSearchUpload({ processing = false, visionEnabled = 
         }
 
         setUploading(true);
-        router.post(route('search.image.store'), { image: selected }, {
+        const payload: Record<string, File | number | string> = { image: selected };
+        if (sellerId) payload.seller_id = sellerId;
+        if (storeSlug) payload.store = storeSlug;
+
+        router.post(route('search.image.store'), payload, {
             forceFormData: true,
             onFinish: () => setUploading(false),
         });

@@ -122,6 +122,7 @@ class HomeController extends Controller
                 'free_ship' => Product::visibleInShop()->where('free_shipping', true)->count(),
                 'total' => Product::visibleInShop()->count(),
             ],
+            'hasSaleProducts' => Product::visibleInShop()->whereNotNull('discount_price')->whereColumn('discount_price', '<', 'price')->exists(),
             'heroSlides' => [
                 ['title' => 'Trusted Sellers, Guaranteed Quality.', 'subtitle' => 'Every item is carefully vetted so you can buy with complete confidence.', 'accent' => 'from-blue-600 to-orange-500'],
                 ['title' => 'Shop Ghana\'s Best Deals', 'subtitle' => 'Electronics, fashion, and more — delivered to your doorstep.', 'accent' => 'from-emerald-600 to-teal-500'],

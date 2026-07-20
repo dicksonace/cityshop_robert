@@ -74,32 +74,37 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
 
     return (
         <div className="group relative flex flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg hover:shadow-orange-100/50 sm:rounded-2xl sm:hover:-translate-y-1">
-            <Link href={route('products.show', product.slug)} className="block">
-                <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-orange-50/30 p-3 sm:aspect-square sm:p-5">
-                    <div className="pointer-events-none absolute top-2 left-2 z-20 sm:top-3 sm:left-3">
-                        {hasDiscount && (
-                            <span className="rounded-md bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm sm:rounded-lg sm:px-2 sm:text-[10px]">-{discountPct}%</span>
-                        )}
-                    </div>
-                    <div className="pointer-events-none absolute top-2 right-2 z-20 sm:top-3 sm:right-3">
-                        {product.free_shipping && (
-                            <>
-                                <span className="hidden rounded-lg bg-emerald-500 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase shadow-sm sm:inline">Free Delivery</span>
-                                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm sm:hidden" title="Free delivery">
-                                    <Truck className="h-3 w-3" />
+            <div className="relative">
+                <Link href={route('products.show', product.slug)} className="block">
+                    <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-white to-orange-50/30 p-3 sm:aspect-square sm:p-5">
+                        <div className="pointer-events-none absolute top-2 left-2 z-20 sm:top-3 sm:left-3">
+                            {hasDiscount && (
+                                <span className="rounded-md bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm sm:rounded-lg sm:px-2 sm:text-[10px]">-{discountPct}%</span>
+                            )}
+                        </div>
+                        <div className="pointer-events-none absolute bottom-2 left-2 z-20 sm:bottom-3 sm:left-3">
+                            {product.free_shipping && (
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm sm:px-2 sm:text-[10px]">
+                                    <Truck className="h-3 w-3" /> Free
                                 </span>
-                            </>
-                        )}
+                            )}
+                        </div>
+                        <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_30%_20%,rgba(251,146,60,0.08),transparent_50%)]" />
+                        <img
+                            src={productImageUrl(image?.path)}
+                            alt={product.name}
+                            className="relative z-10 max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-110"
+                            loading="lazy"
+                        />
                     </div>
-                    <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_30%_20%,rgba(251,146,60,0.08),transparent_50%)]" />
-                    <img
-                        src={productImageUrl(image?.path)}
-                        alt={product.name}
-                        className="relative z-10 max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-110"
-                        loading="lazy"
+                </Link>
+                <div className="absolute top-2 right-2 z-30 sm:top-3 sm:right-3">
+                    <WishlistButton
+                        productId={product.id}
+                        className="h-8 w-8 rounded-full border-white/80 bg-white/95 shadow-sm backdrop-blur-sm hover:bg-white"
                     />
                 </div>
-            </Link>
+            </div>
 
             <div className="flex flex-1 flex-col p-2.5 sm:p-4 sm:pt-3">
                 {product.category && (
@@ -129,18 +134,16 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
                         <p className="truncate text-sm font-bold text-orange-500 sm:text-lg">{formatPrice(price)}</p>
                         {hasDiscount && <p className="text-[10px] text-gray-400 line-through sm:text-xs">{formatPrice(product.price)}</p>}
                     </div>
-                    <div className="flex shrink-0 gap-0.5 sm:gap-1">
-                        <WishlistButton productId={product.id} />
-                        {showAdd && (
-                            <Button
-                                size="icon"
-                                className="h-7 w-7 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm hover:from-orange-600 hover:to-orange-700 sm:h-8 sm:w-8"
-                                onClick={() => onAddToCart?.(product.id)}
-                            >
-                                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </Button>
-                        )}
-                    </div>
+                    {showAdd && (
+                        <Button
+                            size="icon"
+                            className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 shadow-md hover:from-orange-600 hover:to-orange-700 sm:h-9 sm:w-9"
+                            onClick={() => onAddToCart?.(product.id)}
+                            aria-label="Add to cart"
+                        >
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>

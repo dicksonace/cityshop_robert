@@ -227,7 +227,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/wallet-funding', [AdminWalletFundingController::class, 'store'])->name('wallet-funding.store');
 
     Route::get('/manual-funding/settings', [AdminManualFundingSettingsController::class, 'edit'])->name('manual-funding.settings');
-    Route::put('/manual-funding/settings', [AdminManualFundingSettingsController::class, 'update'])->name('manual-funding.settings.update');
+    Route::post('/manual-funding/settings', [AdminManualFundingSettingsController::class, 'update'])->name('manual-funding.settings.update');
     Route::get('/manual-top-ups', [AdminManualTopUpController::class, 'index'])->name('manual-top-ups.index');
     Route::post('/manual-top-ups/{topUp}/approve', [AdminManualTopUpController::class, 'approve'])->name('manual-top-ups.approve');
     Route::post('/manual-top-ups/{topUp}/reject', [AdminManualTopUpController::class, 'reject'])->name('manual-top-ups.reject');

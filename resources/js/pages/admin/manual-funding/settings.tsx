@@ -1,12 +1,14 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { LoaderCircle, Plus, Trash2 } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import AdminLayout from '@/layouts/admin-layout';
+import { momoNetworkMeta } from '@/lib/momo-networks';
 import { SharedData } from '@/types';
 
 type Account = {
@@ -28,41 +30,56 @@ interface Props {
 
 const emptyAccount = (): Account => ({
     type: 'momo',
-    label: 'MTN MoMo',
+    label: 'CITY SHOP MOMO',
     account_name: '',
     account_number: '',
     network: 'mtn',
     bank_name: '',
 });
 
+function normalizeAccount(account: Account): Account {
+    const type = account.type === 'bank' ? 'bank' : 'momo';
+    const meta = account.network ? momoNetworkMeta(account.network) : undefined;
+
+    return {
+        type,
+        label: account.label || (type === 'momo' ? 'CITY SHOP MOMO' : 'Bank transfer'),
+        account_name: account.account_name || '',
+        account_number: account.account_number || '',
+        network: type === 'momo' ? (meta?.id ?? 'mtn') : null,
+        bank_name: type === 'bank' ? (account.bank_name || '') : '',
+    };
+}
+
 export default function ManualFundingSettings({ settings }: Props) {
     const { flash } = usePage<SharedData>().props;
-    const [accounts, setAccounts] = useState<Account[]>(
-        settings.accounts.length > 0 ? settings.accounts : [emptyAccount()],
-    );
 
     const form = useForm({
         enabled: settings.enabled,
         instructions: settings.instructions,
-        accounts: accounts,
+        accounts: (settings.accounts.length > 0 ? settings.accounts : [emptyAccount()]).map(normalizeAccount),
     });
 
-    const syncAccounts = (next: Account[]) => {
-        setAccounts(next);
-        form.setData('accounts', next);
+    const accounts = form.data.accounts;
+
+    const setAccounts = (next: Account[]) => {
+        form.setData('accounts', next.map(normalizeAccount));
     };
 
     const updateAccount = (index: number, patch: Partial<Account>) => {
-        const next = accounts.map((a, i) => (i === index ? { ...a, ...patch } : a));
-        syncAccounts(next);
+        setAccounts(accounts.map((account, i) => (i === index ? { ...account, ...patch } : account)));
     };
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        form.transform((data) => ({ ...data, accounts })).put(route('admin.manual-funding.settings.update'), {
+        form.post(route('admin.manual-funding.settings.update'), {
             preserveScroll: true,
-            onFinish: () => form.transform((data) => data),
         });
+    };
+
+    const fieldError = (key: string): string | undefined => {
+        const errors = form.errors as Record<string, string | undefined>;
+        return errors[key];
     };
 
     return (
@@ -80,6 +97,18 @@ export default function ManualFundingSettings({ settings }: Props) {
             {flash.success && (
                 <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
                     {flash.success}
+                </div>
+            )}
+
+            {flash.error && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {flash.error}
+                </div>
+            )}
+
+            {Object.keys(form.errors).length > 0 && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Could not save — check the highlighted fields below.
                 </div>
             )}
 
@@ -114,7 +143,7 @@ export default function ManualFundingSettings({ settings }: Props) {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => syncAccounts([...accounts, emptyAccount()])}
+                            onClick={() => setAccounts([...accounts, emptyAccount()])}
                             disabled={accounts.length >= 10}
                         >
                             <Plus className="mr-1 h-4 w-4" />
@@ -129,7 +158,7 @@ export default function ManualFundingSettings({ settings }: Props) {
                                 {accounts.length > 1 && (
                                     <button
                                         type="button"
-                                        onClick={() => syncAccounts(accounts.filter((_, i) => i !== index))}
+                                        onClick={() => setAccounts(accounts.filter((_, i) => i !== index))}
                                         className="text-red-600 hover:text-red-700"
                                     >
                                         <Trash2 className="h-4 w-4" />
@@ -144,7 +173,11 @@ export default function ManualFundingSettings({ settings }: Props) {
                                         onChange={(e) =>
                                             updateAccount(index, {
                                                 type: e.target.value as 'momo' | 'bank',
-                                                label: e.target.value === 'momo' ? 'MTN MoMo' : 'Bank transfer',
+                                                label:
+                                                    e.target.value === 'momo'
+                                                        ? account.label || 'CITY SHOP MOMO'
+                                                        : account.label || 'Bank transfer',
+                                                network: e.target.value === 'momo' ? account.network || 'mtn' : null,
                                             })
                                         }
                                         className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
@@ -152,6 +185,7 @@ export default function ManualFundingSettings({ settings }: Props) {
                                         <option value="momo">Mobile Money</option>
                                         <option value="bank">Bank</option>
                                     </select>
+                                    <InputError message={fieldError(`accounts.${index}.type`)} />
                                 </div>
                                 <div>
                                     <Label>Label</Label>
@@ -161,21 +195,21 @@ export default function ManualFundingSettings({ settings }: Props) {
                                         className="mt-1"
                                         required
                                     />
+                                    <InputError message={fieldError(`accounts.${index}.label`)} />
                                 </div>
+
                                 {account.type === 'momo' && (
-                                    <div>
-                                        <Label>Network</Label>
-                                        <select
-                                            value={account.network ?? 'mtn'}
-                                            onChange={(e) => updateAccount(index, { network: e.target.value })}
-                                            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-                                        >
-                                            <option value="mtn">MTN</option>
-                                            <option value="telecel">Telecel</option>
-                                            <option value="airteltigo">AirtelTigo</option>
-                                        </select>
+                                    <div className="sm:col-span-2">
+                                        <MomoNetworkPicker
+                                            value={account.network || 'mtn'}
+                                            onChange={(network) => updateAccount(index, { network })}
+                                            label="Mobile money network"
+                                            hint="Pick the network for this receive number — MTN Mobile Money is recommended."
+                                        />
+                                        <InputError message={fieldError(`accounts.${index}.network`)} />
                                     </div>
                                 )}
+
                                 {account.type === 'bank' && (
                                     <div>
                                         <Label>Bank name</Label>
@@ -184,6 +218,7 @@ export default function ManualFundingSettings({ settings }: Props) {
                                             onChange={(e) => updateAccount(index, { bank_name: e.target.value })}
                                             className="mt-1"
                                         />
+                                        <InputError message={fieldError(`accounts.${index}.bank_name`)} />
                                     </div>
                                 )}
                                 <div>
@@ -194,6 +229,7 @@ export default function ManualFundingSettings({ settings }: Props) {
                                         className="mt-1"
                                         required
                                     />
+                                    <InputError message={fieldError(`accounts.${index}.account_name`)} />
                                 </div>
                                 <div>
                                     <Label>Account / MoMo number</Label>
@@ -203,6 +239,7 @@ export default function ManualFundingSettings({ settings }: Props) {
                                         className="mt-1"
                                         required
                                     />
+                                    <InputError message={fieldError(`accounts.${index}.account_number`)} />
                                 </div>
                             </div>
                         </div>

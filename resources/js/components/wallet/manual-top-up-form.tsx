@@ -6,6 +6,8 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
+import { momoNetworkLabel } from '@/lib/momo-networks';
 import { formatPrice } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
@@ -132,7 +134,7 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                             {account.type === 'momo' && account.network && (
                                 <div className="flex justify-between gap-2">
                                     <dt className="text-gray-500">Network</dt>
-                                    <dd className="uppercase text-gray-900">{account.network}</dd>
+                                    <dd className="text-gray-900">{momoNetworkLabel(account.network)}</dd>
                                 </div>
                             )}
                             <div className="flex justify-between gap-2">
@@ -207,18 +209,14 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                         />
                         <InputError message={form.errors.sender_number} />
                     </div>
-                    <div>
-                        <Label>Network (if MoMo)</Label>
-                        <select
-                            value={form.data.network}
-                            onChange={(e) => form.setData('network', e.target.value)}
-                            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-                        >
-                            <option value="mtn">MTN</option>
-                            <option value="telecel">Telecel</option>
-                            <option value="airteltigo">AirtelTigo</option>
-                            <option value="bank">Bank</option>
-                        </select>
+                    <div className="sm:col-span-2">
+                        <MomoNetworkPicker
+                            value={form.data.network === 'bank' ? 'mtn' : form.data.network}
+                            onChange={(network) => form.setData('network', network)}
+                            label="Network you paid from"
+                            hint="Select the MoMo network on the phone you used to send the money."
+                        />
+                        <InputError message={form.errors.network} />
                     </div>
                     <div>
                         <Label>Screenshot / receipt (required)</Label>

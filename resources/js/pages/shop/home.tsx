@@ -3,6 +3,7 @@ import { Grid3X3, LayoutList, SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import HeroBanner from '@/components/shop/hero-banner';
+import HomeCategoryShortcuts from '@/components/shop/home-category-shortcuts';
 import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
 import ProductFilters, { ActiveFilterChips, applyFilters, ShopFilters } from '@/components/shop/product-filters';
 import SearchBox from '@/components/shop/search-box';
@@ -27,6 +28,7 @@ interface HomeProps {
     filters: ShopFilters;
     counts: { in_ghana: number; free_ship: number; total: number };
     heroSlides: { title: string; subtitle: string; accent: string }[];
+    hasSaleProducts?: boolean;
 }
 
 const sortOptions = [
@@ -44,7 +46,7 @@ const quickFilters = [
     { key: 'free_ship', label: 'Free Delivery', param: { free_ship: true } },
 ];
 
-export default function Home({ products, categories, brands, priceRange, filters, counts, heroSlides }: HomeProps) {
+export default function Home({ products, categories, brands, priceRange, filters, counts, heroSlides, hasSaleProducts = false }: HomeProps) {
     const { auth } = usePage<SharedData>().props;
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -67,6 +69,13 @@ export default function Home({ products, categories, brands, priceRange, filters
         <ShopLayout hideHeaderSearch>
             <Head title="Shop" />
             <HeroBanner slides={heroSlides} />
+
+            <HomeCategoryShortcuts
+                categories={categories}
+                filters={filters}
+                counts={counts}
+                hasSaleProducts={hasSaleProducts}
+            />
 
             <div className="border-b border-gray-100 bg-white">
                 <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-4 py-3 text-center text-xs text-gray-500 md:justify-between md:text-sm">
@@ -149,7 +158,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                             </select>
                         </div>
 
-                        <div className="mb-4 flex flex-wrap gap-2">
+                        <div className="mb-4 flex flex-wrap gap-2 lg:hidden">
                             {quickFilters.map((qf) => {
                                 const active = filters[qf.key as keyof ShopFilters];
                                 return (

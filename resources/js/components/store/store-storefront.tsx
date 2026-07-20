@@ -1,11 +1,13 @@
 import { Link, router } from '@inertiajs/react';
 import { Globe, Mail, MapPin, MessageCircle, Phone, Share2, Star, Store, User, Verified } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import StoreHero from '@/components/store/store-hero';
+import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
 import MessageSellerButton from '@/components/shop/message-seller-button';
 import ReportSellerButton from '@/components/shop/report-seller-button';
 import ProductCard from '@/components/shop/product-card';
+import SearchBox from '@/components/shop/search-box';
 import SellerProfileSheet from '@/components/shop/seller-profile-sheet';
 import { Paginated, Product, SellerProfile, productImageUrl } from '@/types/marketplace';
 import {
@@ -49,6 +51,7 @@ interface StoreStorefrontProps {
     previewMode?: boolean;
     currentUserId?: number;
     onAddToCart?: (productId: number) => void;
+    search?: string;
 }
 
 export default function StoreStorefront({
@@ -65,12 +68,19 @@ export default function StoreStorefront({
     previewMode = false,
     currentUserId,
     onAddToCart,
+    search = '',
 }: StoreStorefrontProps) {
     const [profileOpen, setProfileOpen] = useState(false);
     const storeName = store.business_name ?? store.store_name ?? 'Store';
     const theme = customization.theme;
     const branding = customization.branding;
     const display = customization.product_display;
+    const isSearching = search.trim().length > 0;
+
+    const productsResetKey = useMemo(
+        () => `${store.slug}-${search}-${products.total}-${products.current_page}`,
+        [store.slug, search, products.total, products.current_page],
+    );
 
     const handleAddToCart = (productId: number) => {
         if (onAddToCart) {
@@ -143,50 +153,56 @@ export default function StoreStorefront({
                     <div>
                         <h2 className="text-lg font-bold" style={{ color: theme.text_color }}>
                             <Store className="mr-2 inline h-5 w-5" style={{ color: theme.secondary_color }} />
-                            All Products
+                            {isSearching ? `Results for “${search.trim()}”` : 'All Products'}
                         </h2>
-                        <p className="text-sm text-gray-500">{products.total} items from this store</p>
+                        <p className="text-sm text-gray-500">
+                            {isSearching
+                                ? `${products.total} ${products.total === 1 ? 'match' : 'matches'} in this store`
+                                : `${products.total} items from this store`}
+                        </p>
                     </div>
                     {!previewMode && (
-                        <Link href={route('home')} className="text-sm hover:underline" style={{ color: theme.secondary_color }}>
-                            ← Back to Shop
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-3">
+                            {isSearching && (
+                                <Link
+                                    href={route('store.show', store.slug)}
+                                    className="text-sm text-gray-500 hover:underline"
+                                >
+                                    Clear search
+                                </Link>
+                            )}
+                            <Link href={route('home')} className="text-sm hover:underline" style={{ color: theme.secondary_color }}>
+                                ← Back to Shop
+                            </Link>
+                        </div>
                     )}
                 </div>
                 {products.data.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center text-gray-500">
-                        This store has no products listed yet.
+                        {isSearching
+                            ? `No products in this store match “${search.trim()}”.`
+                            : 'This store has no products listed yet.'}
                     </div>
-                ) : (
+                ) : previewMode ? (
                     <div className={productGridClass(display)}>
                         {products.data.map((product) => (
                             <ProductCard
                                 key={product.id}
                                 product={product}
-                                onAddToCart={previewMode ? undefined : handleAddToCart}
+                                onAddToCart={undefined}
                                 variant={display.layout === 'list' ? 'list' : 'grid'}
                             />
                         ))}
                     </div>
-                )}
-                {!previewMode && products.last_page > 1 && (
-                    <div className="mt-8 overflow-x-auto pb-2">
-                        <div className="flex min-w-min justify-center gap-1 px-1">
-                            {products.links.map((link, i) =>
-                                link.url ? (
-                                    <Link
-                                        key={i}
-                                        href={link.url}
-                                        className={`min-w-[2.5rem] rounded-xl px-3 py-2 text-sm font-medium ${
-                                            link.active ? 'text-white' : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50'
-                                        }`}
-                                        style={link.active ? { backgroundColor: theme.secondary_color } : undefined}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
-                                ) : null,
-                            )}
-                        </div>
-                    </div>
+                ) : (
+                    <InfiniteProductGrid
+                        initial={products}
+                        resetKey={productsResetKey}
+                        onAddToCart={handleAddToCart}
+                        variant={display.layout === 'list' ? 'list' : 'grid'}
+                        gridClassName={productGridClass(display)}
+                        replaceGridClass
+                    />
                 )}
             </section>
         ),
@@ -301,9 +317,28 @@ export default function StoreStorefront({
                 </div>
             </div>
 
+            {!previewMode && (
+                <div className="border-b border-orange-50 bg-white">
+                    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            Search in {storeName}
+                        </p>
+                        <SearchBox
+                            initialQuery={search}
+                            target="store"
+                            sellerId={store.user_id}
+                            storeSlug={store.slug}
+                            storeName={storeName}
+                            className="w-full"
+                        />
+                    </div>
+                </div>
+            )}
+
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
                 {sections.map((section) => {
                     if (['announcement', 'hero', 'promo'].includes(section)) return null;
+                    if (isSearching && section === 'featured') return null;
                     const content = sectionContent[section];
                     return content ? <div key={section}>{content}</div> : null;
                 })}

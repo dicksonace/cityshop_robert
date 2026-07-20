@@ -7,14 +7,19 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\SellerProfile;
+use App\Services\ProductDiscoveryService;
 use App\Services\StoreCustomizationService;
+use App\Support\InfiniteScroll;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class StoreController extends Controller
 {
-    public function show(Request $request, string $slug, StoreCustomizationService $customizations): Response
+    public function __construct(private ProductDiscoveryService $discovery) {}
+
+    public function show(Request $request, string $slug, StoreCustomizationService $customizations): Response|JsonResponse
     {
         $store = SellerProfile::with(['user', 'storeCustomization'])
             ->where('slug', $slug)
@@ -25,20 +30,44 @@ class StoreController extends Controller
         $settings = $customizations->publishedSettings($customization);
         $sections = $customizations->orderedSections($settings);
 
+        $search = trim((string) $request->get('search', $request->get('q', '')));
+        $categoryId = $request->integer('category') ?: null;
+
         $baseQuery = Product::with(['images', 'category'])
             ->visibleInShop()
             ->where('seller_id', $store->user_id);
 
-        $products = (clone $baseQuery)->latest()->paginate(12)->withQueryString();
+        $productQuery = clone $baseQuery;
+
+        if ($search !== '') {
+            $this->discovery->applySearch($productQuery, $search);
+        }
+
+        if ($categoryId) {
+            $productQuery->where('category_id', $categoryId);
+        }
+
+        if ($search !== '') {
+            $this->discovery->applySort($productQuery, 'relevance', $this->discovery->resolveRandomSeed($request), $request->user());
+        } else {
+            $productQuery->latest();
+        }
+
+        $products = $productQuery->paginate(12)->withQueryString();
+
+        if (InfiniteScroll::wants($request)) {
+            return InfiniteScroll::json($products);
+        }
 
         $productCount = (clone $baseQuery)->count();
+        $isSearching = $search !== '' || $categoryId !== null;
 
         $sellerReviewCount = Review::query()
             ->whereHas('product', fn ($q) => $q->where('seller_id', $store->user_id))
             ->count();
 
         $sectionProducts = [];
-        if (in_array('featured', $sections, true)) {
+        if (! $isSearching && in_array('featured', $sections, true)) {
             $sectionProducts['featured'] = (clone $baseQuery)->latest()->limit(4)->get();
         }
         if (in_array('products', $sections, true)) {
@@ -46,7 +75,7 @@ class StoreController extends Controller
         }
 
         $onSale = collect();
-        if (($settings['sections']['enabled']['promo'] ?? false) || in_array('featured', $sections, true)) {
+        if (! $isSearching && (($settings['sections']['enabled']['promo'] ?? false) || in_array('featured', $sections, true))) {
             $onSale = (clone $baseQuery)->whereNotNull('discount_price')->latest()->limit(4)->get();
         }
 
@@ -61,6 +90,7 @@ class StoreController extends Controller
             'storeUrl' => route('store.show', $store->slug, absolute: true),
             'sellerReviewCount' => $sellerReviewCount,
             'promoActive' => $customizations->isPromoActive($settings),
+            'search' => $search,
         ]);
     }
 }

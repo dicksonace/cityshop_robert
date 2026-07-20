@@ -27,6 +27,7 @@ interface StorePageProps {
     storeUrl: string;
     sellerReviewCount: number;
     promoActive: boolean;
+    search: string;
 }
 
 export default function StorePage({
@@ -40,6 +41,7 @@ export default function StorePage({
     storeUrl,
     sellerReviewCount,
     promoActive,
+    search,
 }: StorePageProps) {
     const { auth } = usePage<SharedData>().props;
     const storeName = store.business_name ?? store.store_name ?? 'Store';
@@ -54,7 +56,7 @@ export default function StorePage({
 
     return (
         <ShopLayout>
-            <Head title={storeName} />
+            <Head title={search ? `${search} · ${storeName}` : storeName} />
             <StoreStorefront
                 store={store}
                 customization={customization}
@@ -68,6 +70,7 @@ export default function StorePage({
                 promoActive={promoActive}
                 currentUserId={auth.user?.id}
                 onAddToCart={handleAddToCart}
+                search={search}
             />
         </ShopLayout>
     );
