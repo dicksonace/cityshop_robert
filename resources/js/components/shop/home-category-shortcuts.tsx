@@ -13,6 +13,12 @@ import {
     Truck,
     Home as HomeIcon,
     Car,
+    Utensils,
+    Baby,
+    BookOpen,
+    Wrench,
+    Pill,
+    PawPrint,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -38,9 +44,15 @@ function categoryIcon(slug: string, name: string): LucideIcon {
     if (key.includes('phone') || key.includes('tablet')) return Smartphone;
     if (key.includes('computer') || key.includes('laptop')) return Laptop;
     if (key.includes('electronic')) return Monitor;
-    if (key.includes('vehicle') || key.includes('car') || key.includes('bike')) return Car;
+    if (key.includes('vehicle') || key.includes('car') || key.includes('auto')) return Car;
     if (key.includes('home') || key.includes('garden') || key.includes('furniture')) return HomeIcon;
-    if (key.includes('fashion') || key.includes('cloth') || key.includes('dress')) return Shirt;
+    if (key.includes('fashion') || key.includes('cloth') || key.includes('dress') || key.includes('bag') || key.includes('shoe')) return Shirt;
+    if (key.includes('food') || key.includes('beverage') || key.includes('grocer')) return Utensils;
+    if (key.includes('baby') || key.includes('kid') || key.includes('toy')) return Baby;
+    if (key.includes('book') || key.includes('education') || key.includes('office')) return BookOpen;
+    if (key.includes('tool') || key.includes('hardware')) return Wrench;
+    if (key.includes('health') || key.includes('pharma') || key.includes('beauty')) return Pill;
+    if (key.includes('pet')) return PawPrint;
     if (key.includes('earphone') || key.includes('audio') || key.includes('headphone')) return Phone;
     return Package;
 }

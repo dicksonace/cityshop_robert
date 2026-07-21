@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class SellerPaymentMethod extends Model
 {
     use SoftDeletes;
+
     protected $fillable = [
         'seller_profile_id',
         'type',
@@ -22,6 +23,9 @@ class SellerPaymentMethod extends Model
         'metadata',
         'is_active',
         'is_default',
+        'disabled_at',
+        'disabled_by',
+        'disabled_reason',
     ];
 
     protected function casts(): array
@@ -31,12 +35,23 @@ class SellerPaymentMethod extends Model
             'metadata' => 'array',
             'is_active' => 'boolean',
             'is_default' => 'boolean',
+            'disabled_at' => 'datetime',
         ];
     }
 
     public function sellerProfile(): BelongsTo
     {
         return $this->belongsTo(SellerProfile::class);
+    }
+
+    public function disabledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'disabled_by');
+    }
+
+    public function isDisabled(): bool
+    {
+        return $this->disabled_at !== null;
     }
 
     public function displayLabel(): string

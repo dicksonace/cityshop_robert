@@ -12,6 +12,7 @@ import {
 import { ReactNode, useState } from 'react';
 
 import CityShopBrand from '@/components/cityshop-brand';
+import NotificationBell from '@/components/shop/notification-bell';
 import PanelSidebarNav from '@/components/panel/panel-sidebar-nav';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -117,12 +118,15 @@ export default function SellerLayout({ children, title, active, showFab = false 
                                 <CityShopBrand size="sm" href={route('seller.dashboard')} />
                             </div>
                             <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-gray-900 sm:text-lg lg:text-xl">{title}</h1>
-                            <Link href={route('seller.products.create')} className="hidden sm:inline-flex lg:hidden">
-                                <Button size="sm" className="bg-orange-500 hover:bg-orange-600">
-                                    <Plus className="mr-1 h-4 w-4" />
-                                    Add
-                                </Button>
-                            </Link>
+                            <div className="flex shrink-0 items-center gap-1">
+                                <NotificationBell />
+                                <Link href={route('seller.products.create')} className="hidden sm:inline-flex lg:hidden">
+                                    <Button size="sm" className="bg-orange-500 hover:bg-orange-600">
+                                        <Plus className="mr-1 h-4 w-4" />
+                                        Add
+                                    </Button>
+                                </Link>
+                            </div>
                         </div>
                     </header>
                     <main className="min-w-0 flex-1 overflow-x-hidden p-4 lg:p-8">{children}</main>

@@ -57,7 +57,7 @@ export function ProductGridSkeletons({
             className={cn(
                 variant === 'list'
                     ? 'space-y-4'
-                    : 'grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3',
+                    : 'grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4',
                 className,
             )}
             aria-hidden

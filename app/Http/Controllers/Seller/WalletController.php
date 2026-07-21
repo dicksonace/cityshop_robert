@@ -8,6 +8,7 @@ use App\Models\SellerPayoutMethod;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\PlatformSettings;
+use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\WalletTransactionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -51,14 +52,31 @@ class WalletController extends Controller
         ]);
     }
 
-    public function storePayoutMethod(Request $request): RedirectResponse
+    public function storePayoutMethod(Request $request, SellerPaymentMethodSecurityService $security): RedirectResponse
     {
+        $profile = $request->user()->sellerProfile;
+        if ($profile) {
+            try {
+                $security->assertCanManagePaymentMethods($profile);
+            } catch (\InvalidArgumentException $e) {
+                return back()->with('error', $e->getMessage());
+            }
+        }
+
         $validated = $request->validate([
             'network' => ['required', 'in:mtn,telecel,airteltigo'],
             'account_number' => ['required', 'string', 'max:20'],
             'account_name' => ['required', 'string', 'max:255'],
             'is_default' => ['boolean'],
         ]);
+
+        if ($profile) {
+            try {
+                $security->assertAccountNotBlocked($profile, $validated['account_number']);
+            } catch (\InvalidArgumentException $e) {
+                return back()->with('error', $e->getMessage());
+            }
+        }
 
         if ($validated['is_default'] ?? false) {
             SellerPayoutMethod::where('user_id', $request->user()->id)->update(['is_default' => false]);

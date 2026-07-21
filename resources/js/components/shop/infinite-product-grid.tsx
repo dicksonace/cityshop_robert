@@ -34,7 +34,7 @@ export default function InfiniteProductGrid({
             ? 'space-y-4'
             : replaceGridClass && gridClassName
               ? gridClassName
-              : cn('grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3', gridClassName);
+              : cn('grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4', gridClassName);
 
     return (
         <div>

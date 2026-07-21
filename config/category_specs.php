@@ -79,6 +79,7 @@ return [
             ['key' => 'skin_type', 'label' => 'Skin Type', 'type' => 'select', 'options' => ['All Skin Types', 'Oily', 'Dry', 'Combination', 'Sensitive']],
             ['key' => 'ingredients', 'label' => 'Key Ingredients', 'type' => 'text'],
             ['key' => 'expiry', 'label' => 'Shelf Life', 'type' => 'text'],
+            ['key' => 'product_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Skincare', 'Makeup', 'Hair care', 'Fragrance', 'Personal care', 'Other']],
         ],
     ],
 
@@ -103,6 +104,132 @@ return [
             ['key' => 'fuel_type', 'label' => 'Fuel type', 'type' => 'select', 'options' => ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'LPG']],
             ['key' => 'transmission', 'label' => 'Transmission', 'type' => 'select', 'options' => ['Manual', 'Automatic']],
             ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Foreign Used', 'Locally Used', 'Refurbished']],
+        ],
+    ],
+
+    'food-beverages' => [
+        'icon' => '🍔',
+        'fields' => [
+            ['key' => 'product_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Food', 'Drink', 'Snack', 'Ingredient', 'Other']],
+            ['key' => 'weight_volume', 'label' => 'Weight / Volume', 'type' => 'text'],
+            ['key' => 'pack_size', 'label' => 'Pack size', 'type' => 'text'],
+            ['key' => 'expiry', 'label' => 'Best before / Expiry', 'type' => 'text'],
+            ['key' => 'storage', 'label' => 'Storage', 'type' => 'select', 'options' => ['Room temperature', 'Refrigerated', 'Frozen']],
+            ['key' => 'dietary', 'label' => 'Dietary', 'type' => 'select', 'options' => ['None', 'Halal', 'Vegetarian', 'Vegan', 'Gluten-free']],
+        ],
+    ],
+
+    'groceries' => [
+        'icon' => '🛒',
+        'fields' => [
+            ['key' => 'product_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Staple', 'Household', 'Personal care', 'Snack', 'Other']],
+            ['key' => 'weight_volume', 'label' => 'Weight / Volume', 'type' => 'text'],
+            ['key' => 'pack_size', 'label' => 'Pack size', 'type' => 'text'],
+            ['key' => 'expiry', 'label' => 'Best before / Expiry', 'type' => 'text'],
+            ['key' => 'brand', 'label' => 'Brand', 'type' => 'text'],
+        ],
+    ],
+
+    'health-pharmacy' => [
+        'icon' => '💊',
+        'fields' => [
+            ['key' => 'product_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Medicine', 'Supplement', 'First aid', 'Medical device', 'Other']],
+            ['key' => 'volume_size', 'label' => 'Size / Count', 'type' => 'text'],
+            ['key' => 'expiry', 'label' => 'Expiry date', 'type' => 'text'],
+            ['key' => 'prescription', 'label' => 'Prescription', 'type' => 'select', 'options' => ['Not required', 'Required']],
+        ],
+    ],
+
+    'baby-kids' => [
+        'icon' => '🍼',
+        'fields' => [
+            ['key' => 'age_range', 'label' => 'Age range', 'type' => 'select', 'options' => ['0-6 months', '6-12 months', '1-3 years', '3-5 years', '5-8 years', '8+ years']],
+            ['key' => 'size', 'label' => 'Size', 'type' => 'text'],
+            ['key' => 'material', 'label' => 'Material', 'type' => 'text'],
+            ['key' => 'gender', 'label' => 'Gender', 'type' => 'select', 'options' => ['Boys', 'Girls', 'Unisex']],
+            ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Used - Like New', 'Used - Good']],
+        ],
+    ],
+
+    'books-education' => [
+        'icon' => '📚',
+        'fields' => [
+            ['key' => 'format', 'label' => 'Format', 'type' => 'select', 'options' => ['Paperback', 'Hardcover', 'Ebook', 'Workbook', 'Stationery set', 'Other']],
+            ['key' => 'subject', 'label' => 'Subject / Topic', 'type' => 'text'],
+            ['key' => 'level', 'label' => 'Level', 'type' => 'select', 'options' => ['Primary', 'JHS', 'SHS', 'Tertiary', 'Professional', 'General']],
+            ['key' => 'language', 'label' => 'Language', 'type' => 'select', 'options' => ['English', 'Twi', 'French', 'Other']],
+            ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Used - Like New', 'Used - Good']],
+        ],
+    ],
+
+    'jewelry-watches' => [
+        'icon' => '💍',
+        'fields' => [
+            ['key' => 'item_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Necklace', 'Bracelet', 'Earrings', 'Ring', 'Watch', 'Other']],
+            ['key' => 'material', 'label' => 'Material', 'type' => 'text'],
+            ['key' => 'gender', 'label' => 'Gender', 'type' => 'select', 'options' => ['Men', 'Women', 'Unisex', 'Kids']],
+            ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Used - Like New', 'Used']],
+        ],
+    ],
+
+    'bags-shoes' => [
+        'icon' => '👟',
+        'fields' => [
+            ['key' => 'item_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Shoes', 'Sandals', 'Bags', 'Backpacks', 'Belts', 'Other']],
+            ['key' => 'size', 'label' => 'Size', 'type' => 'text'],
+            ['key' => 'color', 'label' => 'Color', 'type' => 'text'],
+            ['key' => 'material', 'label' => 'Material', 'type' => 'text'],
+            ['key' => 'gender', 'label' => 'Gender', 'type' => 'select', 'options' => ['Men', 'Women', 'Unisex', 'Kids']],
+            ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Used - Like New', 'Used']],
+        ],
+    ],
+
+    'tools-hardware' => [
+        'icon' => '🔧',
+        'fields' => [
+            ['key' => 'tool_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Hand tool', 'Power tool', 'Hardware', 'Building material', 'Other']],
+            ['key' => 'power_source', 'label' => 'Power source', 'type' => 'select', 'options' => ['Manual', 'Electric', 'Battery', 'Petrol', 'N/A']],
+            ['key' => 'warranty', 'label' => 'Warranty', 'type' => 'select', 'options' => ['None', '3 Months', '6 Months', '1 Year']],
+            ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Used - Like New', 'Used']],
+        ],
+    ],
+
+    'toys-games' => [
+        'icon' => '🧸',
+        'fields' => [
+            ['key' => 'age_range', 'label' => 'Age range', 'type' => 'text'],
+            ['key' => 'toy_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Educational', 'Outdoor', 'Board game', 'Electronic', 'Dolls & figures', 'Other']],
+            ['key' => 'material', 'label' => 'Material', 'type' => 'text'],
+            ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Used - Like New', 'Used']],
+        ],
+    ],
+
+    'pet-supplies' => [
+        'icon' => '🐾',
+        'fields' => [
+            ['key' => 'pet_type', 'label' => 'Pet', 'type' => 'select', 'options' => ['Dog', 'Cat', 'Bird', 'Fish', 'Other']],
+            ['key' => 'product_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Food', 'Toy', 'Accessory', 'Health', 'Cage / Housing', 'Other']],
+            ['key' => 'weight_size', 'label' => 'Weight / Size', 'type' => 'text'],
+        ],
+    ],
+
+    'office-stationery' => [
+        'icon' => '📎',
+        'fields' => [
+            ['key' => 'item_type', 'label' => 'Type', 'type' => 'select', 'options' => ['Stationery', 'Printer supplies', 'Desk accessory', 'Filing', 'Other']],
+            ['key' => 'pack_size', 'label' => 'Pack size', 'type' => 'text'],
+            ['key' => 'color', 'label' => 'Color', 'type' => 'text'],
+        ],
+    ],
+
+    'auto-parts' => [
+        'icon' => '⚙️',
+        'fields' => [
+            ['key' => 'part_type', 'label' => 'Part type', 'type' => 'text'],
+            ['key' => 'vehicle_make', 'label' => 'Fits make', 'type' => 'text'],
+            ['key' => 'vehicle_model', 'label' => 'Fits model', 'type' => 'text'],
+            ['key' => 'year_range', 'label' => 'Year range', 'type' => 'text'],
+            ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Used - Like New', 'Used', 'Refurbished']],
         ],
     ],
 

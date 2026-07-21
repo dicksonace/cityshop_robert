@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangle, CheckCircle2, FileText, Star } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
+import { LightboxTrigger, orderItemLightboxImages } from '@/components/shop/image-lightbox';
 import OrderProgress from '@/components/shop/order-progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -282,11 +283,37 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                                         return (
                                             <li key={item.id} className="py-3">
                                                 <div className="flex gap-3">
-                                                    <img
-                                                        src={productImageUrl(item.product?.images?.[0]?.path ?? item.package_image ?? undefined)}
-                                                        alt=""
-                                                        className="h-14 w-14 rounded-lg border object-contain"
-                                                    />
+                                                    {(() => {
+                                                        const gallery = orderItemLightboxImages(item);
+                                                        const thumb =
+                                                            item.product?.images?.[0]?.path
+                                                            ?? item.package_image
+                                                            ?? undefined;
+
+                                                        if (!thumb || gallery.length === 0) {
+                                                            return (
+                                                                <img
+                                                                    src={productImageUrl(thumb)}
+                                                                    alt=""
+                                                                    className="h-14 w-14 rounded-lg border object-contain"
+                                                                />
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <LightboxTrigger
+                                                                images={gallery}
+                                                                startIndex={0}
+                                                                className="shrink-0"
+                                                            >
+                                                                <img
+                                                                    src={productImageUrl(thumb)}
+                                                                    alt=""
+                                                                    className="h-14 w-14 rounded-lg border object-contain"
+                                                                />
+                                                            </LightboxTrigger>
+                                                        );
+                                                    })()}
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex justify-between gap-2">
                                                             <div>
@@ -326,6 +353,31 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                                                                 {item.vehicle_number && <p>Vehicle: {item.vehicle_number}</p>}
                                                             </div>
                                                         )}
+
+                                                        {item.package_image && (() => {
+                                                            const gallery = orderItemLightboxImages(item);
+                                                            const packageIndex = Math.max(
+                                                                0,
+                                                                gallery.findIndex((img) => img.src === item.package_image),
+                                                            );
+
+                                                            return (
+                                                                <LightboxTrigger
+                                                                    images={gallery}
+                                                                    startIndex={packageIndex}
+                                                                    className="mt-2"
+                                                                >
+                                                                    <img
+                                                                        src={productImageUrl(item.package_image)}
+                                                                        alt="Delivery package — tap to enlarge"
+                                                                        className="h-24 w-24 rounded-lg border object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-orange-400"
+                                                                    />
+                                                                    <span className="mt-1 block text-[11px] text-gray-500">
+                                                                        Tap to view full size
+                                                                    </span>
+                                                                </LightboxTrigger>
+                                                            );
+                                                        })()}
 
                                                         {item.status === 'awaiting_confirmation' && (
                                                             <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-4">

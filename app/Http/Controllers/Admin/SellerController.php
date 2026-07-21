@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\SellerStatus;
 use App\Http\Controllers\Controller;
+use App\Models\SellerPaymentMethod;
 use App\Models\SellerProfile;
 use App\Notifications\SellerApprovedNotification;
 use App\Notifications\SellerRejectedNotification;
 use App\Services\SellerAccountService;
+use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\SellerRegistrationInviteService;
 use App\Services\StoreCustomizationService;
 use Illuminate\Http\RedirectResponse;
@@ -50,10 +52,34 @@ class SellerController extends Controller
 
     public function show(SellerProfile $seller): Response
     {
-        $seller->load('user');
+        $seller->load([
+            'user',
+            'paymentMethods' => fn ($q) => $q->withTrashed()->latest('id'),
+            'paymentMethodsLockedBy:id,name',
+        ]);
 
         return Inertia::render('admin/sellers/show', [
             'seller' => $seller,
+            'paymentMethods' => $seller->paymentMethods->map(fn (SellerPaymentMethod $method) => [
+                'id' => $method->id,
+                'type' => $method->type->value,
+                'label' => $method->displayLabel(),
+                'account_name' => $method->account_name,
+                'account_number' => $method->account_number,
+                'network' => $method->network,
+                'bank_name' => $method->bank_name,
+                'instructions' => $method->instructions,
+                'is_active' => $method->is_active,
+                'is_default' => $method->is_default,
+                'is_disabled' => $method->isDisabled(),
+                'disabled_reason' => $method->disabled_reason,
+                'disabled_at' => $method->disabled_at?->toIso8601String(),
+                'deleted_at' => $method->deleted_at?->toIso8601String(),
+            ]),
+            'paymentMethodsLocked' => $seller->paymentMethodsAreLocked(),
+            'paymentMethodsLockReason' => $seller->payment_methods_lock_reason,
+            'paymentMethodsLockedBy' => $seller->paymentMethodsLockedBy?->only(['id', 'name']),
+            'paymentMethodsLockedAt' => $seller->payment_methods_locked_at?->toIso8601String(),
         ]);
     }
 
@@ -159,5 +185,57 @@ class SellerController extends Controller
         return redirect()
             ->route('admin.sellers.index', ['status' => 'all'])
             ->with('success', 'Seller account deleted. Their listings were removed from the marketplace.');
+    }
+
+    public function disablePaymentMethod(
+        Request $request,
+        SellerProfile $seller,
+        SellerPaymentMethod $method,
+        SellerPaymentMethodSecurityService $security,
+    ): RedirectResponse {
+        abort_unless($method->seller_profile_id === $seller->id, 404);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ]);
+
+        try {
+            $security->disable($method, $request->user(), $validated['reason']);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Payment method disabled. Seller cannot add new payment methods until you unlock or re-enable.');
+    }
+
+    public function enablePaymentMethod(
+        Request $request,
+        SellerProfile $seller,
+        SellerPaymentMethod $method,
+        SellerPaymentMethodSecurityService $security,
+    ): RedirectResponse {
+        abort_unless($method->seller_profile_id === $seller->id, 404);
+
+        try {
+            $security->enable($method, $request->user());
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Payment method enabled again.');
+    }
+
+    public function unlockPaymentMethods(
+        Request $request,
+        SellerProfile $seller,
+        SellerPaymentMethodSecurityService $security,
+    ): RedirectResponse {
+        if (! $seller->paymentMethodsAreLocked()) {
+            return back()->with('error', 'Payment method setup is not locked for this seller.');
+        }
+
+        $security->unlockPaymentSetup($seller);
+
+        return back()->with('success', 'Seller can add payment methods again. Disabled methods stay blocked until re-enabled.');
     }
 }

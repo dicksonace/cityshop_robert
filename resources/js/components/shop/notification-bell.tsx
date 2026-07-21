@@ -1,9 +1,45 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Bell, MessageCircle } from 'lucide-react';
+import { Bell, MessageCircle, Package, Shield } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { useChatOptional } from '@/contexts/chat-context';
 import { SharedData } from '@/types';
+
+type NotificationData = {
+    conversation_id?: number;
+    order_id?: number;
+    url?: string;
+};
+
+type NotificationItem = {
+    id: number;
+    type: string;
+    title: string;
+    body?: string;
+    read_at?: string | null;
+    created_at?: string;
+    data?: NotificationData;
+};
+
+function notificationHref(n: NotificationItem): string | null {
+    if (n.data?.url) return n.data.url;
+    if (n.data?.conversation_id) return route('chat.show', n.data.conversation_id);
+    if (n.data?.order_id) return route('seller.orders.show', n.data.order_id);
+    return null;
+}
+
+function NotificationIcon({ type }: { type: string }) {
+    if (type === 'message' || type === 'call') {
+        return <MessageCircle className="h-4 w-4 text-orange-500" />;
+    }
+    if (type === 'new_order') {
+        return <Package className="h-4 w-4 text-orange-500" />;
+    }
+    if (type === 'admin_message' || type === 'dispute') {
+        return <Shield className="h-4 w-4 text-orange-500" />;
+    }
+    return <Bell className="h-4 w-4 text-orange-500" />;
+}
 
 export default function NotificationBell() {
     const { auth, unreadMessages, unreadNotifications } = usePage<
@@ -11,9 +47,7 @@ export default function NotificationBell() {
     >().props;
     const chat = useChatOptional();
     const [open, setOpen] = useState(false);
-    const [notifications, setNotifications] = useState<
-        Array<{ id: number; type: string; title: string; body?: string; read_at?: string | null; created_at?: string; data?: { conversation_id?: number } }>
-    >([]);
+    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [loading, setLoading] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
 
@@ -48,8 +82,8 @@ export default function NotificationBell() {
         setNotifications((prev) => prev.map((n) => ({ ...n, read_at: new Date().toISOString() })));
     };
 
-    const openNotification = (id: number, conversationId?: number) => {
-        fetch(route('notifications.read', id), {
+    const openNotification = (n: NotificationItem) => {
+        fetch(route('notifications.read', n.id), {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -59,13 +93,17 @@ export default function NotificationBell() {
             },
         });
         setOpen(false);
-        if (conversationId && chat) {
-            chat.openConversation(conversationId);
-        } else if (conversationId) {
-            router.visit(route('chat.show', conversationId));
-        } else {
-            router.visit(route('notifications.index'));
+
+        const href = notificationHref(n);
+        if (n.data?.conversation_id && chat) {
+            chat.openConversation(n.data.conversation_id);
+            return;
         }
+        if (href) {
+            router.visit(href);
+            return;
+        }
+        router.visit(route('notifications.index'));
     };
 
     return (
@@ -88,7 +126,7 @@ export default function NotificationBell() {
                 <div className="absolute right-0 z-50 mt-2 w-[min(calc(100vw-1.5rem),20rem)] overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
                     <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                         <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
-                        {totalUnread > 0 && (
+                        {(unreadNotifications ?? 0) > 0 && (
                             <button type="button" onClick={markAllRead} className="text-xs text-orange-500 hover:underline">
                                 Mark all read
                             </button>
@@ -105,19 +143,20 @@ export default function NotificationBell() {
                                 <button
                                     key={n.id}
                                     type="button"
-                                    onClick={() => openNotification(n.id, n.data?.conversation_id)}
+                                    onClick={() => openNotification(n)}
                                     className={`flex w-full gap-3 border-b border-gray-50 px-4 py-3 text-left hover:bg-gray-50 ${!n.read_at ? 'bg-orange-50/50' : ''}`}
                                 >
                                     <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100">
-                                        {n.type === 'message' || n.type === 'call' ? (
-                                            <MessageCircle className="h-4 w-4 text-orange-500" />
-                                        ) : (
-                                            <Bell className="h-4 w-4 text-orange-500" />
-                                        )}
+                                        <NotificationIcon type={n.type} />
                                     </div>
                                     <div className="min-w-0">
                                         <p className="text-sm font-medium text-gray-900">{n.title}</p>
                                         {n.body && <p className="truncate text-xs text-gray-500">{n.body}</p>}
+                                        {n.created_at && (
+                                            <p className="mt-0.5 text-[10px] text-gray-400">
+                                                {new Date(n.created_at).toLocaleString('en-GH')}
+                                            </p>
+                                        )}
                                     </div>
                                 </button>
                             ))

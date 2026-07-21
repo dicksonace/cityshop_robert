@@ -21,6 +21,7 @@ export type SellerNavKey =
     | 'promotions'
     | 'reviews'
     | 'messages'
+    | 'notifications'
     | 'wallet';
 
 const sectionMap: Record<SellerNavKey, string> = {
@@ -32,6 +33,7 @@ const sectionMap: Record<SellerNavKey, string> = {
     promotions: 'marketing',
     reviews: 'customers',
     messages: 'communication',
+    notifications: 'communication',
     wallet: 'finance',
 };
 
@@ -106,7 +108,10 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
             label: 'Communication',
             icon: MessageSquare,
             defaultOpen: section === 'communication',
-            items: [{ key: 'messages', label: 'Inbox', href: route('chat.index'), badgeKey: 'unread_messages', mobile: true }],
+            items: [
+                { key: 'messages', label: 'Inbox', href: route('chat.index'), badgeKey: 'unread_messages', mobile: true },
+                { key: 'notifications', label: 'Notifications', href: route('notifications.index'), badgeKey: 'unread_notifications' },
+            ],
         },
         {
             key: 'finance',

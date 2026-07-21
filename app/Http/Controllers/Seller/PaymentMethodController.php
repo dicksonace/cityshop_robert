@@ -8,6 +8,7 @@ use App\Enums\SellerPaymentMethodType;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\OrderService;
+use App\Services\SellerPaymentMethodSecurityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -21,12 +22,28 @@ class PaymentMethodController extends Controller
         $profile->load('paymentMethods');
 
         return Inertia::render('seller/payment-methods/index', [
-            'profile' => $profile->only([
-                'id',
-                'accept_marketplace_payments',
-                'accept_direct_payments',
+            'profile' => [
+                'id' => $profile->id,
+                'accept_marketplace_payments' => $profile->accept_marketplace_payments,
+                'accept_direct_payments' => $profile->accept_direct_payments,
+                'payment_methods_locked' => $profile->paymentMethodsAreLocked(),
+                'payment_methods_lock_reason' => $profile->payment_methods_lock_reason,
+            ],
+            'methods' => $profile->paymentMethods->map(fn ($method) => [
+                'id' => $method->id,
+                'type' => $method->type->value,
+                'label' => $method->label,
+                'account_name' => $method->account_name,
+                'account_number' => $method->account_number,
+                'network' => $method->network,
+                'bank_name' => $method->bank_name,
+                'instructions' => $method->instructions,
+                'is_active' => $method->is_active,
+                'is_default' => $method->is_default,
+                'is_disabled' => $method->isDisabled(),
+                'disabled_reason' => $method->disabled_reason,
+                'disabled_at' => $method->disabled_at?->toIso8601String(),
             ]),
-            'methods' => $profile->paymentMethods,
             'types' => collect(SellerPaymentMethodType::cases())->map(fn ($t) => [
                 'value' => $t->value,
                 'label' => ucwords(str_replace('_', ' ', $t->value)),
@@ -56,9 +73,15 @@ class PaymentMethodController extends Controller
         return back()->with('success', 'Payment settings updated.');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, SellerPaymentMethodSecurityService $security): RedirectResponse
     {
         $profile = $request->user()->sellerProfile;
+
+        try {
+            $security->assertCanManagePaymentMethods($profile);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         $validated = $request->validate([
             'type' => ['required', 'in:'.implode(',', array_column(SellerPaymentMethodType::cases(), 'value'))],
@@ -70,6 +93,12 @@ class PaymentMethodController extends Controller
             'instructions' => ['nullable', 'string', 'max:1000'],
             'is_default' => ['boolean'],
         ]);
+
+        try {
+            $security->assertAccountNotBlocked($profile, $validated['account_number'] ?? null);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
         if ($validated['is_default'] ?? false) {
             $profile->paymentMethods()->update(['is_default' => false]);
@@ -84,6 +113,11 @@ class PaymentMethodController extends Controller
     {
         $profile = $request->user()->sellerProfile;
         $paymentMethod = $profile->paymentMethods()->whereKey($method)->firstOrFail();
+
+        if ($paymentMethod->isDisabled()) {
+            return back()->with('error', 'This payment method was disabled by admin and cannot be removed.');
+        }
+
         $paymentMethod->delete();
 
         return back()->with('success', 'Payment method removed.');

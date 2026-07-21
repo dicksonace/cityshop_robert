@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Film, ZoomIn } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ImageLightbox, type LightboxImage } from '@/components/shop/image-lightbox';
 import { cn } from '@/lib/utils';
 import { ProductImage, productImageUrl, productVideoUrl } from '@/types/marketplace';
 
@@ -24,7 +25,8 @@ export default function ProductImageGallery({
     className,
 }: ProductImageGalleryProps) {
     const [current, setCurrent] = useState(0);
-    const [zoomed, setZoomed] = useState(false);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const thumbsRef = useRef<HTMLDivElement>(null);
 
     const sortedImages = [...images].sort((a, b) => {
         if (a.is_primary && !b.is_primary) return -1;
@@ -46,11 +48,24 @@ export default function ProductImageGallery({
     const total = items.length;
     const active = items[current];
 
+    const lightboxImages: LightboxImage[] = items
+        .filter((item): item is Extract<GalleryItem, { type: 'image' }> => item.type === 'image')
+        .map((item, index) => ({
+            src: item.image.path,
+            alt: `${productName} - image ${index + 1}`,
+            label: `${productName} (${index + 1})`,
+        }));
+
+    const lightboxIndex = (() => {
+        if (active?.type !== 'image') return 0;
+        const idx = lightboxImages.findIndex((img) => img.src === active.image.path);
+        return Math.max(0, idx);
+    })();
+
     const goTo = useCallback(
         (index: number) => {
             if (total === 0) return;
             setCurrent(((index % total) + total) % total);
-            setZoomed(false);
         },
         [total],
     );
@@ -60,13 +75,20 @@ export default function ProductImageGallery({
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
+            if (lightboxOpen) return;
             if (e.key === 'ArrowLeft') goTo(current - 1);
             if (e.key === 'ArrowRight') goTo(current + 1);
-            if (e.key === 'Escape') setZoomed(false);
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [current, goTo]);
+    }, [current, goTo, lightboxOpen]);
+
+    useEffect(() => {
+        const container = thumbsRef.current;
+        if (!container) return;
+        const activeThumb = container.children[current] as HTMLElement | undefined;
+        activeThumb?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, [current]);
 
     if (total === 0) {
         return (
@@ -98,27 +120,21 @@ export default function ProductImageGallery({
                         </span>
                     </div>
                 ) : (
-                    <div
-                        className={cn(
-                            'relative flex aspect-square items-center justify-center p-6 transition-transform duration-300',
-                            zoomed && 'cursor-zoom-out',
-                        )}
-                        onClick={() => setZoomed(!zoomed)}
+                    <button
+                        type="button"
+                        className="relative flex aspect-square w-full cursor-zoom-in items-center justify-center p-6"
+                        onClick={() => setLightboxOpen(true)}
+                        aria-label="Open full size image"
                     >
                         <img
                             src={productImageUrl(active?.type === 'image' ? active.image.path : undefined)}
                             alt={`${productName} - image ${current + 1}`}
-                            className={cn(
-                                'max-h-full max-w-full object-contain transition-transform duration-500',
-                                zoomed ? 'scale-150' : 'group-hover:scale-105',
-                            )}
+                            className="max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-105"
                         />
-                        {!zoomed && (
-                            <div className="absolute bottom-3 right-3 rounded-full bg-black/40 p-2 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                                <ZoomIn className="h-4 w-4" />
-                            </div>
-                        )}
-                    </div>
+                        <div className="absolute bottom-3 right-3 rounded-full bg-black/40 p-2 text-white opacity-80 transition-opacity group-hover:opacity-100">
+                            <ZoomIn className="h-4 w-4" />
+                        </div>
+                    </button>
                 )}
 
                 {total > 1 && (
@@ -126,7 +142,7 @@ export default function ProductImageGallery({
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); prev(); }}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md transition-all hover:bg-white hover:scale-110"
+                            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/95 p-2 shadow-md transition-all hover:scale-110 hover:bg-white sm:left-3"
                             aria-label="Previous media"
                         >
                             <ChevronLeft className="h-5 w-5 text-gray-700" />
@@ -134,28 +150,13 @@ export default function ProductImageGallery({
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); next(); }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md transition-all hover:bg-white hover:scale-110"
+                            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/95 p-2 shadow-md transition-all hover:scale-110 hover:bg-white sm:right-3"
                             aria-label="Next media"
                         >
                             <ChevronRight className="h-5 w-5 text-gray-700" />
                         </button>
 
-                        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-                            {items.map((item, i) => (
-                                <button
-                                    key={item.key}
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); goTo(i); }}
-                                    className={cn(
-                                        'h-2 rounded-full transition-all',
-                                        i === current ? 'w-6 bg-orange-500' : 'w-2 bg-white/70 hover:bg-white',
-                                    )}
-                                    aria-label={`Go to ${item.type} ${i + 1}`}
-                                />
-                            ))}
-                        </div>
-
-                        <span className="absolute top-3 right-3 rounded-full bg-black/50 px-2.5 py-1 text-xs font-medium text-white">
+                        <span className="absolute top-3 right-3 z-10 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium text-white">
                             {current + 1} / {total}
                         </span>
                     </>
@@ -163,18 +164,22 @@ export default function ProductImageGallery({
             </div>
 
             {total > 1 && (
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div
+                    ref={thumbsRef}
+                    className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scroll-smooth [scrollbar-width:thin]"
+                >
                     {items.map((item, i) => (
                         <button
                             key={item.key}
                             type="button"
                             onClick={() => goTo(i)}
                             className={cn(
-                                'relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all',
+                                'relative h-16 w-16 shrink-0 scroll-mx-2 overflow-hidden rounded-xl border-2 transition-all',
                                 i === current
                                     ? 'border-orange-500 ring-2 ring-orange-200'
                                     : 'border-gray-100 opacity-70 hover:opacity-100',
                             )}
+                            aria-label={`View ${item.type} ${i + 1}`}
                         >
                             {item.type === 'video' ? (
                                 <div className="flex h-full w-full flex-col items-center justify-center bg-gray-900 text-white">
@@ -185,13 +190,27 @@ export default function ProductImageGallery({
                                 <img
                                     src={productImageUrl(item.image.path)}
                                     alt=""
-                                    className="h-full w-full object-contain bg-gray-50 p-1"
+                                    className="h-full w-full bg-gray-50 object-contain p-1"
                                 />
                             )}
                         </button>
                     ))}
                 </div>
             )}
+
+            <ImageLightbox
+                images={lightboxImages}
+                open={lightboxOpen}
+                index={lightboxIndex}
+                onClose={() => setLightboxOpen(false)}
+                onIndexChange={(index) => {
+                    const path = lightboxImages[index]?.src;
+                    const galleryIndex = items.findIndex(
+                        (item) => item.type === 'image' && item.image.path === path,
+                    );
+                    if (galleryIndex >= 0) setCurrent(galleryIndex);
+                }}
+            />
         </div>
     );
 }

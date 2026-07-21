@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
 use App\Notifications\DisputeOpenedNotification;
+use App\Services\AppNotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -52,6 +53,32 @@ class DisputeController extends Controller
 
         $item->seller->notify(new DisputeOpenedNotification($dispute));
         $request->user()->notify(new DisputeOpenedNotification($dispute));
+
+        if ($item->seller) {
+            AppNotificationService::send(
+                $item->seller,
+                'dispute',
+                'Refund request opened',
+                "Buyer requested a refund on order {$order->order_number} ({$item->product_name}).",
+                [
+                    'dispute_id' => $dispute->id,
+                    'order_id' => $order->id,
+                    'url' => route('seller.refunds.index'),
+                ],
+            );
+        }
+
+        AppNotificationService::send(
+            $request->user(),
+            'dispute',
+            'Refund request submitted',
+            "We received your refund request for {$item->product_name}.",
+            [
+                'dispute_id' => $dispute->id,
+                'order_id' => $order->id,
+                'url' => route('checkouts.show', $order->checkout_id ?? $order->id),
+            ],
+        );
 
         $admins = User::where('role', UserRole::Admin)->get();
         Notification::send($admins, new DisputeOpenedNotification($dispute));

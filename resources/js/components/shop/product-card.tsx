@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { Plus, ShoppingBag, Truck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import ProductEngagementStats from '@/components/shop/product-engagement-stats';
 import RatingDisplay from '@/components/shop/rating-display';
 import SellerStoreLink from '@/components/shop/seller-store-link';
 import WishlistButton from '@/components/shop/wishlist-button';
@@ -22,6 +23,8 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
     const image = product.images?.[0];
     const sellerName = product.seller?.seller_profile?.business_name ?? product.seller?.name;
     const showAdd = Boolean(onAddToCart) && canShop;
+    const views = product.views ?? 0;
+    const likes = product.wishlist_adds ?? 0;
 
     if (variant === 'list') {
         return (
@@ -54,6 +57,7 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
                                 <span className="text-xs text-indigo-600">Ships nationwide</span>
                             )}
                         </div>
+                        <ProductEngagementStats views={views} likes={likes} className="mt-2" />
                     </div>
                     <div className="mt-3 flex items-end justify-between gap-2 sm:mt-0">
                         <div>
@@ -61,7 +65,16 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
                             {hasDiscount && <p className="text-sm text-gray-400 line-through">{formatPrice(product.price)}</p>}
                         </div>
                         {showAdd && (
-                            <Button onClick={() => onAddToCart?.(product.id)} size="sm" className="bg-orange-500 hover:bg-orange-600 sm:size-default">
+                            <Button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onAddToCart?.(product.id);
+                                }}
+                                size="sm"
+                                className="bg-orange-500 hover:bg-orange-600 sm:size-default"
+                            >
                                 <ShoppingBag className="h-4 w-4 sm:mr-2" />
                                 <span className="hidden sm:inline">Add to Cart</span>
                             </Button>
@@ -118,6 +131,8 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
 
                 <RatingDisplay rating={product.rating} reviewCount={product.review_count} compact className="mt-1 sm:mt-1.5" />
 
+                <ProductEngagementStats views={views} likes={likes} className="mt-1.5" />
+
                 {product.seller?.seller_profile && (
                     <div className="mt-1 hidden truncate sm:block">
                         <span className="text-xs text-gray-400">Sold by </span>
@@ -136,9 +151,14 @@ export default function ProductCard({ product, onAddToCart, variant = 'grid' }: 
                     </div>
                     {showAdd && (
                         <Button
+                            type="button"
                             size="icon"
                             className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 shadow-md hover:from-orange-600 hover:to-orange-700 sm:h-9 sm:w-9"
-                            onClick={() => onAddToCart?.(product.id)}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onAddToCart?.(product.id);
+                            }}
                             aria-label="Add to cart"
                         >
                             <Plus className="h-4 w-4" />

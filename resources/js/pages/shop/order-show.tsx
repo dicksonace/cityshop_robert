@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangle, CheckCircle2, Star } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
+import { LightboxTrigger, orderItemLightboxImages } from '@/components/shop/image-lightbox';
 import OrderProgress from '@/components/shop/order-progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -253,13 +254,30 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                                                 {item.vehicle_number && <p>Vehicle: {item.vehicle_number}</p>}
                                             </div>
                                         )}
-                                        {item.package_image && (
-                                            <img
-                                                src={productImageUrl(item.package_image)}
-                                                alt="Package"
-                                                className="mt-2 h-24 w-24 rounded-lg border object-cover"
-                                            />
-                                        )}
+                                        {item.package_image && (() => {
+                                            const gallery = orderItemLightboxImages(item);
+                                            const packageIndex = Math.max(
+                                                0,
+                                                gallery.findIndex((img) => img.src === item.package_image),
+                                            );
+
+                                            return (
+                                                <LightboxTrigger
+                                                    images={gallery}
+                                                    startIndex={packageIndex}
+                                                    className="mt-2"
+                                                >
+                                                    <img
+                                                        src={productImageUrl(item.package_image)}
+                                                        alt="Delivery package — tap to enlarge"
+                                                        className="h-24 w-24 rounded-lg border object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-orange-400"
+                                                    />
+                                                    <span className="mt-1 block text-[11px] text-gray-500">
+                                                        Tap to view full size
+                                                    </span>
+                                                </LightboxTrigger>
+                                            );
+                                        })()}
 
                                         {item.status === 'awaiting_confirmation' && (
                                             <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-4">

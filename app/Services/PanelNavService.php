@@ -71,6 +71,8 @@ class PanelNavService
             'delivery_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::Shipped)->count(),
             'awaiting_orders' => OrderItem::where('seller_id', $sellerId)->where('status', OrderStatus::AwaitingConfirmation)->count(),
             'open_refunds' => Dispute::where('seller_id', $sellerId)->whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->count(),
+            'unread_notifications' => ChatService::unreadNotificationCount($user),
+            'unread_messages' => ChatService::unreadMessageCount($user),
         ];
     }
 }

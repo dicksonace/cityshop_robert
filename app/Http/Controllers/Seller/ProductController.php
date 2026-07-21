@@ -368,8 +368,8 @@ class ProductController extends Controller
     private function validateProduct(Request $request, bool $creating): array
     {
         $imageRules = $creating
-            ? ['required', 'array', 'min:1', 'max:5']
-            : ['nullable', 'array', 'max:5'];
+            ? ['required', 'array', 'min:1', 'max:6']
+            : ['nullable', 'array', 'max:6'];
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -400,7 +400,7 @@ class ProductController extends Controller
             'specifications' => ['nullable', 'array'],
             'images' => $imageRules,
             'images.*' => ['image', 'max:5120'],
-            'image_count' => ['nullable', 'integer', 'min:1', 'max:5'],
+            'image_count' => ['nullable', 'integer', 'min:1', 'max:6'],
             'remove_images' => ['nullable', 'array'],
             'remove_images.*' => ['integer', 'exists:product_images,id'],
             'video' => ['nullable', 'file', 'mimes:mp4,webm,mov,qt,m4v,3gp,3gpp', 'max:51200'],

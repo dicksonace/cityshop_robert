@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Services\ProductAnalyticsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -40,19 +41,38 @@ class CartController extends Controller
             ->where('id', $validated['product_id'])
             ->firstOrFail();
 
-        $quantity = $validated['quantity'] ?? 1;
+        $quantity = (int) ($validated['quantity'] ?? 1);
+        $userId = $request->user()->id;
 
-        $cartItem = CartItem::withTrashed()->firstOrNew([
-            'user_id' => $request->user()->id,
-            'product_id' => $product->id,
-        ]);
+        DB::transaction(function () use ($userId, $product, $quantity) {
+            $cartItem = CartItem::withTrashed()
+                ->where('user_id', $userId)
+                ->where('product_id', $product->id)
+                ->lockForUpdate()
+                ->first();
 
-        if ($cartItem->trashed()) {
-            $cartItem->restore();
-        }
+            if (! $cartItem) {
+                CartItem::create([
+                    'user_id' => $userId,
+                    'product_id' => $product->id,
+                    'quantity' => $quantity,
+                ]);
 
-        $cartItem->quantity = ($cartItem->exists ? $cartItem->quantity : 0) + $quantity;
-        $cartItem->save();
+                return;
+            }
+
+            if ($cartItem->trashed()) {
+                // Soft-deleted rows keep the old quantity — start fresh at the requested amount.
+                $cartItem->restore();
+                $cartItem->quantity = $quantity;
+                $cartItem->save();
+
+                return;
+            }
+
+            $cartItem->quantity = min(99, $cartItem->quantity + $quantity);
+            $cartItem->save();
+        });
 
         $this->analytics->recordCartAdd($product, $quantity);
 

@@ -30,16 +30,29 @@ class DatabaseSeeder extends Seeder
         $categorySpecs = config('category_specs', []);
         $categoryNames = [
             'electronics' => 'Electronics',
-            'fashion' => 'Fashion',
-            'home-garden' => 'Home & Garden',
             'phones-tablets' => 'Phones & Tablets',
             'computers' => 'Computers',
             'appliances' => 'Appliances',
-            'beauty' => 'Beauty',
+            'fashion' => 'Fashion',
+            'bags-shoes' => 'Bags & Shoes',
+            'beauty' => 'Beauty & Personal Care',
+            'home-garden' => 'Home & Garden',
+            'food-beverages' => 'Food & Beverages',
+            'groceries' => 'Groceries',
+            'health-pharmacy' => 'Health & Pharmacy',
+            'baby-kids' => 'Baby & Kids',
             'sports' => 'Sports',
+            'toys-games' => 'Toys & Games',
+            'books-education' => 'Books & Education',
+            'office-stationery' => 'Office & Stationery',
+            'jewelry-watches' => 'Jewelry & Watches',
             'vehicles' => 'Vehicles',
+            'auto-parts' => 'Auto Parts & Accessories',
+            'tools-hardware' => 'Tools & Hardware',
+            'pet-supplies' => 'Pet Supplies',
         ];
 
+        $sort = 1;
         foreach ($categoryNames as $slug => $name) {
             $config = $categorySpecs[$slug] ?? null;
             Category::create([
@@ -48,6 +61,7 @@ class DatabaseSeeder extends Seeder
                 'icon' => $config['icon'] ?? null,
                 'spec_schema' => $config ? ['fields' => $config['fields']] : null,
                 'is_active' => true,
+                'sort_order' => $sort++,
             ]);
         }
     }

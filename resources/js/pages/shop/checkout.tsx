@@ -3,6 +3,7 @@ import { LoaderCircle, MapPin, Pencil } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
+import PaymentMethodIcon from '@/components/shop/payment-method-icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -240,17 +241,9 @@ export default function Checkout({
                             </p>
                             <div className="mt-3 space-y-2">
                                 {hasMarketplaceOrders && (
-                                    <label className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 hover:bg-gray-50 ${!canUseWallet ? 'opacity-70' : ''}`}>
-                                        <input
-                                            type="radio"
-                                            name="payment_method"
-                                            value="wallet"
-                                            checked={data.payment_method === 'wallet'}
-                                            onChange={() => setData('payment_method', 'wallet')}
-                                            disabled={!canUseWallet}
-                                            className="mt-1"
-                                        />
-                                        <div className="flex-1">
+                                    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 hover:bg-gray-50 ${data.payment_method === 'wallet' ? 'border-orange-300 bg-orange-50/40' : ''} ${!canUseWallet ? 'opacity-70' : ''}`}>
+                                        <PaymentMethodIcon method="wallet" />
+                                        <div className="min-w-0 flex-1">
                                             <span className="font-medium">My Wallet</span>
                                             <p className="text-sm text-gray-500">
                                                 Balance: {formatPrice(walletBalance)}
@@ -265,16 +258,40 @@ export default function Checkout({
                                                 </p>
                                             )}
                                         </div>
+                                        <input
+                                            type="radio"
+                                            name="payment_method"
+                                            value="wallet"
+                                            checked={data.payment_method === 'wallet'}
+                                            onChange={() => setData('payment_method', 'wallet')}
+                                            disabled={!canUseWallet}
+                                            className="mt-1"
+                                        />
                                     </label>
                                 )}
-                                {[
-                                    { value: 'momo', label: 'MTN MoMo (Paystack)' },
-                                    { value: 'card', label: 'Visa / Mastercard (Paystack)' },
-                                    { value: 'cash', label: 'Cash on Delivery' },
-                                ].map((method) => (
-                                    <label key={method.value} className="flex cursor-pointer items-center gap-2 rounded-lg border p-3 hover:bg-gray-50">
-                                        <input type="radio" name="payment_method" value={method.value} checked={data.payment_method === method.value} onChange={() => setData('payment_method', method.value)} />
-                                        {method.label}
+                                {([
+                                    { value: 'momo' as const, label: 'Mobile Money', hint: 'MTN MoMo via Paystack' },
+                                    { value: 'card' as const, label: 'Visa / Mastercard', hint: 'Pay securely via Paystack' },
+                                    { value: 'cash' as const, label: 'Cash on Delivery', hint: 'Pay when you receive' },
+                                ]).map((method) => (
+                                    <label
+                                        key={method.value}
+                                        className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 hover:bg-gray-50 ${
+                                            data.payment_method === method.value ? 'border-orange-300 bg-orange-50/40' : ''
+                                        }`}
+                                    >
+                                        <PaymentMethodIcon method={method.value} />
+                                        <div className="min-w-0 flex-1">
+                                            <span className="font-medium text-gray-900">{method.label}</span>
+                                            <p className="text-xs text-gray-500">{method.hint}</p>
+                                        </div>
+                                        <input
+                                            type="radio"
+                                            name="payment_method"
+                                            value={method.value}
+                                            checked={data.payment_method === method.value}
+                                            onChange={() => setData('payment_method', method.value)}
+                                        />
                                     </label>
                                 ))}
                             </div>

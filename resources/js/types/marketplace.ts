@@ -45,6 +45,8 @@ export interface Product {
     video_duration?: number | null;
     rating: number;
     review_count: number;
+    views?: number;
+    wishlist_adds?: number;
     images: ProductImage[];
     seller?: {
         id: number;
@@ -246,4 +248,16 @@ export function productVideoUrl(path: string | undefined): string {
     if (!path) return '';
     if (path.startsWith('http') || path.startsWith('blob:')) return path;
     return `/storage/${path}`;
+}
+
+/** Compact social-proof numbers: 980, 1.2k, 3.4M */
+export function formatCompactCount(value: number | null | undefined): string {
+    const n = Math.max(0, Math.floor(Number(value) || 0));
+    if (n < 1000) return String(n);
+    if (n < 1_000_000) {
+        const k = n / 1000;
+        return `${k >= 10 ? Math.round(k) : Math.round(k * 10) / 10}k`;
+    }
+    const m = n / 1_000_000;
+    return `${m >= 10 ? Math.round(m) : Math.round(m * 10) / 10}M`;
 }

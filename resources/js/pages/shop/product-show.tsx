@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { MapPin, MessageSquare, Package, ShoppingBag, Store, Truck } from 'lucide-react';
 
 import ProductCard from '@/components/shop/product-card';
+import ProductEngagementStats from '@/components/shop/product-engagement-stats';
 import ProductImageGallery from '@/components/shop/product-image-gallery';
 import ProductReviews from '@/components/shop/product-reviews';
 import ProductSellerInfo from '@/components/shop/product-seller-info';
@@ -101,6 +102,13 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                                 {reviewable ? 'Write a review' : 'See reviews & rate'}
                             </button>
                         </div>
+
+                        <ProductEngagementStats
+                            views={product.views}
+                            likes={product.wishlist_adds}
+                            size="md"
+                            className="mt-3"
+                        />
 
                         <p className="mt-4 text-3xl font-bold text-orange-500">{formatPrice(price)}</p>
                         {product.discount_price && (

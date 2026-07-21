@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\BuyerController as AdminBuyerController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ChatOversightController as AdminChatOversightController;
 use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
+use App\Http\Controllers\Admin\SellerAnnouncementController as AdminSellerAnnouncementController;
 use App\Http\Controllers\Admin\SellerReportController as AdminSellerReportController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DisputeController as AdminDisputeController;
@@ -197,6 +198,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/sellers/{seller}/block', [AdminSellerController::class, 'block'])->name('sellers.block');
     Route::post('/sellers/{seller}/unblock', [AdminSellerController::class, 'unblock'])->name('sellers.unblock');
     Route::delete('/sellers/{seller}', [AdminSellerController::class, 'destroy'])->name('sellers.destroy');
+    Route::post('/sellers/{seller}/payment-methods/{method}/disable', [AdminSellerController::class, 'disablePaymentMethod'])->name('sellers.payment-methods.disable');
+    Route::post('/sellers/{seller}/payment-methods/{method}/enable', [AdminSellerController::class, 'enablePaymentMethod'])->name('sellers.payment-methods.enable');
+    Route::post('/sellers/{seller}/payment-methods/unlock', [AdminSellerController::class, 'unlockPaymentMethods'])->name('sellers.payment-methods.unlock');
     Route::post('/sellers/{seller}/resend-invite', [AdminSellerInviteController::class, 'resendForSeller'])->name('sellers.resend-invite');
 
     Route::get('/seller-invites', [AdminSellerInviteController::class, 'index'])->name('seller-invites.index');
@@ -242,6 +246,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/contact-messages', [AdminContactMessageController::class, 'index'])->name('contact-messages.index');
     Route::patch('/contact-messages/{contactMessage}/read', [AdminContactMessageController::class, 'markRead'])->name('contact-messages.read');
+
+    Route::get('/announcements', [AdminSellerAnnouncementController::class, 'index'])->name('announcements.index');
+    Route::get('/announcements/create', [AdminSellerAnnouncementController::class, 'create'])->name('announcements.create');
+    Route::post('/announcements', [AdminSellerAnnouncementController::class, 'store'])->name('announcements.store');
 
     Route::get('/buyers', [AdminBuyerController::class, 'index'])->name('buyers.index');
     Route::get('/buyers/{buyer}', [AdminBuyerController::class, 'show'])->name('buyers.show');

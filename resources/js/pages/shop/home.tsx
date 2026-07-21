@@ -198,6 +198,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                                 resetKey={resetKey}
                                 onAddToCart={handleAddToCart}
                                 variant={viewMode}
+                                gridClassName="lg:grid-cols-4"
                             />
                         )}
                     </div>

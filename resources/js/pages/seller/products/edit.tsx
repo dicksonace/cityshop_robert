@@ -105,7 +105,7 @@ export default function EditProduct({ product, categories }: EditProductProps) {
             <Head title="Edit Product" />
             <form onSubmit={submit} className="max-w-3xl space-y-6 rounded-xl bg-white p-6 shadow-sm">
                 <ImageUploader
-                    maxImages={5}
+                    maxImages={6}
                     existingImages={product.images ?? []}
                     onChange={(files, removed) => {
                         setImageFiles(files);

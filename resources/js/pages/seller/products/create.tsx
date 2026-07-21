@@ -433,7 +433,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                         {step === 4 && (
                             <>
                                 <ImageUploader
-                                    maxImages={5}
+                                    maxImages={6}
                                     onChange={(files) => {
                                         setImageFiles(files);
                                         setData('images', files);

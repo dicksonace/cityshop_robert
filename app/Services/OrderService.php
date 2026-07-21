@@ -196,6 +196,14 @@ class OrderService
                 ]);
 
                 $order->seller->notify(new PaymentConfirmedNotification($order->load('items'), $order->items->first(), pendingOrder: true));
+                if ($order->seller) {
+                    AppNotificationService::notifySellerNewOrder(
+                        $order->seller,
+                        $order,
+                        $order->items->first(),
+                        pendingOrder: true,
+                    );
+                }
             }
 
             $checkout->update([
@@ -345,6 +353,9 @@ class OrderService
                 $seller = User::find($item->seller_id);
                 $seller?->sellerProfile?->increment('total_sales');
                 $seller?->notify(new PaymentConfirmedNotification($order, $item));
+                if ($seller) {
+                    AppNotificationService::notifySellerNewOrder($seller, $order, $item);
+                }
             }
 
             if ($order->payment_channel === PaymentChannel::Marketplace && (float) $order->shipping_cost > 0) {
@@ -438,6 +449,9 @@ class OrderService
 
             $order->buyer->notify(new PaymentConfirmedNotification($order));
             $order->seller?->notify(new PaymentConfirmedNotification($order, $order->items->first()));
+            if ($order->seller) {
+                AppNotificationService::notifySellerNewOrder($order->seller, $order, $order->items->first());
+            }
 
             return $order->fresh('items');
         });
@@ -531,6 +545,14 @@ class OrderService
         foreach ($checkout->orders as $order) {
             foreach ($order->items as $item) {
                 $item->seller->notify(new PaymentConfirmedNotification($order, $item, cashOnDelivery: true));
+                if ($item->seller) {
+                    AppNotificationService::notifySellerNewOrder(
+                        $item->seller,
+                        $order,
+                        $item,
+                        cashOnDelivery: true,
+                    );
+                }
             }
         }
 

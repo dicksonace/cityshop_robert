@@ -36,6 +36,9 @@ class SellerProfile extends Model
         'total_sales',
         'accept_marketplace_payments',
         'accept_direct_payments',
+        'payment_methods_locked_at',
+        'payment_methods_locked_by',
+        'payment_methods_lock_reason',
     ];
 
     protected function casts(): array
@@ -46,6 +49,7 @@ class SellerProfile extends Model
             'accept_direct_payments' => 'boolean',
             'status' => SellerStatus::class,
             'approved_at' => 'datetime',
+            'payment_methods_locked_at' => 'datetime',
             'rating' => 'decimal:2',
         ];
     }
@@ -92,6 +96,16 @@ class SellerProfile extends Model
     public function paymentMethods(): HasMany
     {
         return $this->hasMany(SellerPaymentMethod::class);
+    }
+
+    public function paymentMethodsLockedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'payment_methods_locked_by');
+    }
+
+    public function paymentMethodsAreLocked(): bool
+    {
+        return $this->payment_methods_locked_at !== null;
     }
 
     public function isApproved(): bool

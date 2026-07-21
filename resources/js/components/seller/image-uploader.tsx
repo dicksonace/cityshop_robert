@@ -1,4 +1,4 @@
-import { Check, GripVertical, ImagePlus, LoaderCircle, Trash2, Upload } from 'lucide-react';
+import { Check, ImagePlus, LoaderCircle, Trash2, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ interface ImageUploaderProps {
 }
 
 export default function ImageUploader({
-    maxImages = 5,
+    maxImages = 6,
     existingImages = [],
     onChange,
     onConfirmedChange,
@@ -170,14 +170,14 @@ export default function ImageUploader({
                 </div>
             )}
 
-            {/* Previews grid */}
+            {/* Previews grid — controls stay tappable on mobile (not hover-only) */}
             {previews.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                     {previews.map((preview, index) => (
                         <div
                             key={preview.id}
                             className={cn(
-                                'group relative overflow-hidden rounded-xl border-2 bg-white',
+                                'relative overflow-hidden rounded-xl border-2 bg-white',
                                 index === 0 ? 'border-orange-400 ring-2 ring-orange-100' : 'border-gray-100',
                                 confirmed && 'ring-1 ring-green-200',
                             )}
@@ -190,24 +190,40 @@ export default function ImageUploader({
                                 </span>
                             )}
 
-                            <div className="absolute inset-0 flex items-center justify-center gap-1 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                                {index > 0 && (
-                                    <button type="button" onClick={() => moveImage(index, index - 1)} className="rounded-lg bg-white/90 p-1.5" title="Move left">
-                                        ←
-                                    </button>
-                                )}
-                                {index < previews.length - 1 && (
-                                    <button type="button" onClick={() => moveImage(index, index + 1)} className="rounded-lg bg-white/90 p-1.5" title="Move right">
-                                        →
-                                    </button>
-                                )}
-                                <button type="button" onClick={() => removeImage(preview.id)} className="rounded-lg bg-red-500 p-1.5 text-white" title="Remove">
-                                    <Trash2 className="h-4 w-4" />
+                            <div className="absolute top-1.5 right-1.5 flex flex-col gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => removeImage(preview.id)}
+                                    className="rounded-lg bg-red-500 p-1.5 text-white shadow-sm"
+                                    title="Remove"
+                                    aria-label="Remove image"
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                             </div>
 
-                            <div className="absolute bottom-1 right-1 rounded bg-black/40 p-0.5 text-white opacity-0 group-hover:opacity-100">
-                                <GripVertical className="h-3 w-3" />
+                            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/55 to-transparent px-1.5 pb-1.5 pt-5">
+                                <button
+                                    type="button"
+                                    onClick={() => moveImage(index, index - 1)}
+                                    disabled={index === 0}
+                                    className="rounded-md bg-white/95 px-2 py-1 text-xs font-semibold text-gray-800 disabled:opacity-30"
+                                    aria-label="Move left"
+                                >
+                                    ←
+                                </button>
+                                <span className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                                    {index + 1}/{previews.length}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => moveImage(index, index + 1)}
+                                    disabled={index === previews.length - 1}
+                                    className="rounded-md bg-white/95 px-2 py-1 text-xs font-semibold text-gray-800 disabled:opacity-30"
+                                    aria-label="Move right"
+                                >
+                                    →
+                                </button>
                             </div>
                         </div>
                     ))}
