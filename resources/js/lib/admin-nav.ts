@@ -30,7 +30,8 @@ export type AdminNavKey =
     | 'messages'
     | 'chats'
     | 'seller-reports'
-    | 'announcements';
+    | 'announcements'
+    | 'buyer-announcements';
 
 const sectionMap: Record<AdminNavKey, string> = {
     dashboard: 'dashboard',
@@ -53,6 +54,7 @@ const sectionMap: Record<AdminNavKey, string> = {
     chats: 'support',
     'seller-reports': 'support',
     announcements: 'support',
+    'buyer-announcements': 'support',
 };
 
 export function adminNavSection(active: AdminNavKey): string {
@@ -150,6 +152,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'disputes-all', label: 'All refund requests', href: route('admin.disputes.index', { status: 'all' }) },
                 { key: 'chats', label: 'Buyer–Seller Chats', href: route('admin.chats.index') },
                 { key: 'announcements', label: 'Message Sellers', href: route('admin.announcements.index') },
+                { key: 'buyer-announcements', label: 'Message Buyers', href: route('admin.buyer-announcements.index') },
                 { key: 'seller-reports', label: 'Seller Reports', href: route('admin.seller-reports.index'), badgeKey: 'open_seller_reports' },
                 { key: 'messages', label: 'Contact Messages', href: route('admin.contact-messages.index'), badgeKey: 'unread_messages' },
             ],

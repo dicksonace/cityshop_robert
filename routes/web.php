@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BuyerAnnouncementController as AdminBuyerAnnouncementController;
 use App\Http\Controllers\Admin\BuyerController as AdminBuyerController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ChatOversightController as AdminChatOversightController;
@@ -250,6 +251,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/announcements', [AdminSellerAnnouncementController::class, 'index'])->name('announcements.index');
     Route::get('/announcements/create', [AdminSellerAnnouncementController::class, 'create'])->name('announcements.create');
     Route::post('/announcements', [AdminSellerAnnouncementController::class, 'store'])->name('announcements.store');
+
+    Route::get('/buyer-announcements', [AdminBuyerAnnouncementController::class, 'index'])->name('buyer-announcements.index');
+    Route::get('/buyer-announcements/create', [AdminBuyerAnnouncementController::class, 'create'])->name('buyer-announcements.create');
+    Route::post('/buyer-announcements', [AdminBuyerAnnouncementController::class, 'store'])->name('buyer-announcements.store');
 
     Route::get('/buyers', [AdminBuyerController::class, 'index'])->name('buyers.index');
     Route::get('/buyers/{buyer}', [AdminBuyerController::class, 'show'])->name('buyers.show');
