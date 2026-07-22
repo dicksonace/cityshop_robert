@@ -273,7 +273,7 @@ export default function Checkout({
                                 {([
                                     { value: 'momo' as const, label: 'Mobile Money', hint: 'MTN MoMo via Paystack' },
                                     { value: 'card' as const, label: 'Visa / Mastercard', hint: 'Pay securely via Paystack' },
-                                    { value: 'cash' as const, label: 'Cash on Delivery', hint: 'Pay when you receive' },
+                                    { value: 'cash' as const, label: 'Cash on Delivery', hint: 'Pay when the seller brings the item.\nNote: Select a seller near your area, or check store information if near you.' },
                                 ]).map((method) => (
                                     <label
                                         key={method.value}
@@ -284,7 +284,7 @@ export default function Checkout({
                                         <PaymentMethodIcon method={method.value} />
                                         <div className="min-w-0 flex-1">
                                             <span className="font-medium text-gray-900">{method.label}</span>
-                                            <p className="text-xs text-gray-500">{method.hint}</p>
+                                            <p className="whitespace-pre-line text-xs text-gray-500">{method.hint}</p>
                                         </div>
                                         <input
                                             type="radio"
