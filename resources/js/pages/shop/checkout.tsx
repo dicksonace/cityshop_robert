@@ -348,15 +348,25 @@ export default function Checkout({
                                             <p className="text-sm font-medium text-gray-700">How to pay this seller</p>
                                             <div className="mt-2 space-y-2">
                                                 {group.accept_marketplace_payments && (
-                                                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm">
+                                                    <label
+                                                        className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 text-sm ${
+                                                            choice.channel === 'marketplace' ? 'border-orange-300 bg-orange-50/40' : ''
+                                                        }`}
+                                                    >
+                                                        <PaymentMethodIcon method="card" />
+                                                        <span className="min-w-0 flex-1 font-medium text-gray-900">Pay via CityShop (secure)</span>
                                                         <input type="radio" checked={choice.channel === 'marketplace'} onChange={() => setSellerChannel(group.seller_id, 'marketplace')} />
-                                                        Pay via CityShop (secure)
                                                     </label>
                                                 )}
                                                 {group.accept_direct_payments && (
-                                                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm">
+                                                    <label
+                                                        className={`flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 text-sm ${
+                                                            choice.channel === 'direct' ? 'border-orange-300 bg-orange-50/40' : ''
+                                                        }`}
+                                                    >
+                                                        <PaymentMethodIcon method="momo" />
+                                                        <span className="min-w-0 flex-1 font-medium text-gray-900">Pay seller directly</span>
                                                         <input type="radio" checked={choice.channel === 'direct'} onChange={() => setSellerChannel(group.seller_id, 'direct', group.payment_methods[0]?.id)} />
-                                                        Pay seller directly
                                                     </label>
                                                 )}
                                                 {choice.channel === 'direct' && group.payment_methods.length > 0 && (

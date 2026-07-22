@@ -39,39 +39,13 @@ export default function PaymentMethodIcon({ method, className }: PaymentMethodIc
         return (
             <span
                 className={cn(
-                    'inline-flex h-10 w-[4.25rem] shrink-0 items-center justify-center gap-1 rounded-lg bg-white px-1.5 shadow-sm ring-1 ring-gray-200',
+                    'inline-flex h-10 w-[4.5rem] shrink-0 items-center justify-center gap-1 rounded-lg bg-white px-1 shadow-sm ring-1 ring-gray-200',
                     className,
                 )}
                 aria-label="Visa and Mastercard"
             >
-                {/* Official-style Visa wordmark */}
-                <svg viewBox="0 0 48 16" className="h-4 w-8" role="img" aria-hidden>
-                    <title>Visa</title>
-                    <rect width="48" height="16" rx="2" fill="#1A1F71" />
-                    <text
-                        x="24"
-                        y="11.5"
-                        textAnchor="middle"
-                        fill="#fff"
-                        fontFamily="Arial, Helvetica, sans-serif"
-                        fontStyle="italic"
-                        fontWeight="700"
-                        fontSize="9"
-                        letterSpacing="0.5"
-                    >
-                        VISA
-                    </text>
-                </svg>
-                {/* Official-style Mastercard interlocking circles */}
-                <svg viewBox="0 0 38 24" className="h-5 w-7" role="img" aria-hidden>
-                    <title>Mastercard</title>
-                    <circle cx="14" cy="12" r="9" fill="#EB001B" />
-                    <circle cx="24" cy="12" r="9" fill="#F79E1B" />
-                    <path
-                        d="M19 5.6c1.9 1.6 3.1 4 3.1 6.4s-1.2 4.8-3.1 6.4c-1.9-1.6-3.1-4-3.1-6.4s1.2-4.8 3.1-6.4z"
-                        fill="#FF5F00"
-                    />
-                </svg>
+                <img src="/images/payment/visa.svg" alt="" className="h-5 w-auto rounded-[3px]" />
+                <img src="/images/payment/mastercard.svg" alt="" className="h-5 w-auto rounded-[3px]" />
             </span>
         );
     }
