@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { CreditCard, LoaderCircle } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
+import DirectPaymentDetails, { DIRECT_PAYMENT_NOTE } from '@/components/shop/direct-payment-details';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -145,6 +146,9 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
     });
     const [proofPreview, setProofPreview] = useState<string | null>(null);
 
+    const accountNumber = method?.account_number ?? '';
+    const isBank = Boolean(method?.bank_name && !method?.network);
+
     useEffect(() => {
         if (!data.proof) {
             setProofPreview(null);
@@ -166,21 +170,29 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
 
     return (
         <div className="rounded-xl border border-gray-100 p-4">
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-2">
                 <p className="font-medium">Order {order.order_number}</p>
                 <p className="font-bold text-orange-500">{formatPrice(order.total)}</p>
             </div>
-            {method && (
-                <div className="mt-3 space-y-1 text-sm text-gray-600">
-                    <p>Account name: {method.account_name}</p>
-                    {method.network && <p>Network: {method.network}</p>}
-                    {method.account_number && <p>Number: {method.account_number}</p>}
-                    {method.bank_name && <p>Bank: {method.bank_name}</p>}
-                    {method.instructions && <p className="text-gray-500">{method.instructions}</p>}
-                </div>
+            {method?.network && (
+                <p className="mt-1 text-xs text-gray-500">{method.network} Mobile Money</p>
             )}
+            {method?.bank_name && (
+                <p className="mt-1 text-xs text-gray-500">{method.bank_name}</p>
+            )}
+
+            {method && accountNumber && (
+                <DirectPaymentDetails
+                    className="mt-4"
+                    accountNumber={accountNumber}
+                    accountName={method.account_name}
+                    isBank={isBank}
+                    hint={`Send ${formatPrice(order.total)} to the number above. In the MoMo reference / reason field, paste ${DIRECT_PAYMENT_NOTE} so the seller can match your payment.${method.instructions ? ` ${method.instructions}` : ''}`}
+                />
+            )}
+
             {order.payment_status !== 'paid' && (
-                <form onSubmit={submit} className="mt-4 space-y-3">
+                <form onSubmit={submit} className="mt-4 space-y-3 border-t border-gray-100 pt-4">
                     {order.direct_payment_rejection_reason && !order.direct_payment_reference && (
                         <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
                             <p className="font-medium">Seller rejected your payment claim</p>
@@ -189,7 +201,7 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
                         </div>
                     )}
                     <div>
-                        <Label htmlFor={`ref-${order.id}`}>Transaction ID / reference</Label>
+                        <Label htmlFor={`ref-${order.id}`}>Transaction ID from MoMo SMS</Label>
                         <Input
                             id={`ref-${order.id}`}
                             placeholder="From MoMo or bank SMS"

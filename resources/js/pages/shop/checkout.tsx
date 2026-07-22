@@ -3,6 +3,7 @@ import { LoaderCircle, MapPin, Pencil } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
+import DirectPaymentDetails, { DIRECT_PAYMENT_NOTE } from '@/components/shop/direct-payment-details';
 import PaymentMethodIcon from '@/components/shop/payment-method-icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -369,19 +370,37 @@ export default function Checkout({
                                                         <input type="radio" checked={choice.channel === 'direct'} onChange={() => setSellerChannel(group.seller_id, 'direct', group.payment_methods[0]?.id)} />
                                                     </label>
                                                 )}
-                                                {choice.channel === 'direct' && group.payment_methods.length > 0 && (
-                                                    <select
-                                                        className="w-full rounded-md border px-3 py-2 text-sm"
-                                                        value={choice.method_id ?? group.payment_methods[0]?.id}
-                                                        onChange={(e) => setSellerChannel(group.seller_id, 'direct', Number(e.target.value))}
-                                                    >
-                                                        {group.payment_methods.map((m) => (
-                                                            <option key={m.id} value={m.id}>
-                                                                {m.network ? `${m.network} — ${m.account_number}` : m.bank_name ? `${m.bank_name} — ${m.account_number}` : m.label ?? m.type}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                )}
+                                                {choice.channel === 'direct' && group.payment_methods.length > 0 && (() => {
+                                                    const selectedMethod =
+                                                        group.payment_methods.find((m) => m.id === (choice.method_id ?? group.payment_methods[0]?.id))
+                                                        ?? group.payment_methods[0];
+
+                                                    return (
+                                                        <div className="space-y-2">
+                                                            {group.payment_methods.length > 1 && (
+                                                                <select
+                                                                    className="w-full rounded-md border px-3 py-2 text-sm"
+                                                                    value={choice.method_id ?? group.payment_methods[0]?.id}
+                                                                    onChange={(e) => setSellerChannel(group.seller_id, 'direct', Number(e.target.value))}
+                                                                >
+                                                                    {group.payment_methods.map((m) => (
+                                                                        <option key={m.id} value={m.id}>
+                                                                            {m.network ? `${m.network} — ${m.account_number}` : m.bank_name ? `${m.bank_name} — ${m.account_number}` : m.label ?? m.type}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            )}
+                                                            {selectedMethod?.account_number && (
+                                                                <DirectPaymentDetails
+                                                                    accountNumber={selectedMethod.account_number}
+                                                                    accountName={selectedMethod.account_name}
+                                                                    isBank={Boolean(selectedMethod.bank_name && !selectedMethod.network)}
+                                                                    hint={`After you continue, send payment with reference ${DIRECT_PAYMENT_NOTE}. You’ll confirm on the next step.`}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     )}
