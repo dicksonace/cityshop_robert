@@ -596,7 +596,12 @@ export default function SellerOrderShow({
                             </>
                         )}
                         {order.direct_payment_reference && (
-                            <p className="mt-1 text-xs text-gray-500">Ref: {order.direct_payment_reference}</p>
+                            <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Transaction ID</p>
+                                <p className="mt-0.5 break-all font-mono text-sm font-semibold text-gray-900">
+                                    {order.direct_payment_reference}
+                                </p>
+                            </div>
                         )}
                         {order.direct_payment_proof_path && (
                             <a
@@ -605,12 +610,13 @@ export default function SellerOrderShow({
                                 rel="noreferrer"
                                 className="mt-3 block"
                             >
+                                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Payment screenshot</p>
                                 <img
                                     src={productImageUrl(order.direct_payment_proof_path)}
                                     alt="Buyer payment screenshot"
-                                    className="max-h-48 rounded-lg border border-gray-200 object-contain"
+                                    className="max-h-56 w-full rounded-lg border border-gray-200 object-contain bg-white"
                                 />
-                                <p className="mt-1 text-xs text-orange-600 hover:underline">View payment screenshot</p>
+                                <p className="mt-1 text-xs text-orange-600 hover:underline">Open full screenshot</p>
                             </a>
                         )}
                         {order.payment_channel === 'direct' && order.payment_status === 'pending' && !hasPaymentClaim && (

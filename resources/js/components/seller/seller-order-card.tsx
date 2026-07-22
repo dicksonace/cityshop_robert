@@ -109,9 +109,35 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
                     </p>
                 )}
                 {needsPaymentReview && (
-                    <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
-                        Customer submitted a manual payment claim — confirm only if you received the money.
-                    </p>
+                    <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2">
+                        <p className="text-xs text-amber-800">
+                            Customer submitted a manual payment claim — confirm only if you received the money.
+                        </p>
+                        {order.direct_payment_reference && (
+                            <div>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Transaction ID</p>
+                                <p className="mt-0.5 break-all font-mono text-sm font-semibold text-gray-900">
+                                    {order.direct_payment_reference}
+                                </p>
+                            </div>
+                        )}
+                        {order.direct_payment_proof_path && (
+                            <a
+                                href={productImageUrl(order.direct_payment_proof_path)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <img
+                                    src={productImageUrl(order.direct_payment_proof_path)}
+                                    alt="Payment screenshot"
+                                    className="max-h-36 w-full rounded-lg border border-amber-200 object-contain bg-white"
+                                />
+                                <p className="mt-1 text-xs font-medium text-orange-600 hover:underline">View payment screenshot</p>
+                            </a>
+                        )}
+                    </div>
                 )}
 
                 <div className="mt-auto flex flex-wrap gap-2 pt-2">
