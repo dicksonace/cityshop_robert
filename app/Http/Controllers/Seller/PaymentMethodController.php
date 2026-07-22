@@ -44,7 +44,7 @@ class PaymentMethodController extends Controller
                 'disabled_reason' => $method->disabled_reason,
                 'disabled_at' => $method->disabled_at?->toIso8601String(),
             ]),
-            'types' => collect(SellerPaymentMethodType::cases())->map(fn ($t) => [
+            'types' => collect(SellerPaymentMethodType::creatable())->map(fn ($t) => [
                 'value' => $t->value,
                 'label' => ucwords(str_replace('_', ' ', $t->value)),
             ]),
@@ -84,7 +84,7 @@ class PaymentMethodController extends Controller
         }
 
         $validated = $request->validate([
-            'type' => ['required', 'in:'.implode(',', array_column(SellerPaymentMethodType::cases(), 'value'))],
+            'type' => ['required', 'in:'.implode(',', array_column(SellerPaymentMethodType::creatable(), 'value'))],
             'label' => ['nullable', 'string', 'max:100'],
             'account_name' => ['required', 'string', 'max:255'],
             'account_number' => ['nullable', 'string', 'max:100'],

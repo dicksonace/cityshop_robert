@@ -165,13 +165,6 @@ export default function PaymentMethodsIndex({ profile, methods, types }: Payment
                                     </div>
                                 </>
                             )}
-                            {(methodForm.data.type === 'paypal' || methodForm.data.type === 'stripe' || methodForm.data.type === 'other') && (
-                                <div>
-                                    <Label>Label / details</Label>
-                                    <Input value={methodForm.data.label} onChange={(e) => methodForm.setData('label', e.target.value)} className="mt-1" />
-                                    <Input value={methodForm.data.account_number} onChange={(e) => methodForm.setData('account_number', e.target.value)} className="mt-1" placeholder="Email or account ID" />
-                                </div>
-                            )}
                             <div>
                                 <Label>Instructions for buyer (optional)</Label>
                                 <Input value={methodForm.data.instructions} onChange={(e) => methodForm.setData('instructions', e.target.value)} className="mt-1" />
