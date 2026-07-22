@@ -42,7 +42,21 @@ class CheckoutController extends Controller
                 'seller_name' => $profile?->displayName() ?? $seller->name,
                 'accept_marketplace_payments' => $profile?->accept_marketplace_payments ?? true,
                 'accept_direct_payments' => $profile?->accept_direct_payments ?? false,
-                'payment_methods' => $profile?->paymentMethods?->where('is_active', true)->values() ?? [],
+                'payment_methods' => ($profile?->paymentMethods ?? collect())
+                    ->where('is_active', true)
+                    ->filter(fn ($method) => ! $method->isDisabled())
+                    ->values()
+                    ->map(fn ($method) => [
+                        'id' => $method->id,
+                        'type' => $method->type->value,
+                        'label' => $method->label,
+                        'account_name' => $method->account_name,
+                        'account_number' => $method->account_number,
+                        'network' => $method->network,
+                        'bank_name' => $method->bank_name,
+                        'instructions' => $method->instructions,
+                        'display_label' => $method->displayLabel(),
+                    ]),
                 'items' => $items,
                 'subtotal' => $items->sum(fn ($item) => $item->subtotal()),
                 'shipping_cost' => $shipping['cost'],

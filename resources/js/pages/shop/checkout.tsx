@@ -385,7 +385,12 @@ export default function Checkout({
                                                                 >
                                                                     {group.payment_methods.map((m) => (
                                                                         <option key={m.id} value={m.id}>
-                                                                            {m.network ? `${m.network} — ${m.account_number}` : m.bank_name ? `${m.bank_name} — ${m.account_number}` : m.label ?? m.type}
+                                                                            {m.display_label
+                                                                                ?? (m.network
+                                                                                    ? `${m.network} — ${m.account_number}${m.account_name ? ` · ${m.account_name}` : ''}`
+                                                                                    : m.bank_name
+                                                                                      ? `${m.bank_name} — ${m.account_number}${m.account_name ? ` · ${m.account_name}` : ''}`
+                                                                                      : m.label ?? m.type)}
                                                                         </option>
                                                                     ))}
                                                                 </select>

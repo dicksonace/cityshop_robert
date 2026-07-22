@@ -42,7 +42,12 @@ export default function DirectPaymentDetails({
                         {isBank ? 'Account number' : 'MoMo number'}
                     </p>
                     <p className="mt-0.5 text-xl font-bold tracking-tight text-gray-900">{accountNumber}</p>
-                    <p className="mt-0.5 text-sm font-bold uppercase text-sky-600">{accountName}</p>
+                    {accountName ? (
+                        <>
+                            <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Account name</p>
+                            <p className="mt-0.5 text-sm font-bold uppercase text-sky-600">{accountName}</p>
+                        </>
+                    ) : null}
                 </div>
                 <button
                     type="button"

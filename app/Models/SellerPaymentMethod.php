@@ -57,11 +57,17 @@ class SellerPaymentMethod extends Model
     public function displayLabel(): string
     {
         if ($this->type === SellerPaymentMethodType::MobileMoney) {
-            return ($this->network ?? 'Mobile Money').' — '.$this->account_number;
+            $network = $this->network ?? 'Mobile Money';
+            $number = $this->account_number ?? '';
+
+            return trim($network.' — '.$number.($this->account_name ? ' · '.$this->account_name : ''));
         }
 
         if ($this->type === SellerPaymentMethodType::Bank) {
-            return ($this->bank_name ?? 'Bank').' — '.$this->account_number;
+            $bank = $this->bank_name ?? 'Bank';
+            $number = $this->account_number ?? '';
+
+            return trim($bank.' — '.$number.($this->account_name ? ' · '.$this->account_name : ''));
         }
 
         return $this->label ?? ucfirst(str_replace('_', ' ', $this->type->value));
