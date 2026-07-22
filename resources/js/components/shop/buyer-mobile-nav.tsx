@@ -1,5 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { MessageCircle, Package, Store, UserRound, Wallet } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useChatOptional } from '@/contexts/chat-context';
 import { cn } from '@/lib/utils';
@@ -34,6 +36,9 @@ export default function BuyerMobileNav() {
     const chat = useChatOptional();
     const unread = props.unreadMessages ?? 0;
     const path = url.split('?')[0] || '/';
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => setMounted(true), []);
 
     const openMessages = () => {
         if (chat) {
@@ -43,12 +48,16 @@ export default function BuyerMobileNav() {
         router.visit(route('chat.index'));
     };
 
-    return (
+    if (!mounted) {
+        return null;
+    }
+
+    return createPortal(
         <nav
-            className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] sm:hidden"
+            className="fixed inset-x-0 bottom-0 z-50 w-full border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-4px_16px_rgba(15,23,42,0.06)] sm:hidden"
             aria-label="Buyer navigation"
         >
-            <div className="mx-auto flex max-w-lg items-stretch justify-around">
+            <div className="mx-auto flex w-full max-w-lg items-stretch justify-around">
                 {items.map((item) => {
                     const Icon = icons[item.key];
                     const isActive = item.match(path) || (item.chat && chat?.isOpen);
@@ -97,6 +106,7 @@ export default function BuyerMobileNav() {
                     );
                 })}
             </div>
-        </nav>
+        </nav>,
+        document.body,
     );
 }

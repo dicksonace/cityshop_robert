@@ -43,18 +43,23 @@ export default function FloatingChatWidget() {
     return (
         <div
             className={cn(
-                'fixed right-0 z-[100] flex flex-col items-end gap-3 p-3 sm:right-4 sm:bottom-4 sm:p-0',
-                isBuyer
-                    ? 'bottom-[calc(4.25rem+env(safe-area-inset-bottom))] pb-3 sm:bottom-4'
-                    : 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+                'fixed z-[100] flex flex-col items-end gap-3 sm:right-4 sm:bottom-4 sm:p-0',
+                // Buyers use the bottom tab for Message — hide empty wrapper on mobile so it cannot block taps.
+                isBuyer && !isOpen && 'hidden sm:flex',
+                isOpen
+                    ? 'inset-x-0 bottom-0 p-0 sm:inset-x-auto sm:bottom-4 sm:right-4'
+                    : 'right-0 p-3',
+                !isOpen && isBuyer && 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] pb-3 sm:bottom-4',
+                !isOpen && !isBuyer && 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
+                isOpen && isBuyer && 'sm:bottom-4',
             )}
         >
             {isOpen && (
                 <div
                     className={cn(
-                        'flex flex-col overflow-hidden border border-gray-200 bg-white shadow-2xl',
+                        'flex w-full max-w-[100vw] flex-col overflow-hidden border border-gray-200 bg-white shadow-2xl',
                         'animate-in slide-in-from-bottom-4 fade-in duration-200',
-                        'h-[min(100dvh-8rem,520px)] w-full rounded-t-2xl sm:h-[min(520px,calc(100vh-6rem))] sm:w-[min(100vw-2rem,380px)] sm:rounded-2xl',
+                        'h-[min(100dvh-8rem,520px)] rounded-t-2xl sm:h-[min(520px,calc(100vh-6rem))] sm:w-[min(100vw-2rem,380px)] sm:max-w-none sm:rounded-2xl',
                     )}
                 >
                     <div className="flex items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 text-white">

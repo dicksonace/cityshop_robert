@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 
 import BuyerMobileNav from '@/components/shop/buyer-mobile-nav';
 import ShopHeader from '@/components/shop/shop-header';
@@ -19,12 +19,19 @@ export default function ShopLayout({ children, hideHeaderSearch = false }: ShopL
     // Auth/forms already show errors next to the fields — don't duplicate as a top banner.
     const showLayoutError = Boolean(flash?.error) && !hasValidationErrors && !component.startsWith('auth/');
 
+    // Prevent a stuck horizontal scroll offset (looks like content "shifted" with empty space on one side).
+    useEffect(() => {
+        window.scrollTo({ left: 0, top: window.scrollY });
+        document.documentElement.scrollLeft = 0;
+        document.body.scrollLeft = 0;
+    }, [page.url]);
+
     return (
         <div
             className={
                 showBuyerNav
-                    ? 'min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-50 to-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:pb-0'
-                    : 'min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-50 to-white'
+                    ? 'relative w-full max-w-[100vw] min-h-screen overflow-x-clip bg-gradient-to-b from-gray-50 to-white pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] sm:pb-0'
+                    : 'relative w-full max-w-[100vw] min-h-screen overflow-x-clip bg-gradient-to-b from-gray-50 to-white'
             }
         >
             <ShopHeader hideSearch={hideHeaderSearch} />
@@ -38,9 +45,9 @@ export default function ShopLayout({ children, hideHeaderSearch = false }: ShopL
                     {flash.error}
                 </div>
             )}
-            <main>{children}</main>
+            <main className="w-full min-w-0">{children}</main>
             <footer className="mt-12 border-t border-gray-200 bg-white py-8">
-                <div className="mx-auto max-w-7xl px-4">
+                <div className="mx-auto w-full max-w-7xl px-4">
                     <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-4">
                         <div>
                             <h3 className="text-lg font-bold">
@@ -73,7 +80,7 @@ export default function ShopLayout({ children, hideHeaderSearch = false }: ShopL
                                 </li>
                             </ul>
                         </div>
-                        <div>
+                        <div className={showBuyerNav ? 'hidden sm:block' : undefined}>
                             <h4 className="font-semibold text-gray-900">Account</h4>
                             <ul className="mt-2 space-y-1 text-sm text-gray-500">
                                 {auth.user ? (

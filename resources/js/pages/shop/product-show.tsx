@@ -52,16 +52,17 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
     return (
         <ShopLayout>
             <Head title={product.name} />
-            <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
-                <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+            <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
+                <div className="grid w-full grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
                     <ProductImageGallery
                         images={product.images ?? []}
                         productName={product.name}
                         videoPath={product.video_path}
                         videoDuration={product.video_duration}
+                        className="w-full min-w-0"
                     />
 
-                    <div>
+                    <div className="w-full min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                             {product.category?.icon && (
                                 <span className="flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700">

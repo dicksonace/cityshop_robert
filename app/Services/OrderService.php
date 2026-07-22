@@ -195,14 +195,16 @@ class OrderService
                     'reference' => $order->payment_reference,
                 ]);
 
-                $order->seller->notify(new PaymentConfirmedNotification($order->load('items'), $order->items->first(), pendingOrder: true));
-                if ($order->seller) {
-                    AppNotificationService::notifySellerNewOrder(
-                        $order->seller,
-                        $order,
-                        $order->items->first(),
-                        pendingOrder: true,
-                    );
+                if ($paymentMethod !== 'cash') {
+                    $order->seller->notify(new PaymentConfirmedNotification($order->load('items'), $order->items->first(), pendingOrder: true));
+                    if ($order->seller) {
+                        AppNotificationService::notifySellerNewOrder(
+                            $order->seller,
+                            $order,
+                            $order->items->first(),
+                            pendingOrder: true,
+                        );
+                    }
                 }
             }
 
@@ -216,7 +218,9 @@ class OrderService
             CartItem::where('user_id', $buyer->id)->delete();
 
             $checkout = $checkout->load('orders.items.seller');
-            $buyer->notify(new OrderPlacedNotification($checkout->orders->first(), checkout: $checkout));
+            if ($paymentMethod !== 'cash') {
+                $buyer->notify(new OrderPlacedNotification($checkout->orders->first(), checkout: $checkout));
+            }
 
             return $checkout;
         });
@@ -536,10 +540,14 @@ class OrderService
     public function confirmCashOnDelivery(Checkout $checkout): Checkout
     {
         foreach ($checkout->orders as $order) {
-            $order->update(['status' => OrderStatus::Processing, 'payment_method' => 'cash']);
+            $order->update([
+                'status' => OrderStatus::Pending,
+                'payment_method' => 'cash',
+                'payment_status' => PaymentStatus::Pending,
+            ]);
         }
 
-        $checkout->update(['status' => OrderStatus::Processing]);
+        $checkout->update(['status' => OrderStatus::Pending]);
         $checkout->buyer->notify(new OrderPlacedNotification($checkout->orders->first(), cashOnDelivery: true, checkout: $checkout));
 
         foreach ($checkout->orders as $order) {
@@ -736,6 +744,15 @@ class OrderService
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'awaiting_confirmation'));
         }
 
+        if ($data['status'] === 'call_confirmed' && $previousStatus !== 'call_confirmed') {
+            $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'call_confirmed'));
+        }
+
+        if ($data['status'] === 'delivered' && $previousStatus !== 'delivered' && $item->order->payment_method === 'cash') {
+            $item->order->update(['payment_status' => PaymentStatus::Paid, 'status' => OrderStatus::Delivered]);
+            $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
+        }
+
         $this->syncOrderStatusAfterItemChange($item->order);
 
         return $item->fresh();
@@ -743,12 +760,23 @@ class OrderService
 
     private function assertValidStatusTransition(OrderItem $item, OrderStatus $next): void
     {
-        $flow = [
-            OrderStatus::Pending->value => [OrderStatus::Processing],
-            OrderStatus::Processing->value => [OrderStatus::Packed],
-            OrderStatus::Packed->value => [OrderStatus::Shipped],
-            OrderStatus::Shipped->value => [OrderStatus::AwaitingConfirmation],
-        ];
+        $item->loadMissing('order');
+        $isCod = $item->order?->payment_method === 'cash';
+
+        $flow = $isCod
+            ? [
+                OrderStatus::Pending->value => [OrderStatus::Processing],
+                OrderStatus::Processing->value => [OrderStatus::CallConfirmed],
+                OrderStatus::CallConfirmed->value => [OrderStatus::Packed],
+                OrderStatus::Packed->value => [OrderStatus::Shipped],
+                OrderStatus::Shipped->value => [OrderStatus::Delivered],
+            ]
+            : [
+                OrderStatus::Pending->value => [OrderStatus::Processing],
+                OrderStatus::Processing->value => [OrderStatus::Packed],
+                OrderStatus::Packed->value => [OrderStatus::Shipped],
+                OrderStatus::Shipped->value => [OrderStatus::AwaitingConfirmation],
+            ];
 
         $current = $item->status->value;
         $allowed = $flow[$current] ?? [];
@@ -981,6 +1009,12 @@ class OrderService
 
         if ($statuses->contains(OrderStatus::Packed)) {
             $order->update(['status' => OrderStatus::Packed]);
+
+            return;
+        }
+
+        if ($statuses->contains(OrderStatus::CallConfirmed)) {
+            $order->update(['status' => OrderStatus::CallConfirmed]);
 
             return;
         }

@@ -102,8 +102,14 @@ export default function OrdersHub({ counts, urgentOrders, recentCompleted, needs
                             </div>
                         </dl>
                         <Link
+                            href={sellerOrdersStageHref('cancelled')}
+                            className="mt-4 block text-center text-sm font-medium text-gray-600 hover:underline"
+                        >
+                            Cancelled orders →
+                        </Link>
+                        <Link
                             href={route('seller.refunds.index')}
-                            className="mt-4 block text-center text-sm font-medium text-orange-600 hover:underline"
+                            className="mt-2 block text-center text-sm font-medium text-orange-600 hover:underline"
                         >
                             Refund requests →
                         </Link>

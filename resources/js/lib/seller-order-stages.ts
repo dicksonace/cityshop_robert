@@ -5,6 +5,7 @@ import {
     Inbox,
     Package,
     PackageCheck,
+    Phone,
     Truck,
     type LucideIcon,
 } from 'lucide-react';
@@ -12,6 +13,7 @@ import {
 export type SellerOrderStageSlug =
     | 'new'
     | 'processing'
+    | 'call'
     | 'packing'
     | 'delivery'
     | 'awaiting'
@@ -41,9 +43,9 @@ export const sellerOrderStages: SellerOrderStage[] = [
         countKey: 'pending',
         label: 'New orders',
         headline: 'New orders',
-        description: 'Paid orders waiting for you to start preparing.',
+        description: 'New sales waiting for you — including cash on delivery.',
         emptyTitle: 'No new orders',
-        emptyHint: 'New sales will land here as soon as buyers pay.',
+        emptyHint: 'New sales will land here when buyers order or pay.',
         cta: 'Review now',
         icon: Inbox,
         accent: 'text-violet-700',
@@ -65,6 +67,21 @@ export const sellerOrderStages: SellerOrderStage[] = [
         iconBg: 'bg-blue-100 text-blue-600',
         cardBg: 'border-blue-100 bg-gradient-to-br from-blue-50 to-white',
         ring: 'ring-blue-200',
+    },
+    {
+        slug: 'call',
+        countKey: 'call_confirmed',
+        label: 'Call buyer',
+        headline: 'Call buyer (COD)',
+        description: 'Cash-on-delivery orders — call the buyer to confirm, then pack.',
+        emptyTitle: 'No COD calls pending',
+        emptyHint: 'After you start a cash-on-delivery order, mark that you called the buyer here.',
+        cta: 'Open calls',
+        icon: Phone,
+        accent: 'text-fuchsia-700',
+        iconBg: 'bg-fuchsia-100 text-fuchsia-600',
+        cardBg: 'border-fuchsia-100 bg-gradient-to-br from-fuchsia-50 to-white',
+        ring: 'ring-fuchsia-200',
     },
     {
         slug: 'packing',
@@ -131,7 +148,7 @@ export const sellerOrderStages: SellerOrderStage[] = [
 export const sellerOrderCancelledStage: SellerOrderStage = {
     slug: 'cancelled',
     countKey: 'cancelled',
-    label: 'Cancelled',
+    label: 'Cancelled orders',
     headline: 'Cancelled & refunded',
     description: 'Rejected or refunded orders.',
     emptyTitle: 'No cancelled orders',

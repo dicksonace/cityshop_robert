@@ -29,16 +29,25 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         if ($this->orderItem) {
-            $subject = $this->pendingOrder ? 'New order received' : 'New order received';
-            $line = $this->pendingOrder
-                ? "You have a new order awaiting payment: {$this->orderItem->product_name}"
-                : "You have a new order: {$this->orderItem->product_name}";
+            $subject = match (true) {
+                $this->cashOnDelivery => 'New Order (Cash on Delivery)',
+                $this->pendingOrder => 'New order awaiting payment',
+                default => 'New order received',
+            };
+            $line = match (true) {
+                $this->cashOnDelivery => "New Order (Cash on Delivery): {$this->orderItem->product_name}",
+                $this->pendingOrder => "You have a new order awaiting payment: {$this->orderItem->product_name}",
+                default => "You have a new order: {$this->orderItem->product_name}",
+            };
 
             return (new MailMessage)
                 ->subject($subject)
                 ->greeting('Hello '.$notifiable->name.'!')
                 ->line($line)
                 ->line("Order: {$this->order->order_number}")
+                ->when($this->cashOnDelivery, fn (MailMessage $mail) => $mail
+                    ->line('The buyer will pay cash when you deliver. Call them to confirm, then pack and send the order.')
+                )
                 ->action('View Orders', route('seller.orders.index'));
         }
 
@@ -56,6 +65,10 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
     public function toSms(object $notifiable): string
     {
         if ($this->orderItem) {
+            if ($this->cashOnDelivery) {
+                return "CityShop: New Order (Cash on Delivery) {$this->order->order_number} — {$this->orderItem->product_name}. Call buyer, then pack & deliver.";
+            }
+
             return "CityShop: New order {$this->order->order_number} for {$this->orderItem->product_name}.";
         }
 

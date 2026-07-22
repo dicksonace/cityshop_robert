@@ -18,14 +18,14 @@ export default function ProductSpecifications({ category, specifications }: Prod
     }
 
     return (
-        <section className="mt-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <section className="mt-8 w-full min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
             <div className="mb-4 flex items-center gap-3">
                 {category?.icon && (
-                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-50 text-2xl">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-2xl">
                         {category.icon}
                     </span>
                 )}
-                <div>
+                <div className="min-w-0">
                     <h2 className="text-lg font-bold text-gray-900">Specifications</h2>
                     {category && (
                         <p className="text-sm text-gray-500">{category.name} details</p>
@@ -36,10 +36,10 @@ export default function ProductSpecifications({ category, specifications }: Prod
             <dl className="divide-y divide-gray-100">
                 {entries.map(([key, value]) => (
                     <div key={key} className="flex flex-col gap-1 py-3 sm:flex-row sm:gap-4">
-                        <dt className="min-w-[140px] text-sm font-medium text-gray-500">
+                        <dt className="shrink-0 text-sm font-medium text-gray-500 sm:w-36">
                             {labelForKey(key, fields)}
                         </dt>
-                        <dd className="text-sm font-medium text-gray-900">{value}</dd>
+                        <dd className="min-w-0 break-words text-sm font-medium text-gray-900">{value}</dd>
                     </div>
                 ))}
             </dl>

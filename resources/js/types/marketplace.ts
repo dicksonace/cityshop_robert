@@ -213,6 +213,7 @@ export function formatPrice(amount: number): string {
 export const orderStatusLabels: Record<string, string> = {
     pending: 'Pending',
     processing: 'Processing',
+    call_confirmed: 'Call buyer',
     packed: 'Packing',
     shipped: 'Out for delivery',
     awaiting_confirmation: 'Confirm delivery',
@@ -223,10 +224,20 @@ export const orderStatusLabels: Record<string, string> = {
 
 export const orderFulfillmentSteps = [
     { key: 'processing', label: 'Processing' },
+    { key: 'call_confirmed', label: 'Call buyer' },
     { key: 'packed', label: 'Packing' },
     { key: 'shipped', label: 'Out for delivery' },
     { key: 'awaiting_confirmation', label: 'Delivered' },
     { key: 'delivered', label: 'Completed' },
+] as const;
+
+export const codOrderFulfillmentSteps = [
+    { key: 'pending', label: 'Cash on delivery' },
+    { key: 'processing', label: 'Processing' },
+    { key: 'call_confirmed', label: 'Seller called' },
+    { key: 'packed', label: 'Packing' },
+    { key: 'shipped', label: 'Package on the way' },
+    { key: 'delivered', label: 'Complete' },
 ] as const;
 
 export function formatOrderStatus(status: string | { value?: string } | null | undefined): string {

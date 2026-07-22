@@ -16,6 +16,7 @@ class OrderController extends Controller
     private const STAGE_MAP = [
         'new' => ['status' => OrderStatus::Pending],
         'processing' => ['status' => OrderStatus::Processing],
+        'call' => ['status' => OrderStatus::CallConfirmed],
         'packing' => ['status' => OrderStatus::Packed],
         'delivery' => ['status' => OrderStatus::Shipped],
         'awaiting' => ['status' => OrderStatus::AwaitingConfirmation],
@@ -47,6 +48,7 @@ class OrderController extends Controller
             ->whereIn('status', [
                 OrderStatus::Pending,
                 OrderStatus::Processing,
+                OrderStatus::CallConfirmed,
                 OrderStatus::Packed,
                 OrderStatus::Shipped,
             ])
@@ -65,7 +67,7 @@ class OrderController extends Controller
             'counts' => $counts,
             'urgentOrders' => $urgent,
             'recentCompleted' => $recentCompleted,
-            'needsAction' => $counts['pending'] + $counts['processing'] + $counts['packed'] + $counts['shipped'],
+            'needsAction' => $counts['pending'] + $counts['processing'] + $counts['call_confirmed'] + $counts['packed'] + $counts['shipped'],
         ]);
     }
 
@@ -125,7 +127,7 @@ class OrderController extends Controller
         abort_unless($orderItem->seller_id === $request->user()->id, 403);
 
         $validated = $request->validate([
-            'status' => ['required', 'in:processing,packed,shipped,awaiting_confirmation'],
+            'status' => ['required', 'in:processing,call_confirmed,packed,shipped,awaiting_confirmation,delivered'],
             'vehicle_number' => ['nullable', 'string', 'max:50'],
             'driver_phone' => ['nullable', 'string', 'max:30'],
             'package_image' => ['nullable', 'image', 'max:5120'],
@@ -212,6 +214,7 @@ class OrderController extends Controller
             'all' => (clone $base)->count(),
             'pending' => (clone $base)->where('status', OrderStatus::Pending)->count(),
             'processing' => (clone $base)->where('status', OrderStatus::Processing)->count(),
+            'call_confirmed' => (clone $base)->where('status', OrderStatus::CallConfirmed)->count(),
             'packed' => (clone $base)->where('status', OrderStatus::Packed)->count(),
             'shipped' => (clone $base)->where('status', OrderStatus::Shipped)->count(),
             'awaiting_confirmation' => (clone $base)->where('status', OrderStatus::AwaitingConfirmation)->count(),
@@ -224,6 +227,7 @@ class OrderController extends Controller
     {
         return match ($status) {
             'pending' => 'new',
+            'call_confirmed' => 'call',
             'packed' => 'packing',
             'shipped' => 'delivery',
             'awaiting_confirmation' => 'awaiting',
@@ -239,6 +243,7 @@ class OrderController extends Controller
         return match ($status) {
             OrderStatus::Pending => 'new',
             OrderStatus::Processing => 'processing',
+            OrderStatus::CallConfirmed => 'call',
             OrderStatus::Packed => 'packing',
             OrderStatus::Shipped => 'delivery',
             OrderStatus::AwaitingConfirmation => 'awaiting',
@@ -282,6 +287,7 @@ class OrderController extends Controller
                 'order_number' => $order->order_number,
                 'created_at' => $order->created_at?->toIso8601String(),
                 'payment_status' => $order->payment_status?->value ?? 'pending',
+                'payment_method' => $order->payment_method,
                 'payment_channel' => $order->payment_channel?->value,
                 'direct_payment_reference' => $order->direct_payment_reference,
                 'direct_payment_proof_path' => $order->direct_payment_proof_path,

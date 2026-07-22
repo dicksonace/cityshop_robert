@@ -142,7 +142,7 @@ export default function ProductImageGallery({
     }
 
     return (
-        <div className={cn('space-y-3', className)}>
+        <div className={cn('w-full min-w-0 space-y-3', className)}>
             <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-sm ring-1 ring-gray-100">
                 {active?.type === 'video' ? (
                     <div className="relative aspect-square bg-black">
@@ -212,7 +212,7 @@ export default function ProductImageGallery({
                         <button
                             type="button"
                             onClick={() => scrollThumbs('left')}
-                            className="absolute -left-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-md"
+                            className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-md"
                             aria-label="Scroll thumbnails left"
                         >
                             <ChevronLeft className="h-4 w-4 text-gray-700" />
@@ -222,7 +222,7 @@ export default function ProductImageGallery({
                         <button
                             type="button"
                             onClick={() => scrollThumbs('right')}
-                            className="absolute -right-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-orange-200 bg-white shadow-md ring-2 ring-orange-100"
+                            className="absolute right-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-orange-200 bg-white shadow-md ring-2 ring-orange-100"
                             aria-label="Scroll thumbnails right"
                         >
                             <ChevronRight className="h-4 w-4 text-orange-600" />
@@ -231,7 +231,7 @@ export default function ProductImageGallery({
 
                     <div
                         ref={thumbsRef}
-                        className="flex gap-2 overflow-x-auto overscroll-x-contain scroll-smooth px-1 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        className="flex max-w-full gap-2 overflow-x-auto overscroll-x-contain scroll-smooth px-1 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                         style={{ WebkitOverflowScrolling: 'touch' }}
                     >
                         {items.map((item, i) => (

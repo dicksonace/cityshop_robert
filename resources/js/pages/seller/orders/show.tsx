@@ -24,6 +24,7 @@ interface OrderShowProps {
             order_number: string;
             created_at: string;
             payment_status: string;
+            payment_method?: string | null;
             payment_channel?: string;
             direct_payment_reference?: string | null;
             direct_payment_proof_path?: string | null;
@@ -48,18 +49,28 @@ interface OrderShowProps {
     canCancel: boolean;
 }
 
-const sellerFlow: { status: string; label: string; hint: string }[] = [
+const paidSellerFlow: { status: string; label: string; hint: string }[] = [
     { status: 'processing', label: 'Start processing', hint: 'Payment received — begin preparing the order.' },
     { status: 'packed', label: 'Mark as packing', hint: 'Item is being packed and prepared.' },
     { status: 'shipped', label: 'Out for delivery', hint: 'Add driver & vehicle details, then send.' },
     { status: 'awaiting_confirmation', label: 'Mark as delivered', hint: 'You handed the item to the buyer — they must confirm receipt.' },
 ];
 
-function nextSellerStatus(current: string): string | null {
-    if (current === 'pending') return 'processing';
-    const idx = sellerFlow.findIndex((s) => s.status === current);
-    if (idx === -1 || idx >= sellerFlow.length - 1) return null;
-    return sellerFlow[idx + 1].status;
+const codSellerFlow: { status: string; label: string; hint: string }[] = [
+    { status: 'pending', label: 'Cash on delivery', hint: 'New COD order — start processing when ready.' },
+    { status: 'processing', label: 'Start processing', hint: 'Cash on delivery order — begin preparing.' },
+    { status: 'call_confirmed', label: 'Call buyer', hint: 'Call the buyer to confirm the order, then continue.' },
+    { status: 'packed', label: 'Mark as packing', hint: 'Pack the item after you spoke with the buyer.' },
+    { status: 'shipped', label: 'Package on the way', hint: 'Add driver & vehicle details, then send.' },
+    { status: 'delivered', label: 'Complete (cash collected)', hint: 'Buyer paid cash on delivery — mark the order complete.' },
+];
+
+function nextSellerStatus(current: string, isCod: boolean): string | null {
+    if (!isCod && current === 'pending') return 'processing';
+    const flow = isCod ? codSellerFlow : paidSellerFlow;
+    const idx = flow.findIndex((s) => s.status === current);
+    if (idx === -1 || idx >= flow.length - 1) return null;
+    return flow[idx + 1].status;
 }
 
 export default function SellerOrderShow({
@@ -116,9 +127,14 @@ export default function SellerOrderShow({
 
     const image = orderItem.product?.images?.[0];
     const dispute = orderItem.dispute;
-    const next = nextSellerStatus(itemStatus);
-    const isTerminal = ['cancelled', 'delivered', 'refunded', 'awaiting_confirmation'].includes(itemStatus);
+    const isCod = order.payment_method === 'cash';
+    const sellerFlow = isCod ? codSellerFlow : paidSellerFlow;
+    const next = nextSellerStatus(itemStatus, isCod);
+    const isTerminal = isCod
+        ? ['cancelled', 'delivered', 'refunded'].includes(itemStatus)
+        : ['cancelled', 'delivered', 'refunded', 'awaiting_confirmation'].includes(itemStatus);
     const needsDeliveryDetails = next === 'shipped';
+    const buyerPhone = order.receiver_phone || order.buyer?.mobile || '';
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -261,8 +277,50 @@ export default function SellerOrderShow({
 
                         {itemStatus === 'pending' && (
                             <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
-                                <p className="font-semibold">New order — payment received</p>
-                                <p className="mt-1 text-amber-800">Tap &quot;Start processing&quot; below when you begin preparing this order.</p>
+                                {isCod ? (
+                                    <>
+                                        <p className="font-semibold">New Order (Cash on Delivery)</p>
+                                        <p className="mt-1 text-amber-800">
+                                            Buyer will pay cash when you deliver. Start processing, call them to confirm, then pack and send.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="font-semibold">New order — payment received</p>
+                                        <p className="mt-1 text-amber-800">Tap &quot;Start processing&quot; below when you begin preparing this order.</p>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        {isCod && itemStatus === 'processing' && (
+                            <div className="mt-4 rounded-xl border border-teal-100 bg-teal-50 p-4 text-sm text-teal-900">
+                                <p className="font-semibold">Call the buyer next</p>
+                                <p className="mt-1 text-teal-800">
+                                    Confirm the order by phone before packing.
+                                    {buyerPhone ? (
+                                        <>
+                                            {' '}
+                                            <a href={`tel:${buyerPhone}`} className="font-semibold underline">
+                                                Call {buyerPhone}
+                                            </a>
+                                        </>
+                                    ) : null}
+                                </p>
+                            </div>
+                        )}
+
+                        {isCod && itemStatus === 'call_confirmed' && (
+                            <div className="mt-4 rounded-xl border border-fuchsia-100 bg-fuchsia-50 p-4 text-sm text-fuchsia-900">
+                                <p className="font-semibold">Call done — pack the order</p>
+                                <p className="mt-1 text-fuchsia-800">You confirmed with the buyer. Mark packing when the item is ready.</p>
+                            </div>
+                        )}
+
+                        {isCod && itemStatus === 'shipped' && (
+                            <div className="mt-4 rounded-xl border border-orange-100 bg-orange-50 p-4 text-sm text-orange-900">
+                                <p className="font-semibold">Package on the way</p>
+                                <p className="mt-1 text-orange-800">Collect cash on delivery, then tap Complete.</p>
                             </div>
                         )}
 
@@ -574,7 +632,17 @@ export default function SellerOrderShow({
                     </div>
 
                     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                        {order.payment_channel === 'direct' ? (
+                        {isCod ? (
+                            <>
+                                <h3 className="font-semibold text-gray-900">Cash on delivery</h3>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    Buyer pays cash when you deliver · <span className="capitalize">{order.payment_status}</span>
+                                </p>
+                                <p className="mt-1 text-xs text-teal-700">
+                                    Call the buyer to confirm, pack, send the package, then mark complete when cash is collected.
+                                </p>
+                            </>
+                        ) : order.payment_channel === 'direct' ? (
                             <>
                                 <h3 className="font-semibold text-gray-900">Customer payment (manual)</h3>
                                 <p className="mt-2 text-sm text-gray-600">

@@ -28,6 +28,7 @@ class OrderStatusUpdatedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $labels = [
+            'call_confirmed' => 'Seller will call you about your cash-on-delivery order',
             'packed' => 'Your order is being packed',
             'shipped' => 'Your order is out for delivery',
             'awaiting_confirmation' => 'Your order was delivered — please confirm receipt',
@@ -76,6 +77,7 @@ class OrderStatusUpdatedNotification extends Notification implements ShouldQueue
     private function statusLabel(): string
     {
         return match ($this->status) {
+            'call_confirmed' => 'confirmed — seller will call you',
             'packed' => 'being packed',
             'shipped' => 'out for delivery',
             'awaiting_confirmation' => 'delivered — confirm receipt',

@@ -1,14 +1,15 @@
 import { Check } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { formatOrderStatus, orderFulfillmentSteps } from '@/types/marketplace';
+import { codOrderFulfillmentSteps, formatOrderStatus, orderFulfillmentSteps } from '@/types/marketplace';
 
 interface OrderProgressProps {
     status: string;
+    paymentMethod?: string | null;
     className?: string;
 }
 
-const stepIndex = (status: string): number => {
+const paidStepIndex = (status: string): number => {
     const map: Record<string, number> = {
         pending: 0,
         processing: 0,
@@ -21,8 +22,23 @@ const stepIndex = (status: string): number => {
     return map[status] ?? 0;
 };
 
-export default function OrderProgress({ status, className }: OrderProgressProps) {
-    const current = stepIndex(status);
+const codStepIndex = (status: string): number => {
+    const map: Record<string, number> = {
+        pending: 0,
+        processing: 1,
+        call_confirmed: 2,
+        packed: 3,
+        shipped: 4,
+        delivered: 5,
+    };
+
+    return map[status] ?? 0;
+};
+
+export default function OrderProgress({ status, paymentMethod, className }: OrderProgressProps) {
+    const isCod = paymentMethod === 'cash';
+    const steps = isCod ? codOrderFulfillmentSteps : orderFulfillmentSteps;
+    const current = isCod ? codStepIndex(status) : paidStepIndex(status);
     const terminal = ['cancelled', 'refunded'].includes(status);
 
     if (terminal) {
@@ -36,7 +52,7 @@ export default function OrderProgress({ status, className }: OrderProgressProps)
     return (
         <div className={cn('space-y-3', className)}>
             <div className="flex items-center justify-between gap-1">
-                {orderFulfillmentSteps.map((step, i) => {
+                {steps.map((step, i) => {
                     const done = i < current;
                     const active = i === current;
 
@@ -67,11 +83,11 @@ export default function OrderProgress({ status, className }: OrderProgressProps)
             <div className="flex h-1.5 overflow-hidden rounded-full bg-gray-100">
                 <div
                     className="rounded-full bg-orange-500 transition-all"
-                    style={{ width: `${(current / (orderFulfillmentSteps.length - 1)) * 100}%` }}
+                    style={{ width: `${(current / Math.max(1, steps.length - 1)) * 100}%` }}
                 />
             </div>
             <p className="text-center text-sm font-medium text-gray-800 sm:hidden">
-                {formatOrderStatus(status)}
+                {isCod && status === 'pending' ? 'Cash on delivery' : formatOrderStatus(status)}
             </p>
         </div>
     );

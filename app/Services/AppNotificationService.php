@@ -67,13 +67,13 @@ class AppNotificationService
 
         $title = match (true) {
             $pendingOrder => 'New order awaiting payment',
-            $cashOnDelivery => 'New cash-on-delivery order',
+            $cashOnDelivery => 'New Order (Cash on Delivery)',
             default => 'New order received',
         };
 
         $body = match (true) {
             $pendingOrder => "Order {$order->order_number}: {$productName} (awaiting payment)",
-            $cashOnDelivery => "Order {$order->order_number}: {$productName} (cash on delivery)",
+            $cashOnDelivery => "Order {$order->order_number}: {$productName} — call the buyer, then pack & deliver.",
             default => "Order {$order->order_number}: {$productName}",
         };
 

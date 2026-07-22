@@ -45,6 +45,6 @@ class OrderCancellation
      */
     public static function sellerCancellableStatuses(): array
     {
-        return ['pending', 'processing', 'packed'];
+        return ['pending', 'processing', 'call_confirmed', 'packed'];
     }
 }

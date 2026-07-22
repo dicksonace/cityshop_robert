@@ -12,6 +12,7 @@ export type SellerOrderListItem = OrderItem & {
         order_number: string;
         created_at: string;
         payment_status?: string;
+        payment_method?: string | null;
         payment_channel?: string;
         direct_payment_reference?: string | null;
         direct_payment_proof_path?: string | null;
@@ -39,16 +40,18 @@ function timeAgo(date: string): string {
     return `${days}d ago`;
 }
 
-const SELLER_CANCELLABLE = new Set(['pending', 'processing', 'packed']);
+const SELLER_CANCELLABLE = new Set(['pending', 'processing', 'call_confirmed', 'packed']);
 
 export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProps) {
     const image = item.product?.images?.[0];
     const order = item.order;
     const stage = stageSlug ? getSellerOrderStage(stageSlug) : undefined;
+    const isCod = order.payment_method === 'cash';
     const hasPaymentClaim = Boolean(order.direct_payment_reference || order.direct_payment_proof_path);
     const needsPaymentReview =
         order.payment_channel === 'direct' && order.payment_status === 'pending' && hasPaymentClaim;
     const canCancel = SELLER_CANCELLABLE.has(String(item.status));
+    const statusLabel = formatOrderStatus(item.status);
 
     const rejectPayment = () => {
         const reason = window.prompt(
@@ -76,14 +79,21 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                         <p className="line-clamp-2 font-semibold text-gray-900">{item.product_name}</p>
-                        <span
-                            className={cn(
-                                'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                                stage ? `${stage.iconBg} ${stage.accent}` : 'bg-gray-100 text-gray-600',
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                            {isCod && (
+                                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-800">
+                                    Cash on delivery
+                                </span>
                             )}
-                        >
-                            {formatOrderStatus(item.status)}
-                        </span>
+                            <span
+                                className={cn(
+                                    'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                                    stage ? `${stage.iconBg} ${stage.accent}` : 'bg-gray-100 text-gray-600',
+                                )}
+                            >
+                                {statusLabel}
+                            </span>
+                        </div>
                     </div>
                     <p className="mt-1 text-xs text-gray-400">{order.order_number}</p>
                     <p className="mt-2 text-lg font-bold text-orange-500">{formatPrice(item.unit_price * item.quantity)}</p>
