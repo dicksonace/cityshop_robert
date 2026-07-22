@@ -26,6 +26,8 @@ export default function ProductImageGallery({
 }: ProductImageGalleryProps) {
     const [current, setCurrent] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
     const thumbsRef = useRef<HTMLDivElement>(null);
 
     const sortedImages = [...images].sort((a, b) => {
@@ -73,6 +75,25 @@ export default function ProductImageGallery({
     const prev = () => goTo(current - 1);
     const next = () => goTo(current + 1);
 
+    const updateThumbScrollState = useCallback(() => {
+        const el = thumbsRef.current;
+        if (!el) {
+            setCanScrollLeft(false);
+            setCanScrollRight(false);
+            return;
+        }
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        setCanScrollLeft(el.scrollLeft > 4);
+        setCanScrollRight(maxScroll > 4 && el.scrollLeft < maxScroll - 4);
+    }, []);
+
+    const scrollThumbs = (direction: 'left' | 'right') => {
+        const el = thumbsRef.current;
+        if (!el) return;
+        const amount = Math.max(120, el.clientWidth * 0.7);
+        el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+    };
+
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if (lightboxOpen) return;
@@ -86,9 +107,31 @@ export default function ProductImageGallery({
     useEffect(() => {
         const container = thumbsRef.current;
         if (!container) return;
-        const activeThumb = container.children[current] as HTMLElement | undefined;
-        activeThumb?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }, [current]);
+        const activeThumb = container.querySelector<HTMLElement>(`[data-thumb-index="${current}"]`);
+        if (!activeThumb) return;
+
+        const left = activeThumb.offsetLeft - (container.clientWidth - activeThumb.offsetWidth) / 2;
+        container.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+        updateThumbScrollState();
+    }, [current, updateThumbScrollState]);
+
+    useEffect(() => {
+        const el = thumbsRef.current;
+        if (!el) return;
+
+        updateThumbScrollState();
+        el.addEventListener('scroll', updateThumbScrollState, { passive: true });
+        window.addEventListener('resize', updateThumbScrollState);
+
+        const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateThumbScrollState) : null;
+        observer?.observe(el);
+
+        return () => {
+            el.removeEventListener('scroll', updateThumbScrollState);
+            window.removeEventListener('resize', updateThumbScrollState);
+            observer?.disconnect();
+        };
+    }, [total, updateThumbScrollState]);
 
     if (total === 0) {
         return (
@@ -164,37 +207,70 @@ export default function ProductImageGallery({
             </div>
 
             {total > 1 && (
-                <div
-                    ref={thumbsRef}
-                    className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scroll-smooth [scrollbar-width:thin]"
-                >
-                    {items.map((item, i) => (
+                <div className="relative">
+                    {canScrollLeft && (
                         <button
-                            key={item.key}
                             type="button"
-                            onClick={() => goTo(i)}
-                            className={cn(
-                                'relative h-16 w-16 shrink-0 scroll-mx-2 overflow-hidden rounded-xl border-2 transition-all',
-                                i === current
-                                    ? 'border-orange-500 ring-2 ring-orange-200'
-                                    : 'border-gray-100 opacity-70 hover:opacity-100',
-                            )}
-                            aria-label={`View ${item.type} ${i + 1}`}
+                            onClick={() => scrollThumbs('left')}
+                            className="absolute -left-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white shadow-md"
+                            aria-label="Scroll thumbnails left"
                         >
-                            {item.type === 'video' ? (
-                                <div className="flex h-full w-full flex-col items-center justify-center bg-gray-900 text-white">
-                                    <Film className="h-5 w-5 text-orange-400" />
-                                    <span className="mt-0.5 text-[10px] font-semibold">Video</span>
-                                </div>
-                            ) : (
-                                <img
-                                    src={productImageUrl(item.image.path)}
-                                    alt=""
-                                    className="h-full w-full bg-gray-50 object-contain p-1"
-                                />
-                            )}
+                            <ChevronLeft className="h-4 w-4 text-gray-700" />
                         </button>
-                    ))}
+                    )}
+                    {canScrollRight && (
+                        <button
+                            type="button"
+                            onClick={() => scrollThumbs('right')}
+                            className="absolute -right-1 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-orange-200 bg-white shadow-md ring-2 ring-orange-100"
+                            aria-label="Scroll thumbnails right"
+                        >
+                            <ChevronRight className="h-4 w-4 text-orange-600" />
+                        </button>
+                    )}
+
+                    <div
+                        ref={thumbsRef}
+                        className="flex gap-2 overflow-x-auto overscroll-x-contain scroll-smooth px-1 pb-2 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        style={{ WebkitOverflowScrolling: 'touch' }}
+                    >
+                        {items.map((item, i) => (
+                            <button
+                                key={item.key}
+                                type="button"
+                                data-thumb-index={i}
+                                onClick={() => goTo(i)}
+                                className={cn(
+                                    'relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 transition-all sm:h-16 sm:w-16',
+                                    i === current
+                                        ? 'border-orange-500 ring-2 ring-orange-200'
+                                        : 'border-gray-100 opacity-80 hover:opacity-100',
+                                )}
+                                aria-label={`View ${item.type} ${i + 1} of ${total}`}
+                            >
+                                {item.type === 'video' ? (
+                                    <div className="flex h-full w-full flex-col items-center justify-center bg-gray-900 text-white">
+                                        <Film className="h-5 w-5 text-orange-400" />
+                                        <span className="mt-0.5 text-[10px] font-semibold">Video</span>
+                                    </div>
+                                ) : (
+                                    <img
+                                        src={productImageUrl(item.image.path)}
+                                        alt=""
+                                        className="h-full w-full bg-gray-50 object-contain p-1"
+                                    />
+                                )}
+                            </button>
+                        ))}
+                        {/* Spacer so the last thumb is never clipped against the screen edge */}
+                        <div className="w-6 shrink-0 sm:w-2" aria-hidden />
+                    </div>
+
+                    {canScrollRight && (
+                        <p className="text-center text-[11px] font-medium text-orange-600">
+                            Swipe or tap → to see all {total} photos
+                        </p>
+                    )}
                 </div>
             )}
 
