@@ -71,11 +71,8 @@ class AuthenticatedSessionController extends Controller
                 default => route('login'),
             };
 
-            $firstError = collect($e->errors())->flatten()->first();
-
             return redirect($loginRoute)
                 ->withErrors($e->errors())
-                ->with('error', is_string($firstError) ? $firstError : 'Login failed. Please try again.')
                 ->withInput($request->only('login'));
         }
 

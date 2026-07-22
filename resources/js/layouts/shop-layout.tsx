@@ -11,8 +11,13 @@ interface ShopLayoutProps {
 }
 
 export default function ShopLayout({ children, hideHeaderSearch = false }: ShopLayoutProps) {
-    const { auth, flash } = usePage<SharedData>().props;
+    const page = usePage<SharedData>();
+    const { auth, flash } = page.props;
     const showBuyerNav = auth.user?.role === 'buyer';
+    const component = typeof page.component === 'string' ? page.component : '';
+    const hasValidationErrors = Object.keys(page.props.errors ?? {}).length > 0;
+    // Auth/forms already show errors next to the fields — don't duplicate as a top banner.
+    const showLayoutError = Boolean(flash?.error) && !hasValidationErrors && !component.startsWith('auth/');
 
     return (
         <div
@@ -28,7 +33,7 @@ export default function ShopLayout({ children, hideHeaderSearch = false }: ShopL
                     {flash.success}
                 </div>
             )}
-            {flash?.error && (
+            {showLayoutError && (
                 <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-800">
                     {flash.error}
                 </div>

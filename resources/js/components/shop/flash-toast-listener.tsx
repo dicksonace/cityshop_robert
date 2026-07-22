@@ -16,14 +16,16 @@ export default function FlashToastListener() {
     const lastError = useRef<string | undefined>();
 
     const pageName = typeof page.component === 'string' ? page.component : '';
+    const hasValidationErrors = Object.keys(page.props.errors ?? {}).length > 0;
     const shopHandled =
         pageName.startsWith('shop/') ||
         pageName === 'home' ||
         pageName === 'welcome' ||
         pageName.startsWith('store');
+    const authHandled = pageName.startsWith('auth/');
 
     useEffect(() => {
-        if (shopHandled) {
+        if (shopHandled || authHandled) {
             return;
         }
 
@@ -31,11 +33,11 @@ export default function FlashToastListener() {
             lastSuccess.current = flash.success;
             toast.success(flash.success);
         }
-        if (flash?.error && flash.error !== lastError.current) {
+        if (flash?.error && !hasValidationErrors && flash.error !== lastError.current) {
             lastError.current = flash.error;
             toast.error(flash.error);
         }
-    }, [flash?.success, flash?.error, toast, shopHandled]);
+    }, [flash?.success, flash?.error, toast, shopHandled, authHandled, hasValidationErrors]);
 
     return null;
 }
