@@ -22,7 +22,9 @@ export type SellerNavKey =
     | 'reviews'
     | 'messages'
     | 'notifications'
-    | 'wallet';
+    | 'wallet'
+    | 'wallet-transactions'
+    | 'wallet-withdrawals';
 
 const sectionMap: Record<SellerNavKey, string> = {
     dashboard: 'dashboard',
@@ -35,6 +37,8 @@ const sectionMap: Record<SellerNavKey, string> = {
     messages: 'communication',
     notifications: 'communication',
     wallet: 'finance',
+    'wallet-transactions': 'finance',
+    'wallet-withdrawals': 'finance',
 };
 
 export function sellerNavSection(active: SellerNavKey): string {
@@ -122,6 +126,8 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
             defaultOpen: section === 'finance',
             items: [
                 { key: 'wallet', label: 'Withdraw to MoMo', href: route('seller.wallet'), mobile: true },
+                { key: 'wallet-transactions', label: 'Transactions', href: route('seller.wallet.transactions') },
+                { key: 'wallet-withdrawals', label: 'Withdrawals', href: route('seller.wallet.withdrawals') },
                 { key: 'payment-methods', label: 'Payment Methods', href: route('seller.payment-methods.index') },
             ],
         },

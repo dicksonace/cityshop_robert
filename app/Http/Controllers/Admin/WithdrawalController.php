@@ -23,13 +23,53 @@ class WithdrawalController extends Controller
         $status = $request->get('status', 'pending');
         $role = $request->get('role', 'all');
 
-        $withdrawals = Withdrawal::with('user')
+        $withdrawals = Withdrawal::with(['user.wallet', 'user.sellerProfile'])
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
             ->when($role === 'seller', fn ($q) => $q->whereHas('user', fn ($u) => $u->where('role', UserRole::Seller)))
             ->when($role === 'buyer', fn ($q) => $q->whereHas('user', fn ($u) => $u->where('role', UserRole::Buyer)))
             ->latest()
             ->paginate(15)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(function (Withdrawal $withdrawal) {
+                $user = $withdrawal->user;
+                $profile = $user?->sellerProfile;
+                $wallet = $user?->wallet;
+
+                return [
+                    'id' => $withdrawal->id,
+                    'amount' => (float) $withdrawal->amount,
+                    'momo_number' => $withdrawal->momo_number,
+                    'account_name' => $withdrawal->account_name,
+                    'network' => $withdrawal->network,
+                    'status' => $withdrawal->status->value,
+                    'payout_channel' => $withdrawal->payout_channel,
+                    'rejection_reason' => $withdrawal->rejection_reason,
+                    'failure_reason' => $withdrawal->failure_reason,
+                    'proof_path' => $withdrawal->proof_path,
+                    'admin_notes' => $withdrawal->admin_notes,
+                    'created_at' => $withdrawal->created_at?->toIso8601String(),
+                    'processed_at' => $withdrawal->processed_at?->toIso8601String(),
+                    'user' => $user ? [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'email' => $user->email,
+                        'mobile' => $user->mobile,
+                        'role' => $user->role?->value ?? $user->role,
+                    ] : null,
+                    'seller' => $profile ? [
+                        'business_name' => $profile->displayName(),
+                        'store_name' => $profile->store_name,
+                        'slug' => $profile->slug,
+                        'business_address' => $profile->business_address,
+                    ] : null,
+                    'wallet' => [
+                        'available_balance' => (float) ($wallet?->available_balance ?? 0),
+                        'pending_balance' => (float) ($wallet?->pending_balance ?? 0),
+                        'total_earnings' => (float) ($wallet?->total_earnings ?? 0),
+                        'withdrawn_amount' => (float) ($wallet?->withdrawn_amount ?? 0),
+                    ],
+                ];
+            });
 
         $counts = [
             'pending_sellers' => Withdrawal::where('status', WithdrawalStatus::Pending)

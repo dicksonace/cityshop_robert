@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Check, Download, LoaderCircle, Plus, RefreshCw, Trash2, Wallet as WalletIcon } from 'lucide-react';
+import { Check, ChevronRight, Download, LoaderCircle, Plus, RefreshCw, Trash2, Wallet as WalletIcon } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -15,9 +15,9 @@ import {
     formatPrice,
     formatWalletTransactionType,
     Paginated,
-    productImageUrl,
     Wallet,
     WalletTransaction,
+    Withdrawal,
 } from '@/types/marketplace';
 
 interface PayoutMethod {
@@ -26,22 +26,6 @@ interface PayoutMethod {
     account_number: string;
     account_name: string;
     is_default: boolean;
-}
-
-interface Withdrawal {
-    id: number;
-    amount: number;
-    network: string;
-    momo_number: string;
-    account_name: string;
-    status: string;
-    payout_channel?: string | null;
-    rejection_reason?: string | null;
-    failure_reason?: string | null;
-    proof_path?: string | null;
-    admin_notes?: string | null;
-    created_at: string;
-    processed_at?: string;
 }
 
 interface WalletProps {
@@ -122,8 +106,8 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
     };
 
     const statusLabel: Record<string, string> = {
-        pending: 'Awaiting admin',
-        processing: 'Payout in progress',
+        pending: 'Processing',
+        processing: 'Processing',
         paid: 'Paid out',
         rejected: 'Rejected',
     };
@@ -193,7 +177,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
             >
                 {hasPendingWithdrawal ? (
                     <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                        You have a pending withdrawal. Please wait for it to be processed before submitting another.
+                        You have a withdrawal in processing. Please wait for it to complete (usually within 1 hour) before submitting another.
                     </p>
                 ) : payoutMethods.length === 0 ? (
                     <div className="space-y-4">
@@ -393,77 +377,113 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                     <ul className="mt-4 space-y-3 text-sm text-gray-600">
                         <li className="rounded-lg bg-gray-50 p-3"><strong className="text-gray-900">MTN MoMo</strong> is the most used network in Ghana.</li>
                         <li className="rounded-lg bg-gray-50 p-3">Use the name registered on your MoMo account.</li>
-                        <li className="rounded-lg bg-gray-50 p-3">Withdrawals are reviewed and paid within 1–3 business days.</li>
+                        <li className="rounded-lg bg-gray-50 p-3">Withdrawals are reviewed and paid within 1 hour.</li>
                     </ul>
                 </div>
             </div>
 
-            <div id="history" className="mt-8 scroll-mt-24 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900">Withdrawal history</h3>
+            <div id="history" className="mt-8 scroll-mt-24 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50 px-5 py-4">
+                    <div>
+                        <h3 className="font-semibold text-gray-900">Withdrawal history</h3>
+                        <p className="text-xs text-gray-500">Date, amount, destination, and status</p>
+                    </div>
+                    <Link
+                        href={route('seller.wallet.withdrawals')}
+                        className="inline-flex items-center gap-1 text-sm font-medium text-orange-600 hover:underline"
+                    >
+                        View all
+                        <ChevronRight className="h-4 w-4" />
+                    </Link>
+                </div>
                 {withdrawals.data.length === 0 ? (
-                    <p className="mt-4 text-sm text-gray-500">No withdrawal requests yet.</p>
+                    <p className="px-5 py-8 text-sm text-gray-500">No withdrawal requests yet.</p>
                 ) : (
-                    <div className="mt-4 divide-y">
+                    <ul className="divide-y divide-gray-100">
                         {withdrawals.data.map((w) => (
-                            <div key={w.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-                                <div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor[w.status] ?? 'bg-gray-100'}`}>
-                                            {statusLabel[w.status] ?? w.status}
-                                        </span>
-                                        {w.payout_channel && (
-                                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs capitalize text-gray-600">
-                                                {w.payout_channel}
+                            <li key={w.id}>
+                                <Link
+                                    href={route('seller.wallet.withdrawals.show', w.id)}
+                                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 transition hover:bg-orange-50/40"
+                                >
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColor[w.status] ?? 'bg-gray-100'}`}>
+                                                {statusLabel[w.status] ?? w.status}
+                                            </span>
+                                            <span className="text-xs text-gray-400">{formatDate(w.created_at)}</span>
+                                        </div>
+                                        <p className="mt-1 text-sm text-gray-700">
+                                            {momoNetworkLabel(w.network)} · {w.momo_number}
+                                        </p>
+                                        {w.proof_path && (
+                                            <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-orange-600">
+                                                <Download className="h-3 w-3" /> Proof available
                                             </span>
                                         )}
                                     </div>
-                                    <p className="mt-1 text-gray-500">{momoNetworkLabel(w.network)} · {w.momo_number}</p>
-                                    <p className="text-xs text-gray-400">{formatDate(w.created_at)}</p>
-                                    {w.status === 'processing' && (
-                                        <p className="mt-1 text-xs font-medium text-blue-700">Admin is processing your payout…</p>
-                                    )}
-                                    {w.admin_notes && w.status === 'paid' && (
-                                        <p className="mt-1 text-xs text-gray-600">{w.admin_notes}</p>
-                                    )}
-                                    {w.rejection_reason && <p className="mt-1 text-xs text-red-600">{w.rejection_reason}</p>}
-                                    {w.proof_path && (
-                                        <a
-                                            href={productImageUrl(w.proof_path)}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            download
-                                            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-orange-600 hover:underline"
-                                        >
-                                            <Download className="h-3.5 w-3.5" />
-                                            View / download payout proof
-                                        </a>
-                                    )}
-                                </div>
-                                <p className="font-bold text-gray-900">{formatPrice(w.amount)}</p>
-                            </div>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-base font-bold text-gray-900">{formatPrice(w.amount)}</p>
+                                        <ChevronRight className="h-4 w-4 text-gray-300" />
+                                    </div>
+                                </Link>
+                            </li>
                         ))}
-                    </div>
+                    </ul>
                 )}
             </div>
 
-            <div className="mt-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="font-semibold text-gray-900">Transactions</h3>
-                {transactions.data.length === 0 ? (
-                    <p className="mt-4 text-sm text-gray-500">No transactions yet.</p>
-                ) : (
-                    <div className="mt-4 divide-y">
-                        {transactions.data.map((tx) => (
-                            <div key={tx.id} className="flex justify-between py-3 text-sm">
-                                <div>
-                                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs">{formatWalletTransactionType(tx.type)}</span>
-                                    <p className="mt-1 text-gray-600">{tx.description}</p>
-                                </div>
-                                <p className={`font-semibold ${tx.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {tx.amount > 0 ? '+' : ''}{formatPrice(tx.amount)}
-                                </p>
-                            </div>
-                        ))}
+            <div className="mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50 px-5 py-4">
+                    <div>
+                        <h3 className="font-semibold text-gray-900">Transactions</h3>
+                        <p className="text-xs text-gray-500">Date, amount, and balance after each entry</p>
                     </div>
+                    <Link
+                        href={route('seller.wallet.transactions')}
+                        className="inline-flex items-center gap-1 text-sm font-medium text-orange-600 hover:underline"
+                    >
+                        View all
+                        <ChevronRight className="h-4 w-4" />
+                    </Link>
+                </div>
+                {transactions.data.length === 0 ? (
+                    <p className="px-5 py-8 text-sm text-gray-500">No transactions yet.</p>
+                ) : (
+                    <ul className="divide-y divide-gray-100">
+                        {transactions.data.map((tx) => {
+                            const isCredit = tx.amount > 0;
+                            return (
+                                <li key={tx.id}>
+                                    <Link
+                                        href={route('seller.wallet.transactions.show', tx.id)}
+                                        className="flex flex-wrap items-start justify-between gap-3 px-5 py-4 transition hover:bg-orange-50/40"
+                                    >
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
+                                                    {formatWalletTransactionType(tx.type)}
+                                                </span>
+                                                <span className="text-xs text-gray-400">{formatDate(tx.created_at)}</span>
+                                            </div>
+                                            <p className="mt-1 text-sm text-gray-700">{tx.description}</p>
+                                        </div>
+                                        <div className="flex shrink-0 items-start gap-2 text-right">
+                                            <div>
+                                                <p className={`text-sm font-bold ${isCredit ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    {isCredit ? '+' : ''}{formatPrice(tx.amount)}
+                                                </p>
+                                                <p className="mt-0.5 text-xs text-gray-500">
+                                                    Bal. {formatPrice(tx.balance_after ?? 0)}
+                                                </p>
+                                            </div>
+                                            <ChevronRight className="mt-0.5 h-4 w-4 text-gray-300" />
+                                        </div>
+                                    </Link>
+                                </li>
+                            );
+                        })}
+                    </ul>
                 )}
             </div>
         </SellerLayout>

@@ -43,6 +43,8 @@ interface OrderShowProps {
         cancelled_by?: string | null;
         cancelled_at?: string | null;
         refund_status?: string | null;
+        funds_release_status?: string | null;
+        funds_release_notes?: string | null;
     };
     backStage?: string;
     cancellationReasons: Record<string, string>;
@@ -334,28 +336,28 @@ export default function SellerOrderShow({
                             </div>
                         )}
 
-                        {itemStatus === 'delivered' && item.funds_release_status === 'pending' && (
+                        {itemStatus === 'delivered' && orderItem.funds_release_status === 'pending' && (
                             <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
                                 <p className="font-semibold">Buyer confirmed — Pending Fund</p>
                                 <p className="mt-1">Delivery is complete. Earnings stay in Pending until CityShop admin approves release to Available.</p>
                             </div>
                         )}
 
-                        {itemStatus === 'delivered' && item.funds_release_status === 'held' && (
+                        {itemStatus === 'delivered' && orderItem.funds_release_status === 'held' && (
                             <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-800">
                                 <p className="font-semibold">Funds on hold</p>
                                 <p className="mt-1">
                                     Admin held this release
-                                    {item.funds_release_notes ? `: ${item.funds_release_notes}` : '. A dispute may be open for review.'}
+                                    {orderItem.funds_release_notes ? `: ${orderItem.funds_release_notes}` : '. A dispute may be open for review.'}
                                 </p>
                             </div>
                         )}
 
-                        {itemStatus === 'delivered' && (item.funds_release_status === 'released' || item.funds_release_status === 'not_applicable' || !item.funds_release_status) && (
+                        {itemStatus === 'delivered' && (orderItem.funds_release_status === 'released' || orderItem.funds_release_status === 'not_applicable' || !orderItem.funds_release_status) && (
                             <div className="mt-4 rounded-xl border border-green-100 bg-green-50 p-4 text-sm text-green-800">
                                 <p className="font-semibold">Order complete</p>
                                 <p className="mt-1">
-                                    {item.funds_release_status === 'released'
+                                    {orderItem.funds_release_status === 'released'
                                         ? 'Buyer confirmed delivery. Funds have been released to your Available balance.'
                                         : 'Buyer confirmed delivery.'}
                                 </p>

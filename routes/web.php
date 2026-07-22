@@ -173,6 +173,10 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::get('/refunds', [SellerDisputeController::class, 'index'])->name('refunds.index');
 
             Route::get('/wallet', [SellerWalletController::class, 'index'])->name('wallet');
+            Route::get('/wallet/transactions', [SellerWalletController::class, 'transactions'])->name('wallet.transactions');
+            Route::get('/wallet/transactions/{transaction}', [SellerWalletController::class, 'showTransaction'])->name('wallet.transactions.show');
+            Route::get('/wallet/withdrawals', [SellerWalletController::class, 'withdrawals'])->name('wallet.withdrawals');
+            Route::get('/wallet/withdrawals/{withdrawal}', [SellerWalletController::class, 'showWithdrawal'])->name('wallet.withdrawals.show');
             Route::post('/wallet/withdraw', [SellerWalletController::class, 'withdraw'])->name('wallet.withdraw');
             Route::post('/wallet/payout-methods', [SellerWalletController::class, 'storePayoutMethod'])->name('wallet.payout-methods.store');
             Route::delete('/wallet/payout-methods/{payoutMethod}', [SellerWalletController::class, 'destroyPayoutMethod'])->name('wallet.payout-methods.destroy');

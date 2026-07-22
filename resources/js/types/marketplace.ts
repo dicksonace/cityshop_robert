@@ -116,7 +116,12 @@ export interface WalletTransaction {
     amount: number;
     description: string;
     reference?: string | null;
+    order_item_id?: number | null;
+    withdrawal_id?: number | null;
     created_at?: string;
+    available_after?: number | null;
+    pending_after?: number | null;
+    balance_after?: number | null;
 }
 
 export const walletTransactionLabels: Record<string, string> = {

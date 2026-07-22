@@ -21,15 +21,23 @@ class WalletController extends Controller
     {
         $user = $request->user();
         WalletTransactionService::backfillForSeller($user->id);
+        $wallet = $user->wallet;
 
         $transactions = WalletTransaction::where('user_id', $user->id)
             ->latest()
-            ->paginate(15, ['*'], 'transactions_page')
+            ->paginate(8, ['*'], 'transactions_page')
             ->withQueryString();
+
+        WalletTransactionService::attachRunningBalances(
+            $user->id,
+            $transactions->getCollection(),
+            (float) ($wallet?->available_balance ?? 0),
+            (float) ($wallet?->pending_balance ?? 0),
+        );
 
         $withdrawals = Withdrawal::where('user_id', $user->id)
             ->latest()
-            ->paginate(10, ['*'], 'withdrawals_page')
+            ->paginate(5, ['*'], 'withdrawals_page')
             ->withQueryString();
 
         $payoutMethods = SellerPayoutMethod::where('user_id', $user->id)
@@ -41,7 +49,7 @@ class WalletController extends Controller
         $funding = PlatformSettings::manualFundingAccounts();
 
         return Inertia::render('seller/wallet', [
-            'wallet' => $user->wallet,
+            'wallet' => $wallet,
             'transactions' => $transactions,
             'withdrawals' => $withdrawals,
             'payoutMethods' => $payoutMethods,
@@ -49,6 +57,82 @@ class WalletController extends Controller
                 ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
                 ->exists(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
+        ]);
+    }
+
+    public function transactions(Request $request): Response
+    {
+        $user = $request->user();
+        WalletTransactionService::backfillForSeller($user->id);
+        $wallet = $user->wallet;
+
+        $transactions = WalletTransaction::where('user_id', $user->id)
+            ->with(['orderItem:id,order_id,product_name,status', 'withdrawal:id,status,amount,network,momo_number'])
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        WalletTransactionService::attachRunningBalances(
+            $user->id,
+            $transactions->getCollection(),
+            (float) ($wallet?->available_balance ?? 0),
+            (float) ($wallet?->pending_balance ?? 0),
+        );
+
+        return Inertia::render('seller/wallet/transactions', [
+            'wallet' => $wallet,
+            'transactions' => $transactions,
+        ]);
+    }
+
+    public function showTransaction(Request $request, WalletTransaction $transaction): Response
+    {
+        abort_unless($transaction->user_id === $request->user()->id, 403);
+
+        $wallet = $request->user()->wallet;
+        $balances = WalletTransactionService::balancesAfterTransaction(
+            $transaction,
+            (float) ($wallet?->available_balance ?? 0),
+            (float) ($wallet?->pending_balance ?? 0),
+        );
+
+        $transaction->load([
+            'orderItem:id,order_id,product_name,status,seller_amount,quantity',
+            'orderItem.order:id,order_number,status,payment_status,created_at',
+            'withdrawal',
+        ]);
+
+        return Inertia::render('seller/wallet/transaction-show', [
+            'wallet' => $wallet,
+            'transaction' => array_merge($transaction->toArray(), $balances),
+        ]);
+    }
+
+    public function withdrawals(Request $request): Response
+    {
+        $withdrawals = Withdrawal::where('user_id', $request->user()->id)
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return Inertia::render('seller/wallet/withdrawals', [
+            'wallet' => $request->user()->wallet,
+            'withdrawals' => $withdrawals,
+        ]);
+    }
+
+    public function showWithdrawal(Request $request, Withdrawal $withdrawal): Response
+    {
+        abort_unless($withdrawal->user_id === $request->user()->id, 403);
+
+        $ledger = WalletTransaction::where('withdrawal_id', $withdrawal->id)
+            ->orderBy('created_at')
+            ->get();
+
+        return Inertia::render('seller/wallet/withdrawal-show', [
+            'wallet' => $request->user()->wallet,
+            'withdrawal' => $withdrawal,
+            'ledger' => $ledger,
         ]);
     }
 
@@ -148,6 +232,6 @@ class WalletController extends Controller
         $wallet->decrement('available_balance', $validated['amount']);
         WalletTransactionService::recordWithdrawal($withdrawal);
 
-        return back()->with('success', 'Withdrawal request submitted. Processing typically takes 1–3 business days.');
+        return back()->with('success', 'Withdrawal request submitted. Processing typically takes 1 hour.');
     }
 }
