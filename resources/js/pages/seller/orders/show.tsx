@@ -52,7 +52,7 @@ interface OrderShowProps {
 const paidSellerFlow: { status: string; label: string; hint: string }[] = [
     { status: 'processing', label: 'Start processing', hint: 'Payment received — begin preparing the order.' },
     { status: 'packed', label: 'Mark as packing', hint: 'Item is being packed and prepared.' },
-    { status: 'shipped', label: 'Out for delivery', hint: 'Add driver & vehicle details, then send.' },
+    { status: 'shipped', label: 'Out for delivery', hint: 'Optional: add driver & vehicle if someone else is delivering.' },
     { status: 'awaiting_confirmation', label: 'Mark as delivered', hint: 'You handed the item to the buyer — they must confirm receipt.' },
 ];
 
@@ -61,7 +61,7 @@ const codSellerFlow: { status: string; label: string; hint: string }[] = [
     { status: 'processing', label: 'Start processing', hint: 'Cash on delivery order — begin preparing.' },
     { status: 'call_confirmed', label: 'Call buyer', hint: 'Call the buyer to confirm the order, then continue.' },
     { status: 'packed', label: 'Mark as packing', hint: 'Pack the item after you spoke with the buyer.' },
-    { status: 'shipped', label: 'Package on the way', hint: 'Add driver & vehicle details, then send.' },
+    { status: 'shipped', label: 'Package on the way', hint: 'Optional: add driver & vehicle if someone else is delivering.' },
     { status: 'delivered', label: 'Complete (cash collected)', hint: 'Buyer paid cash on delivery — mark the order complete.' },
 ];
 
@@ -81,7 +81,6 @@ export default function SellerOrderShow({
 }: OrderShowProps) {
     const order = orderItem?.order;
     const itemStatus = String(orderItem?.status ?? '');
-    const deliverySectionRef = useRef<HTMLDivElement>(null);
     const [advancing, setAdvancing] = useState(false);
     const [showCancel, setShowCancel] = useState(false);
     const [showRejectPayment, setShowRejectPayment] = useState(false);
@@ -148,43 +147,23 @@ export default function SellerOrderShow({
         });
     };
 
-    const scrollToDeliveryDetails = () => {
-        deliverySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
-
     const advanceStatus = () => {
         if (!next || advancing) return;
 
         form.clearErrors();
 
         if (next === 'shipped') {
-            const vehicle = form.data.vehicle_number.trim();
-            const phone = form.data.driver_phone.trim();
-
-            if (!vehicle || !phone) {
-                if (!vehicle) {
-                    form.setError('vehicle_number', 'Vehicle / car number is required.');
-                }
-                if (!phone) {
-                    form.setError('driver_phone', 'Driver phone is required.');
-                }
-                form.setError('status', 'Fill in vehicle number and driver phone above, then tap Out for delivery again.');
-                scrollToDeliveryDetails();
-                return;
-            }
-
             setAdvancing(true);
             form.transform((data) => ({
                 ...data,
                 status: 'shipped',
-                vehicle_number: vehicle,
-                driver_phone: phone,
+                vehicle_number: form.data.vehicle_number.trim(),
+                driver_phone: form.data.driver_phone.trim(),
                 _method: 'patch',
             }));
             form.post(route('seller.orders.update', orderItem.id), {
                 forceFormData: true,
                 preserveScroll: true,
-                onError: () => scrollToDeliveryDetails(),
                 onFinish: () => {
                     setAdvancing(false);
                     form.setData('package_image', null);
@@ -385,23 +364,22 @@ export default function SellerOrderShow({
 
                         {needsDeliveryDetails && (
                             <div
-                                ref={deliverySectionRef}
                                 className="mt-4 space-y-4 rounded-xl border-2 border-orange-200 bg-orange-50/60 p-4"
                             >
                                 <div>
-                                    <h4 className="text-sm font-semibold text-gray-900">Delivery details required</h4>
+                                    <h4 className="text-sm font-semibold text-gray-900">Delivery details (optional)</h4>
                                     <p className="mt-1 text-xs text-gray-600">
-                                        Enter vehicle number and driver phone before tapping Out for delivery. The buyer will see these details.
+                                        Add vehicle number and driver phone if someone else is delivering. Skip if you are bringing the order yourself — the buyer will only see details you enter.
                                     </p>
                                 </div>
                                 {(form.errors.status || form.errors.vehicle_number || form.errors.driver_phone) && (
                                     <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                                        {form.errors.status || 'Add vehicle number and driver phone to continue.'}
+                                        {form.errors.status || form.errors.vehicle_number || form.errors.driver_phone}
                                     </div>
                                 )}
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <div>
-                                        <Label>Vehicle / car number *</Label>
+                                        <Label>Vehicle / car number</Label>
                                         <Input
                                             value={form.data.vehicle_number}
                                             onChange={(e) => {
@@ -414,7 +392,7 @@ export default function SellerOrderShow({
                                         <InputError message={form.errors.vehicle_number} />
                                     </div>
                                     <div>
-                                        <Label>Driver phone *</Label>
+                                        <Label>Driver phone</Label>
                                         <Input
                                             value={form.data.driver_phone}
                                             onChange={(e) => {
@@ -469,7 +447,7 @@ export default function SellerOrderShow({
                                 </p>
                                 <p className="mt-1 text-xs text-gray-500">
                                     {needsDeliveryDetails
-                                        ? 'Fill vehicle number and driver phone above, then tap the button.'
+                                        ? 'Tap Out for delivery when ready. Driver details are optional if you deliver yourself.'
                                         : currentStep?.hint}
                                 </p>
                                 <Button
@@ -562,7 +540,7 @@ export default function SellerOrderShow({
                             <form onSubmit={submit} className="mt-6 space-y-4 border-t border-gray-100 pt-4">
                                 <div>
                                     <h4 className="text-sm font-semibold text-gray-900">Delivery details</h4>
-                                    <p className="text-xs text-gray-500">Required when sending out for delivery. Buyer will see driver phone and vehicle number.</p>
+                                    <p className="text-xs text-gray-500">Optional. Add if a driver is delivering for you; leave blank if you bring it yourself. Buyer only sees what you enter.</p>
                                 </div>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <div>

@@ -135,6 +135,7 @@ class OrderController extends Controller
                             'order_number' => $order->order_number,
                             'status' => $order->status->value,
                             'payment_status' => $order->payment_status->value,
+                            'payment_method' => $order->payment_method,
                             'subtotal' => (float) $order->subtotal,
                             'shipping_cost' => (float) $order->shipping_cost,
                             'total' => (float) $order->total,

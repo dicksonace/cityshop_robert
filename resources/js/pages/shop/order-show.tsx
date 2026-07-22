@@ -7,7 +7,7 @@ import OrderProgress from '@/components/shop/order-progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ShopLayout from '@/layouts/shop-layout';
-import { formatPrice, formatOrderStatus, Order, OrderItem, productImageUrl } from '@/types/marketplace';
+import { buyerFulfillmentLabel, formatPrice, formatOrderStatus, mostAdvancedItemStatus, orderStatusBadgeClass, Order, OrderItem, productImageUrl } from '@/types/marketplace';
 
 interface OrderShowProps {
     order: Order & { items?: (OrderItem & { dispute?: { id: number; status: string; reason: string; description?: string } })[] };
@@ -134,15 +134,19 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
     const isCancelled =
         order.status === 'cancelled'
         || (order.items?.length > 0 && order.items.every((item) => item.status === 'cancelled'));
-    const paymentPending = order.payment_status === 'pending' && ! isCancelled;
-    const primaryStatus = order.items?.[0]?.status ?? order.status;
+    const isCod = order.payment_method === 'cash';
+    const paymentPending = order.payment_status === 'pending' && !isCancelled && !isCod;
+    const primaryStatus = mostAdvancedItemStatus(order.items) ?? order.status;
 
-    const headerBadge = (() => {
+    const paymentBadge = (() => {
         if (isCancelled) {
-            return { label: 'Cancelled', className: 'bg-red-100 text-red-800' };
+            return { label: 'Cancelled', className: 'bg-red-500 text-white' };
+        }
+        if (isCod) {
+            return { label: 'Cash on delivery', className: 'bg-teal-600 text-white' };
         }
         if (order.payment_status === 'paid') {
-            return { label: 'Paid', className: 'bg-green-100 text-green-800' };
+            return { label: 'Paid', className: 'bg-emerald-600 text-white' };
         }
         if (order.payment_status === 'refunded') {
             return { label: 'Refunded', className: 'bg-blue-100 text-blue-800' };
@@ -151,10 +155,12 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
             return { label: 'Not paid', className: 'bg-gray-100 text-gray-700' };
         }
         return {
-            label: order.payment_status,
+            label: 'Awaiting payment',
             className: 'bg-yellow-100 text-yellow-800',
         };
     })();
+
+    const fulfillmentLabel = formatOrderStatus(primaryStatus);
 
     return (
         <ShopLayout>
@@ -167,7 +173,7 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                     &larr; {checkoutId ? `Back to purchase ${checkoutNumber ?? ''}`.trim() : 'Back to Orders'}
                 </Link>
 
-                {paymentPending && order.payment_method !== 'cash' && (
+                {paymentPending && (
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
                         <p className="font-medium text-amber-800">Payment pending</p>
                         <Link
@@ -180,14 +186,23 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                 )}
 
                 <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
-                    <div className="flex items-start justify-between">
-                        <div>
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
                             <h1 className="text-xl font-bold text-gray-900">{order.order_number}</h1>
                             <p className="text-sm text-gray-500">Placed on {new Date(order.created_at).toLocaleString()}</p>
                         </div>
-                        <span className={`rounded-full px-3 py-1 text-sm font-medium capitalize ${headerBadge.className}`}>
-                            {headerBadge.label}
-                        </span>
+                        <div className="flex shrink-0 flex-col items-end gap-1.5">
+                            <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${paymentBadge.className}`}>
+                                {paymentBadge.label}
+                            </span>
+                            {!isCancelled && (
+                                <span
+                                    className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${orderStatusBadgeClass(primaryStatus)}`}
+                                >
+                                    {fulfillmentLabel}
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {(order.payment_status === 'paid' || order.payment_method === 'cash') && (
@@ -217,7 +232,13 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                                 <div className="flex justify-between text-sm">
                                     <div className="min-w-0 flex-1">
                                         <span className="font-medium">{item.product_name} x {item.quantity}</span>
-                                        <p className="text-xs text-gray-500">Status: {formatOrderStatus(item.status)}</p>
+                                        <p className="mt-1.5">
+                                            <span
+                                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(item.status)}`}
+                                            >
+                                                {buyerFulfillmentLabel(item.status, order.payment_method)}
+                                            </span>
+                                        </p>
 
                                         {item.status === 'cancelled' && (
                                             <div className="mt-2 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-900">

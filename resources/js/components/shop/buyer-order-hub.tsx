@@ -249,6 +249,7 @@ export function OrderStatusTabs({
 
 export function orderStatusMessage(order: {
     payment_status: string;
+    payment_method?: string | null;
     status: string;
     items?: { status: string; driver_phone?: string | null; vehicle_number?: string | null }[];
 }): string {
@@ -258,7 +259,7 @@ export function orderStatusMessage(order: {
     if (order.status === 'cancelled' || allItemsCancelled) {
         return 'Order cancelled';
     }
-    if (order.payment_status === 'pending') {
+    if (order.payment_status === 'pending' && order.payment_method !== 'cash') {
         return 'Waiting for payment';
     }
     if (order.status === 'shipped') {
@@ -277,8 +278,13 @@ export function orderStatusMessage(order: {
     if (order.status === 'packed') {
         return 'Seller is packing your order';
     }
+    if (order.status === 'call_confirmed') {
+        return 'Seller confirmed your order by call';
+    }
     if (order.status === 'processing' || order.status === 'pending') {
-        return 'Seller is preparing your order';
+        return order.payment_method === 'cash'
+            ? 'Cash on delivery · Seller is preparing your order'
+            : 'Seller is preparing your order';
     }
     if (order.status === 'refunded' || order.payment_status === 'refunded') {
         return 'Refund processed';

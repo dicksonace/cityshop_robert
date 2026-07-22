@@ -4,7 +4,7 @@ import { ChevronRight, Package, Store, Truck } from 'lucide-react';
 import BuyerOrderHub, { OrderHubCounts, OrderStatusTabs, orderStatusMessage } from '@/components/shop/buyer-order-hub';
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
-import { formatPrice, Paginated, productImageUrl } from '@/types/marketplace';
+import { formatPrice, orderStatusBadgeClass, Paginated, productImageUrl } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
 interface PurchasePackage {
@@ -12,6 +12,7 @@ interface PurchasePackage {
     order_number: string;
     status: string;
     payment_status: string;
+    payment_method?: string | null;
     subtotal: number;
     shipping_cost: number;
     total: number;
@@ -50,12 +51,15 @@ interface OrdersProps {
 
 function packageHeadline(pkg: PurchasePackage): string {
     if (pkg.status === 'cancelled') return 'Order closed';
-    if (pkg.payment_status === 'pending') return 'Awaiting payment';
+    if (pkg.payment_status === 'pending' && pkg.payment_method !== 'cash') return 'Awaiting payment';
     if (pkg.status === 'delivered') return 'Order completed';
     if (pkg.status === 'awaiting_confirmation') return 'Confirm delivery';
     if (pkg.status === 'shipped') return 'Out for delivery';
     if (pkg.status === 'refunded' || pkg.payment_status === 'refunded') return 'Refund / after-sales';
     if (pkg.status === 'packed') return 'Packing';
+    if (pkg.status === 'call_confirmed') return 'Seller called';
+    if (pkg.status === 'processing') return 'Processing';
+    if (pkg.payment_method === 'cash') return 'Cash on delivery';
     return 'Processing';
 }
 
@@ -109,6 +113,7 @@ export default function Orders({ purchases, counts, tab }: OrdersProps) {
                                 const statusLine = orderStatusMessage({
                                     status: pkg.status,
                                     payment_status: pkg.payment_status,
+                                    payment_method: pkg.payment_method,
                                     items: [
                                         {
                                             status: pkg.status,
@@ -170,11 +175,11 @@ export default function Orders({ purchases, counts, tab }: OrdersProps) {
 
                                         <Link
                                             href={detailUrl}
-                                            className="mx-3 mb-2 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600"
+                                            className={`mx-3 mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium ${orderStatusBadgeClass(pkg.status)}`}
                                         >
-                                            <Truck className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                                            <Truck className="h-3.5 w-3.5 shrink-0 opacity-70" />
                                             <span className="min-w-0 flex-1 truncate">{statusLine}</span>
-                                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-300" />
+                                            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" />
                                         </Link>
 
                                         <div className="flex items-center justify-between gap-2 px-3 pb-1 text-xs text-gray-400">
@@ -199,6 +204,7 @@ export default function Orders({ purchases, counts, tab }: OrdersProps) {
 
                                         <div className="flex flex-wrap justify-end gap-2 border-t border-gray-50 px-3 py-3">
                                             {pkg.payment_status === 'pending'
+                                                && pkg.payment_method !== 'cash'
                                                 && pkg.status !== 'cancelled'
                                                 && purchase.status !== 'cancelled' && (
                                                 <Button

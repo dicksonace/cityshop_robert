@@ -7,7 +7,7 @@ import OrderProgress from '@/components/shop/order-progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ShopLayout from '@/layouts/shop-layout';
-import { formatOrderStatus, formatPrice, Order, OrderItem, productImageUrl } from '@/types/marketplace';
+import { buyerFulfillmentLabel, formatOrderStatus, formatPrice, mostAdvancedItemStatus, orderStatusBadgeClass, Order, OrderItem, productImageUrl } from '@/types/marketplace';
 
 interface CheckoutShowProps {
     checkout: {
@@ -232,7 +232,9 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                     {checkout.orders.map((order, index) => {
                         const sellerName =
                             order.seller?.seller_profile?.business_name ?? order.seller?.name ?? 'Seller';
-                        const primaryStatus = order.items?.[0]?.status ?? order.status;
+                        const primaryStatus = mostAdvancedItemStatus(order.items) ?? order.status;
+                        const isCod = order.payment_method === 'cash';
+                        const isOrderCancelled = order.status === 'cancelled';
 
                         return (
                             <div key={order.id} className="rounded-xl bg-white p-6 shadow-sm">
@@ -253,17 +255,34 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                                         )}
                                         <p className="text-sm text-gray-500">{order.order_number}</p>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="flex flex-col items-end gap-1.5 text-right">
                                         <p className="font-bold text-orange-500">{formatPrice(order.total)}</p>
-                                        {order.status === 'cancelled' ? (
-                                            <p className="mt-1 text-xs font-medium text-red-700">Cancelled</p>
+                                        {isOrderCancelled ? (
+                                            <span className="inline-flex rounded-full bg-red-500 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white">
+                                                Cancelled
+                                            </span>
                                         ) : (
                                             <>
-                                                <p className="text-xs capitalize text-gray-500">
-                                                    {order.payment_channel === 'direct' ? 'Direct payment' : 'CityShop payment'} ·{' '}
-                                                    {order.payment_status}
-                                                </p>
-                                                <p className="mt-1 text-xs font-medium text-gray-700">{formatOrderStatus(order.status)}</p>
+                                                <span
+                                                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${
+                                                        isCod
+                                                            ? 'bg-teal-600 text-white'
+                                                            : order.payment_status === 'paid'
+                                                              ? 'bg-emerald-600 text-white'
+                                                              : 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200'
+                                                    }`}
+                                                >
+                                                    {isCod
+                                                        ? 'Cash on delivery'
+                                                        : order.payment_status === 'paid'
+                                                          ? 'Paid'
+                                                          : 'Awaiting payment'}
+                                                </span>
+                                                <span
+                                                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${orderStatusBadgeClass(primaryStatus)}`}
+                                                >
+                                                    {formatOrderStatus(primaryStatus)}
+                                                </span>
                                             </>
                                         )}
                                     </div>
@@ -320,8 +339,12 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                                                                 <p className="font-medium text-gray-900">
                                                                     {item.product_name} × {item.quantity}
                                                                 </p>
-                                                                <p className="text-xs text-gray-500">
-                                                                    Status: {formatOrderStatus(item.status)}
+                                                                <p className="mt-1.5">
+                                                                    <span
+                                                                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(item.status)}`}
+                                                                    >
+                                                                        {buyerFulfillmentLabel(item.status, order.payment_method)}
+                                                                    </span>
                                                                 </p>
                                                                 {item.status === 'cancelled' && (
                                                                     <div className="mt-2 rounded-lg border border-red-100 bg-red-50 p-3 text-xs text-red-900">

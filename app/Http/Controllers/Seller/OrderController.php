@@ -133,17 +133,6 @@ class OrderController extends Controller
             'package_image' => ['nullable', 'image', 'max:5120'],
         ]);
 
-        $becomingShipped = $validated['status'] === 'shipped' && $orderItem->status !== OrderStatus::Shipped;
-
-        if ($becomingShipped) {
-            $request->validate([
-                'vehicle_number' => ['required', 'string', 'max:50'],
-                'driver_phone' => ['required', 'string', 'max:30'],
-            ]);
-            $validated['vehicle_number'] = $request->string('vehicle_number')->toString();
-            $validated['driver_phone'] = $request->string('driver_phone')->toString();
-        }
-
         if ($request->hasFile('package_image')) {
             $validated['package_image'] = $request->file('package_image')->store('order-packages', 'public');
         } else {

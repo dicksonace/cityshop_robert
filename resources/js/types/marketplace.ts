@@ -249,6 +249,80 @@ export function formatOrderStatus(status: string | { value?: string } | null | u
     return orderStatusLabels[key] ?? key.replace(/_/g, ' ');
 }
 
+/** Colored pill classes for buyer/seller order status badges. */
+export function orderStatusBadgeClass(status: string | { value?: string } | null | undefined): string {
+    const key = typeof status === 'string' ? status : status?.value ?? '';
+
+    switch (key) {
+        case 'packed':
+            return 'bg-amber-500 text-white';
+        case 'shipped':
+            return 'bg-orange-500 text-white';
+        case 'processing':
+            return 'bg-blue-500 text-white';
+        case 'call_confirmed':
+            return 'bg-fuchsia-500 text-white';
+        case 'awaiting_confirmation':
+            return 'bg-cyan-500 text-white';
+        case 'delivered':
+            return 'bg-emerald-500 text-white';
+        case 'pending':
+            return 'bg-violet-500 text-white';
+        case 'cancelled':
+            return 'bg-red-500 text-white';
+        case 'refunded':
+            return 'bg-slate-500 text-white';
+        default:
+            return 'bg-gray-500 text-white';
+    }
+}
+
+const FULFILLMENT_RANK: Record<string, number> = {
+    pending: 0,
+    processing: 1,
+    call_confirmed: 2,
+    packed: 3,
+    shipped: 4,
+    awaiting_confirmation: 5,
+    delivered: 6,
+    cancelled: -1,
+    refunded: -1,
+};
+
+/** Furthest fulfillment status among order items (ignores cancelled/refunded when others remain). */
+export function mostAdvancedItemStatus(
+    items: Array<{ status?: string | null }> | null | undefined,
+): string | null {
+    if (!items?.length) {
+        return null;
+    }
+
+    let best: string | null = null;
+    let bestRank = -2;
+
+    for (const item of items) {
+        const status = String(item.status ?? '');
+        const rank = FULFILLMENT_RANK[status] ?? -2;
+        if (rank > bestRank) {
+            bestRank = rank;
+            best = status;
+        }
+    }
+
+    return best;
+}
+
+export function buyerFulfillmentLabel(
+    status: string | null | undefined,
+    paymentMethod?: string | null,
+): string {
+    if (paymentMethod === 'cash' && status === 'pending') {
+        return 'Cash on delivery';
+    }
+
+    return formatOrderStatus(status);
+}
+
 export function productImageUrl(path: string | undefined): string {
     if (!path) return '/images/product-placeholder.svg';
     if (path.startsWith('http') || path.startsWith('blob:')) return path;
