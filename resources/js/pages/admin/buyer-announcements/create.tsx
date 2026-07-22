@@ -1,5 +1,6 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { FormEventHandler, useMemo } from 'react';
+import { Search } from 'lucide-react';
+import { FormEventHandler, useMemo, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ type Audience = 'one' | 'selected' | 'all';
 
 export default function CreateBuyerAnnouncement({ buyers }: CreateBuyerAnnouncementProps) {
     const { flash } = usePage<SharedData>().props;
+    const [query, setQuery] = useState('');
     const form = useForm({
         audience: 'one' as Audience,
         title: '',
@@ -32,6 +34,16 @@ export default function CreateBuyerAnnouncement({ buyers }: CreateBuyerAnnouncem
     });
 
     const selectedSet = useMemo(() => new Set(form.data.buyer_ids), [form.data.buyer_ids]);
+
+    const filteredBuyers = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return buyers;
+        return buyers.filter((buyer) =>
+            [buyer.name, buyer.email, buyer.mobile]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(q)),
+        );
+    }, [buyers, query]);
 
     const setAudience = (audience: Audience) => {
         form.setData({
@@ -119,12 +131,24 @@ export default function CreateBuyerAnnouncement({ buyers }: CreateBuyerAnnouncem
                                 ? ` (${form.data.buyer_ids.length} selected)`
                                 : ''}
                         </Label>
+                        <div className="relative mb-2">
+                            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Search by name, email, or phone…"
+                                className="pl-9"
+                                aria-label="Search buyers"
+                            />
+                        </div>
                         <div className="max-h-64 overflow-y-auto rounded-lg border">
                             {buyers.length === 0 ? (
                                 <p className="p-4 text-sm text-gray-500">No buyers yet.</p>
+                            ) : filteredBuyers.length === 0 ? (
+                                <p className="p-4 text-sm text-gray-500">No buyers match “{query.trim()}”.</p>
                             ) : (
                                 <ul className="divide-y">
-                                    {buyers.map((buyer) => {
+                                    {filteredBuyers.map((buyer) => {
                                         const checked = selectedSet.has(buyer.id);
                                         return (
                                             <li key={buyer.id}>
