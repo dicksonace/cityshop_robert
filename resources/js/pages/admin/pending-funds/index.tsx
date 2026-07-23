@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import AdminLayout from '@/layouts/admin-layout';
-import { formatPrice, Paginated } from '@/types/marketplace';
+import { formatOrderStatus, formatPrice, Paginated } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
 interface PendingFundItem {
@@ -89,7 +89,8 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
             <div className="mb-4">
                 <h1 className="text-lg font-bold text-gray-900">Pending fund releases</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    Buyer confirmed delivery. You can release seller earnings to Available anytime — including held items — or reject to hold and open a dispute.
+                    After the seller starts processing a CityShop-secured order, release earnings to Available anytime.
+                    If you have not released yet, the buyer’s Confirm delivery also releases funds once. If you release first, the buyer still confirms to complete the order — funds are not released twice.
                 </p>
             </div>
 
@@ -131,8 +132,10 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
             ) : (
                 <div className="space-y-4">
                     {items.data.map((item) => {
-                        const canApprove = item.funds_release_status === 'pending' || item.funds_release_status === 'held';
+                        const canApprove =
+                            item.funds_release_status === 'pending' || item.funds_release_status === 'held';
                         const canReject = item.funds_release_status === 'pending';
+                        const stageLabel = formatOrderStatus(item.status);
 
                         return (
                             <div key={item.id} className="rounded-xl bg-white p-5 shadow-sm">
@@ -142,6 +145,9 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
                                         <p className="mt-0.5 text-sm text-gray-500">
                                             Qty {item.quantity} · Seller earns {formatPrice(item.seller_amount)}
                                         </p>
+                                        <p className="mt-1 text-xs font-medium text-gray-600">
+                                            Order stage: {stageLabel}
+                                        </p>
                                         {item.order && (
                                             <p className="mt-1 text-sm text-gray-600">
                                                 Order{' '}
@@ -149,7 +155,7 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
                                                     {item.order.order_number}
                                                 </Link>
                                                 {' · '}
-                                                Confirmed {formatDate(item.updated_at)}
+                                                Updated {formatDate(item.updated_at)}
                                             </p>
                                         )}
                                     </div>

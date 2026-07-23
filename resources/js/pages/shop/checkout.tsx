@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { LoaderCircle, MapPin, Pencil } from 'lucide-react';
+import { ChevronRight, LoaderCircle, MapPin, Pencil } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -27,6 +27,7 @@ interface SellerPaymentMethod {
 interface SellerGroup {
     seller_id: number;
     seller_name: string;
+    store_slug?: string | null;
     accept_marketplace_payments: boolean;
     accept_direct_payments: boolean;
     payment_methods: SellerPaymentMethod[];
@@ -273,7 +274,6 @@ export default function Checkout({
                                 {([
                                     { value: 'momo' as const, label: 'Mobile Money', hint: 'MTN MoMo via Paystack' },
                                     { value: 'card' as const, label: 'Visa / Mastercard', hint: 'Pay securely via Paystack' },
-                                    { value: 'cash' as const, label: 'Cash on Delivery', hint: 'Pay when the seller brings the item.\nNote: Select a seller near your area, or check store information if near you.' },
                                 ]).map((method) => (
                                     <label
                                         key={method.value}
@@ -284,7 +284,7 @@ export default function Checkout({
                                         <PaymentMethodIcon method={method.value} />
                                         <div className="min-w-0 flex-1">
                                             <span className="font-medium text-gray-900">{method.label}</span>
-                                            <p className="whitespace-pre-line text-xs text-gray-500">{method.hint}</p>
+                                            <p className="text-xs text-gray-500">{method.hint}</p>
                                         </div>
                                         <input
                                             type="radio"
@@ -295,6 +295,49 @@ export default function Checkout({
                                         />
                                     </label>
                                 ))}
+                                <label
+                                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 hover:bg-gray-50 ${
+                                        data.payment_method === 'cash' ? 'border-orange-300 bg-orange-50/40' : ''
+                                    }`}
+                                >
+                                    <PaymentMethodIcon method="cash" />
+                                    <div className="min-w-0 flex-1">
+                                        <span className="font-medium text-gray-900">Cash on Delivery</span>
+                                        <p className="mt-0.5 text-xs text-gray-500">
+                                            Pay when the seller brings the item.
+                                        </p>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            Note: Select a seller near your area, or check store information if near you.
+                                        </p>
+                                        {sellerGroups.some((g) => g.store_slug) && (
+                                            <div
+                                                className="mt-2 flex flex-wrap gap-1.5"
+                                                onClick={(e) => e.preventDefault()}
+                                            >
+                                                {sellerGroups
+                                                    .filter((g) => g.store_slug)
+                                                    .map((g) => (
+                                                        <Link
+                                                            key={g.seller_id}
+                                                            href={route('store.show', g.store_slug!)}
+                                                            className="inline-flex items-center gap-0.5 rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-600 ring-1 ring-orange-100 hover:bg-orange-100"
+                                                        >
+                                                            Visit {g.seller_name}
+                                                            <ChevronRight className="h-3 w-3" />
+                                                        </Link>
+                                                    ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="radio"
+                                        name="payment_method"
+                                        value="cash"
+                                        checked={data.payment_method === 'cash'}
+                                        onChange={() => setData('payment_method', 'cash')}
+                                        className="mt-1"
+                                    />
+                                </label>
                             </div>
                             <InputError message={errors.payment_method} />
                         </div>
@@ -306,14 +349,28 @@ export default function Checkout({
 
                             return (
                                 <div key={group.seller_id} className="rounded-xl bg-white p-6 shadow-sm">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div>
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                                                 Package · {sellerGroups.findIndex((g) => g.seller_id === group.seller_id) + 1} of {sellerGroups.length}
                                             </p>
                                             <h2 className="font-semibold text-gray-900">{group.seller_name}</h2>
+                                            {data.payment_method === 'cash' && (
+                                                <p className="mt-0.5 text-xs text-teal-700">Cash on delivery · pay this seller on arrival</p>
+                                            )}
                                         </div>
-                                        <span className="text-sm font-medium text-orange-500">{formatPrice(group.package_total)}</span>
+                                        <div className="flex shrink-0 flex-col items-end gap-2">
+                                            <span className="text-sm font-medium text-orange-500">{formatPrice(group.package_total)}</span>
+                                            {group.store_slug && (
+                                                <Link
+                                                    href={route('store.show', group.store_slug)}
+                                                    className="inline-flex items-center gap-0.5 rounded-full bg-orange-50 px-2.5 py-1.5 text-xs font-semibold text-orange-600 ring-1 ring-orange-100 hover:bg-orange-100"
+                                                >
+                                                    Visit
+                                                    <ChevronRight className="h-3.5 w-3.5" />
+                                                </Link>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="mt-3 space-y-2">
                                         {group.items.map((item) => (

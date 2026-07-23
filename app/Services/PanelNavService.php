@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\DisputeStatus;
-use App\Enums\FundsReleaseStatus;
 use App\Enums\OrderStatus;
 use App\Enums\SellerReportStatus;
 use App\Enums\SellerStatus;
@@ -49,7 +48,7 @@ class PanelNavService
                 ->whereHas('user', fn ($q) => $q->where('role', UserRole::Seller))
                 ->count(),
             'pending_manual_top_ups' => WalletTopUpRequest::where('status', WalletTopUpStatus::Pending)->count(),
-            'pending_fund_releases' => OrderItem::where('funds_release_status', FundsReleaseStatus::Pending)->count(),
+            'pending_fund_releases' => app(OrderService::class)->pendingFundReleaseItemsQuery()->count(),
             'stale_unprocessed_orders' => app(OrderService::class)->staleUnprocessedItemsQuery(24)->count(),
             'awaiting_buyer_confirmation' => OrderItem::where('status', OrderStatus::AwaitingConfirmation)->count(),
             'open_disputes' => Dispute::whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->count(),

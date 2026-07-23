@@ -34,7 +34,9 @@ export default function StoreShareCard({ slug, storeName, storeUrl }: StoreShare
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <h3 className="font-bold text-gray-900">Your Store Link</h3>
-                    <p className="mt-1 text-sm text-gray-500">Share this link so customers can visit your store directly.</p>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Share this link with your customers so they can visit your online store directly.
+                    </p>
                 </div>
                 <a
                     href={storePageUrl(slug)}
@@ -69,7 +71,7 @@ export default function StoreShareCard({ slug, storeName, storeUrl }: StoreShare
             </div>
 
             <p className="mt-3 text-xs text-gray-400">
-                Example: <span className="font-mono text-gray-600">cityshop.com/store/{slug}</span>
+                Example: <span className="font-mono text-gray-600">cityunlock.net/store/{slug}</span>
             </p>
         </div>
     );

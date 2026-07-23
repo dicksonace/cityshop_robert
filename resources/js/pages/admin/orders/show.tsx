@@ -164,7 +164,7 @@ export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps)
                                         disabled={busyId === item.id}
                                         onClick={() => confirmDelivery(item.id)}
                                     >
-                                        {busyId === item.id ? 'Confirming…' : 'Confirm delivery'}
+                                        {busyId === item.id ? 'Confirming…' : 'Confirm order'}
                                     </Button>
                                 )}
                             </div>

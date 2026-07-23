@@ -156,14 +156,15 @@ class OrderController extends Controller
     public function confirmDelivery(OrderItem $orderItem): RedirectResponse
     {
         try {
-            $this->orders->confirmBuyerDelivery($orderItem);
+            // Admin confirm completes the order (buyer can review) — does not release funds.
+            $this->orders->confirmBuyerDelivery($orderItem, releaseFunds: false);
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
 
         return back()->with(
             'success',
-            'Delivery confirmed on behalf of the buyer. Marketplace seller funds stay pending until you approve release under Pending Funds.'
+            'Delivery confirmed on behalf of the buyer. They can leave a review. Funds stay pending until you release them under Pending Funds (or the buyer already triggered release).'
         );
     }
 

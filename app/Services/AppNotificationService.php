@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentChannel;
 use App\Models\AppNotification;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -65,23 +66,33 @@ class AppNotificationService
             ?? $order->items->first()?->product_name
             ?? 'an item';
 
-        $title = match (true) {
-            $pendingOrder => 'New order awaiting payment',
-            $cashOnDelivery => 'New Order (Cash on Delivery)',
-            default => 'New order received',
-        };
-
+        $title = static::sellerNewOrderTitle($order, $pendingOrder, $cashOnDelivery);
         $body = match (true) {
             $pendingOrder => "Order {$order->order_number}: {$productName} (awaiting payment)",
             $cashOnDelivery => "Order {$order->order_number}: {$productName} — call the buyer, then pack & deliver.",
-            default => "Order {$order->order_number}: {$productName}",
+            $order->payment_channel === PaymentChannel::Direct => "Order {$order->order_number}: {$productName} — buyer paid you directly.",
+            default => "Order {$order->order_number}: {$productName} — paid via CityShop secured.",
         };
 
         static::send($seller, 'new_order', $title, $body, [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'order_item_id' => $item?->id,
+            'payment_channel' => $order->payment_channel?->value,
             'url' => route('seller.orders.show', $order->id),
         ]);
+    }
+
+    public static function sellerNewOrderTitle(
+        Order $order,
+        bool $pendingOrder = false,
+        bool $cashOnDelivery = false,
+    ): string {
+        return match (true) {
+            $pendingOrder => 'New order awaiting payment',
+            $cashOnDelivery => 'New Order (Cash on Delivery)',
+            $order->payment_channel === PaymentChannel::Direct => 'New order received (Paid to seller)',
+            default => 'New order received (Paid · CityShop secured)',
+        };
     }
 }

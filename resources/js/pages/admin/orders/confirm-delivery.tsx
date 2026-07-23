@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import AdminLayout from '@/layouts/admin-layout';
-import { formatOrderStatus, formatPrice, orderStatusBadgeClass, Paginated } from '@/types/marketplace';
+import { formatPrice, Paginated } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
 interface ConfirmItem {
@@ -68,8 +68,8 @@ export default function AdminConfirmDelivery({ items, count }: Props) {
             <div className="mb-6 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
                 <p className="font-semibold">Buyer has not confirmed yet</p>
                 <p className="mt-1">
-                    Seller marked these as delivered. If the buyer forgets to tap Confirm delivery, you can confirm here on their behalf.
-                    Marketplace funds then move to Pending Funds for your release approval.
+                    Seller marked these as delivered. If the buyer ignores Confirm delivery for 1–2 weeks, confirm here on their behalf so the order completes and they can write a review.
+                    This does not release seller funds — use Pending Funds for that.
                 </p>
                 <p className="mt-2 font-medium">{count} waiting</p>
             </div>
@@ -130,21 +130,21 @@ export default function AdminConfirmDelivery({ items, count }: Props) {
                                 <p className="mt-0.5 text-xs text-gray-500">
                                     Seller: {item.seller.store || item.seller.name || '—'}
                                 </p>
-                                <p className="mt-1 text-xs text-gray-400">Marked delivered {formatDate(item.updated_at)}</p>
                             </div>
-                            <div className="shrink-0 text-left sm:text-right">
-                                <span
-                                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(item.status)}`}
-                                >
-                                    {formatOrderStatus(item.status)}
+                            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                                <span className="inline-flex w-fit rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                                    Awaiting buyer
                                 </span>
+                                <p className="text-[11px] text-gray-400 sm:text-right">
+                                    Marked {formatDate(item.updated_at)}
+                                </p>
                                 <Button
                                     size="sm"
-                                    className="mt-3 bg-orange-500 hover:bg-orange-600"
+                                    className="bg-orange-500 hover:bg-orange-600"
                                     disabled={busyId === item.id}
                                     onClick={() => confirm(item.id)}
                                 >
-                                    {busyId === item.id ? 'Confirming…' : 'Confirm delivery'}
+                                    {busyId === item.id ? 'Confirming…' : 'Confirm order'}
                                 </Button>
                             </div>
                         </div>

@@ -262,6 +262,6 @@ class OrderController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Delivery confirmed. Seller funds stay pending until CityShop admin approves release.');
+        return back()->with('success', 'Delivery confirmed. Seller earnings were released to Available (or were already released by admin).');
     }
 }

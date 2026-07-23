@@ -132,21 +132,32 @@ export default function Orders({ purchases, counts, tab }: OrdersProps) {
                                             {storeUrl ? (
                                                 <Link
                                                     href={storeUrl}
-                                                    className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-gray-900"
+                                                    className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-medium text-gray-900"
                                                 >
                                                     <Store className="h-4 w-4 shrink-0 text-gray-400" />
                                                     <span className="truncate">{pkg.seller_name}</span>
-                                                    <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
                                                 </Link>
                                             ) : (
-                                                <div className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-gray-900">
+                                                <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-medium text-gray-900">
                                                     <Store className="h-4 w-4 shrink-0 text-gray-400" />
                                                     <span className="truncate">{pkg.seller_name}</span>
                                                 </div>
                                             )}
-                                            <span className="shrink-0 text-xs font-medium text-gray-500">
-                                                {packageHeadline(pkg)}
-                                            </span>
+                                            <div className="flex shrink-0 items-center gap-2">
+                                                {storeUrl && (
+                                                    <Link
+                                                        href={storeUrl}
+                                                        className="inline-flex items-center gap-0.5 rounded-full bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-600 ring-1 ring-orange-100"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        Visit
+                                                        <ChevronRight className="h-3 w-3" />
+                                                    </Link>
+                                                )}
+                                                <span className="text-xs font-medium text-gray-500">
+                                                    {packageHeadline(pkg)}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <Link href={detailUrl} className="flex gap-3 px-3 py-3">

@@ -332,14 +332,16 @@ export default function SellerOrderShow({
                         {itemStatus === 'awaiting_confirmation' && (
                             <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                                 <p className="font-semibold">Waiting for buyer confirmation</p>
-                                <p className="mt-1 text-blue-700">You marked this as delivered. The buyer must confirm receipt before the order is complete. CityShop admin then releases Pending funds to your Available balance.</p>
+                                <p className="mt-1 text-blue-700">
+                                    The buyer must confirm receipt to complete the order. Admin can release Pending funds anytime after you start processing — or the buyer’s confirm will release them.
+                                </p>
                             </div>
                         )}
 
                         {itemStatus === 'delivered' && orderItem.funds_release_status === 'pending' && (
                             <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-900">
-                                <p className="font-semibold">Buyer confirmed — Pending Fund</p>
-                                <p className="mt-1">Delivery is complete. Earnings stay in Pending until CityShop admin approves release to Available.</p>
+                                <p className="font-semibold">Waiting for fund release</p>
+                                <p className="mt-1">Delivery is complete. Earnings stay in Pending until admin releases to Available.</p>
                             </div>
                         )}
 
@@ -358,7 +360,7 @@ export default function SellerOrderShow({
                                 <p className="font-semibold">Order complete</p>
                                 <p className="mt-1">
                                     {orderItem.funds_release_status === 'released'
-                                        ? 'Buyer confirmed delivery. Funds have been released to your Available balance.'
+                                        ? 'Funds have been released to your Available balance.'
                                         : 'Buyer confirmed delivery.'}
                                 </p>
                             </div>

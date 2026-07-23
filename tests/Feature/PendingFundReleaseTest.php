@@ -23,7 +23,7 @@ class PendingFundReleaseTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeAwaitingItem(): array
+    private function makeItem(OrderStatus $itemStatus = OrderStatus::AwaitingConfirmation, ?FundsReleaseStatus $fundsStatus = null): array
     {
         $buyer = User::factory()->create(['role' => UserRole::Buyer]);
         $seller = User::factory()->create(['role' => UserRole::Seller]);
@@ -41,7 +41,7 @@ class PendingFundReleaseTest extends TestCase
         $checkout = Checkout::create([
             'checkout_number' => 'CHK'.uniqid(),
             'buyer_id' => $buyer->id,
-            'status' => OrderStatus::AwaitingConfirmation,
+            'status' => $itemStatus,
             'payment_status' => PaymentStatus::Paid,
             'receiver_name' => 'Test Buyer',
             'receiver_phone' => '0240000000',
@@ -57,7 +57,7 @@ class PendingFundReleaseTest extends TestCase
             'order_number' => Order::generateOrderNumber(),
             'buyer_id' => $buyer->id,
             'seller_id' => $seller->id,
-            'status' => OrderStatus::AwaitingConfirmation,
+            'status' => $itemStatus,
             'payment_status' => PaymentStatus::Paid,
             'payment_channel' => PaymentChannel::Marketplace,
             'receiver_name' => 'Test Buyer',
@@ -80,7 +80,8 @@ class PendingFundReleaseTest extends TestCase
             'commission_rate' => 5,
             'commission_amount' => 5,
             'seller_amount' => 95,
-            'status' => OrderStatus::AwaitingConfirmation,
+            'status' => $itemStatus,
+            'funds_release_status' => $fundsStatus,
         ]);
 
         Wallet::create([
@@ -94,52 +95,26 @@ class PendingFundReleaseTest extends TestCase
         return compact('buyer', 'seller', 'admin', 'order', 'item');
     }
 
-    public function test_buyer_confirm_keeps_funds_pending_for_admin(): void
+    public function test_processing_item_appears_in_pending_funds_queue(): void
     {
-        ['buyer' => $buyer, 'seller' => $seller, 'item' => $item] = $this->makeAwaitingItem();
+        ['admin' => $admin, 'item' => $item] = $this->makeItem(OrderStatus::Processing);
 
-        $this->actingAs($buyer)
-            ->post(route('orders.confirm-delivery', [$item->order_id, $item->id]))
-            ->assertRedirect();
-
-        $item->refresh();
-        $wallet = Wallet::where('user_id', $seller->id)->first();
-
-        $this->assertSame(OrderStatus::Delivered, $item->status);
-        $this->assertSame(FundsReleaseStatus::Pending, $item->funds_release_status);
-        $this->assertEquals(105.0, (float) $wallet->pending_balance);
-        $this->assertEquals(0.0, (float) $wallet->available_balance);
-    }
-
-    public function test_admin_can_confirm_delivery_on_behalf_of_buyer(): void
-    {
-        ['seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeAwaitingItem();
+        $this->assertSame(1, app(OrderService::class)->pendingFundReleaseItemsQuery()->count());
 
         $this->actingAs($admin)
-            ->get(route('admin.orders.confirm-delivery'))
+            ->get(route('admin.pending-funds.index'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('admin/orders/confirm-delivery')
-                ->where('count', 1));
-
-        $this->actingAs($admin)
-            ->post(route('admin.orders.confirm-delivery.store', $item->id))
-            ->assertRedirect();
-
-        $item->refresh();
-        $this->assertSame(OrderStatus::Delivered, $item->status);
-        $this->assertSame(FundsReleaseStatus::Pending, $item->funds_release_status);
-
-        $wallet = Wallet::where('user_id', $seller->id)->first();
-        $this->assertEquals(105.0, (float) $wallet->pending_balance);
-        $this->assertEquals(0.0, (float) $wallet->available_balance);
+                ->component('admin/pending-funds/index')
+                ->where('counts.pending', 1));
     }
 
-    public function test_admin_approve_releases_pending_to_available(): void
+    public function test_admin_can_release_funds_while_seller_is_processing(): void
     {
-        ['buyer' => $buyer, 'seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeAwaitingItem();
-
-        app(OrderService::class)->confirmBuyerDelivery($item);
+        ['seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeItem(
+            OrderStatus::Processing,
+            FundsReleaseStatus::Pending,
+        );
 
         $this->actingAs($admin)
             ->post(route('admin.pending-funds.approve', $item->id))
@@ -149,16 +124,88 @@ class PendingFundReleaseTest extends TestCase
         $wallet = Wallet::where('user_id', $seller->id)->first();
 
         $this->assertSame(FundsReleaseStatus::Released, $item->funds_release_status);
+        $this->assertSame(OrderStatus::Processing, $item->status);
         $this->assertEquals(10.0, (float) $wallet->pending_balance);
         $this->assertEquals(95.0, (float) $wallet->available_balance);
-        $this->assertSame($admin->id, $item->funds_reviewed_by);
+    }
+
+    public function test_buyer_confirm_releases_funds_when_admin_has_not(): void
+    {
+        ['buyer' => $buyer, 'seller' => $seller, 'item' => $item] = $this->makeItem(
+            OrderStatus::AwaitingConfirmation,
+            FundsReleaseStatus::Pending,
+        );
+
+        $this->actingAs($buyer)
+            ->post(route('orders.confirm-delivery', [$item->order_id, $item->id]))
+            ->assertRedirect();
+
+        $item->refresh();
+        $wallet = Wallet::where('user_id', $seller->id)->first();
+
+        $this->assertSame(OrderStatus::Delivered, $item->status);
+        $this->assertSame(FundsReleaseStatus::Released, $item->funds_release_status);
+        $this->assertEquals(10.0, (float) $wallet->pending_balance);
+        $this->assertEquals(95.0, (float) $wallet->available_balance);
+        $this->assertSame(0, app(OrderService::class)->pendingFundReleaseItemsQuery()->count());
+    }
+
+    public function test_buyer_confirm_after_admin_release_does_not_double_pay(): void
+    {
+        ['buyer' => $buyer, 'seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeItem(
+            OrderStatus::AwaitingConfirmation,
+            FundsReleaseStatus::Pending,
+        );
+
+        $this->actingAs($admin)
+            ->post(route('admin.pending-funds.approve', $item->id))
+            ->assertRedirect();
+
+        $wallet = Wallet::where('user_id', $seller->id)->first();
+        $this->assertEquals(95.0, (float) $wallet->available_balance);
+        $this->assertEquals(10.0, (float) $wallet->pending_balance);
+
+        $this->actingAs($buyer)
+            ->post(route('orders.confirm-delivery', [$item->order_id, $item->id]))
+            ->assertRedirect();
+
+        $item->refresh();
+        $wallet->refresh();
+
+        $this->assertSame(OrderStatus::Delivered, $item->status);
+        $this->assertSame(FundsReleaseStatus::Released, $item->funds_release_status);
+        $this->assertEquals(95.0, (float) $wallet->available_balance);
+        // Shipping stays pending until shipping ledger release (not double-credited on product).
+        $this->assertEquals(10.0, (float) $wallet->pending_balance);
+    }
+
+    public function test_admin_confirm_delivery_does_not_release_funds(): void
+    {
+        ['seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeItem(
+            OrderStatus::AwaitingConfirmation,
+            FundsReleaseStatus::Pending,
+        );
+
+        $this->actingAs($admin)
+            ->post(route('admin.orders.confirm-delivery.store', $item->id))
+            ->assertRedirect();
+
+        $item->refresh();
+        $wallet = Wallet::where('user_id', $seller->id)->first();
+
+        $this->assertSame(OrderStatus::Delivered, $item->status);
+        $this->assertSame(FundsReleaseStatus::Pending, $item->funds_release_status);
+        $this->assertEquals(0.0, (float) $wallet->available_balance);
+        $this->assertEquals(105.0, (float) $wallet->pending_balance);
+        $this->assertSame(1, app(OrderService::class)->pendingFundReleaseItemsQuery()->count());
     }
 
     public function test_admin_reject_holds_funds_and_opens_dispute(): void
     {
-        ['buyer' => $buyer, 'admin' => $admin, 'item' => $item] = $this->makeAwaitingItem();
-
-        app(OrderService::class)->confirmBuyerDelivery($item);
+        ['admin' => $admin, 'item' => $item] = $this->makeItem(
+            OrderStatus::Processing,
+            FundsReleaseStatus::Pending,
+        );
 
         $this->actingAs($admin)
             ->post(route('admin.pending-funds.reject', $item->id), [
@@ -174,9 +221,11 @@ class PendingFundReleaseTest extends TestCase
 
     public function test_admin_can_release_held_funds_even_with_open_dispute(): void
     {
-        ['seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeAwaitingItem();
+        ['seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeItem(
+            OrderStatus::Processing,
+            FundsReleaseStatus::Pending,
+        );
 
-        app(OrderService::class)->confirmBuyerDelivery($item);
         app(OrderService::class)->holdSellerFunds($item->fresh(), 'Suspicious delivery claim', $admin->id);
 
         $this->actingAs($admin)
@@ -189,5 +238,17 @@ class PendingFundReleaseTest extends TestCase
         $this->assertSame(FundsReleaseStatus::Released, $item->funds_release_status);
         $this->assertEquals(10.0, (float) $wallet->pending_balance);
         $this->assertEquals(95.0, (float) $wallet->available_balance);
+    }
+
+    public function test_seller_start_processing_marks_funds_pending(): void
+    {
+        ['item' => $item] = $this->makeItem(OrderStatus::Pending);
+
+        app(OrderService::class)->updateOrderItemStatus($item, ['status' => 'processing']);
+
+        $item->refresh();
+        $this->assertSame(OrderStatus::Processing, $item->status);
+        $this->assertSame(FundsReleaseStatus::Pending, $item->funds_release_status);
+        $this->assertSame(1, app(OrderService::class)->pendingFundReleaseItemsQuery()->count());
     }
 }

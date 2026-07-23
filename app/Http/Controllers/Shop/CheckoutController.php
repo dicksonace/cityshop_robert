@@ -40,6 +40,7 @@ class CheckoutController extends Controller
             return [
                 'seller_id' => (int) $sellerId,
                 'seller_name' => $profile?->displayName() ?? $seller->name,
+                'store_slug' => $profile?->slug,
                 'accept_marketplace_payments' => $profile?->accept_marketplace_payments ?? true,
                 'accept_direct_payments' => $profile?->accept_direct_payments ?? false,
                 'payment_methods' => ($profile?->paymentMethods ?? collect())

@@ -604,12 +604,25 @@ class OrderService
             return;
         }
 
-        if ($item->status !== OrderStatus::Delivered) {
-            throw new \RuntimeException('Buyer must confirm delivery before funds are released.');
+        if ($item->order->payment_channel !== PaymentChannel::Marketplace) {
+            throw new \RuntimeException('Only marketplace (CityShop secured) sales use pending fund release.');
+        }
+
+        if (in_array($item->status, [OrderStatus::Cancelled, OrderStatus::Refunded, OrderStatus::Pending], true)) {
+            throw new \RuntimeException('Funds can be released after the seller starts processing the order.');
+        }
+
+        if (! in_array($item->status, self::fundsReleaseEligibleStatuses(), true)) {
+            throw new \RuntimeException('This order is not eligible for fund release yet.');
+        }
+
+        if ($item->funds_release_status === null) {
+            $item->update(['funds_release_status' => FundsReleaseStatus::Pending]);
+            $item->refresh();
         }
 
         if (! in_array($item->funds_release_status, [FundsReleaseStatus::Pending, FundsReleaseStatus::Held], true)) {
-            throw new \RuntimeException('This item is not waiting for fund release approval.');
+            throw new \RuntimeException('This item is not waiting for fund release.');
         }
 
         if (
@@ -620,15 +633,13 @@ class OrderService
         }
 
         DB::transaction(function () use ($item, $reviewedBy) {
-            if ($item->order->payment_channel === PaymentChannel::Marketplace) {
-                $wallet = Wallet::where('user_id', $item->seller_id)->firstOrFail();
-                $amount = (float) $item->seller_amount;
+            $wallet = Wallet::where('user_id', $item->seller_id)->firstOrFail();
+            $amount = (float) $item->seller_amount;
 
-                $wallet->decrement('pending_balance', min($amount, (float) $wallet->pending_balance));
-                $wallet->increment('available_balance', $amount);
+            $wallet->decrement('pending_balance', min($amount, (float) $wallet->pending_balance));
+            $wallet->increment('available_balance', $amount);
 
-                WalletTransactionService::recordSaleReleased($item);
-            }
+            WalletTransactionService::recordSaleReleased($item);
 
             $item->update([
                 'funds_release_status' => FundsReleaseStatus::Released,
@@ -648,8 +659,17 @@ class OrderService
     {
         $item->load(['order', 'seller', 'order.buyer']);
 
-        if ($item->status !== OrderStatus::Delivered) {
-            throw new \RuntimeException('Only confirmed deliveries can have funds held.');
+        if ($item->order->payment_channel !== PaymentChannel::Marketplace) {
+            throw new \RuntimeException('Only marketplace sales can have funds held.');
+        }
+
+        if (! in_array($item->status, self::fundsReleaseEligibleStatuses(), true)) {
+            throw new \RuntimeException('Funds can be held after the seller starts processing the order.');
+        }
+
+        if ($item->funds_release_status === null) {
+            $item->update(['funds_release_status' => FundsReleaseStatus::Pending]);
+            $item->refresh();
         }
 
         if ($item->funds_release_status !== FundsReleaseStatus::Pending) {
@@ -691,7 +711,12 @@ class OrderService
         });
     }
 
-    public function confirmBuyerDelivery(OrderItem $item): OrderItem
+    /**
+     * Complete delivery confirmation.
+     * Buyer confirm may release marketplace funds if admin has not already.
+     * Admin confirm completes the order (reviews unlock) without releasing funds.
+     */
+    public function confirmBuyerDelivery(OrderItem $item, bool $releaseFunds = true): OrderItem
     {
         $item->load(['order', 'seller']);
 
@@ -703,19 +728,38 @@ class OrderService
             throw new \RuntimeException('Cannot confirm delivery while a dispute is open.');
         }
 
-        DB::transaction(function () use ($item) {
-            $isMarketplace = $item->order->payment_channel === PaymentChannel::Marketplace;
+        $alreadyReleased = $item->funds_release_status === FundsReleaseStatus::Released;
+        $isMarketplace = $item->order->payment_channel === PaymentChannel::Marketplace;
 
-            $item->update([
-                'status' => OrderStatus::Delivered,
-                'funds_release_status' => $isMarketplace
-                    ? FundsReleaseStatus::Pending
-                    : FundsReleaseStatus::NotApplicable,
-            ]);
+        DB::transaction(function () use ($item, $isMarketplace, $alreadyReleased) {
+            $payload = ['status' => OrderStatus::Delivered];
+
+            if ($isMarketplace) {
+                if (! $alreadyReleased) {
+                    $payload['funds_release_status'] = FundsReleaseStatus::Pending;
+                }
+            } else {
+                $payload['funds_release_status'] = FundsReleaseStatus::NotApplicable;
+            }
+
+            $item->update($payload);
 
             $item->seller->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
         });
+
+        $item = $item->fresh(['order', 'seller']);
+
+        if (
+            $releaseFunds
+            && $isMarketplace
+            && $item->funds_release_status !== FundsReleaseStatus::Released
+        ) {
+            // Buyer confirm releases funds when admin has not already done so.
+            $this->releaseSellerFunds($item);
+        } else {
+            $this->maybeReleaseSellerShipping($item->order->fresh('items'));
+        }
 
         $this->syncOrderStatusAfterItemChange($item->order->fresh('items'));
 
@@ -734,6 +778,11 @@ class OrderService
         }
 
         $item->update($payload);
+        $item = $item->fresh(['order']);
+
+        if (isset($data['status'])) {
+            $this->markMarketplaceFundsPendingWhenProcessing($item);
+        }
 
         if ($data['status'] === 'packed' && $previousStatus !== 'packed') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'packed'));
@@ -759,6 +808,71 @@ class OrderService
         $this->syncOrderStatusAfterItemChange($item->order);
 
         return $item->fresh();
+    }
+
+    /**
+     * @return list<OrderStatus>
+     */
+    public static function fundsReleaseEligibleStatuses(): array
+    {
+        return [
+            OrderStatus::Processing,
+            OrderStatus::CallConfirmed,
+            OrderStatus::Packed,
+            OrderStatus::Shipped,
+            OrderStatus::AwaitingConfirmation,
+            OrderStatus::Delivered,
+        ];
+    }
+
+    /**
+     * Marketplace items waiting for admin (or buyer-confirm) release to Available.
+     */
+    public function pendingFundReleaseItemsQuery()
+    {
+        $eligible = array_map(
+            fn (OrderStatus $status) => $status->value,
+            self::fundsReleaseEligibleStatuses(),
+        );
+
+        return OrderItem::query()
+            ->where(function ($q) use ($eligible) {
+                $q->where('funds_release_status', FundsReleaseStatus::Pending)
+                    ->orWhere(function ($inner) use ($eligible) {
+                        $inner->whereNull('funds_release_status')
+                            ->whereIn('status', $eligible);
+                    });
+            })
+            ->whereHas('order', function ($q) {
+                $q->where('payment_status', PaymentStatus::Paid)
+                    ->where(function ($channel) {
+                        $channel->where('payment_channel', PaymentChannel::Marketplace)
+                            ->orWhereNull('payment_channel');
+                    });
+            })
+            ->whereIn('status', $eligible);
+    }
+
+    /**
+     * Once the seller starts processing a CityShop-secured sale, admin can release funds.
+     */
+    private function markMarketplaceFundsPendingWhenProcessing(OrderItem $item): void
+    {
+        $item->loadMissing('order');
+
+        if ($item->order?->payment_channel !== PaymentChannel::Marketplace) {
+            return;
+        }
+
+        if ($item->funds_release_status !== null) {
+            return;
+        }
+
+        if (! in_array($item->status, self::fundsReleaseEligibleStatuses(), true)) {
+            return;
+        }
+
+        $item->update(['funds_release_status' => FundsReleaseStatus::Pending]);
     }
 
     private function assertValidStatusTransition(OrderItem $item, OrderStatus $next): void
@@ -1118,7 +1232,7 @@ class OrderService
     }
 
     /**
-     * Release shipping only after every active marketplace line has funds released by admin.
+     * Release shipping only after every active marketplace line is delivered and funds released.
      */
     private function maybeReleaseSellerShipping(Order $order): void
     {

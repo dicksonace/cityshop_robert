@@ -19,17 +19,43 @@ class PendingFundController extends Controller
     {
         $status = $request->get('status', 'pending');
 
-        $items = OrderItem::query()
+        $base = OrderItem::query()
             ->with([
                 'order:id,order_number,buyer_id,seller_id,payment_channel,payment_status,shipping_cost,total',
                 'order.buyer:id,name,email,mobile',
                 'seller:id,name,email,mobile',
                 'product:id,name',
                 'fundsReviewer:id,name',
-            ])
-            ->whereNotNull('funds_release_status')
-            ->where('funds_release_status', '!=', FundsReleaseStatus::NotApplicable->value)
-            ->when($status !== 'all', fn ($q) => $q->where('funds_release_status', $status))
+            ]);
+
+        $items = match ($status) {
+            'held' => $base->where('funds_release_status', FundsReleaseStatus::Held),
+            'released' => $base->where('funds_release_status', FundsReleaseStatus::Released),
+            'all' => $base->where(function ($q) {
+                $q->whereIn('funds_release_status', [
+                    FundsReleaseStatus::Pending,
+                    FundsReleaseStatus::Held,
+                    FundsReleaseStatus::Released,
+                ])->orWhere(function ($inner) {
+                    $inner->whereNull('funds_release_status')
+                        ->whereIn('status', OrderService::fundsReleaseEligibleStatuses());
+                });
+            })->whereHas('order', function ($q) {
+                $q->where(function ($channel) {
+                    $channel->where('payment_channel', \App\Enums\PaymentChannel::Marketplace)
+                        ->orWhereNull('payment_channel');
+                });
+            }),
+            default => $this->orderService->pendingFundReleaseItemsQuery()->with([
+                'order:id,order_number,buyer_id,seller_id,payment_channel,payment_status,shipping_cost,total',
+                'order.buyer:id,name,email,mobile',
+                'seller:id,name,email,mobile',
+                'product:id,name',
+                'fundsReviewer:id,name',
+            ]),
+        };
+
+        $items = $items
             ->latest('updated_at')
             ->paginate(15)
             ->withQueryString()
@@ -40,7 +66,7 @@ class PendingFundController extends Controller
                 'seller_amount' => (float) $item->seller_amount,
                 'commission_amount' => (float) $item->commission_amount,
                 'status' => $item->status->value,
-                'funds_release_status' => $item->funds_release_status?->value,
+                'funds_release_status' => $item->funds_release_status?->value ?? 'pending',
                 'funds_release_notes' => $item->funds_release_notes,
                 'funds_released_at' => $item->funds_released_at?->toIso8601String(),
                 'updated_at' => $item->updated_at?->toIso8601String(),
@@ -73,7 +99,7 @@ class PendingFundController extends Controller
             'items' => $items,
             'status' => $status,
             'counts' => [
-                'pending' => OrderItem::where('funds_release_status', FundsReleaseStatus::Pending)->count(),
+                'pending' => $this->orderService->pendingFundReleaseItemsQuery()->count(),
                 'held' => OrderItem::where('funds_release_status', FundsReleaseStatus::Held)->count(),
                 'released' => OrderItem::where('funds_release_status', FundsReleaseStatus::Released)->count(),
             ],
@@ -98,7 +124,7 @@ class PendingFundController extends Controller
 
         return back()->with(
             'success',
-            'Funds released to seller Available balance (GH₵'.number_format((float) $orderItem->seller_amount, 2).').',
+            'Funds released to seller Available balance (GH₵'.number_format((float) $orderItem->fresh()->seller_amount, 2).'). Buyer still confirms delivery to complete the order (no second release).',
         );
     }
 

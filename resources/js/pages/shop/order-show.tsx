@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, Star } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, Star } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import { LightboxTrigger, orderItemLightboxImages } from '@/components/shop/image-lightbox';
@@ -10,7 +10,20 @@ import ShopLayout from '@/layouts/shop-layout';
 import { buyerFulfillmentLabel, formatPrice, formatOrderStatus, mostAdvancedItemStatus, orderStatusBadgeClass, Order, OrderItem, productImageUrl } from '@/types/marketplace';
 
 interface OrderShowProps {
-    order: Order & { items?: (OrderItem & { dispute?: { id: number; status: string; reason: string; description?: string } })[] };
+    order: Order & {
+        items?: (OrderItem & { dispute?: { id: number; status: string; reason: string; description?: string } })[];
+        seller?: {
+            name?: string;
+            seller_profile?: {
+                business_name?: string | null;
+                store_name?: string | null;
+                slug?: string | null;
+                shop_photo?: string | null;
+                rating?: number;
+                total_sales?: number;
+            } | null;
+        } | null;
+    };
     reviews: Record<number, { rating: number; comment?: string }>;
 }
 
@@ -221,9 +234,55 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                         </div>
                         <div>
                             <h3 className="text-sm font-semibold text-gray-900">Payment</h3>
-                            <p className="mt-1 text-sm text-gray-600 capitalize">{order.payment_method}</p>
+                            <p className="mt-1 text-sm text-gray-600 capitalize">
+                                {isCod ? 'Cash on delivery' : order.payment_method}
+                            </p>
                         </div>
                     </div>
+
+                    {order.seller && (
+                        <div className="mt-6 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                            <h3 className="text-sm font-semibold text-gray-900">Seller information</h3>
+                            <div className="mt-3 flex items-center gap-3">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-orange-500 text-lg font-bold text-white">
+                                    {order.seller.seller_profile?.shop_photo ? (
+                                        <img
+                                            src={productImageUrl(order.seller.seller_profile.shop_photo)}
+                                            alt=""
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : (
+                                        (
+                                            order.seller.seller_profile?.business_name
+                                            ?? order.seller.seller_profile?.store_name
+                                            ?? order.seller.name
+                                            ?? 'S'
+                                        ).charAt(0).toUpperCase()
+                                    )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate font-semibold text-gray-900">
+                                        {order.seller.seller_profile?.business_name
+                                            ?? order.seller.seller_profile?.store_name
+                                            ?? order.seller.name
+                                            ?? 'Seller'}
+                                    </p>
+                                    {isCod && (
+                                        <p className="mt-0.5 text-xs text-teal-700">Cash on delivery order</p>
+                                    )}
+                                </div>
+                                {order.seller.seller_profile?.slug && (
+                                    <Link
+                                        href={route('store.show', order.seller.seller_profile.slug)}
+                                        className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-orange-50 px-2.5 py-1.5 text-xs font-semibold text-orange-600 ring-1 ring-orange-100 hover:bg-orange-100"
+                                    >
+                                        Visit
+                                        <ChevronRight className="h-3.5 w-3.5" />
+                                    </Link>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="mt-6 border-t pt-4">
                         <h3 className="font-semibold text-gray-900">Items</h3>

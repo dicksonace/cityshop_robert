@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, FileText, Star } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, FileText, Star } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import { LightboxTrigger, orderItemLightboxImages } from '@/components/shop/image-lightbox';
@@ -239,23 +239,23 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                         return (
                             <div key={order.id} className="rounded-xl bg-white p-6 shadow-sm">
                                 <div className="flex flex-wrap items-start justify-between gap-2">
-                                    <div>
+                                    <div className="min-w-0 flex-1">
                                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                                             Package {index + 1} of {checkout.orders.length}
                                         </p>
-                                        {order.seller?.seller_profile?.slug ? (
-                                            <Link
-                                                href={route('store.show', order.seller.seller_profile.slug)}
-                                                className="font-semibold text-gray-900 hover:text-orange-500"
-                                            >
-                                                {sellerName}
-                                            </Link>
-                                        ) : (
-                                            <p className="font-semibold text-gray-900">{sellerName}</p>
-                                        )}
+                                        <p className="font-semibold text-gray-900">{sellerName}</p>
                                         <p className="text-sm text-gray-500">{order.order_number}</p>
                                     </div>
                                     <div className="flex flex-col items-end gap-1.5 text-right">
+                                        {order.seller?.seller_profile?.slug && (
+                                            <Link
+                                                href={route('store.show', order.seller.seller_profile.slug)}
+                                                className="inline-flex items-center gap-0.5 rounded-full bg-orange-50 px-2.5 py-1.5 text-xs font-semibold text-orange-600 ring-1 ring-orange-100 hover:bg-orange-100"
+                                            >
+                                                Visit
+                                                <ChevronRight className="h-3.5 w-3.5" />
+                                            </Link>
+                                        )}
                                         <p className="font-bold text-orange-500">{formatPrice(order.total)}</p>
                                         {isOrderCancelled ? (
                                             <span className="inline-flex rounded-full bg-red-500 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white">
