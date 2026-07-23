@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, ChevronRight, FileText, Star } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, FileText, Printer, Star } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import { LightboxTrigger, orderItemLightboxImages } from '@/components/shop/image-lightbox';
@@ -160,11 +160,16 @@ function RefundStatus({ dispute }: { dispute: { id: number; status: string; reas
 }
 
 export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
+    const printInvoice =
+        checkout.invoices?.find((inv) => inv.type === 'customer_master')
+        ?? checkout.invoices?.[0]
+        ?? null;
+
     return (
         <ShopLayout>
             <Head title={`Purchase ${checkout.checkout_number}`} />
             <div className="mx-auto max-w-4xl px-4 py-8">
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Purchase {checkout.checkout_number}</h1>
                         <p className="mt-1 text-sm text-gray-500">
@@ -184,10 +189,27 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                                 ? '1 package'
                                 : `${checkout.orders.length} packages from different stores`}
                         </p>
+                        <Link href={route('orders.index')} className="mt-2 inline-block text-sm text-orange-500 hover:underline">
+                            ← All purchases
+                        </Link>
                     </div>
-                    <Link href={route('orders.index')} className="text-sm text-orange-500 hover:underline">
-                        ← All purchases
-                    </Link>
+                    {printInvoice ? (
+                        <Button asChild className="shrink-0 bg-orange-500 text-white hover:bg-orange-600">
+                            <Link href={`${route('invoices.show', printInvoice.id)}?print=1`}>
+                                <Printer className="mr-2 h-4 w-4" />
+                                Print
+                            </Link>
+                        </Button>
+                    ) : (
+                        <Button
+                            type="button"
+                            className="shrink-0 bg-orange-500 text-white hover:bg-orange-600"
+                            onClick={() => window.print()}
+                        >
+                            <Printer className="mr-2 h-4 w-4" />
+                            Print
+                        </Button>
+                    )}
                 </div>
 
                 <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
@@ -431,7 +453,8 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                                                             </p>
                                                         )}
 
-                                                        {['shipped', 'awaiting_confirmation', 'delivered'].includes(item.status) &&
+                                                        {order.can_request_refund &&
+                                                            ['shipped', 'awaiting_confirmation', 'delivered'].includes(item.status) &&
                                                             (!item.dispute || item.dispute.status === 'cancelled') && (
                                                                 <RefundRequestForm orderId={order.id} item={item} />
                                                             )}

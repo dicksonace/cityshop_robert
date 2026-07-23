@@ -2,6 +2,12 @@
 
 return [
 
+    /*
+    | Buyer My Orders history and "Request refund" window (months from order created_at).
+    | After this period orders drop off My Orders and refund requests are blocked.
+    */
+    'buyer_order_months' => (int) env('BUYER_ORDER_MONTHS', 2),
+
     'contact' => [
         'email' => env('MARKETPLACE_SUPPORT_EMAIL', 'support@cityshop.com'),
         'phone' => env('MARKETPLACE_SUPPORT_PHONE', '+233 24 862 0718'),
@@ -79,7 +85,7 @@ return [
             'items' => [
                 [
                     'question' => 'What if I receive a wrong or damaged item?',
-                    'answer' => 'Open a dispute from your order details page within 7 days of delivery. Describe the issue and our team will investigate. Funds may be held in escrow until the dispute is resolved.',
+                    'answer' => 'Open a refund request from your order details page within 2 months of the order date. Describe the issue and our team will investigate. Funds may be held in escrow until the dispute is resolved. Orders older than 2 months no longer appear under My Orders.',
                 ],
                 [
                     'question' => 'How does buyer protection work?',

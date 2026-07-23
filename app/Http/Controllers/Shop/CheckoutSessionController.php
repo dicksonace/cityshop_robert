@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\Checkout;
 use App\Models\Review;
+use App\Support\BuyerOrderPolicy;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,6 +33,10 @@ class CheckoutSessionController extends Controller
             ->where('user_id', $request->user()->id)
             ->get()
             ->keyBy(fn ($review) => $review->order_id.'-'.$review->product_id);
+
+        $checkout->orders->each(function ($order) {
+            $order->setAttribute('can_request_refund', BuyerOrderPolicy::canRequestRefund($order));
+        });
 
         return Inertia::render('shop/checkout-show', [
             'checkout' => $checkout,

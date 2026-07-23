@@ -156,6 +156,7 @@ export interface Order {
     shipping_cost: number;
     total: number;
     created_at: string;
+    can_request_refund?: boolean;
     items?: OrderItem[];
 }
 

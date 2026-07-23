@@ -148,7 +148,8 @@
         collect([$order->city, $order->region])->filter()->implode(', '),
     ]));
     $money = fn (float $n) => 'GHS '.number_format($n, 2);
-    $storeAddressLines = $storeAddressLines ?? [];
+    $storeAddress = $storeAddress ?? null;
+    $storeLocation = $storeLocation ?? null;
 @endphp
 
 <table>
@@ -156,10 +157,6 @@
         <td class="top wrap" width="52%">
             <div class="brand">City<span>Shop</span></div>
             <div class="muted">cityunlock.net</div>
-            <div class="wrap" style="margin-top:3pt; font-size:8.5pt;"><strong>{{ $storeName }}</strong></div>
-            @foreach($storeAddressLines as $line)
-                <div class="muted wrap">{{ $line }}</div>
-            @endforeach
         </td>
         <td class="top right wrap" width="48%">
             <div class="doc-title">Packing slip</div>
@@ -181,15 +178,24 @@
         <td class="top" width="49%" style="padding-right:4pt;">
             <div class="box wrap">
                 <div class="label">Ship from (seller)</div>
-                <strong>{{ $storeName }}</strong><br>
-                @forelse($storeAddressLines as $line)
-                    {{ $line }}<br>
-                @empty
-                    <span class="muted">Seller address not set on profile</span><br>
-                @endforelse
-                @if(filled($sellerPhone))
-                    Tel: {{ $sellerPhone }}
-                @endif
+                <table style="width:100%; font-size:8.5pt;">
+                    <tr>
+                        <td class="top muted" width="72" style="padding:1pt 4pt 1pt 0;">Store name</td>
+                        <td class="top wrap" style="padding:1pt 0;"><strong>{{ $storeName }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="top muted" style="padding:1pt 4pt 1pt 0;">Address</td>
+                        <td class="top wrap" style="padding:1pt 0;">{{ $storeAddress ?: '—' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="top muted" style="padding:1pt 4pt 1pt 0;">Location</td>
+                        <td class="top wrap" style="padding:1pt 0;">{{ $storeLocation ?: '—' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="top muted" style="padding:1pt 4pt 1pt 0;">Phone</td>
+                        <td class="top wrap" style="padding:1pt 0;">{{ filled($sellerPhone) ? $sellerPhone : '—' }}</td>
+                    </tr>
+                </table>
             </div>
         </td>
         <td class="top" width="49%" style="padding-left:4pt;">

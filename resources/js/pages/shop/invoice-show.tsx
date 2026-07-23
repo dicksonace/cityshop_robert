@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
+import { useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
@@ -29,6 +30,12 @@ interface InvoiceShowProps {
         checkout?: { id: number; checkout_number: string };
         order?: { order_number: string; seller?: { seller_profile?: { business_name?: string }; name?: string } };
     };
+    sellerContact?: {
+        store_name: string;
+        address?: string | null;
+        location?: string | null;
+        phone?: string | null;
+    } | null;
 }
 
 const typeLabels: Record<string, string> = {
@@ -36,8 +43,21 @@ const typeLabels: Record<string, string> = {
     customer: 'Seller invoice',
 };
 
-export default function InvoiceShow({ invoice }: InvoiceShowProps) {
-    const sellerName = invoice.order?.seller?.seller_profile?.business_name ?? invoice.order?.seller?.name;
+export default function InvoiceShow({ invoice, sellerContact }: InvoiceShowProps) {
+    const sellerName =
+        sellerContact?.store_name
+        ?? invoice.order?.seller?.seller_profile?.business_name
+        ?? invoice.order?.seller?.name;
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (new URLSearchParams(window.location.search).get('print') === '1') {
+            const timer = window.setTimeout(() => window.print(), 300);
+            return () => window.clearTimeout(timer);
+        }
+    }, []);
 
     return (
         <ShopLayout>
@@ -50,7 +70,12 @@ export default function InvoiceShow({ invoice }: InvoiceShowProps) {
                     >
                         ← Back to order
                     </Link>
-                    <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+                    <Button
+                        type="button"
+                        size="sm"
+                        className="bg-orange-500 text-white hover:bg-orange-600"
+                        onClick={() => window.print()}
+                    >
                         <Printer className="mr-2 h-4 w-4" />
                         Print / Save PDF
                     </Button>
@@ -76,6 +101,30 @@ export default function InvoiceShow({ invoice }: InvoiceShowProps) {
                             </p>
                         </div>
                     </div>
+
+                    {sellerContact && (
+                        <div className="mt-6 rounded-lg border border-gray-100 bg-gray-50 p-4 text-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Seller</p>
+                            <dl className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                                <div>
+                                    <dt className="text-xs text-gray-500">Store name</dt>
+                                    <dd className="font-medium text-gray-900">{sellerContact.store_name}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-xs text-gray-500">Phone</dt>
+                                    <dd className="text-gray-900">{sellerContact.phone || '—'}</dd>
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <dt className="text-xs text-gray-500">Address</dt>
+                                    <dd className="text-gray-900">{sellerContact.address || '—'}</dd>
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <dt className="text-xs text-gray-500">Location</dt>
+                                    <dd className="text-gray-900">{sellerContact.location || '—'}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    )}
 
                     <div className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
                         {invoice.checkout && (

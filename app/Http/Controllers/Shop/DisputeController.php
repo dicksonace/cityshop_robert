@@ -11,6 +11,7 @@ use App\Models\OrderItem;
 use App\Models\User;
 use App\Notifications\DisputeOpenedNotification;
 use App\Services\AppNotificationService;
+use App\Support\BuyerOrderPolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -31,7 +32,14 @@ class DisputeController extends Controller
             ->where('order_id', $order->id)
             ->firstOrFail();
 
-        if (! in_array($item->status->value, ['shipped', 'delivered'], true)) {
+        if (! BuyerOrderPolicy::canRequestRefund($order)) {
+            return back()->with(
+                'error',
+                'Refund requests are only available for '.BuyerOrderPolicy::months().' months after the order date. This order has expired.',
+            );
+        }
+
+        if (! in_array($item->status->value, ['shipped', 'awaiting_confirmation', 'delivered'], true)) {
             return back()->with('error', 'Disputes can only be opened for items that are out for delivery or delivered.');
         }
 

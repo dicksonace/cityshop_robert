@@ -20,8 +20,10 @@ class SellerOrderPrintService
      *   order: Order,
      *   seller: User,
      *   storeName: string,
-     *   storeAddressLines: list<string>,
+     *   storeAddress: string|null,
+     *   storeLocation: string|null,
      *   sellerPhone: string|null,
+     *   storeAddressLines: list<string>,
      *   items: Collection<int, OrderItem>,
      *   itemImages: array<int, string|null>,
      *   subtotal: float,
@@ -53,14 +55,19 @@ class SellerOrderPrintService
             $itemImages[$item->id] = $this->productImageSrc($item);
         }
 
-        $profile = $seller->sellerProfile;
+        $contact = $this->sellerContact($seller);
 
         return [
             'order' => $order,
             'seller' => $seller,
-            'storeName' => $profile?->displayName() ?? $seller->name ?? 'Seller',
-            'storeAddressLines' => $this->sellerAddressLines($seller),
-            'sellerPhone' => $this->sellerPhone($seller),
+            'storeName' => $contact['storeName'],
+            'storeAddress' => $contact['address'],
+            'storeLocation' => $contact['location'],
+            'sellerPhone' => $contact['phone'],
+            'storeAddressLines' => array_values(array_filter([
+                $contact['address'],
+                $contact['location'],
+            ])),
             'items' => $items,
             'itemImages' => $itemImages,
             'subtotal' => $subtotal,
@@ -154,29 +161,34 @@ class SellerOrderPrintService
     }
 
     /**
-     * @return list<string>
+     * @return array{storeName: string, address: string|null, location: string|null, phone: string|null}
      */
-    private function sellerAddressLines(User $seller): array
+    private function sellerContact(User $seller): array
     {
         $profile = $seller->sellerProfile;
-        $lines = [];
 
-        foreach ([
+        $address = collect([
             $profile?->business_address,
             $seller->residential_address,
+        ])->map(fn ($v) => is_string($v) ? trim($v) : '')
+            ->first(fn (string $v) => $v !== '') ?: null;
+
+        $locationParts = collect([
             $seller->digital_address,
             collect([$seller->city, $seller->region])->filter()->implode(', '),
-        ] as $line) {
-            $line = is_string($line) ? trim($line) : '';
-            if ($line === '') {
-                continue;
-            }
-            if (! in_array($line, $lines, true)) {
-                $lines[] = $line;
-            }
-        }
+        ])->map(fn ($v) => is_string($v) ? trim($v) : '')
+            ->filter()
+            ->unique()
+            ->values();
 
-        return $lines;
+        $location = $locationParts->isEmpty() ? null : $locationParts->implode(' · ');
+
+        return [
+            'storeName' => $profile?->displayName() ?? $seller->name ?? 'Seller',
+            'address' => $address,
+            'location' => $location,
+            'phone' => $this->sellerPhone($seller),
+        ];
     }
 
     private function sellerPhone(User $seller): ?string

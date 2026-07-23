@@ -1,5 +1,5 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import { CreditCard, LoaderCircle } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { ChevronLeft, CreditCard, LoaderCircle } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import DocumentUploadField from '@/components/forms/document-upload-field';
@@ -96,6 +96,13 @@ export default function Payment({ checkout, marketplaceTotal, directOrders, pays
         <ShopLayout>
             <Head title="Complete Payment" />
             <div className="mx-auto max-w-2xl px-4 py-12">
+                <Link
+                    href={route('orders.index', { tab: 'unpaid' })}
+                    className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-orange-600"
+                >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back to My Orders
+                </Link>
                 <div className="rounded-2xl bg-white p-8 shadow-sm">
                     <CreditCard className="mx-auto h-12 w-12 text-orange-500" />
                     <h1 className="mt-4 text-center text-2xl font-bold text-gray-900">Complete Payment</h1>

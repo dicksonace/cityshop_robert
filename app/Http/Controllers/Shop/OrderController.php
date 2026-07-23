@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Review;
 use App\Services\OrderService;
+use App\Support\BuyerOrderPolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,27 +25,39 @@ class OrderController extends Controller
     {
         $buyerId = $request->user()->id;
         $tab = (string) $request->query('tab', 'all');
+        $retainInvoices = $tab === 'invoices';
+
+        $visibleCheckouts = fn (Builder $q) => $retainInvoices
+            ? $q
+            : $q->where('created_at', '>=', BuyerOrderPolicy::cutoff());
 
         $counts = [
-            'all' => Checkout::where('buyer_id', $buyerId)->count(),
+            'all' => Checkout::where('buyer_id', $buyerId)
+                ->where('created_at', '>=', BuyerOrderPolicy::cutoff())
+                ->count(),
             'unpaid' => Checkout::where('buyer_id', $buyerId)
+                ->where('created_at', '>=', BuyerOrderPolicy::cutoff())
                 ->where('status', '!=', OrderStatus::Cancelled)
                 ->whereHas('orders', fn (Builder $q) => $q
                     ->where('payment_status', PaymentStatus::Pending)
                     ->where('status', '!=', OrderStatus::Cancelled))
                 ->count(),
             'processing' => Checkout::where('buyer_id', $buyerId)
+                ->where('created_at', '>=', BuyerOrderPolicy::cutoff())
                 ->whereHas('orders', fn (Builder $q) => $q
                     ->where('payment_status', PaymentStatus::Paid)
                     ->whereIn('status', [OrderStatus::Pending, OrderStatus::Processing, OrderStatus::Packed]))
                 ->count(),
             'delivery' => Checkout::where('buyer_id', $buyerId)
+                ->where('created_at', '>=', BuyerOrderPolicy::cutoff())
                 ->whereHas('orders', fn (Builder $q) => $q->where('status', OrderStatus::Shipped))
                 ->count(),
             'confirm' => Checkout::where('buyer_id', $buyerId)
+                ->where('created_at', '>=', BuyerOrderPolicy::cutoff())
                 ->whereHas('orders', fn (Builder $q) => $q->where('status', OrderStatus::AwaitingConfirmation))
                 ->count(),
             'refunds' => Checkout::where('buyer_id', $buyerId)
+                ->where('created_at', '>=', BuyerOrderPolicy::cutoff())
                 ->whereHas('orders', function (Builder $q) {
                     $q->where(function (Builder $inner) {
                         $inner->where('status', OrderStatus::Refunded)
@@ -54,15 +67,18 @@ class OrderController extends Controller
                 })
                 ->count(),
             'completed' => Checkout::where('buyer_id', $buyerId)
+                ->where('created_at', '>=', BuyerOrderPolicy::cutoff())
                 ->whereHas('orders', fn (Builder $q) => $q
                     ->where('status', OrderStatus::Delivered)
                     ->where('payment_status', PaymentStatus::Paid))
                 ->count(),
             'cancelled' => Checkout::where('buyer_id', $buyerId)
+                ->where('created_at', '>=', BuyerOrderPolicy::cutoff())
                 ->whereHas('orders', fn (Builder $q) => $q->where('status', OrderStatus::Cancelled))
                 ->count(),
             'review' => $this->pendingReviewCount($buyerId) > 0
                 ? Checkout::where('buyer_id', $buyerId)
+                    ->where('created_at', '>=', BuyerOrderPolicy::cutoff())
                     ->whereHas('orders.items', function (Builder $q) use ($buyerId) {
                         $q->where('status', OrderStatus::Delivered)
                             ->whereNotExists(function ($sub) use ($buyerId) {
@@ -91,6 +107,7 @@ class OrderController extends Controller
                 ->whereIn('type', ['customer', 'customer_master']),
         ])
             ->where('buyer_id', $buyerId)
+            ->tap($visibleCheckouts)
             ->when($tab !== 'all', fn (Builder $q) => $this->applyTabFilter($q, $tab, $buyerId))
             ->latest()
             ->paginate(10)
@@ -123,12 +140,14 @@ class OrderController extends Controller
                         );
                         $hasOpenDispute = $order->items->contains(
                             fn (OrderItem $item) => $item->relationLoaded('dispute') && $item->dispute !== null
+                            && $item->dispute->status->value !== 'cancelled'
                         );
                         $reviewedProductIds = $reviewedByOrder->get($order->id)?->pluck('product_id')->all() ?? [];
                         $needsReview = $order->items->contains(
                             fn (OrderItem $item) => $item->status === OrderStatus::Delivered
                                 && ! in_array($item->product_id, $reviewedProductIds, true)
                         );
+                        $canRequestRefund = BuyerOrderPolicy::canRequestRefund($order);
 
                         return [
                             'id' => $order->id,
@@ -148,7 +167,10 @@ class OrderController extends Controller
                             'first_product_slug' => $firstItem?->product?->slug,
                             'awaiting_item_id' => $awaiting?->id,
                             'needs_review' => $needsReview,
-                            'can_refund' => $shippedOrDelivered && ! $hasOpenDispute && $order->status !== OrderStatus::Cancelled,
+                            'can_refund' => $canRequestRefund
+                                && $shippedOrDelivered
+                                && ! $hasOpenDispute
+                                && $order->status !== OrderStatus::Cancelled,
                             'driver_phone' => $order->items->first(fn (OrderItem $i) => filled($i->driver_phone))?->driver_phone,
                             'vehicle_number' => $order->items->first(fn (OrderItem $i) => filled($i->vehicle_number))?->vehicle_number,
                         ];
@@ -166,7 +188,9 @@ class OrderController extends Controller
     private function pendingReviewCount(int $buyerId): int
     {
         return OrderItem::query()
-            ->whereHas('order', fn (Builder $q) => $q->where('buyer_id', $buyerId))
+            ->whereHas('order', fn (Builder $q) => $q
+                ->where('buyer_id', $buyerId)
+                ->where('created_at', '>=', BuyerOrderPolicy::cutoff()))
             ->where('status', OrderStatus::Delivered)
             ->whereNotExists(function ($query) use ($buyerId) {
                 $query->selectRaw('1')
@@ -237,6 +261,8 @@ class OrderController extends Controller
             'seller.sellerProfile',
             'checkout',
         ]);
+
+        $order->setAttribute('can_request_refund', BuyerOrderPolicy::canRequestRefund($order));
 
         $reviews = Review::where('order_id', $order->id)
             ->where('user_id', $request->user()->id)

@@ -394,7 +394,9 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                                     </p>
                                 )}
 
-                                {['shipped', 'awaiting_confirmation', 'delivered'].includes(item.status) && (!item.dispute || item.dispute.status === 'cancelled') && (
+                                {order.can_request_refund &&
+                                    ['shipped', 'awaiting_confirmation', 'delivered'].includes(item.status) &&
+                                    (!item.dispute || item.dispute.status === 'cancelled') && (
                                     <RefundRequestForm orderId={order.id} item={item} />
                                 )}
                             </div>
