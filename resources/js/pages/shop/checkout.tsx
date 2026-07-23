@@ -209,7 +209,10 @@ export default function Checkout({
         <ShopLayout>
             <Head title="Checkout" />
             <div className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-8">
-                <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
+                <Link href={route('cart.index')} className="text-sm text-orange-500 hover:underline">
+                    &larr; Back to cart
+                </Link>
+                <h1 className="mt-3 text-2xl font-bold text-gray-900">Checkout</h1>
                 <p className="mt-1 text-sm text-gray-500">
                     One purchase — {sellerGroups.length} package{sellerGroups.length === 1 ? '' : 's'} (one per store). Each store ships separately.
                 </p>

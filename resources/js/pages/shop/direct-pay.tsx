@@ -201,7 +201,7 @@ function DirectPayPackageCard({ pkg }: { pkg: DirectPayPackage }) {
                     className="w-full bg-green-600 py-6 text-base font-semibold text-white hover:bg-green-700"
                 >
                     {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                    I&apos;ve paid — create order
+                    Submit your order
                 </Button>
             </form>
         </div>
