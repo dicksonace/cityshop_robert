@@ -4,17 +4,21 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Packing slip — {{ $order->order_number }}</title>
     <style>
+        /* DomPDF: keep everything inside printable area — no floats, wrap long lines */
         @page {
-            margin: 12mm 12mm 12mm 12mm;
+            size: A4 portrait;
+            margin: 14mm 14mm 14mm 14mm;
         }
         * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
-        body {
+        html, body {
+            width: 100%;
             font-family: DejaVu Sans, sans-serif;
-            font-size: 9pt;
-            line-height: 1.35;
+            font-size: 8.5pt;
+            line-height: 1.28;
             color: #111;
             @if($mode === 'html')
             background: #e5e7eb;
@@ -52,7 +56,7 @@
         .toolbar .pdf-btn { background: #f97316; color: #fff; }
         .toolbar .muted { color: #9ca3af; font-size: 12px; }
         .sheet {
-            width: 186mm;
+            width: 182mm;
             max-width: 100%;
             margin: 16px auto;
             padding: 12mm;
@@ -67,58 +71,71 @@
         @else
         .sheet {
             width: 100%;
+            max-width: 100%;
+            overflow: hidden;
         }
         @endif
 
-        table { border-collapse: collapse; }
-        .w-full { width: 100%; }
+        table {
+            border-collapse: collapse;
+            max-width: 100%;
+        }
+        .w-full {
+            width: 100%;
+            table-layout: fixed;
+        }
+        .wrap {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
         .brand {
-            font-size: 14pt;
+            font-size: 13pt;
             font-weight: bold;
         }
         .brand span { color: #ea580c; }
         .doc-title {
-            font-size: 11pt;
+            font-size: 10pt;
             font-weight: bold;
-            letter-spacing: 0.6px;
+            letter-spacing: 0.4px;
             text-transform: uppercase;
             text-align: right;
         }
         .order-number {
-            font-size: 10pt;
+            font-size: 9pt;
             font-weight: bold;
             text-align: right;
             margin-top: 2px;
+            word-break: break-all;
         }
         .muted {
             color: #555;
-            font-size: 8pt;
+            font-size: 7.5pt;
         }
         .right { text-align: right; }
         .top { vertical-align: top; }
         .mid { vertical-align: middle; }
         .header {
             border-bottom: 1.5pt solid #111;
-            padding-bottom: 8px;
-            margin-bottom: 10px;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
         }
         .box {
             border: 0.6pt solid #ccc;
-            padding: 7px 8px;
+            padding: 4px 6px;
         }
         .label {
-            font-size: 7pt;
+            font-size: 6.5pt;
             font-weight: bold;
             text-transform: uppercase;
             color: #666;
-            letter-spacing: 0.4px;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
         .badge {
             display: inline-block;
-            margin-top: 4px;
+            margin-top: 2px;
             padding: 1px 5px;
-            font-size: 7pt;
+            font-size: 6.5pt;
             font-weight: bold;
             text-transform: uppercase;
             background: #ecfdf5;
@@ -127,91 +144,113 @@
         .badge.cod { background: #ccfbf1; color: #0f766e; }
         .badge.pending { background: #fff7ed; color: #c2410c; }
         .items {
-            margin-top: 10px;
+            margin-top: 6px;
             width: 100%;
+            table-layout: fixed;
         }
         .items th {
-            font-size: 7pt;
+            font-size: 6.5pt;
             text-transform: uppercase;
             color: #666;
             text-align: left;
             border-bottom: 1pt solid #111;
-            padding: 4px 3px;
+            padding: 3px 2px;
         }
         .items td {
             border-bottom: 0.5pt solid #e5e5e5;
-            padding: 6px 3px;
-            font-size: 8.5pt;
+            padding: 3px 2px;
+            font-size: 8pt;
             vertical-align: middle;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
-        .items .num { width: 18px; }
-        .items .qty { width: 32px; text-align: right; }
-        .items .money { width: 68px; text-align: right; white-space: nowrap; }
+        .items .num { width: 16px; }
+        .items .qty { width: 28px; text-align: right; }
+        .items .money { width: 62px; text-align: right; }
         .thumb {
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             border: 0.5pt solid #ddd;
         }
         .thumb-ph {
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             border: 0.5pt solid #ddd;
             background: #f5f5f5;
             text-align: center;
             font-size: 6pt;
             color: #999;
-            line-height: 28px;
+            line-height: 26px;
         }
-        .pname { font-weight: bold; font-size: 8.5pt; }
-        .pstatus { color: #666; font-size: 7pt; margin-top: 1px; }
+        .pname { font-weight: bold; font-size: 8pt; }
+        .pstatus { color: #666; font-size: 6.5pt; margin-top: 1px; }
+        .totals-wrap {
+            width: 100%;
+            margin-top: 3px;
+        }
         .totals {
-            width: 180px;
-            margin-top: 8px;
-            float: right;
+            width: 170px;
+            margin-left: auto;
         }
         .totals td {
-            padding: 2px 0;
-            font-size: 8.5pt;
+            padding: 1px 0;
+            font-size: 8pt;
         }
         .totals td:last-child {
             text-align: right;
-            padding-left: 10px;
+            padding-left: 8px;
             white-space: nowrap;
         }
         .totals .grand td {
             border-top: 1.5pt solid #111;
-            padding-top: 5px;
-            font-size: 10pt;
+            padding-top: 3px;
+            font-size: 9.5pt;
             font-weight: bold;
         }
-        .clear { clear: both; height: 0; }
         .notes {
-            margin-top: 18px;
-            padding: 7px 8px;
+            margin-top: 8px;
+            padding: 4px 6px;
             border: 0.6pt dashed #999;
             background: #fafafa;
-            font-size: 8pt;
+            font-size: 7.5pt;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         .cut {
-            margin-top: 16px;
+            margin-top: 8px;
             border-top: 0.6pt dashed #999;
             padding-top: 5px;
             text-align: center;
-            font-size: 6.5pt;
+            font-size: 6pt;
             color: #888;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
         .receipt {
-            margin-top: 4px;
-            font-size: 7.5pt;
+            margin-top: 6px;
+            font-size: 7pt;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+        .receipt div {
+            margin-top: 2px;
         }
         .footer {
-            margin-top: 16px;
-            padding-top: 6px;
+            margin-top: 8px;
+            padding-top: 4px;
             border-top: 0.5pt solid #ddd;
-            font-size: 7pt;
+            font-size: 6.5pt;
             color: #666;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .footer td {
+            padding: 0 4px 0 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .footer td:last-child {
+            padding: 0 0 0 4px;
         }
     </style>
 </head>
@@ -243,12 +282,12 @@
 <div class="sheet">
     <table class="w-full header">
         <tr>
-            <td class="top" style="width:50%;">
+            <td class="top wrap" style="width:50%;">
                 <div class="brand">City<span>Shop</span></div>
                 <div class="muted">cityunlock.net · Packing slip</div>
-                <div class="muted" style="margin-top:4px;"><strong>Store:</strong> {{ $storeName }}</div>
+                <div class="muted wrap" style="margin-top:2px;"><strong>Store:</strong> {{ $storeName }}</div>
             </td>
-            <td class="top right" style="width:50%;">
+            <td class="top right wrap" style="width:50%;">
                 <div class="doc-title">Packing slip</div>
                 <div class="order-number">{{ $order->order_number }}</div>
                 <div class="muted">Placed {{ $order->created_at?->timezone(config('app.timezone'))->format('d M Y, H:i') }}</div>
@@ -257,10 +296,10 @@
         </tr>
     </table>
 
-    <table class="w-full" style="margin-bottom:8px;">
+    <table class="w-full" style="margin-bottom:5px;">
         <tr>
-            <td class="top" style="width:49%; padding-right:1%;">
-                <div class="box">
+            <td class="top" style="width:48%; padding-right:2%;">
+                <div class="box wrap">
                     <div class="label">Ship / deliver to</div>
                     <strong>{{ $order->receiver_name ?: ($order->buyer?->name ?? 'Buyer') }}</strong><br>
                     @if($order->receiver_phone)
@@ -274,14 +313,14 @@
                     @endif
                 </div>
             </td>
-            <td class="top" style="width:49%; padding-left:1%;">
-                <div class="box">
+            <td class="top" style="width:48%; padding-left:2%;">
+                <div class="box wrap">
                     <div class="label">Payment &amp; order</div>
                     <strong>{{ $paymentLabel }}</strong><br>
                     <span class="badge {{ $isCod ? 'cod' : ($isPendingPay ? 'pending' : '') }}">
                         {{ $isCod ? 'COD' : strtoupper($order->payment_status->value) }}
                     </span>
-                    <div class="muted" style="margin-top:6px;">
+                    <div class="muted" style="margin-top:3px;">
                         Items for this seller: {{ $items->count() }}<br>
                         Qty total: {{ $items->sum('quantity') }}
                     </div>
@@ -305,17 +344,17 @@
                 @php $imageSrc = $itemImages[$item->id] ?? null; @endphp
                 <tr>
                     <td class="num">{{ $index + 1 }}</td>
-                    <td>
-                        <table>
+                    <td class="wrap">
+                        <table style="width:100%; table-layout:fixed;">
                             <tr>
-                                <td class="mid" style="width:34px; padding-right:6px;">
+                                <td class="mid" style="width:32px; padding-right:5px;">
                                     @if($imageSrc)
-                                        <img class="thumb" src="{{ $imageSrc }}" width="28" height="28" alt="">
+                                        <img class="thumb" src="{{ $imageSrc }}" width="26" height="26" alt="">
                                     @else
                                         <div class="thumb-ph">—</div>
                                     @endif
                                 </td>
-                                <td class="mid">
+                                <td class="mid wrap">
                                     <div class="pname">{{ $item->product_name }}</div>
                                     @if($item->status)
                                         <div class="pstatus">Status: {{ str_replace('_', ' ', $item->status->value ?? $item->status) }}</div>
@@ -332,47 +371,58 @@
         </tbody>
     </table>
 
-    <table class="totals">
+    <table class="totals-wrap">
         <tr>
-            <td>Items subtotal</td>
-            <td>GH₵{{ number_format($subtotal, 2) }}</td>
-        </tr>
-        @if($shipping > 0)
-            <tr>
-                <td>Shipping</td>
-                <td>GH₵{{ number_format($shipping, 2) }}</td>
-            </tr>
-        @endif
-        <tr class="grand">
-            <td>All Total</td>
-            <td>GH₵{{ number_format($allTotal, 2) }}</td>
+            <td></td>
+            <td style="width:170px;">
+                <table class="totals">
+                    <tr>
+                        <td>Items subtotal</td>
+                        <td>GH₵{{ number_format($subtotal, 2) }}</td>
+                    </tr>
+                    @if($shipping > 0)
+                        <tr>
+                            <td>Shipping</td>
+                            <td>GH₵{{ number_format($shipping, 2) }}</td>
+                        </tr>
+                    @endif
+                    <tr class="grand">
+                        <td>All Total</td>
+                        <td>GH₵{{ number_format($allTotal, 2) }}</td>
+                    </tr>
+                </table>
+            </td>
         </tr>
     </table>
-    <div class="clear"></div>
 
     @if(filled($order->delivery_notes))
-        <div class="notes">
+        <div class="notes wrap">
             <div class="label">Delivery notes</div>
             {{ $order->delivery_notes }}
         </div>
     @endif
 
     <div class="cut">Customer copy / keep with parcel</div>
-    <div class="receipt">
-        <strong>{{ $order->order_number }}</strong>
-        · {{ $storeName }}
-        · {{ $order->receiver_name ?: ($order->buyer?->name ?? 'Buyer') }}
-        · {{ $order->receiver_phone }}
-        · {{ implode(', ', $addressLines) }}
+    <div class="receipt wrap">
+        <div><strong>{{ $order->order_number }}</strong> · {{ $storeName }}</div>
+        <div>
+            {{ $order->receiver_name ?: ($order->buyer?->name ?? 'Buyer') }}
+            @if($order->receiver_phone)
+                · {{ $order->receiver_phone }}
+            @endif
+        </div>
+        @if(count($addressLines))
+            <div>{{ implode(', ', $addressLines) }}</div>
+        @endif
     </div>
 
     <table class="w-full footer">
         <tr>
-            <td class="top" style="width:60%;">
+            <td class="top wrap" style="width:58%;">
                 Generated by CityShop for seller fulfillment.<br>
                 Not a tax invoice. For packing &amp; delivery use only.
             </td>
-            <td class="top right" style="width:40%;">
+            <td class="top right wrap" style="width:42%;">
                 {{ $storeName }}<br>
                 cityunlock.net
             </td>
