@@ -87,13 +87,11 @@ class SellerOrderPrintService
 
         return Pdf::loadView('seller.orders.packing-slip', $data)
             ->setPaper('a4', 'portrait')
-            ->setOptions([
-                'isHtml5ParserEnabled' => true,
-                'isRemoteEnabled' => true,
-                'defaultFont' => 'DejaVu Sans',
-                'dpi' => 96,
-                'isFontSubsettingEnabled' => true,
-            ])
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('defaultFont', 'DejaVu Sans')
+            ->setOption('dpi', 96)
+            ->setOption('isFontSubsettingEnabled', true)
             ->download($filename);
     }
 
@@ -115,7 +113,8 @@ class SellerOrderPrintService
     }
 
     /**
-     * Browser HTML uses a public /storage URL; DomPDF needs a local file path.
+     * Browser HTML uses a public /storage URL.
+     * DomPDF gets a base64 data URI so Windows paths and missing chroot never break images.
      */
     private function productImageSrc(OrderItem $item, string $mode): ?string
     {
@@ -131,22 +130,36 @@ class SellerOrderPrintService
             return null;
         }
 
-        $path = ltrim($path, '/');
+        $path = ltrim(str_replace('\\', '/', $path), '/');
 
-        if ($mode === 'pdf') {
-            $absolute = Storage::disk('public')->path($path);
-            if (is_file($absolute)) {
-                return $absolute;
-            }
+        if ($mode !== 'pdf') {
+            return asset('storage/'.$path);
+        }
 
-            $publicLinked = public_path('storage/'.$path);
-            if (is_file($publicLinked)) {
-                return $publicLinked;
-            }
+        $absolute = Storage::disk('public')->path($path);
+        if (! is_file($absolute)) {
+            $absolute = public_path('storage/'.$path);
+        }
 
+        if (! is_file($absolute)) {
             return null;
         }
 
-        return asset('storage/'.$path);
+        $mime = @mime_content_type($absolute) ?: 'image/jpeg';
+        if (! str_starts_with($mime, 'image/')) {
+            return null;
+        }
+
+        $binary = @file_get_contents($absolute);
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+
+        // Keep PDF small — skip huge originals.
+        if (strlen($binary) > 1_500_000) {
+            return null;
+        }
+
+        return 'data:'.$mime.';base64,'.base64_encode($binary);
     }
 }
