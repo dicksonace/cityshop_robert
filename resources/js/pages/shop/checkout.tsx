@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ChevronRight, LoaderCircle, MapPin, Pencil } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useEffect, useMemo, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import DirectPaymentDetails from '@/components/shop/direct-payment-details';
@@ -10,6 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
+import {
+    checkoutCartKey,
+    clearCheckoutDraft,
+    loadCheckoutDraft,
+    saveCheckoutDraft,
+} from '@/lib/checkout-draft';
 import { isBankPaymentMethod } from '@/lib/payment-method-display';
 import { CartItem, formatPrice, productImageUrl, Wallet } from '@/types/marketplace';
 import { BuyerAddress } from '@/types/buyer-address';
@@ -60,28 +66,86 @@ export default function Checkout({
     addresses,
     selectedAddressId,
 }: CheckoutProps) {
-    const [pickingAddress, setPickingAddress] = useState(false);
-    const [activeAddressId, setActiveAddressId] = useState<number | null>(selectedAddressId);
+    const cartKey = useMemo(() => checkoutCartKey(sellerGroups), [sellerGroups]);
 
-    const initialSellerPayments: Record<string, { channel: string; method_id?: number }> = {};
-    sellerGroups.forEach((group) => {
-        if (group.accept_direct_payments && !group.accept_marketplace_payments) {
-            initialSellerPayments[String(group.seller_id)] = {
-                channel: 'direct',
-                method_id: group.payment_methods[0]?.id,
-            };
-        } else {
-            initialSellerPayments[String(group.seller_id)] = { channel: 'marketplace' };
+    const initialForm = useMemo(() => {
+        const sellerPayments: Record<string, { channel: string; method_id?: number }> = {};
+        sellerGroups.forEach((group) => {
+            if (group.accept_direct_payments && !group.accept_marketplace_payments) {
+                sellerPayments[String(group.seller_id)] = {
+                    channel: 'direct',
+                    method_id: group.payment_methods[0]?.id,
+                };
+            } else {
+                sellerPayments[String(group.seller_id)] = { channel: 'marketplace' };
+            }
+        });
+
+        const draft = loadCheckoutDraft(cartKey);
+        const addressIds = new Set(addresses.map((a) => a.id));
+        const restoredAddressId =
+            draft?.address_id != null && addressIds.has(draft.address_id)
+                ? draft.address_id
+                : selectedAddressId;
+
+        const allowedMethods = new Set(['momo', 'card', 'cash', 'wallet']);
+        const paymentMethod =
+            draft?.payment_method && allowedMethods.has(draft.payment_method)
+                ? draft.payment_method
+                : 'momo';
+
+        if (draft?.seller_payments) {
+            sellerGroups.forEach((group) => {
+                const key = String(group.seller_id);
+                const saved = draft.seller_payments[key];
+                if (!saved) return;
+
+                if (saved.channel === 'direct' && group.accept_direct_payments) {
+                    const methodId =
+                        saved.method_id && group.payment_methods.some((m) => m.id === saved.method_id)
+                            ? saved.method_id
+                            : group.payment_methods[0]?.id;
+                    sellerPayments[key] = { channel: 'direct', method_id: methodId };
+                } else if (saved.channel === 'marketplace' && group.accept_marketplace_payments) {
+                    sellerPayments[key] = { channel: 'marketplace' };
+                }
+            });
         }
-    });
 
-    const { data, setData, errors } = useForm({
-        address_id: selectedAddressId,
-        payment_method: 'momo',
-        seller_payments: initialSellerPayments,
-        seller_coupons: {} as Record<string, string>,
-    });
+        const sellerCoupons: Record<string, string> = {};
+        if (draft?.seller_coupons) {
+            sellerGroups.forEach((group) => {
+                const key = String(group.seller_id);
+                const code = draft.seller_coupons[key];
+                if (typeof code === 'string' && code.trim() !== '') {
+                    sellerCoupons[key] = code;
+                }
+            });
+        }
+
+        return {
+            address_id: restoredAddressId,
+            payment_method: paymentMethod,
+            seller_payments: sellerPayments,
+            seller_coupons: sellerCoupons,
+        };
+    }, [addresses, cartKey, selectedAddressId, sellerGroups]);
+
+    const [pickingAddress, setPickingAddress] = useState(false);
+    const [activeAddressId, setActiveAddressId] = useState<number | null>(initialForm.address_id);
+
+    const { data, setData, errors } = useForm(initialForm);
     const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        saveCheckoutDraft({
+            cartKey,
+            address_id: data.address_id,
+            payment_method: data.payment_method,
+            seller_payments: data.seller_payments,
+            seller_coupons: data.seller_coupons,
+        });
+    }, [cartKey, data.address_id, data.payment_method, data.seller_coupons, data.seller_payments]);
 
     const selected =
         addresses.find((a) => a.id === (activeAddressId ?? data.address_id))
@@ -117,7 +181,10 @@ export default function Checkout({
                 seller_payments: data.seller_payments,
                 seller_coupons: data.seller_coupons,
             },
-            { onFinish: () => setSubmitting(false) },
+            {
+                onSuccess: () => clearCheckoutDraft(),
+                onFinish: () => setSubmitting(false),
+            },
         );
     };
 
@@ -131,6 +198,12 @@ export default function Checkout({
     const walletBalance = Number(wallet.available_balance);
     const walletCoversMarketplace = walletBalance >= marketplaceTotal;
     const canUseWallet = hasMarketplaceOrders && walletCoversMarketplace;
+
+    useEffect(() => {
+        if (data.payment_method === 'wallet' && !canUseWallet) {
+            setData('payment_method', 'momo');
+        }
+    }, [canUseWallet, data.payment_method, setData]);
 
     return (
         <ShopLayout>

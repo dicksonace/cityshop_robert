@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
+import {
+    clearPaymentReference,
+    loadPaymentReference,
+    savePaymentReference,
+} from '@/lib/checkout-draft';
 import { isBankPaymentMethod, bankPaymentTitle } from '@/lib/payment-method-display';
 import { formatPrice, Order, productImageUrl } from '@/types/marketplace';
 
@@ -144,9 +149,13 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
         reference: string;
         proof: File | null;
     }>({
-        reference: order.direct_payment_reference ?? '',
+        reference: order.direct_payment_reference ?? loadPaymentReference(order.id) ?? '',
         proof: null,
     });
+
+    useEffect(() => {
+        savePaymentReference(order.id, data.reference);
+    }, [order.id, data.reference]);
 
     const accountNumber = method?.account_number ?? '';
     const isBank = isBankPaymentMethod(method);
@@ -154,7 +163,10 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        post(route('orders.direct-payment', order.id), { forceFormData: true });
+        post(route('orders.direct-payment', order.id), {
+            forceFormData: true,
+            onSuccess: () => clearPaymentReference(order.id),
+        });
     };
 
     const existingProof = order.direct_payment_proof_path
