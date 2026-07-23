@@ -17,7 +17,7 @@ class InvoiceService
             return $checkout->invoices()->get();
         }
 
-        $checkout->load(['orders.items', 'orders.seller.sellerProfile', 'buyer']);
+        $checkout->load(['orders.items.product.images', 'orders.seller.sellerProfile', 'buyer']);
 
         $invoices = collect();
 
@@ -32,6 +32,9 @@ class InvoiceService
                 $masterLines[] = [
                     'seller' => $sellerName,
                     'product_name' => $item->product_name,
+                    'product_id' => $item->product_id,
+                    'image' => $item->product?->images?->firstWhere('is_primary', true)?->path
+                        ?? $item->product?->images?->first()?->path,
                     'quantity' => $item->quantity,
                     'unit_price' => (float) $item->unit_price,
                     'total' => $lineTotal,
@@ -132,13 +135,20 @@ class InvoiceService
 
     private function orderLineItems(Order $order, bool $forSeller = false): array
     {
-        return $order->items->map(fn ($item) => [
-            'product_name' => $item->product_name,
-            'quantity' => $item->quantity,
-            'unit_price' => (float) $item->unit_price,
-            'total' => $item->lineTotal(),
-            'seller_amount' => $forSeller ? (float) $item->seller_amount : null,
-            'commission' => $forSeller ? (float) $item->commission_amount : null,
-        ])->all();
+        return $order->items->map(function ($item) use ($forSeller) {
+            $image = $item->product?->images?->firstWhere('is_primary', true)?->path
+                ?? $item->product?->images?->first()?->path;
+
+            return [
+                'product_name' => $item->product_name,
+                'product_id' => $item->product_id,
+                'image' => $image,
+                'quantity' => $item->quantity,
+                'unit_price' => (float) $item->unit_price,
+                'total' => $item->lineTotal(),
+                'seller_amount' => $forSeller ? (float) $item->seller_amount : null,
+                'commission' => $forSeller ? (float) $item->commission_amount : null,
+            ];
+        })->all();
     }
 }

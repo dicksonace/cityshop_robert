@@ -6,7 +6,6 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import ManualTopUpPrompt from '@/components/wallet/manual-top-up-prompt';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import SellerLayout from '@/layouts/seller-layout';
@@ -35,7 +34,6 @@ interface WalletProps {
     withdrawals: Paginated<Withdrawal>;
     payoutMethods: PayoutMethod[];
     hasPendingWithdrawal: boolean;
-    manualTopUpEnabled?: boolean;
 }
 
 function formatDate(value?: string): string {
@@ -43,7 +41,7 @@ function formatDate(value?: string): string {
     return new Date(value).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function SellerWallet({ wallet, transactions, withdrawals, payoutMethods, hasPendingWithdrawal, manualTopUpEnabled }: WalletProps) {
+export default function SellerWallet({ wallet, transactions, withdrawals, payoutMethods, hasPendingWithdrawal }: WalletProps) {
     const [withdrawStep, setWithdrawStep] = useState<'method' | 'amount' | 'review'>('method');
     const [showAddMethod, setShowAddMethod] = useState(payoutMethods.length === 0);
     const [refreshing, setRefreshing] = useState(false);
@@ -151,16 +149,6 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                     </div>
                 ))}
             </div>
-
-            {manualTopUpEnabled && (
-                <ManualTopUpPrompt
-                    href={route('seller.wallet.manual-top-up')}
-                    className="mb-6"
-                    title="Need to top up for buyer refunds?"
-                    description="If you withdrew funds and need to cancel a Pay-to-seller order, top up first. Use Auto Paystack from the dashboard, or submit a manual MoMo/bank proof here."
-                    cta="Open manual top-up"
-                />
-            )}
 
             <div id="withdraw" className="scroll-mt-24">
             <WithdrawalHighlight

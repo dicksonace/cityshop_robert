@@ -8,12 +8,14 @@ import { SharedData } from '@/types';
 interface ShopLayoutProps {
     children: ReactNode;
     hideHeaderSearch?: boolean;
+    /** Hide header, footer, and buyer bottom nav (invoice / print-ready pages). */
+    hideChrome?: boolean;
 }
 
-export default function ShopLayout({ children, hideHeaderSearch = false }: ShopLayoutProps) {
+export default function ShopLayout({ children, hideHeaderSearch = false, hideChrome = false }: ShopLayoutProps) {
     const page = usePage<SharedData>();
     const { auth, flash } = page.props;
-    const showBuyerNav = auth.user?.role === 'buyer';
+    const showBuyerNav = !hideChrome && auth.user?.role === 'buyer';
     const component = typeof page.component === 'string' ? page.component : '';
     const hasValidationErrors = Object.keys(page.props.errors ?? {}).length > 0;
     // Auth/forms already show errors next to the fields — don't duplicate as a top banner.
@@ -30,23 +32,30 @@ export default function ShopLayout({ children, hideHeaderSearch = false }: ShopL
         <div
             className={
                 showBuyerNav
-                    ? 'relative w-full max-w-[100vw] min-h-screen overflow-x-clip bg-gradient-to-b from-gray-50 to-white pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] sm:pb-0'
-                    : 'relative w-full max-w-[100vw] min-h-screen overflow-x-clip bg-gradient-to-b from-gray-50 to-white'
+                    ? 'relative w-full max-w-[100vw] min-h-screen overflow-x-clip bg-gradient-to-b from-gray-50 to-white pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] print:min-h-0 print:bg-white print:pb-0 sm:pb-0'
+                    : hideChrome
+                        ? 'relative w-full max-w-[100vw] min-h-0 overflow-x-clip bg-white print:bg-white'
+                        : 'relative w-full max-w-[100vw] min-h-screen overflow-x-clip bg-gradient-to-b from-gray-50 to-white print:min-h-0 print:bg-white'
             }
         >
-            <ShopHeader hideSearch={hideHeaderSearch} />
-            {flash?.success && (
-                <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-800">
+            {!hideChrome && (
+                <div className="print:hidden">
+                    <ShopHeader hideSearch={hideHeaderSearch} />
+                </div>
+            )}
+            {!hideChrome && flash?.success && (
+                <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-800 print:hidden">
                     {flash.success}
                 </div>
             )}
-            {showLayoutError && (
-                <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-800">
+            {!hideChrome && showLayoutError && (
+                <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-800 print:hidden">
                     {flash.error}
                 </div>
             )}
             <main className="w-full min-w-0">{children}</main>
-            <footer className="mt-12 border-t border-gray-200 bg-white py-8">
+            {!hideChrome && (
+            <footer className="mt-12 border-t border-gray-200 bg-white py-8 print:hidden">
                 <div className="mx-auto w-full max-w-7xl px-4">
                     <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-4">
                         <div>
@@ -114,7 +123,12 @@ export default function ShopLayout({ children, hideHeaderSearch = false }: ShopL
                     <p className="mt-8 text-center text-xs text-gray-400">&copy; {new Date().getFullYear()} CityShop. All rights reserved.</p>
                 </div>
             </footer>
-            {showBuyerNav && <BuyerMobileNav />}
+            )}
+            {showBuyerNav && (
+                <div className="print:hidden">
+                    <BuyerMobileNav />
+                </div>
+            )}
         </div>
     );
 }
