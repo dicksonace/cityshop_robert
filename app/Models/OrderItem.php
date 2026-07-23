@@ -38,6 +38,7 @@ class OrderItem extends Model
         'vehicle_number',
         'driver_phone',
         'package_image',
+        'awaiting_confirmation_at',
     ];
 
     protected function casts(): array
@@ -51,6 +52,7 @@ class OrderItem extends Model
             'funds_release_status' => FundsReleaseStatus::class,
             'cancelled_at' => 'datetime',
             'funds_released_at' => 'datetime',
+            'awaiting_confirmation_at' => 'datetime',
         ];
     }
 

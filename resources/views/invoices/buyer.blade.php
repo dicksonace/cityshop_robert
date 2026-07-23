@@ -102,6 +102,9 @@
             <div class="label">{{ count($sellerContacts) > 1 ? 'Store '.($index + 1) : 'Seller' }}</div>
             <div class="field"><span class="k">Store name:</span> <strong>{{ $contact['store_name'] }}</strong></div>
             <div class="field"><span class="k">Address:</span> {{ $contact['address'] ?: '—' }}</div>
+            @if (!empty($contact['digital_address']))
+                <div class="field"><span class="k">Digital address:</span> {{ $contact['digital_address'] }}</div>
+            @endif
             @if (!empty($contact['location']))
                 <div class="field"><span class="k">Location:</span> {{ $contact['location'] }}</div>
             @endif

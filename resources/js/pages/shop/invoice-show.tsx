@@ -17,6 +17,7 @@ interface InvoiceLine {
 interface SellerContact {
     store_name: string;
     address?: string | null;
+    digital_address?: string | null;
     location?: string | null;
     phone?: string | null;
 }
@@ -146,10 +147,16 @@ export default function InvoiceShow({ invoice, sellerContacts, sellerContact }: 
                                             <dt className="text-xs text-gray-500">Address</dt>
                                             <dd className="text-gray-900">{contact.address || '—'}</dd>
                                         </div>
-                                        {(contact.location || contacts.length === 1) && (
+                                        {contact.digital_address && (
+                                            <div className="sm:col-span-2">
+                                                <dt className="text-xs text-gray-500">Digital address</dt>
+                                                <dd className="text-gray-900">{contact.digital_address}</dd>
+                                            </div>
+                                        )}
+                                        {contact.location && (
                                             <div className="sm:col-span-2">
                                                 <dt className="text-xs text-gray-500">Location</dt>
-                                                <dd className="text-gray-900">{contact.location || '—'}</dd>
+                                                <dd className="text-gray-900">{contact.location}</dd>
                                             </div>
                                         )}
                                     </dl>

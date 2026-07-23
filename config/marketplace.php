@@ -8,6 +8,12 @@ return [
     */
     'buyer_order_months' => (int) env('BUYER_ORDER_MONTHS', 2),
 
+    /*
+    | After the seller marks an item delivered (awaiting buyer confirmation),
+    | CityShop auto-confirms receipt if the buyer does not act within this many days.
+    */
+    'auto_confirm_delivery_days' => (int) env('AUTO_CONFIRM_DELIVERY_DAYS', 21),
+
     'contact' => [
         'email' => env('MARKETPLACE_SUPPORT_EMAIL', 'support@cityshop.com'),
         'phone' => env('MARKETPLACE_SUPPORT_PHONE', '+233 24 862 0718'),

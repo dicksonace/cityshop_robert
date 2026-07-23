@@ -32,6 +32,7 @@ class BuyerInvoiceSellerContactTest extends TestCase
             'mobile' => '0248000111',
             'city' => 'Accra',
             'region' => 'Greater Accra',
+            'digital_address' => 'GA-000-0000',
             'residential_address' => 'Backup Street',
         ]);
 
@@ -146,6 +147,8 @@ class BuyerInvoiceSellerContactTest extends TestCase
                 ->component('shop/invoice-show')
                 ->where('sellerContacts.0.store_name', 'City Gadget Hub')
                 ->where('sellerContacts.0.address', '15 Spintex Road, Accra')
+                ->where('sellerContacts.0.digital_address', 'GA-000-0000')
+                ->where('sellerContacts.0.location', 'Accra, Greater Accra')
                 ->where('sellerContact.store_name', 'City Gadget Hub')
                 ->where('sellerContact.address', '15 Spintex Road, Accra')
             );

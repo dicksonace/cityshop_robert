@@ -180,6 +180,9 @@ export interface OrderItem {
     vehicle_number?: string | null;
     driver_phone?: string | null;
     package_image?: string | null;
+    awaiting_confirmation_at?: string | null;
+    auto_confirm_in?: string | null;
+    auto_confirm_at?: string | null;
     product?: Product;
     order?: Order;
     dispute?: {

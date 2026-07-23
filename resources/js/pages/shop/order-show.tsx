@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangle, CheckCircle2, ChevronRight, Star } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useEffect, useState } from 'react';
 
 import { LightboxTrigger, orderItemLightboxImages } from '@/components/shop/image-lightbox';
 import OrderProgress from '@/components/shop/order-progress';
@@ -47,8 +47,8 @@ function ReviewForm({ orderId, item }: { orderId: number; item: OrderItem }) {
     };
 
     return (
-        <form onSubmit={submit} className="mt-3 rounded-lg border border-orange-100 bg-orange-50 p-4">
-            <p className="text-sm font-medium text-gray-900">Rate this product</p>
+        <form id="write-review" onSubmit={submit} className="mt-3 scroll-mt-24 rounded-lg border border-orange-100 bg-orange-50 p-4">
+            <p className="text-sm font-medium text-gray-900">Write your review</p>
             <div className="mt-2 flex gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
                     <button key={n} type="button" onClick={() => setData('rating', n)}>
@@ -144,6 +144,14 @@ function RefundStatus({ dispute }: { dispute: { id: number; status: string; reas
 }
 
 export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }: OrderShowProps & { checkoutNumber?: string | null; checkoutId?: number | null }) {
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (window.location.hash !== '#write-review') return;
+        const timer = window.setTimeout(() => {
+            document.getElementById('write-review')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 150);
+        return () => window.clearTimeout(timer);
+    }, []);
     const isCancelled =
         order.status === 'cancelled'
         || (order.items?.length > 0 && order.items.every((item) => item.status === 'cancelled'));
@@ -360,18 +368,25 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                                         })()}
 
                                         {item.status === 'awaiting_confirmation' && (
-                                            <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-4">
-                                                <p className="text-sm font-medium text-green-900">Has your item arrived?</p>
-                                                <p className="mt-1 text-xs text-green-700">
-                                                    Confirm delivery only after you have received the item in good condition.
+                                            <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-4">
+                                                <p className="text-sm font-semibold text-orange-950">Waiting for delivery confirmation</p>
+                                                <p className="mt-1 text-xs text-orange-900/80">
+                                                    Confirm delivery if you have received the products.
+                                                    {item.auto_confirm_in && (
+                                                        <>
+                                                            {' '}
+                                                            The system will confirm delivery automatically in{' '}
+                                                            <span className="font-semibold text-orange-700">{item.auto_confirm_in}</span>.
+                                                        </>
+                                                    )}
                                                 </p>
                                                 <Button
                                                     type="button"
-                                                    className="mt-3 w-full bg-green-600 hover:bg-green-700 sm:w-auto"
+                                                    className="mt-3 w-full bg-orange-500 hover:bg-orange-600 sm:w-auto"
                                                     onClick={() => router.post(route('orders.confirm-delivery', [order.id, item.id]))}
                                                 >
                                                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                                                    I received my item
+                                                    Confirm delivery
                                                 </Button>
                                             </div>
                                         )}

@@ -1087,6 +1087,10 @@ class OrderService
 
         if (isset($payload['status'])) {
             $this->assertValidStatusTransition($item, OrderStatus::from($payload['status']));
+
+            if ($payload['status'] === OrderStatus::AwaitingConfirmation->value && $previousStatus !== OrderStatus::AwaitingConfirmation->value) {
+                $payload['awaiting_confirmation_at'] = now();
+            }
         }
 
         $item->update($payload);

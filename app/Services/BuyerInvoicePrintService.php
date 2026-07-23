@@ -17,7 +17,7 @@ class BuyerInvoicePrintService
      * @return array{
      *   invoice: Invoice,
      *   typeLabel: string,
-     *   sellerContacts: list<array{store_name: string, address: string|null, location: string|null, phone: string|null}>,
+     *   sellerContacts: list<array{store_name: string, address: string|null, digital_address: string|null, location: string|null, phone: string|null}>,
      *   lineItems: list<array<string, mixed>>,
      *   issuedLabel: string,
      * }
@@ -58,7 +58,7 @@ class BuyerInvoicePrintService
     }
 
     /**
-     * @return list<array{store_name: string, address: string|null, location: string|null, phone: string|null}>
+     * @return list<array{store_name: string, address: string|null, digital_address: string|null, location: string|null, phone: string|null}>
      */
     public function resolveSellerContacts(Invoice $invoice): array
     {
@@ -179,7 +179,7 @@ class BuyerInvoicePrintService
     }
 
     /**
-     * @return array{store_name: string, address: string|null, location: string|null, phone: string|null}
+     * @return array{store_name: string, address: string|null, digital_address: string|null, location: string|null, phone: string|null}
      */
     private function sellerContactFromUser(User $seller): array
     {
@@ -198,13 +198,14 @@ class BuyerInvoicePrintService
         ])->map(fn ($v) => is_string($v) ? trim($v) : '')
             ->first(fn (string $v) => $v !== '') ?: null;
 
-        $location = collect([
-            $seller->digital_address,
-            collect([$seller->city, $seller->region])->filter()->implode(', '),
-        ])->map(fn ($v) => is_string($v) ? trim($v) : '')
+        $digitalAddress = is_string($seller->digital_address) ? trim($seller->digital_address) : '';
+        $digitalAddress = $digitalAddress !== '' ? $digitalAddress : null;
+
+        $location = collect([$seller->city, $seller->region])
+            ->map(fn ($v) => is_string($v) ? trim($v) : '')
             ->filter()
             ->unique()
-            ->implode(' · ') ?: null;
+            ->implode(', ') ?: null;
 
         $phone = collect([$seller->mobile, $seller->whatsapp])
             ->map(fn ($v) => is_string($v) ? trim($v) : '')
@@ -213,6 +214,7 @@ class BuyerInvoicePrintService
         return [
             'store_name' => $storeName,
             'address' => $address,
+            'digital_address' => $digitalAddress,
             'location' => $location,
             'phone' => $phone,
         ];

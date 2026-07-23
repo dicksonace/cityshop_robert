@@ -51,16 +51,16 @@ export default function OrderProgress({ status, paymentMethod, className }: Orde
 
     return (
         <div className={cn('space-y-3', className)}>
-            <div className="flex items-center justify-between gap-1">
+            <div className="flex items-start justify-between gap-0.5 sm:gap-1">
                 {steps.map((step, i) => {
                     const done = i < current;
                     const active = i === current;
 
                     return (
-                        <div key={step.key} className="flex flex-1 flex-col items-center">
+                        <div key={step.key} className="flex min-w-0 flex-1 flex-col items-center">
                             <div
                                 className={cn(
-                                    'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold',
+                                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold',
                                     done && 'bg-green-500 text-white',
                                     active && 'bg-orange-500 text-white ring-4 ring-orange-100',
                                     !done && !active && 'bg-gray-100 text-gray-400',
@@ -70,7 +70,7 @@ export default function OrderProgress({ status, paymentMethod, className }: Orde
                             </div>
                             <p
                                 className={cn(
-                                    'mt-1.5 hidden text-center text-[10px] leading-tight sm:block',
+                                    'mt-1.5 w-full text-center text-[9px] leading-tight sm:text-[10px]',
                                     active ? 'font-semibold text-orange-600' : 'text-gray-500',
                                 )}
                             >
@@ -86,7 +86,7 @@ export default function OrderProgress({ status, paymentMethod, className }: Orde
                     style={{ width: `${(current / Math.max(1, steps.length - 1)) * 100}%` }}
                 />
             </div>
-            <p className="text-center text-sm font-medium text-gray-800 sm:hidden">
+            <p className="text-center text-sm font-medium text-gray-800">
                 {isCod && status === 'pending' ? 'Cash on delivery' : formatOrderStatus(status)}
             </p>
         </div>

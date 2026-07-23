@@ -11,6 +11,7 @@ use App\Models\OrderItem;
 use App\Models\Review;
 use App\Services\OrderService;
 use App\Support\BuyerOrderPolicy;
+use App\Support\DeliveryConfirmationPolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -166,6 +167,9 @@ class OrderController extends Controller
                             'first_product_name' => $firstItem?->product_name,
                             'first_product_slug' => $firstItem?->product?->slug,
                             'awaiting_item_id' => $awaiting?->id,
+                            'auto_confirm_in' => $awaiting
+                                ? DeliveryConfirmationPolicy::remainingLabel($awaiting)
+                                : null,
                             'needs_review' => $needsReview,
                             'can_refund' => $canRequestRefund
                                 && $shippedOrDelivered
@@ -263,6 +267,7 @@ class OrderController extends Controller
         ]);
 
         $order->setAttribute('can_request_refund', BuyerOrderPolicy::canRequestRefund($order));
+        $order->items->each(fn (OrderItem $item) => DeliveryConfirmationPolicy::appendToItem($item));
 
         $reviews = Review::where('order_id', $order->id)
             ->where('user_id', $request->user()->id)
@@ -288,6 +293,15 @@ class OrderController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Delivery confirmed. Seller earnings were released to Available (or were already released by admin).');
+        // Send buyer to the review form — no seller-earnings flash on the orders list.
+        if ($order->checkout_id) {
+            return redirect()
+                ->to(route('checkouts.show', $order->checkout_id).'#write-review')
+                ->with('success', 'Write your review');
+        }
+
+        return redirect()
+            ->to(route('orders.show', ['order' => $order->id, 'package' => 1]).'#write-review')
+            ->with('success', 'Write your review');
     }
 }

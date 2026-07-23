@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
 use App\Models\Checkout;
+use App\Models\OrderItem;
 use App\Models\Review;
 use App\Support\BuyerOrderPolicy;
+use App\Support\DeliveryConfirmationPolicy;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,6 +38,7 @@ class CheckoutSessionController extends Controller
 
         $checkout->orders->each(function ($order) {
             $order->setAttribute('can_request_refund', BuyerOrderPolicy::canRequestRefund($order));
+            $order->items->each(fn (OrderItem $item) => DeliveryConfirmationPolicy::appendToItem($item));
         });
 
         return Inertia::render('shop/checkout-show', [

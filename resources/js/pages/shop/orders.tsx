@@ -24,6 +24,7 @@ interface PurchasePackage {
     first_product_name?: string | null;
     first_product_slug?: string | null;
     awaiting_item_id?: number | null;
+    auto_confirm_in?: string | null;
     needs_review?: boolean;
     can_refund?: boolean;
     driver_phone?: string | null;
@@ -213,7 +214,8 @@ export default function Orders({ purchases, counts, tab }: OrdersProps) {
                                             </span>
                                         </div>
 
-                                        <div className="flex flex-wrap justify-end gap-2 border-t border-gray-50 px-3 py-3">
+                                        <div className="flex flex-col items-stretch gap-2 border-t border-gray-50 px-3 py-3">
+                                            <div className="flex flex-wrap justify-end gap-2">
                                             {pkg.payment_status === 'pending'
                                                 && pkg.payment_method !== 'cash'
                                                 && pkg.status !== 'cancelled'
@@ -274,6 +276,14 @@ export default function Orders({ purchases, counts, tab }: OrdersProps) {
                                                 <Button size="sm" variant="outline" className="rounded-full" asChild>
                                                     <Link href={purchaseUrl}>View details</Link>
                                                 </Button>
+                                            )}
+                                            </div>
+
+                                            {pkg.awaiting_item_id && pkg.auto_confirm_in && (
+                                                <p className="text-right text-[11px] leading-snug text-gray-500">
+                                                    The system will confirm delivery automatically in{' '}
+                                                    <span className="font-medium text-orange-600">{pkg.auto_confirm_in}</span>.
+                                                </p>
                                             )}
                                         </div>
                                     </article>
