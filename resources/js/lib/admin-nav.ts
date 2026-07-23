@@ -20,6 +20,7 @@ export type AdminNavKey =
     | 'categories'
     | 'orders'
     | 'orders-unprocessed'
+    | 'orders-awaiting-direct'
     | 'orders-confirm-delivery'
     | 'orders-cancellations'
     | 'withdrawals'
@@ -44,6 +45,7 @@ const sectionMap: Record<AdminNavKey, string> = {
     categories: 'catalog',
     orders: 'orders',
     'orders-unprocessed': 'orders',
+    'orders-awaiting-direct': 'orders',
     'orders-confirm-delivery': 'orders',
     'orders-cancellations': 'orders',
     withdrawals: 'finance',
@@ -119,6 +121,13 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                     label: 'Unprocessed 24h+',
                     href: route('admin.orders.unprocessed'),
                     badgeKey: 'stale_unprocessed_orders',
+                    defaultOnPath: true,
+                },
+                {
+                    key: 'orders-awaiting-direct',
+                    label: 'Awaiting direct payment',
+                    href: route('admin.orders.awaiting-direct'),
+                    badgeKey: 'awaiting_direct_payments',
                     defaultOnPath: true,
                 },
                 {

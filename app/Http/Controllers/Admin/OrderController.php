@@ -26,6 +26,73 @@ class OrderController extends Controller
         ]);
     }
 
+    public function awaitingDirectPayment(Request $request): Response
+    {
+        $claim = $request->string('claim')->toString();
+        if (! in_array($claim, ['all', 'awaiting_claim', 'claimed'], true)) {
+            $claim = 'all';
+        }
+
+        $orders = $this->orders->awaitingDirectPaymentOrdersQuery($claim)
+            ->with([
+                'buyer',
+                'seller.sellerProfile',
+                'checkout:id,checkout_number',
+                'sellerPaymentMethod',
+                'items',
+            ])
+            ->latest()
+            ->paginate(20)
+            ->withQueryString()
+            ->through(function (Order $order) {
+                $method = $order->sellerPaymentMethod;
+                $hasClaim = filled($order->direct_payment_reference) || filled($order->direct_payment_proof_path);
+
+                return [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'total' => (float) $order->total,
+                    'status' => $order->status->value,
+                    'payment_status' => $order->payment_status->value,
+                    'created_at' => $order->created_at?->toIso8601String(),
+                    'hours_waiting' => $order->created_at ? (int) $order->created_at->diffInHours(now()) : null,
+                    'claim_status' => $hasClaim ? 'claimed' : 'awaiting_claim',
+                    'direct_payment_reference' => $order->direct_payment_reference,
+                    'direct_payment_proof_path' => $order->direct_payment_proof_path,
+                    'direct_payment_rejection_reason' => $order->direct_payment_rejection_reason,
+                    'checkout_number' => $order->checkout?->checkout_number,
+                    'buyer' => [
+                        'id' => $order->buyer?->id,
+                        'name' => $order->buyer?->name,
+                        'email' => $order->buyer?->email,
+                        'mobile' => $order->buyer?->mobile,
+                    ],
+                    'seller' => [
+                        'id' => $order->seller?->id,
+                        'name' => $order->seller?->name,
+                        'store' => $order->seller?->sellerProfile?->store_name
+                            ?? $order->seller?->sellerProfile?->business_name,
+                    ],
+                    'payment_method' => $method ? [
+                        'type' => $method->type?->value ?? $method->type,
+                        'account_name' => $method->account_name,
+                        'account_number' => $method->account_number,
+                        'network' => $method->network,
+                        'bank_name' => $method->bank_name,
+                    ] : null,
+                    'items_count' => $order->items->count(),
+                ];
+            });
+
+        return Inertia::render('admin/orders/awaiting-direct', [
+            'orders' => $orders,
+            'claim' => $claim,
+            'count' => $this->orders->awaitingDirectPaymentOrdersQuery('all')->count(),
+            'awaiting_claim_count' => $this->orders->awaitingDirectPaymentOrdersQuery('awaiting_claim')->count(),
+            'claimed_count' => $this->orders->awaitingDirectPaymentOrdersQuery('claimed')->count(),
+        ]);
+    }
+
     public function unprocessed(Request $request): Response
     {
         $hours = max(1, (int) $request->integer('hours', 24));

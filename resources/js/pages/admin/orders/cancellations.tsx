@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 
+import AdminOrderTabs from '@/components/admin/admin-order-tabs';
 import { Button } from '@/components/ui/button';
 import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Paginated } from '@/types/marketplace';
@@ -59,17 +60,7 @@ export default function AdminSellerCancellations({ items, highCancelSellers }: P
         <AdminLayout title="Seller cancellations" active="orders-cancellations">
             <Head title="Seller cancellations" />
 
-            <div className="mb-4 flex flex-wrap gap-2">
-                <Link href={route('admin.orders.index')} className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm">
-                    All orders
-                </Link>
-                <Link href={route('admin.orders.unprocessed')} className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm">
-                    Unprocessed 24h+
-                </Link>
-                <span className="rounded-full bg-orange-500 px-4 py-1.5 text-sm font-medium text-white">
-                    Seller cancellations
-                </span>
-            </div>
+            <AdminOrderTabs active="cancellations" />
 
             {highCancelSellers.length > 0 && (
                 <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">

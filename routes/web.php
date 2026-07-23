@@ -77,6 +77,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/checkout', [CheckoutController::class, 'index'])->middleware('buyer.shop')->name('checkout.index');
     Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('buyer.shop')->name('checkout.store');
+    Route::get('/checkout/direct-pay', [CheckoutController::class, 'directPay'])->middleware('buyer.shop')->name('checkout.direct-pay');
+    Route::post('/checkout/direct-pay/{sellerId}', [CheckoutController::class, 'submitDirectPay'])->middleware('buyer.shop')->name('checkout.direct-pay.submit');
     Route::get('/checkout/payment/{checkout}', [CheckoutController::class, 'payment'])->middleware('buyer.shop')->name('checkout.payment');
     Route::get('/checkout/callback', [CheckoutController::class, 'callback'])->middleware('buyer.shop')->name('checkout.callback');
     Route::post('/checkout/payment/{checkout}/initialize', [CheckoutController::class, 'initializePayment'])->middleware('buyer.shop')->name('checkout.initialize');
@@ -228,6 +230,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/unprocessed', [AdminOrderController::class, 'unprocessed'])->name('orders.unprocessed');
     Route::post('/orders/items/{orderItem}/cancel-unprocessed', [AdminOrderController::class, 'cancelUnprocessed'])->name('orders.unprocessed.cancel');
+    Route::get('/orders/awaiting-direct', [AdminOrderController::class, 'awaitingDirectPayment'])->name('orders.awaiting-direct');
     Route::get('/orders/confirm-delivery', [AdminOrderController::class, 'awaitingConfirmation'])->name('orders.confirm-delivery');
     Route::post('/orders/items/{orderItem}/confirm-delivery', [AdminOrderController::class, 'confirmDelivery'])->name('orders.confirm-delivery.store');
     Route::get('/orders/cancellations', [AdminOrderController::class, 'cancellations'])->name('orders.cancellations');

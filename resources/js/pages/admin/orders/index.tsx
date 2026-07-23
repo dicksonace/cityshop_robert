@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 
+import AdminOrderTabs from '@/components/admin/admin-order-tabs';
 import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Order, Paginated } from '@/types/marketplace';
 
@@ -16,27 +17,7 @@ export default function AdminOrdersIndex({ orders }: OrdersIndexProps) {
     return (
         <AdminLayout title="Orders" active="orders">
             <Head title="Orders" />
-            <div className="mb-4 flex flex-wrap gap-2">
-                <span className="rounded-full bg-orange-500 px-4 py-1.5 text-sm font-medium text-white">All orders</span>
-                <Link
-                    href={route('admin.orders.unprocessed')}
-                    className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
-                >
-                    Unprocessed 24h+
-                </Link>
-                <Link
-                    href={route('admin.orders.confirm-delivery')}
-                    className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
-                >
-                    Confirm delivery
-                </Link>
-                <Link
-                    href={route('admin.orders.cancellations')}
-                    className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
-                >
-                    Seller cancellations
-                </Link>
-            </div>
+            <AdminOrderTabs active="all" />
             <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
                 <table className="min-w-[720px] w-full text-sm">
                     <thead className="border-b bg-gray-50">

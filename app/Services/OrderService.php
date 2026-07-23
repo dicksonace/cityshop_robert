@@ -94,7 +94,8 @@ class OrderService
             foreach ($grouped as $sellerId => $items) {
                 $seller = User::with('sellerProfile.paymentMethods')->findOrFail($sellerId);
                 $profile = $seller->sellerProfile;
-                $channel = $this->resolvePaymentChannel($profile, $sellerPayments[$sellerId] ?? []);
+                $choice = $this->sellerPaymentChoice($sellerPayments, (int) $sellerId);
+                $channel = $this->resolvePaymentChannel($profile, $choice);
 
                 $orderSubtotal = $items->sum(fn ($item) => $item->subtotal());
                 $couponDiscount = 0;
@@ -122,7 +123,7 @@ class OrderService
                 $totalDiscount += $couponDiscount;
                 $totalCommission += $orderCommission;
                 $totalShipping += $shippingCost;
-                $methodId = $sellerPayments[$sellerId]['method_id'] ?? null;
+                $methodId = $choice['method_id'] ?? null;
 
                 if ($channel === PaymentChannel::Direct && $methodId) {
                     $method = SellerPaymentMethod::where('seller_profile_id', $profile->id)
@@ -225,6 +226,276 @@ class OrderService
 
             return $checkout;
         });
+    }
+
+    /**
+     * @param  array<string, array{channel: string, method_id?: int|null}>  $sellerPayments
+     */
+    public function cartIsDirectOnly(User $buyer, array $sellerPayments): bool
+    {
+        $grouped = $this->cartGroupedBySeller($buyer);
+
+        if ($grouped->isEmpty()) {
+            return false;
+        }
+
+        foreach ($grouped as $sellerId => $items) {
+            $profile = $items->first()->product->seller->sellerProfile;
+            $choice = $this->sellerPaymentChoice($sellerPayments, (int) $sellerId);
+            if ($this->resolvePaymentChannel($profile, $choice) !== PaymentChannel::Direct) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Pay-to-seller packages from the live cart (orders are not created yet).
+     *
+     * @param  array<string, array{channel: string, method_id?: int|null}>  $sellerPayments
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function directPayPackagesFromCart(User $buyer, array $sellerPayments): Collection
+    {
+        $grouped = $this->cartGroupedBySeller($buyer);
+
+        return $grouped->map(function ($items, $sellerId) use ($sellerPayments) {
+            $seller = $items->first()->product->seller;
+            $profile = $seller->sellerProfile;
+            $choice = $this->sellerPaymentChoice($sellerPayments, (int) $sellerId);
+            $channel = $this->resolvePaymentChannel($profile, $choice);
+
+            if ($channel !== PaymentChannel::Direct) {
+                return null;
+            }
+
+            $methods = ($profile?->paymentMethods ?? collect())
+                ->where('is_active', true)
+                ->filter(fn ($method) => ! $method->isDisabled())
+                ->values();
+
+            $methodId = $choice['method_id'] ?? $methods->first()?->id;
+            $method = $methods->firstWhere('id', (int) $methodId) ?? $methods->first();
+
+            $shipping = static::shippingMetaForSellerItems($items);
+            $subtotal = $items->sum(fn ($item) => $item->subtotal());
+
+            return [
+                'seller_id' => (int) $sellerId,
+                'seller_name' => $profile?->displayName() ?? $seller->name,
+                'store_slug' => $profile?->slug,
+                'subtotal' => $subtotal,
+                'shipping_cost' => $shipping['cost'],
+                'shipping_label' => $shipping['label'],
+                'package_total' => round($subtotal + $shipping['cost'], 2),
+                'items' => $items->map(fn ($item) => [
+                    'id' => $item->id,
+                    'quantity' => $item->quantity,
+                    'product' => [
+                        'name' => $item->product->name,
+                        'images' => $item->product->images?->map(fn ($img) => ['path' => $img->path])->values() ?? [],
+                    ],
+                ])->values(),
+                'payment_method' => $method ? [
+                    'id' => $method->id,
+                    'type' => $method->type->value,
+                    'account_name' => $method->account_name,
+                    'account_number' => $method->account_number,
+                    'network' => $method->network,
+                    'bank_name' => $method->bank_name,
+                    'instructions' => $method->instructions,
+                ] : null,
+            ];
+        })->filter()->values();
+    }
+
+    /**
+     * Create a Pay-to-seller order only when the buyer submits proof / transaction ID.
+     *
+     * @param  array<string, array{channel: string, method_id?: int|null}>  $sellerPayments
+     * @param  array<string, string>  $sellerCoupons
+     */
+    public function createClaimedDirectOrderFromCart(
+        User $buyer,
+        int $sellerId,
+        array $shipping,
+        array $sellerPayments,
+        array $sellerCoupons,
+        ?string $reference,
+        ?string $proofPath,
+    ): Order {
+        if ($buyer->isSeller()) {
+            throw new \RuntimeException(\App\Http\Middleware\PreventSellerShopping::MESSAGE);
+        }
+
+        $trimmed = $reference !== null ? trim($reference) : '';
+        if ($trimmed === '' && $proofPath === null) {
+            throw ValidationException::withMessages([
+                'proof' => 'Upload a payment screenshot, or enter a transaction ID from your MoMo SMS.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($buyer, $sellerId, $shipping, $sellerPayments, $sellerCoupons, $trimmed, $proofPath) {
+            $cartItems = CartItem::with(['product.images', 'product.seller.sellerProfile.paymentMethods'])
+                ->where('user_id', $buyer->id)
+                ->get()
+                ->filter(fn ($item) => (int) $item->product->seller_id === $sellerId)
+                ->values();
+
+            if ($cartItems->isEmpty()) {
+                throw new \RuntimeException('Those items are no longer in your cart.');
+            }
+
+            foreach ($cartItems as $item) {
+                if (! $item->product || ! $item->product->isVisibleInShop()) {
+                    throw new \RuntimeException('Your cart contains items from a seller that is no longer available.');
+                }
+            }
+
+            $seller = User::with('sellerProfile.paymentMethods')->findOrFail($sellerId);
+            $profile = $seller->sellerProfile;
+            $choice = $this->sellerPaymentChoice($sellerPayments, $sellerId);
+            $channel = $this->resolvePaymentChannel($profile, $choice);
+
+            if ($channel !== PaymentChannel::Direct) {
+                throw new \RuntimeException('This package is not a pay-to-seller payment.');
+            }
+
+            $methods = ($profile?->paymentMethods ?? collect())
+                ->where('is_active', true)
+                ->filter(fn ($method) => ! $method->isDisabled())
+                ->values();
+
+            $methodId = $choice['method_id'] ?? $methods->first()?->id;
+            $method = $methods->firstWhere('id', (int) $methodId) ?? $methods->first();
+
+            if (! $method) {
+                throw new \RuntimeException('This seller has no active payment method.');
+            }
+
+            $orderSubtotal = $cartItems->sum(fn ($item) => $item->subtotal());
+            $couponDiscount = 0;
+            $couponId = null;
+            $appliedCoupon = null;
+            $couponCode = $sellerCoupons[$sellerId] ?? $sellerCoupons[(string) $sellerId] ?? null;
+            if ($couponCode) {
+                $result = $this->coupons->validateForSeller($buyer, $sellerId, $couponCode, $orderSubtotal);
+                $couponDiscount = $result['discount'];
+                $couponId = $result['coupon']->id;
+                $appliedCoupon = $result['coupon'];
+            }
+
+            $shippingCost = static::shippingCostForSellerItems($cartItems);
+            if ($appliedCoupon?->type === CouponType::FreeShipping) {
+                $shippingCost = 0;
+            }
+
+            $goodsTotal = max(0, round($orderSubtotal - $couponDiscount, 2));
+            $orderTotal = round($goodsTotal + $shippingCost, 2);
+
+            $checkout = Checkout::create([
+                'checkout_number' => Checkout::generateCheckoutNumber(),
+                'buyer_id' => $buyer->id,
+                'status' => OrderStatus::Pending,
+                'payment_status' => PaymentStatus::Pending,
+                'receiver_name' => $shipping['receiver_name'],
+                'receiver_phone' => $shipping['receiver_phone'],
+                'region' => $shipping['region'],
+                'city' => $shipping['city'],
+                'digital_address' => $shipping['digital_address'] ?? null,
+                'delivery_notes' => $shipping['delivery_notes'] ?? null,
+                'subtotal' => $orderSubtotal,
+                'shipping_cost' => $shippingCost,
+                'commission_amount' => 0,
+                'discount_amount' => $couponDiscount,
+                'total' => $orderTotal,
+            ]);
+
+            $order = Order::create([
+                'checkout_id' => $checkout->id,
+                'order_number' => Order::generateOrderNumber(),
+                'buyer_id' => $buyer->id,
+                'seller_id' => $sellerId,
+                'status' => OrderStatus::Pending,
+                'payment_status' => PaymentStatus::Pending,
+                'payment_method' => 'direct',
+                'payment_channel' => PaymentChannel::Direct,
+                'payment_reference' => 'CSH-'.uniqid(),
+                'seller_payment_method_id' => $method->id,
+                'receiver_name' => $shipping['receiver_name'],
+                'receiver_phone' => $shipping['receiver_phone'],
+                'region' => $shipping['region'],
+                'city' => $shipping['city'],
+                'digital_address' => $shipping['digital_address'] ?? null,
+                'delivery_notes' => $shipping['delivery_notes'] ?? null,
+                'subtotal' => $orderSubtotal,
+                'shipping_cost' => $shippingCost,
+                'commission_amount' => 0,
+                'discount_amount' => $couponDiscount,
+                'seller_coupon_id' => $couponId,
+                'total' => $orderTotal,
+            ]);
+
+            foreach ($cartItems as $item) {
+                $product = $item->product;
+                $unitPrice = $product->effectivePrice();
+                $lineTotal = $unitPrice * $item->quantity;
+
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $product->id,
+                    'seller_id' => $product->seller_id,
+                    'product_name' => $product->name,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $unitPrice,
+                    'commission_rate' => 0,
+                    'commission_amount' => 0,
+                    'seller_amount' => $lineTotal,
+                    'status' => OrderStatus::Pending,
+                ]);
+            }
+
+            if ($appliedCoupon) {
+                $this->coupons->recordUsage($appliedCoupon, $buyer, $order->id);
+            }
+
+            Payment::create([
+                'checkout_id' => $checkout->id,
+                'order_id' => $order->id,
+                'seller_id' => $sellerId,
+                'channel' => PaymentChannel::Direct,
+                'method' => 'direct',
+                'amount' => $order->total,
+                'status' => PaymentStatus::Pending,
+                'reference' => $order->payment_reference,
+            ]);
+
+            CartItem::where('user_id', $buyer->id)
+                ->whereIn('id', $cartItems->pluck('id'))
+                ->delete();
+
+            $order = $this->submitDirectPaymentReference(
+                $order->fresh(['items', 'seller']),
+                $trimmed !== '' ? $trimmed : null,
+                $proofPath,
+            );
+
+            $buyer->notify(new OrderPlacedNotification($order, checkout: $checkout->fresh('orders')));
+
+            return $order->fresh(['items', 'sellerPaymentMethod', 'checkout']);
+        });
+    }
+
+    /**
+     * @param  array<string, array{channel: string, method_id?: int|null}>  $sellerPayments
+     * @return array{channel?: string, method_id?: int|null}
+     */
+    private function sellerPaymentChoice(array $sellerPayments, int $sellerId): array
+    {
+        $choice = $sellerPayments[$sellerId] ?? $sellerPayments[(string) $sellerId] ?? [];
+
+        return is_array($choice) ? $choice : [];
     }
 
     /** @deprecated Use createCheckoutFromCart */
@@ -600,7 +871,7 @@ class OrderService
 
     public function cartGroupedBySeller(User $buyer): Collection
     {
-        return CartItem::with(['product.seller.sellerProfile.paymentMethods'])
+        return CartItem::with(['product.images', 'product.seller.sellerProfile.paymentMethods'])
             ->where('user_id', $buyer->id)
             ->get()
             ->groupBy(fn ($item) => $item->product->seller_id);
@@ -1091,6 +1362,30 @@ class OrderService
                         });
                     });
             });
+    }
+
+    /**
+     * Pay-to-seller orders still unpaid (buyer may or may not have submitted proof).
+     *
+     * @param  'all'|'awaiting_claim'|'claimed'  $claim
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\Order>
+     */
+    public function awaitingDirectPaymentOrdersQuery(string $claim = 'all')
+    {
+        $query = Order::query()
+            ->where('payment_channel', PaymentChannel::Direct)
+            ->where('payment_status', PaymentStatus::Pending)
+            ->where('status', '!=', OrderStatus::Cancelled);
+
+        return match ($claim) {
+            'claimed' => $query->where(function ($q) {
+                $q->whereNotNull('direct_payment_reference')
+                    ->orWhereNotNull('direct_payment_proof_path');
+            }),
+            'awaiting_claim' => $query->whereNull('direct_payment_reference')
+                ->whereNull('direct_payment_proof_path'),
+            default => $query,
+        };
     }
 
     public function itemPaidAt(OrderItem $item): ?\Carbon\CarbonInterface

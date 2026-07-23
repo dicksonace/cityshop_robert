@@ -50,6 +50,7 @@ class PanelNavService
             'pending_manual_top_ups' => WalletTopUpRequest::where('status', WalletTopUpStatus::Pending)->count(),
             'pending_fund_releases' => app(OrderService::class)->pendingFundReleaseItemsQuery()->count(),
             'stale_unprocessed_orders' => app(OrderService::class)->staleUnprocessedItemsQuery(24)->count(),
+            'awaiting_direct_payments' => app(OrderService::class)->awaitingDirectPaymentOrdersQuery('all')->count(),
             'awaiting_buyer_confirmation' => OrderItem::where('status', OrderStatus::AwaitingConfirmation)->count(),
             'open_disputes' => Dispute::whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->count(),
             'open_seller_reports' => SellerReport::whereIn('status', [SellerReportStatus::Open, SellerReportStatus::Reviewing])->count(),

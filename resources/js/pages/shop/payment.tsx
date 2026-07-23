@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { CreditCard, LoaderCircle } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
@@ -103,7 +103,13 @@ export default function Payment({ checkout, marketplaceTotal, directOrders, pays
         <ShopLayout>
             <Head title="Complete Payment" />
             <div className="mx-auto max-w-2xl px-4 py-12">
-                <div className="rounded-2xl bg-white p-8 shadow-sm">
+                <Link
+                    href={route('checkouts.show', checkout.id)}
+                    className="text-sm text-orange-500 hover:underline"
+                >
+                    &larr; Back to purchase {checkout.checkout_number}
+                </Link>
+                <div className="mt-4 rounded-2xl bg-white p-8 shadow-sm">
                     <CreditCard className="mx-auto h-12 w-12 text-orange-500" />
                     <h1 className="mt-4 text-center text-2xl font-bold text-gray-900">Complete Payment</h1>
                     <p className="mt-2 text-center text-gray-500">Checkout {checkout.checkout_number}</p>

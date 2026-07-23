@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Services\OrderService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
+use App\Support\DirectCheckoutDraft;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -113,14 +114,31 @@ class CheckoutController extends Controller
             ->firstOrFail();
 
         $shipping = $address->toShippingArray();
+        $sellerPayments = $request->input('seller_payments', []);
+        $sellerCoupons = $request->input('seller_coupons', []);
+        $paymentMethod = $request->string('payment_method')->toString();
+
+        // Pay-to-seller only: show bank/MoMo details without creating an order until proof is submitted.
+        if ($paymentMethod !== 'cash'
+            && $this->orderService->cartIsDirectOnly($request->user(), $sellerPayments)) {
+            DirectCheckoutDraft::put(
+                $request,
+                $address->id,
+                $shipping,
+                $sellerPayments,
+                $sellerCoupons,
+            );
+
+            return redirect()->route('checkout.direct-pay');
+        }
 
         try {
             $checkout = $this->orderService->createCheckoutFromCart(
                 $request->user(),
                 $shipping,
-                $request->string('payment_method')->toString(),
-                $request->input('seller_payments', []),
-                $request->input('seller_coupons', []),
+                $paymentMethod,
+                $sellerPayments,
+                $sellerCoupons,
             );
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
@@ -128,14 +146,16 @@ class CheckoutController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        if ($request->string('payment_method')->toString() === 'cash') {
+        DirectCheckoutDraft::clear($request);
+
+        if ($paymentMethod === 'cash') {
             $this->orderService->confirmCashOnDelivery($checkout);
 
             return redirect()->route('checkouts.show', $checkout)
                 ->with('success', 'Order placed! Pay on delivery.');
         }
 
-        if ($request->string('payment_method')->toString() === 'wallet') {
+        if ($paymentMethod === 'wallet') {
             try {
                 $this->orderService->payCheckoutWithWallet($checkout, $request->user());
             } catch (ValidationException $e) {
@@ -155,6 +175,91 @@ class CheckoutController extends Controller
         }
 
         return redirect()->route('checkout.payment', $checkout);
+    }
+
+    public function directPay(Request $request): Response|RedirectResponse
+    {
+        $draft = DirectCheckoutDraft::get($request);
+        if (! $draft) {
+            return redirect()->route('checkout.index')
+                ->with('error', 'Start checkout again to pay the seller.');
+        }
+
+        $packages = $this->orderService->directPayPackagesFromCart(
+            $request->user(),
+            $draft['seller_payments'] ?? [],
+        );
+
+        if ($packages->isEmpty()) {
+            DirectCheckoutDraft::clear($request);
+
+            return redirect()->route('checkout.index')
+                ->with('error', 'Your cart changed. Choose payment again.');
+        }
+
+        return Inertia::render('shop/direct-pay', [
+            'packages' => $packages,
+            'shipping' => $draft['shipping'] ?? null,
+        ]);
+    }
+
+    public function submitDirectPay(Request $request, int $sellerId): RedirectResponse
+    {
+        $draft = DirectCheckoutDraft::get($request);
+        if (! $draft) {
+            return redirect()->route('checkout.index')
+                ->with('error', 'Start checkout again to pay the seller.');
+        }
+
+        $validated = $request->validate([
+            'reference' => ['nullable', 'string', 'max:255'],
+            'proof' => ['nullable', 'image', 'max:5120'],
+        ]);
+
+        $reference = trim((string) ($validated['reference'] ?? ''));
+        $hasProof = $request->hasFile('proof');
+
+        if ($reference === '' && ! $hasProof) {
+            return back()->withErrors([
+                'proof' => 'Upload a payment screenshot, or enter a transaction ID from your MoMo SMS.',
+            ]);
+        }
+
+        $proofPath = null;
+        if ($request->hasFile('proof')) {
+            $proofPath = $request->file('proof')->store('direct-payment-proofs', 'public');
+        }
+
+        try {
+            $order = $this->orderService->createClaimedDirectOrderFromCart(
+                $request->user(),
+                $sellerId,
+                $draft['shipping'],
+                $draft['seller_payments'] ?? [],
+                $draft['seller_coupons'] ?? [],
+                $reference !== '' ? $reference : null,
+                $proofPath,
+            );
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $remaining = $this->orderService->directPayPackagesFromCart(
+            $request->user(),
+            $draft['seller_payments'] ?? [],
+        );
+
+        if ($remaining->isEmpty()) {
+            DirectCheckoutDraft::clear($request);
+
+            return redirect()->route('checkouts.show', $order->checkout_id)
+                ->with('success', 'Payment submitted. The seller will confirm once received.');
+        }
+
+        return redirect()->route('checkout.direct-pay')
+            ->with('success', 'Payment submitted for this seller. Pay any remaining sellers below.');
     }
 
     public function payment(Request $request, Checkout $checkout): Response|RedirectResponse

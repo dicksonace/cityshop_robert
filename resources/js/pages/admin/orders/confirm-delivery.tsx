@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
+import AdminOrderTabs from '@/components/admin/admin-order-tabs';
 import { Button } from '@/components/ui/button';
 import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Paginated } from '@/types/marketplace';
@@ -86,23 +87,7 @@ export default function AdminConfirmDelivery({ items, count }: Props) {
                 </div>
             )}
 
-            <div className="mb-4 flex flex-wrap gap-2">
-                <Link
-                    href={route('admin.orders.index')}
-                    className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
-                >
-                    All orders
-                </Link>
-                <span className="rounded-full bg-orange-500 px-4 py-1.5 text-sm font-medium text-white">
-                    Confirm delivery
-                </span>
-                <Link
-                    href={route('admin.orders.unprocessed')}
-                    className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
-                >
-                    Unprocessed 24h+
-                </Link>
-            </div>
+            <AdminOrderTabs active="confirm-delivery" />
 
             <div className="space-y-4">
                 {items.data.map((item) => (

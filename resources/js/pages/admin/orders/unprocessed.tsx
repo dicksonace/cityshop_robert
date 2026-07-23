@@ -1,6 +1,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
+import AdminOrderTabs from '@/components/admin/admin-order-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AdminLayout from '@/layouts/admin-layout';
@@ -88,17 +89,7 @@ export default function AdminUnprocessedOrders({ items, hours, count }: Unproces
                 </div>
             )}
 
-            <div className="mb-4 flex flex-wrap gap-2">
-                <Link
-                    href={route('admin.orders.index')}
-                    className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
-                >
-                    All orders
-                </Link>
-                <span className="rounded-full bg-orange-500 px-4 py-1.5 text-sm font-medium text-white">
-                    Unprocessed 24h+
-                </span>
-            </div>
+            <AdminOrderTabs active="unprocessed" />
 
             <div className="space-y-4">
                 {items.data.map((item) => (
