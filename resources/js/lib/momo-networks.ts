@@ -34,7 +34,7 @@ export const MOMO_NETWORKS: MomoNetwork[] = [
     },
     {
         id: 'airteltigo',
-        label: 'AirtelTigo Money',
+        label: 'AirtelTigo Cash',
         shortLabel: 'AirtelTigo',
         numberLabel: 'MoMo number',
         accent: 'text-blue-700',

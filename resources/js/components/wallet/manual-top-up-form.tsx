@@ -1,14 +1,24 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, LoaderCircle } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useMemo, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import DocumentUploadField from '@/components/forms/document-upload-field';
 import DirectPaymentDetails from '@/components/shop/direct-payment-details';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
+import MomoNetworkLogo from '@/components/wallet/momo-network-logo';
+import { MOMO_NETWORKS, momoNetworkLabel, normalizeMomoNetworkId } from '@/lib/momo-networks';
+import { cn } from '@/lib/utils';
 import { formatPrice } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
@@ -58,19 +68,49 @@ function formatDate(value?: string | null): string {
 
 export default function ManualTopUpForm({ settings, requests, walletRoute, submitRoute, showFlash = false }: Props) {
     const { flash } = usePage<SharedData>().props;
+    const [infoOpen, setInfoOpen] = useState(false);
+    const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
+
+    const momoAccountsByNetwork = useMemo(() => {
+        const map: Record<string, FundingAccount> = {};
+        for (const account of settings.accounts) {
+            if (account.type !== 'momo') continue;
+            const id = normalizeMomoNetworkId(account.network);
+            if (id && !map[id]) {
+                map[id] = account;
+            }
+        }
+        return map;
+    }, [settings.accounts]);
+
+    const bankAccounts = useMemo(
+        () => settings.accounts.filter((account) => account.type === 'bank'),
+        [settings.accounts],
+    );
+
+    const selectedAccount = selectedNetwork ? momoAccountsByNetwork[selectedNetwork] ?? null : null;
 
     const form = useForm({
         amount: '',
         payment_reference: '',
-        sender_name: '',
-        sender_number: '',
-        network: 'mtn',
+        network: '',
         user_note: '',
         proof: null as File | null,
     });
 
+    const openNetworkInfo = (networkId: string) => {
+        if (!momoAccountsByNetwork[networkId]) return;
+        setSelectedNetwork(networkId);
+        form.setData('network', networkId);
+        setInfoOpen(true);
+    };
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+        if (!form.data.network) {
+            form.setError('network', 'Choose MTN, Telecel, or AirtelTigo first.');
+            return;
+        }
         form.post(submitRoute, { forceFormData: true });
     };
 
@@ -88,9 +128,9 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
             </Link>
 
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">Manual top-up</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Manual deposit</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    For larger amounts: send payment to CityShop, then upload proof and your transaction reference.
+                    Choose MTN, Telecel, or AirtelTigo — we show the CityShop number to pay. Then submit proof.
                 </p>
             </div>
 
@@ -109,23 +149,87 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                 </div>
             )}
 
-            <div className="space-y-3">
-                <h2 className="text-sm font-semibold text-gray-900">Send payment to</h2>
-                <p className="text-xs text-gray-500">Choose the network that matches your phone — tap Copy, then send.</p>
-                {settings.accounts.map((account, index) => (
-                    <DirectPaymentDetails
-                        key={`${account.network ?? account.type}-${account.account_number}-${index}`}
-                        accountNumber={account.account_number}
-                        accountName={account.account_name}
-                        network={account.type === 'momo' ? account.network : null}
-                        isBank={account.type === 'bank'}
-                        bankName={account.bank_name}
-                    />
-                ))}
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+                <h2 className="font-semibold text-gray-900">1. Choose payment method</h2>
+                <p className="mt-1 text-sm text-gray-500">Tap a network to see the number / till and account name — then Copy and send.</p>
+
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {MOMO_NETWORKS.map((network) => {
+                        const account = momoAccountsByNetwork[network.id];
+                        const selected = selectedNetwork === network.id;
+                        const disabled = !account;
+
+                        return (
+                            <button
+                                key={network.id}
+                                type="button"
+                                disabled={disabled}
+                                onClick={() => openNetworkInfo(network.id)}
+                                className={cn(
+                                    'flex min-h-[4.75rem] items-center gap-3 rounded-xl border-2 px-3 py-3 text-left transition',
+                                    disabled && 'cursor-not-allowed opacity-40',
+                                    !disabled && (selected ? network.selectedClass : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'),
+                                )}
+                            >
+                                <MomoNetworkLogo network={network.id} size="sm" />
+                                <span className="min-w-0">
+                                    <span className={cn('block text-[10px] font-bold uppercase tracking-wide', selected ? network.accent : 'text-gray-400')}>
+                                        {network.id === 'mtn' ? 'Recommended' : 'MoMo'}
+                                    </span>
+                                    <span className="mt-0.5 block text-sm font-semibold text-gray-900">{network.label}</span>
+                                    {disabled ? (
+                                        <span className="block text-xs text-gray-400">Not configured</span>
+                                    ) : (
+                                        <span className="block text-xs text-gray-500">Tap to view &amp; copy</span>
+                                    )}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+                <InputError message={form.errors.network} className="mt-2" />
+
+                {selectedAccount && selectedNetwork && (
+                    <div className="mt-4">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-gray-900">
+                                Paying via {momoNetworkLabel(selectedNetwork)}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setInfoOpen(true)}
+                                className="text-sm font-semibold text-sky-700 hover:underline"
+                            >
+                                View details again
+                            </button>
+                        </div>
+                        <DirectPaymentDetails
+                            accountNumber={selectedAccount.account_number}
+                            accountName={selectedAccount.account_name}
+                            network={selectedNetwork}
+                            hint="Send the exact amount, then fill the proof form below."
+                        />
+                    </div>
+                )}
             </div>
 
+            {bankAccounts.length > 0 && (
+                <div className="space-y-3">
+                    <h2 className="text-sm font-semibold text-gray-900">Or pay by bank</h2>
+                    {bankAccounts.map((account, index) => (
+                        <DirectPaymentDetails
+                            key={`bank-${account.account_number}-${index}`}
+                            accountNumber={account.account_number}
+                            accountName={account.account_name}
+                            isBank
+                            bankName={account.bank_name}
+                        />
+                    ))}
+                </div>
+            )}
+
             <form onSubmit={submit} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-                <h2 className="font-semibold text-gray-900">After you pay — submit proof</h2>
+                <h2 className="font-semibold text-gray-900">2. After you pay — submit proof</h2>
                 <p className="mt-1 text-sm text-gray-500">We credit your wallet once an admin verifies the transfer.</p>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -153,34 +257,6 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                         />
                         <InputError message={form.errors.payment_reference} />
                     </div>
-                    <div>
-                        <Label>Name on account you sent from</Label>
-                        <Input
-                            value={form.data.sender_name}
-                            onChange={(e) => form.setData('sender_name', e.target.value)}
-                            required
-                            className="mt-1"
-                        />
-                        <InputError message={form.errors.sender_name} />
-                    </div>
-                    <div>
-                        <Label>Your MoMo / account number (optional)</Label>
-                        <Input
-                            value={form.data.sender_number}
-                            onChange={(e) => form.setData('sender_number', e.target.value)}
-                            className="mt-1"
-                        />
-                        <InputError message={form.errors.sender_number} />
-                    </div>
-                    <div className="sm:col-span-2">
-                        <MomoNetworkPicker
-                            value={form.data.network === 'bank' ? 'mtn' : form.data.network}
-                            onChange={(network) => form.setData('network', network)}
-                            label="Network you paid from"
-                            hint="Select the MoMo network on the phone you used to send the money."
-                        />
-                        <InputError message={form.errors.network} />
-                    </div>
                     <div className="sm:col-span-2">
                         <DocumentUploadField
                             id="manual-top-up-proof"
@@ -205,10 +281,17 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                     </div>
                 </div>
 
-                <Button type="submit" disabled={form.processing} className="mt-4 w-full bg-green-600 py-6 text-base font-semibold hover:bg-green-700">
+                <Button
+                    type="submit"
+                    disabled={form.processing || !form.data.network}
+                    className="mt-4 w-full bg-green-600 py-6 text-base font-semibold hover:bg-green-700"
+                >
                     {form.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                    Submit for verification
+                    I've paid — submit for verification
                 </Button>
+                {!form.data.network && (
+                    <p className="mt-2 text-center text-xs text-amber-700">Choose a payment method above first.</p>
+                )}
             </form>
 
             {requests.length > 0 && (
@@ -232,6 +315,35 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                     </div>
                 </div>
             )}
+
+            <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {selectedNetwork ? momoNetworkLabel(selectedNetwork) : 'Payment details'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Copy the number, send from your phone, then submit proof on this page.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedAccount && selectedNetwork ? (
+                        <DirectPaymentDetails
+                            accountNumber={selectedAccount.account_number}
+                            accountName={selectedAccount.account_name}
+                            network={selectedNetwork}
+                        />
+                    ) : (
+                        <p className="text-sm text-gray-500">No account configured for this network.</p>
+                    )}
+
+                    <DialogFooter>
+                        <Button type="button" className="w-full bg-green-600 hover:bg-green-700" onClick={() => setInfoOpen(false)}>
+                            I've copied — continue
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
