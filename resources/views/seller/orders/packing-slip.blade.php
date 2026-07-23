@@ -8,7 +8,7 @@
             font-family: dejavusans, sans-serif;
             font-size: 9pt;
             color: #111111;
-            line-height: 1.3;
+            line-height: 1.35;
         }
         table {
             border-collapse: collapse;
@@ -21,13 +21,15 @@
         .top { vertical-align: top; }
         .mid { vertical-align: middle; }
         .right { text-align: right; }
+        .center { text-align: center; }
         .muted { color: #555555; font-size: 7.5pt; }
         .label {
             font-size: 7pt;
             font-weight: bold;
             text-transform: uppercase;
             color: #666666;
-            margin-bottom: 2pt;
+            letter-spacing: 0.3pt;
+            margin-bottom: 3pt;
         }
         .brand {
             font-size: 16pt;
@@ -57,8 +59,17 @@
             padding: 6pt 7pt;
             background-color: #fafafa;
         }
+        .field {
+            margin-bottom: 2.5pt;
+            font-size: 8.5pt;
+        }
+        .field .k {
+            color: #666666;
+            font-size: 7.5pt;
+            display: inline;
+        }
         .meta {
-            margin-bottom: 7pt;
+            margin-bottom: 8pt;
             font-size: 8pt;
         }
         .pill {
@@ -73,40 +84,42 @@
             font-size: 7pt;
             text-transform: uppercase;
             color: #666666;
-            text-align: left;
             border-bottom: 1pt solid #111111;
-            padding: 3pt 2pt;
+            padding: 4pt 3pt;
+            vertical-align: bottom;
         }
         .items td {
             border-bottom: 0.5pt solid #e5e5e5;
-            padding: 5pt 2pt;
+            padding: 6pt 3pt;
             font-size: 8.5pt;
             vertical-align: middle;
         }
-        .c-num { width: 16pt; }
-        .c-img { width: 42pt; }
-        .c-qty { width: 32pt; text-align: right; }
-        .c-money { width: 72pt; text-align: right; }
-        .thumb {
-            width: 38pt;
-            height: 38pt;
-            border: 0.5pt solid #dddddd;
+        .items th.right,
+        .items td.right {
+            text-align: right;
         }
-        .thumb-ph {
-            width: 38pt;
-            height: 38pt;
-            border: 0.5pt solid #dddddd;
-            background-color: #f3f4f6;
+        .items th.center,
+        .items td.center {
             text-align: center;
-            color: #999999;
-            font-size: 7pt;
-            line-height: 38pt;
         }
-        .pname { font-weight: bold; font-size: 8.5pt; }
-        .pstatus { color: #666666; font-size: 7pt; }
+        .thumb {
+            width: 36pt;
+            height: 36pt;
+            border: 0.5pt solid #dddddd;
+        }
+        .pname {
+            font-weight: bold;
+            font-size: 9pt;
+            line-height: 1.25;
+        }
+        .pstatus {
+            color: #666666;
+            font-size: 7pt;
+            margin-top: 1pt;
+        }
         .totals {
-            width: 210pt;
-            margin-top: 4pt;
+            width: 200pt;
+            margin-top: 6pt;
         }
         .totals td {
             padding: 2pt 0;
@@ -114,7 +127,7 @@
         }
         .totals .amt {
             text-align: right;
-            width: 95pt;
+            width: 90pt;
             white-space: nowrap;
         }
         .totals .grand td {
@@ -142,7 +155,6 @@
 <body>
 @php
     $isCod = $order->payment_method === 'cash';
-    $isPendingPay = $order->payment_status->value !== 'paid' && ! $isCod;
     $shipToLines = array_values(array_filter([
         $order->digital_address,
         collect([$order->city, $order->region])->filter()->implode(', '),
@@ -152,13 +164,14 @@
     $storeLocation = $storeLocation ?? null;
 @endphp
 
+{{-- Header: brand | packing slip meta --}}
 <table>
     <tr>
-        <td class="top wrap" width="52%">
+        <td class="top wrap" width="55%">
             <div class="brand">City<span>Shop</span></div>
             <div class="muted">cityunlock.net</div>
         </td>
-        <td class="top right wrap" width="48%">
+        <td class="top right wrap" width="45%">
             <div class="doc-title">Packing slip</div>
             <div class="order-no">{{ $order->order_number }}</div>
             <div class="muted" style="margin-top:2pt;">
@@ -173,40 +186,27 @@
 
 <div class="accent">&nbsp;</div>
 
-<table style="margin-bottom:7pt;">
+{{-- Ship from / Ship to (no nested tables — mPDF-safe) --}}
+<table style="margin-bottom:8pt;">
     <tr>
-        <td class="top" width="49%" style="padding-right:4pt;">
+        <td class="top" width="49%" style="padding-right:5pt;">
             <div class="box wrap">
                 <div class="label">Ship from (seller)</div>
-                <table style="width:100%; font-size:8.5pt;">
-                    <tr>
-                        <td class="top muted" width="72" style="padding:1pt 4pt 1pt 0;">Store name</td>
-                        <td class="top wrap" style="padding:1pt 0;"><strong>{{ $storeName }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td class="top muted" style="padding:1pt 4pt 1pt 0;">Address</td>
-                        <td class="top wrap" style="padding:1pt 0;">{{ $storeAddress ?: '—' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="top muted" style="padding:1pt 4pt 1pt 0;">Location</td>
-                        <td class="top wrap" style="padding:1pt 0;">{{ $storeLocation ?: '—' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="top muted" style="padding:1pt 4pt 1pt 0;">Phone</td>
-                        <td class="top wrap" style="padding:1pt 0;">{{ filled($sellerPhone) ? $sellerPhone : '—' }}</td>
-                    </tr>
-                </table>
+                <div class="field"><span class="k">Store name:</span> <strong>{{ $storeName }}</strong></div>
+                <div class="field"><span class="k">Address:</span> {{ $storeAddress ?: '—' }}</div>
+                <div class="field"><span class="k">Location:</span> {{ $storeLocation ?: '—' }}</div>
+                <div class="field"><span class="k">Phone:</span> {{ filled($sellerPhone) ? $sellerPhone : '—' }}</div>
             </div>
         </td>
-        <td class="top" width="49%" style="padding-left:4pt;">
+        <td class="top" width="51%" style="padding-left:5pt;">
             <div class="box wrap">
                 <div class="label">Ship to (buyer)</div>
-                <strong>{{ $order->receiver_name ?: ($order->buyer?->name ?? 'Buyer') }}</strong><br>
+                <div class="field"><strong>{{ $order->receiver_name ?: ($order->buyer?->name ?? 'Buyer') }}</strong></div>
                 @if($order->receiver_phone)
-                    Tel: {{ $order->receiver_phone }}<br>
+                    <div class="field"><span class="k">Phone:</span> {{ $order->receiver_phone }}</div>
                 @endif
                 @foreach($shipToLines as $line)
-                    {{ $line }}<br>
+                    <div class="field">{{ $line }}</div>
                 @endforeach
             </div>
         </td>
@@ -226,38 +226,34 @@
     </tr>
 </table>
 
-<table class="items">
+{{-- Items: Product (photo + name) | Qty | Unit | Line — fixed widths --}}
+<table class="items" width="100%">
     <thead>
         <tr>
-            <th class="c-num">#</th>
-            <th class="c-img">Photo</th>
-            <th>Product</th>
-            <th class="c-qty">Qty</th>
-            <th class="c-money">Unit</th>
-            <th class="c-money">Line</th>
+            <th width="8%" class="center">#</th>
+            <th width="48%">Product</th>
+            <th width="10%" class="center">Qty</th>
+            <th width="17%" class="right">Unit</th>
+            <th width="17%" class="right">Line</th>
         </tr>
     </thead>
     <tbody>
         @foreach($items as $index => $item)
             @php $imageSrc = $itemImages[$item->id] ?? null; @endphp
             <tr>
-                <td class="c-num">{{ $index + 1 }}</td>
-                <td class="c-img mid">
+                <td class="center mid" width="8%">{{ $index + 1 }}</td>
+                <td class="wrap mid" width="48%">
                     @if($imageSrc)
-                        <img class="thumb" src="{{ $imageSrc }}" width="38" height="38" alt="">
-                    @else
-                        <div class="thumb-ph">—</div>
+                        <img class="thumb" src="{{ $imageSrc }}" width="36" height="36" alt="" style="float:left; margin-right:6pt; margin-bottom:2pt;">
                     @endif
-                </td>
-                <td class="wrap mid">
                     <div class="pname">{{ $item->product_name }}</div>
                     @if($item->status)
                         <div class="pstatus">{{ str_replace('_', ' ', ucfirst($item->status->value ?? (string) $item->status)) }}</div>
                     @endif
                 </td>
-                <td class="c-qty">{{ $item->quantity }}</td>
-                <td class="c-money">{{ $money((float) $item->unit_price) }}</td>
-                <td class="c-money">{{ $money($item->lineTotal()) }}</td>
+                <td class="center mid" width="10%">{{ $item->quantity }}</td>
+                <td class="right mid" width="17%">{{ $money((float) $item->unit_price) }}</td>
+                <td class="right mid" width="17%">{{ $money($item->lineTotal()) }}</td>
             </tr>
         @endforeach
     </tbody>
@@ -266,7 +262,7 @@
 <table>
     <tr>
         <td></td>
-        <td width="210">
+        <td width="200">
             <table class="totals">
                 <tr>
                     <td>Items subtotal</td>
