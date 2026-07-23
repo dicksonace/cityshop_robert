@@ -3,7 +3,7 @@ import { ChevronRight, LoaderCircle, MapPin, Pencil } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
-import DirectPaymentDetails, { DIRECT_PAYMENT_NOTE } from '@/components/shop/direct-payment-details';
+import DirectPaymentDetails from '@/components/shop/direct-payment-details';
 import PaymentMethodIcon from '@/components/shop/payment-method-icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -456,8 +456,10 @@ export default function Checkout({
                                                                 <DirectPaymentDetails
                                                                     accountNumber={selectedMethod.account_number}
                                                                     accountName={selectedMethod.account_name}
+                                                                    network={selectedMethod.network}
                                                                     isBank={Boolean(selectedMethod.bank_name && !selectedMethod.network)}
-                                                                    hint={`After you continue, send payment with reference ${DIRECT_PAYMENT_NOTE}. You’ll confirm on the next step.`}
+                                                                    bankName={selectedMethod.bank_name}
+                                                                    hint="After you continue, send the payment to this number. You’ll confirm on the next step — no MoMo reference needed."
                                                                 />
                                                             )}
                                                         </div>

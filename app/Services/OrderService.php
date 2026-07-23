@@ -195,7 +195,7 @@ class OrderService
                     'reference' => $order->payment_reference,
                 ]);
 
-                if ($paymentMethod !== 'cash') {
+                if ($paymentMethod !== 'cash' && $channel !== PaymentChannel::Direct) {
                     $order->seller->notify(new PaymentConfirmedNotification($order->load('items'), $order->items->first(), pendingOrder: true));
                     if ($order->seller) {
                         AppNotificationService::notifySellerNewOrder(
@@ -384,16 +384,23 @@ class OrderService
         });
     }
 
-    public function submitDirectPaymentReference(Order $order, string $reference, ?string $proofPath = null): Order
+    public function submitDirectPaymentReference(Order $order, ?string $reference, ?string $proofPath = null): Order
     {
         if ($order->payment_channel !== PaymentChannel::Direct) {
             throw new \RuntimeException('This order does not use direct seller payment.');
         }
 
+        $trimmed = $reference !== null ? trim($reference) : '';
+
+        $wasUnclaimed = ! filled($order->direct_payment_reference) && ! filled($order->direct_payment_proof_path);
+
         $payload = [
-            'direct_payment_reference' => $reference,
             'direct_payment_rejection_reason' => null,
         ];
+
+        if ($trimmed !== '') {
+            $payload['direct_payment_reference'] = $trimmed;
+        }
 
         if ($proofPath !== null) {
             if ($order->direct_payment_proof_path) {
@@ -402,7 +409,30 @@ class OrderService
             $payload['direct_payment_proof_path'] = $proofPath;
         }
 
+        if (! isset($payload['direct_payment_reference']) && ! isset($payload['direct_payment_proof_path'])
+            && ! filled($order->direct_payment_reference) && ! filled($order->direct_payment_proof_path)) {
+            throw new \RuntimeException('Provide a payment screenshot or transaction ID.');
+        }
+
         $order->update($payload);
+        $order = $order->fresh(['items', 'seller']);
+
+        $nowClaimed = filled($order->direct_payment_reference) || filled($order->direct_payment_proof_path);
+
+        if ($wasUnclaimed && $nowClaimed && $order->seller) {
+            $item = $order->items->first();
+            $order->seller->notify(new PaymentConfirmedNotification(
+                $order,
+                $item,
+                paymentClaim: true,
+            ));
+            AppNotificationService::notifySellerNewOrder(
+                $order->seller,
+                $order,
+                $item,
+                paymentClaim: true,
+            );
+        }
 
         return $order;
     }

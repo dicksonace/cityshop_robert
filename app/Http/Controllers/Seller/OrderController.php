@@ -6,10 +6,13 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
 use App\Services\OrderService;
+use App\Services\SellerOrderPrintService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\View\View;
 use Inertia\Inertia;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
 
 class OrderController extends Controller
 {
@@ -27,7 +30,7 @@ class OrderController extends Controller
 
     public function __construct(private OrderService $orderService) {}
 
-    public function index(Request $request): Response|RedirectResponse
+    public function index(Request $request): InertiaResponse|RedirectResponse
     {
         if ($request->filled('status')) {
             $stage = $this->legacyStatusToStage($request->string('status')->toString());
@@ -38,13 +41,14 @@ class OrderController extends Controller
         return $this->hub($request);
     }
 
-    public function hub(Request $request): Response
+    public function hub(Request $request): InertiaResponse
     {
         $sellerId = $request->user()->id;
         $counts = $this->orderCounts($sellerId);
 
         $urgent = OrderItem::with(['order.buyer', 'product.images'])
             ->where('seller_id', $sellerId)
+            ->visibleToSeller()
             ->whereIn('status', [
                 OrderStatus::Pending,
                 OrderStatus::Processing,
@@ -58,6 +62,7 @@ class OrderController extends Controller
 
         $recentCompleted = OrderItem::with(['order.buyer', 'product.images'])
             ->where('seller_id', $sellerId)
+            ->visibleToSeller()
             ->where('status', OrderStatus::Delivered)
             ->latest()
             ->limit(4)
@@ -71,7 +76,7 @@ class OrderController extends Controller
         ]);
     }
 
-    public function stage(Request $request, string $stage): Response|RedirectResponse
+    public function stage(Request $request, string $stage): InertiaResponse|RedirectResponse
     {
         if (! array_key_exists($stage, self::STAGE_MAP)) {
             return redirect()->route('seller.orders.index');
@@ -81,7 +86,8 @@ class OrderController extends Controller
         $config = self::STAGE_MAP[$stage];
 
         $query = OrderItem::with(['order.buyer', 'product.images'])
-            ->where('seller_id', $sellerId);
+            ->where('seller_id', $sellerId)
+            ->visibleToSeller();
 
         if (isset($config['status'])) {
             $query->where('status', $config['status']);
@@ -98,7 +104,7 @@ class OrderController extends Controller
         ]);
     }
 
-    public function show(Request $request, OrderItem $orderItem): Response
+    public function show(Request $request, OrderItem $orderItem): InertiaResponse|RedirectResponse
     {
         abort_unless($orderItem->seller_id === $request->user()->id, 403);
 
@@ -109,6 +115,12 @@ class OrderController extends Controller
         ]);
 
         abort_if($orderItem->order === null, 404);
+
+        if (! $this->isVisibleOnSellerDashboard($orderItem)) {
+            return redirect()
+                ->route('seller.orders.index')
+                ->with('error', 'This Pay-to-seller order will appear after the buyer submits payment.');
+        }
 
         return Inertia::render('seller/orders/show', [
             'orderItem' => $this->serializeOrderItem($orderItem),
@@ -192,12 +204,62 @@ class OrderController extends Controller
             ->with('success', $msg);
     }
 
+    public function print(Request $request, OrderItem $orderItem, SellerOrderPrintService $printService): View|RedirectResponse
+    {
+        abort_unless($orderItem->seller_id === $request->user()->id, 403);
+        $orderItem->loadMissing('order');
+
+        if (! $this->isVisibleOnSellerDashboard($orderItem)) {
+            return redirect()
+                ->route('seller.orders.index')
+                ->with('error', 'This Pay-to-seller order will appear after the buyer submits payment.');
+        }
+
+        return $printService->html(
+            $orderItem,
+            $request->user(),
+            autoPrint: $request->boolean('auto'),
+        );
+    }
+
+    public function pdf(Request $request, OrderItem $orderItem, SellerOrderPrintService $printService): Response|RedirectResponse
+    {
+        abort_unless($orderItem->seller_id === $request->user()->id, 403);
+        $orderItem->loadMissing('order');
+
+        if (! $this->isVisibleOnSellerDashboard($orderItem)) {
+            return redirect()
+                ->route('seller.orders.index')
+                ->with('error', 'This Pay-to-seller order will appear after the buyer submits payment.');
+        }
+
+        return $printService->pdf($orderItem, $request->user());
+    }
+
+    private function isVisibleOnSellerDashboard(OrderItem $orderItem): bool
+    {
+        $order = $orderItem->order;
+        if (! $order) {
+            return false;
+        }
+
+        if ($order->payment_channel !== \App\Enums\PaymentChannel::Direct) {
+            return true;
+        }
+
+        if ($order->payment_status !== \App\Enums\PaymentStatus::Pending) {
+            return true;
+        }
+
+        return filled($order->direct_payment_reference) || filled($order->direct_payment_proof_path);
+    }
+
     /**
      * @return array<string, int>
      */
     private function orderCounts(int $sellerId): array
     {
-        $base = OrderItem::where('seller_id', $sellerId);
+        $base = OrderItem::where('seller_id', $sellerId)->visibleToSeller();
 
         return [
             'all' => (clone $base)->count(),

@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { MapPin, User } from 'lucide-react';
+import { Download, MapPin, Printer, User } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -182,6 +182,30 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
                         className="min-w-0 flex-1 border-orange-200 text-orange-600 hover:bg-orange-50"
                     >
                         <Link href={route('seller.orders.show', item.id)}>Manage order</Link>
+                    </Button>
+                    <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 border-gray-200 text-gray-700 hover:bg-gray-50"
+                        title="Print packing slip"
+                    >
+                        <a href={route('seller.orders.print', item.id)} target="_blank" rel="noreferrer">
+                            <Printer className="h-4 w-4" />
+                            <span className="sr-only">Print</span>
+                        </a>
+                    </Button>
+                    <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 border-gray-200 text-gray-700 hover:bg-gray-50"
+                        title="Download PDF"
+                    >
+                        <a href={route('seller.orders.pdf', item.id)}>
+                            <Download className="h-4 w-4" />
+                            <span className="sr-only">PDF</span>
+                        </a>
                     </Button>
                     {canCancel && (
                         <Button

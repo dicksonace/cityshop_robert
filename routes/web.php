@@ -167,6 +167,8 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
             Route::get('/orders/stage/{stage}', [SellerOrderController::class, 'stage'])->name('orders.stage');
             Route::get('/orders/{orderItem}', [SellerOrderController::class, 'show'])->name('orders.show');
+            Route::get('/orders/{orderItem}/print', [SellerOrderController::class, 'print'])->name('orders.print');
+            Route::get('/orders/{orderItem}/pdf', [SellerOrderController::class, 'pdf'])->name('orders.pdf');
             Route::patch('/orders/{orderItem}', [SellerOrderController::class, 'update'])->name('orders.update');
             Route::post('/orders/{orderItem}/reject', [SellerOrderController::class, 'reject'])->name('orders.reject');
 

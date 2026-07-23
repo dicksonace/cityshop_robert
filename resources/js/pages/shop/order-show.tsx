@@ -199,12 +199,12 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                 )}
 
                 <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                            <h1 className="text-xl font-bold text-gray-900">{order.order_number}</h1>
-                            <p className="text-sm text-gray-500">Placed on {new Date(order.created_at).toLocaleString()}</p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1 sm:pr-4">
+                            <h1 className="break-all text-xl font-bold text-gray-900 sm:truncate">{order.order_number}</h1>
+                            <p className="mt-1 text-sm text-gray-500">Placed on {new Date(order.created_at).toLocaleString()}</p>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
                             <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${paymentBadge.className}`}>
                                 {paymentBadge.label}
                             </span>

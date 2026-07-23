@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ChevronRight, LoaderCircle } from 'lucide-react';
+import { ChevronRight, Download, LoaderCircle, Printer } from 'lucide-react';
 import { FormEventHandler, useEffect, useRef, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -222,7 +222,25 @@ export default function SellerOrderShow({
     return (
         <SellerLayout title={`Order ${order.order_number}`} active="orders">
             <Head title={`Order ${order.order_number}`} />
-            <Link href={route('seller.orders.stage', backStage)} className="mb-4 inline-block text-sm text-orange-500 hover:underline">← Back to queue</Link>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <Link href={route('seller.orders.stage', backStage)} className="inline-block text-sm text-orange-500 hover:underline">
+                    ← Back to queue
+                </Link>
+                <div className="flex flex-wrap gap-2">
+                    <Button asChild variant="outline" size="sm" className="border-gray-200">
+                        <a href={route('seller.orders.print', orderItem.id)} target="_blank" rel="noreferrer">
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            Print packing slip
+                        </a>
+                    </Button>
+                    <Button asChild size="sm" className="bg-gray-900 hover:bg-gray-800">
+                        <a href={route('seller.orders.pdf', orderItem.id)}>
+                            <Download className="mr-1.5 h-4 w-4" />
+                            Download PDF
+                        </a>
+                    </Button>
+                </div>
+            </div>
 
             {dispute && !['cancelled', 'closed'].includes(dispute.status) && (
                 <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-4">

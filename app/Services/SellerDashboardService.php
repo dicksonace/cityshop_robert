@@ -19,7 +19,7 @@ class SellerDashboardService
         $sellerId = $seller->id;
         $wallet = $seller->wallet;
 
-        $orderQuery = OrderItem::where('seller_id', $sellerId);
+        $orderQuery = OrderItem::where('seller_id', $sellerId)->visibleToSeller();
 
         return [
             'total_products' => Product::where('seller_id', $sellerId)->count(),
@@ -46,7 +46,7 @@ class SellerDashboardService
      */
     public function orderPipelineCounts(User $seller): array
     {
-        $base = OrderItem::where('seller_id', $seller->id);
+        $base = OrderItem::where('seller_id', $seller->id)->visibleToSeller();
 
         return [
             'pending' => (clone $base)->where('status', OrderStatus::Pending)->count(),
@@ -66,6 +66,7 @@ class SellerDashboardService
         $start = Carbon::now()->subDays($days - 1)->startOfDay();
 
         $items = OrderItem::where('seller_id', $seller->id)
+            ->visibleToSeller()
             ->where('created_at', '>=', $start)
             ->whereNotIn('status', [OrderStatus::Cancelled, OrderStatus::Refunded])
             ->get(['created_at', 'seller_amount', 'quantity', 'unit_price']);
@@ -128,8 +129,9 @@ class SellerDashboardService
             $tips[] = 'Improve product quality and service to boost ratings.';
         }
 
-        $totalOrders = OrderItem::where('seller_id', $seller->id)->count();
+        $totalOrders = OrderItem::where('seller_id', $seller->id)->visibleToSeller()->count();
         $cancelled = OrderItem::where('seller_id', $seller->id)
+            ->visibleToSeller()
             ->whereIn('status', [OrderStatus::Cancelled, OrderStatus::Refunded])
             ->count();
         if ($totalOrders > 0) {
@@ -145,7 +147,7 @@ class SellerDashboardService
             $score += 10;
         }
 
-        $delivered = OrderItem::where('seller_id', $seller->id)->where('status', OrderStatus::Delivered)->count();
+        $delivered = OrderItem::where('seller_id', $seller->id)->visibleToSeller()->where('status', OrderStatus::Delivered)->count();
         if ($totalOrders > 0 && $delivered / $totalOrders >= 0.5) {
             $score += 15;
         } elseif ($totalOrders === 0) {

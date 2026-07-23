@@ -21,6 +21,7 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
         public ?OrderItem $orderItem = null,
         public bool $cashOnDelivery = false,
         public bool $pendingOrder = false,
+        public bool $paymentClaim = false,
     ) {}
 
     public function via(object $notifiable): array
@@ -35,9 +36,11 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
                 $this->order,
                 $this->pendingOrder,
                 $this->cashOnDelivery,
+                $this->paymentClaim,
             );
             $line = match (true) {
                 $this->cashOnDelivery => "New Order (Cash on Delivery): {$this->orderItem->product_name}",
+                $this->paymentClaim => "Buyer submitted payment for: {$this->orderItem->product_name}",
                 $this->pendingOrder => "You have a new order awaiting payment: {$this->orderItem->product_name}",
                 $this->order->payment_channel === PaymentChannel::Direct => "New order received (Paid to seller): {$this->orderItem->product_name}",
                 default => "New order received (Paid · CityShop secured): {$this->orderItem->product_name}",
@@ -52,14 +55,23 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
                     ->line('The buyer will pay cash when you deliver. Call them to confirm, then pack and send the order.')
                 )
                 ->when(
-                    ! $this->cashOnDelivery && ! $this->pendingOrder && $this->order->payment_channel === PaymentChannel::Direct,
+                    $this->paymentClaim,
+                    fn (MailMessage $mail) => $mail->line('Open the order and confirm only if you received the money.')
+                )
+                ->when(
+                    ! $this->cashOnDelivery && ! $this->pendingOrder && ! $this->paymentClaim && $this->order->payment_channel === PaymentChannel::Direct,
                     fn (MailMessage $mail) => $mail->line('Buyer paid you directly. Confirm only if you received the money.')
                 )
                 ->when(
-                    ! $this->cashOnDelivery && ! $this->pendingOrder && $this->order->payment_channel !== PaymentChannel::Direct,
+                    ! $this->cashOnDelivery && ! $this->pendingOrder && ! $this->paymentClaim && $this->order->payment_channel !== PaymentChannel::Direct,
                     fn (MailMessage $mail) => $mail->line('Buyer paid via CityShop secured. Funds settle through your seller wallet.')
                 )
-                ->action('View Orders', route('seller.orders.index'));
+                ->action(
+                    'View Order',
+                    $this->orderItem
+                        ? route('seller.orders.show', $this->orderItem->id)
+                        : route('seller.orders.index'),
+                );
         }
 
         $line = $this->cashOnDelivery
@@ -78,6 +90,10 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
         if ($this->orderItem) {
             if ($this->cashOnDelivery) {
                 return "CityShop: New Order (Cash on Delivery) {$this->order->order_number} — {$this->orderItem->product_name}. Call buyer, then pack & deliver.";
+            }
+
+            if ($this->paymentClaim) {
+                return "CityShop: Buyer submitted payment for {$this->order->order_number} — {$this->orderItem->product_name}. Confirm only if received.";
             }
 
             if ($this->pendingOrder) {

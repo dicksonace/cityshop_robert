@@ -4,6 +4,9 @@ namespace App\Models;
 
 use App\Enums\FundsReleaseStatus;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentChannel;
+use App\Enums\PaymentStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -74,6 +77,22 @@ class OrderItem extends Model
     public function dispute(): HasOne
     {
         return $this->hasOne(Dispute::class);
+    }
+
+    /**
+     * Hide unpaid “Pay to seller” orders until the buyer submits a payment claim.
+     * Marketplace, COD, paid direct, and claimed direct orders stay visible.
+     */
+    public function scopeVisibleToSeller(Builder $query): Builder
+    {
+        return $query->whereHas('order', function (Builder $order) {
+            $order->where(function (Builder $q) {
+                $q->where('payment_channel', '!=', PaymentChannel::Direct)
+                    ->orWhere('payment_status', '!=', PaymentStatus::Pending)
+                    ->orWhereNotNull('direct_payment_reference')
+                    ->orWhereNotNull('direct_payment_proof_path');
+            });
+        });
     }
 
     public function lineTotal(): float

@@ -30,12 +30,40 @@ interface Props {
 
 const emptyAccount = (): Account => ({
     type: 'momo',
-    label: 'CITY SHOP MOMO',
-    account_name: '',
+    label: 'MTN Mobile Money',
+    account_name: 'City Unlock Ventures / Robert Asare',
     account_number: '',
     network: 'mtn',
     bank_name: '',
 });
+
+/** Starter receive accounts from CityShop ops — used when none are configured yet. */
+const defaultCityShopAccounts = (): Account[] => [
+    {
+        type: 'momo',
+        label: 'MTN Mobile Money',
+        account_name: 'City Unlock Ventures / Robert Asare',
+        account_number: '0539790093',
+        network: 'mtn',
+        bank_name: '',
+    },
+    {
+        type: 'momo',
+        label: 'Telecel Cash',
+        account_name: 'City Unlock Ventures / Robert Asare',
+        account_number: '513014',
+        network: 'telecel',
+        bank_name: '',
+    },
+    {
+        type: 'momo',
+        label: 'AirtelTigo Money',
+        account_name: 'City Unlock Ventures / Robert Asare',
+        account_number: '0273706541',
+        network: 'airteltigo',
+        bank_name: '',
+    },
+];
 
 function normalizeAccount(account: Account): Account {
     const type = account.type === 'bank' ? 'bank' : 'momo';
@@ -43,7 +71,7 @@ function normalizeAccount(account: Account): Account {
 
     return {
         type,
-        label: account.label || (type === 'momo' ? 'CITY SHOP MOMO' : 'Bank transfer'),
+        label: account.label || (type === 'momo' ? (meta?.label ?? 'Mobile Money') : 'Bank transfer'),
         account_name: account.account_name || '',
         account_number: account.account_number || '',
         network: type === 'momo' ? (meta?.id ?? 'mtn') : null,
@@ -57,7 +85,7 @@ export default function ManualFundingSettings({ settings }: Props) {
     const form = useForm({
         enabled: settings.enabled,
         instructions: settings.instructions,
-        accounts: (settings.accounts.length > 0 ? settings.accounts : [emptyAccount()]).map(normalizeAccount),
+        accounts: (settings.accounts.length > 0 ? settings.accounts : defaultCityShopAccounts()).map(normalizeAccount),
     });
 
     const accounts = form.data.accounts;

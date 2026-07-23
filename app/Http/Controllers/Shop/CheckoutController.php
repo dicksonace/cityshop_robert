@@ -278,22 +278,35 @@ class CheckoutController extends Controller
         }
 
         $validated = $request->validate([
-            'reference' => ['required', 'string', 'max:255'],
+            'reference' => ['nullable', 'string', 'max:255'],
             'proof' => ['nullable', 'image', 'max:5120'],
         ]);
+
+        $reference = trim((string) ($validated['reference'] ?? ''));
+        $hasProof = $request->hasFile('proof') || filled($order->direct_payment_proof_path);
+
+        if ($reference === '' && ! $hasProof) {
+            return back()->withErrors([
+                'proof' => 'Upload a payment screenshot, or enter a transaction ID from your MoMo SMS.',
+            ]);
+        }
 
         $proofPath = null;
         if ($request->hasFile('proof')) {
             $proofPath = $request->file('proof')->store('direct-payment-proofs', 'public');
         }
 
-        $this->orderService->submitDirectPaymentReference($order, $validated['reference'], $proofPath);
+        $this->orderService->submitDirectPaymentReference(
+            $order,
+            $reference !== '' ? $reference : null,
+            $proofPath,
+        );
 
         return back()->with(
             'success',
             $proofPath
-                ? 'Payment reference and screenshot submitted. The seller will confirm once received.'
-                : 'Payment reference submitted. The seller will confirm once received.',
+                ? 'Payment screenshot submitted. The seller will confirm once received.'
+                : 'Payment details submitted. The seller will confirm once received.',
         );
     }
 }

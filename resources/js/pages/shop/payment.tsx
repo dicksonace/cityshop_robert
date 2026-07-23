@@ -2,7 +2,8 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { CreditCard, LoaderCircle } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
-import DirectPaymentDetails, { DIRECT_PAYMENT_NOTE } from '@/components/shop/direct-payment-details';
+import DocumentUploadField from '@/components/forms/document-upload-field';
+import DirectPaymentDetails from '@/components/shop/direct-payment-details';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -144,20 +145,9 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
         reference: order.direct_payment_reference ?? '',
         proof: null,
     });
-    const [proofPreview, setProofPreview] = useState<string | null>(null);
 
     const accountNumber = method?.account_number ?? '';
     const isBank = Boolean(method?.bank_name && !method?.network);
-
-    useEffect(() => {
-        if (!data.proof) {
-            setProofPreview(null);
-            return;
-        }
-        const url = URL.createObjectURL(data.proof);
-        setProofPreview(url);
-        return () => URL.revokeObjectURL(url);
-    }, [data.proof]);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -174,9 +164,6 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
                 <p className="font-medium">Order {order.order_number}</p>
                 <p className="font-bold text-orange-500">{formatPrice(order.total)}</p>
             </div>
-            {method?.network && (
-                <p className="mt-1 text-xs text-gray-500">{method.network} Mobile Money</p>
-            )}
             {method?.bank_name && (
                 <p className="mt-1 text-xs text-gray-500">{method.bank_name}</p>
             )}
@@ -186,65 +173,54 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
                     className="mt-4"
                     accountNumber={accountNumber}
                     accountName={method.account_name}
+                    network={method.network}
                     isBank={isBank}
-                    hint={`Send ${formatPrice(order.total)} to the number above. In the MoMo reference / reason field, paste ${DIRECT_PAYMENT_NOTE} so the seller can match your payment.${method.instructions ? ` ${method.instructions}` : ''}`}
+                    bankName={method.bank_name}
+                    hint={`Send ${formatPrice(order.total)} to the number above. Leave the MoMo reference blank if you’re paying by USSD/keypad — then upload a screenshot or SMS ID below.${method.instructions ? ` ${method.instructions}` : ''}`}
                 />
             )}
 
             {order.payment_status !== 'paid' && (
-                <form onSubmit={submit} className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                    {order.direct_payment_rejection_reason && !order.direct_payment_reference && (
+                <form onSubmit={submit} className="mt-4 space-y-4 border-t border-gray-100 pt-4">
+                    {order.direct_payment_rejection_reason && !order.direct_payment_reference && !order.direct_payment_proof_path && (
                         <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
                             <p className="font-medium">Seller rejected your payment claim</p>
                             <p className="mt-1">{order.direct_payment_rejection_reason}</p>
-                            <p className="mt-1 text-xs">Submit a valid transaction reference or screenshot again.</p>
+                            <p className="mt-1 text-xs">Submit a screenshot or transaction ID again.</p>
                         </div>
                     )}
+                    <DocumentUploadField
+                        id={`proof-${order.id}`}
+                        label="Upload payment proof"
+                        hint="Upload a screenshot of your MoMo or bank payment confirmation"
+                        required={false}
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        maxSizeMb={5}
+                        value={data.proof}
+                        onChange={(file) => setData('proof', file)}
+                        existingUrl={existingProof}
+                        error={errors.proof}
+                    />
                     <div>
-                        <Label htmlFor={`ref-${order.id}`}>Transaction ID from MoMo SMS</Label>
+                        <Label htmlFor={`ref-${order.id}`}>Transaction ID (optional)</Label>
                         <Input
                             id={`ref-${order.id}`}
-                            placeholder="From MoMo or bank SMS"
+                            placeholder="From MoMo or bank SMS — skip if you upload a screenshot"
                             value={data.reference}
                             onChange={(e) => setData('reference', e.target.value)}
-                            required
                             className="mt-1"
                         />
                         {errors.reference && <p className="mt-1 text-xs text-red-600">{errors.reference}</p>}
                     </div>
-                    <div>
-                        <Label htmlFor={`proof-${order.id}`}>Payment screenshot (optional)</Label>
-                        <Input
-                            id={`proof-${order.id}`}
-                            type="file"
-                            accept="image/*"
-                            className="mt-1"
-                            onChange={(e) => setData('proof', e.target.files?.[0] ?? null)}
-                        />
-                        <p className="mt-1 text-xs text-gray-500">
-                            Upload MoMo/bank receipt if you have one — helps the seller confirm faster.
-                        </p>
-                        {errors.proof && <p className="mt-1 text-xs text-red-600">{errors.proof}</p>}
-                        {(proofPreview || existingProof) && (
-                            <a
-                                href={proofPreview ?? existingProof ?? '#'}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-2 inline-block"
-                            >
-                                <img
-                                    src={proofPreview ?? existingProof ?? ''}
-                                    alt="Payment proof"
-                                    className="max-h-36 rounded-lg border border-gray-200 object-contain"
-                                />
-                            </a>
-                        )}
-                    </div>
-                    <Button type="submit" disabled={processing} variant="outline" className="w-full sm:w-auto">
+                    <Button
+                        type="submit"
+                        disabled={processing}
+                        className="w-full bg-green-600 py-6 text-base font-semibold text-white hover:bg-green-700"
+                    >
                         {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                        {order.direct_payment_reference ? 'Update payment details' : "I've paid"}
+                        {order.direct_payment_reference || order.direct_payment_proof_path ? 'Update payment details' : "I've paid"}
                     </Button>
-                    {order.direct_payment_reference && (
+                    {(order.direct_payment_reference || order.direct_payment_proof_path) && (
                         <p className="text-xs text-amber-700">Waiting for the seller to confirm your payment.</p>
                     )}
                 </form>

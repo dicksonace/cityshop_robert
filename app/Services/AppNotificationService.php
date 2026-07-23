@@ -61,13 +61,15 @@ class AppNotificationService
         ?OrderItem $item = null,
         bool $pendingOrder = false,
         bool $cashOnDelivery = false,
+        bool $paymentClaim = false,
     ): void {
         $productName = $item?->product_name
             ?? $order->items->first()?->product_name
             ?? 'an item';
 
-        $title = static::sellerNewOrderTitle($order, $pendingOrder, $cashOnDelivery);
+        $title = static::sellerNewOrderTitle($order, $pendingOrder, $cashOnDelivery, $paymentClaim);
         $body = match (true) {
+            $paymentClaim => "Order {$order->order_number}: {$productName} — buyer submitted payment. Confirm only if you received the money.",
             $pendingOrder => "Order {$order->order_number}: {$productName} (awaiting payment)",
             $cashOnDelivery => "Order {$order->order_number}: {$productName} — call the buyer, then pack & deliver.",
             $order->payment_channel === PaymentChannel::Direct => "Order {$order->order_number}: {$productName} — buyer paid you directly.",
@@ -79,7 +81,9 @@ class AppNotificationService
             'order_number' => $order->order_number,
             'order_item_id' => $item?->id,
             'payment_channel' => $order->payment_channel?->value,
-            'url' => route('seller.orders.show', $order->id),
+            'url' => $item?->id
+                ? route('seller.orders.show', $item->id)
+                : route('seller.orders.index'),
         ]);
     }
 
@@ -87,8 +91,10 @@ class AppNotificationService
         Order $order,
         bool $pendingOrder = false,
         bool $cashOnDelivery = false,
+        bool $paymentClaim = false,
     ): string {
         return match (true) {
+            $paymentClaim => 'Buyer submitted payment — review',
             $pendingOrder => 'New order awaiting payment',
             $cashOnDelivery => 'New Order (Cash on Delivery)',
             $order->payment_channel === PaymentChannel::Direct => 'New order received (Paid to seller)',

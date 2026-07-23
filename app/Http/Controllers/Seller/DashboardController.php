@@ -20,6 +20,7 @@ class DashboardController extends Controller
 
         $recentOrders = OrderItem::with(['order.buyer', 'product.images'])
             ->where('seller_id', $seller->id)
+            ->visibleToSeller()
             ->latest()
             ->limit(6)
             ->get();

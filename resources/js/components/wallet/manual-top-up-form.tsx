@@ -1,13 +1,14 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Copy, LoaderCircle } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import { ArrowLeft, LoaderCircle } from 'lucide-react';
+import { FormEventHandler } from 'react';
 
 import InputError from '@/components/input-error';
+import DocumentUploadField from '@/components/forms/document-upload-field';
+import DirectPaymentDetails from '@/components/shop/direct-payment-details';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
-import { momoNetworkLabel } from '@/lib/momo-networks';
 import { formatPrice } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
@@ -57,7 +58,6 @@ function formatDate(value?: string | null): string {
 
 export default function ManualTopUpForm({ settings, requests, walletRoute, submitRoute, showFlash = false }: Props) {
     const { flash } = usePage<SharedData>().props;
-    const [copied, setCopied] = useState<string | null>(null);
 
     const form = useForm({
         amount: '',
@@ -68,16 +68,6 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
         user_note: '',
         proof: null as File | null,
     });
-
-    const copyText = async (text: string, key: string) => {
-        try {
-            await navigator.clipboard.writeText(text);
-            setCopied(key);
-            setTimeout(() => setCopied(null), 1500);
-        } catch {
-            // ignore
-        }
-    };
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -121,43 +111,16 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
 
             <div className="space-y-3">
                 <h2 className="text-sm font-semibold text-gray-900">Send payment to</h2>
+                <p className="text-xs text-gray-500">Choose the network that matches your phone — tap Copy, then send.</p>
                 {settings.accounts.map((account, index) => (
-                    <div key={index} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-                        <p className="font-medium text-gray-900">{account.label}</p>
-                        <dl className="mt-2 space-y-1 text-sm">
-                            {account.type === 'bank' && account.bank_name && (
-                                <div className="flex justify-between gap-2">
-                                    <dt className="text-gray-500">Bank</dt>
-                                    <dd className="text-gray-900">{account.bank_name}</dd>
-                                </div>
-                            )}
-                            {account.type === 'momo' && account.network && (
-                                <div className="flex justify-between gap-2">
-                                    <dt className="text-gray-500">Network</dt>
-                                    <dd className="text-gray-900">{momoNetworkLabel(account.network)}</dd>
-                                </div>
-                            )}
-                            <div className="flex justify-between gap-2">
-                                <dt className="text-gray-500">Name</dt>
-                                <dd className="text-gray-900">{account.account_name}</dd>
-                            </div>
-                            <div className="flex items-center justify-between gap-2">
-                                <dt className="text-gray-500">Number</dt>
-                                <dd className="flex items-center gap-2 font-mono font-semibold text-gray-900">
-                                    {account.account_number}
-                                    <button
-                                        type="button"
-                                        onClick={() => copyText(account.account_number, `n-${index}`)}
-                                        className="text-blue-600 hover:text-blue-700"
-                                        title="Copy"
-                                    >
-                                        <Copy className="h-3.5 w-3.5" />
-                                    </button>
-                                    {copied === `n-${index}` && <span className="text-xs text-green-600">Copied</span>}
-                                </dd>
-                            </div>
-                        </dl>
-                    </div>
+                    <DirectPaymentDetails
+                        key={`${account.network ?? account.type}-${account.account_number}-${index}`}
+                        accountNumber={account.account_number}
+                        accountName={account.account_name}
+                        network={account.type === 'momo' ? account.network : null}
+                        isBank={account.type === 'bank'}
+                        bankName={account.bank_name}
+                    />
                 ))}
             </div>
 
@@ -218,16 +181,18 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                         />
                         <InputError message={form.errors.network} />
                     </div>
-                    <div>
-                        <Label>Screenshot / receipt (required)</Label>
-                        <Input
-                            type="file"
-                            accept="image/*"
-                            className="mt-1"
-                            onChange={(e) => form.setData('proof', e.target.files?.[0] ?? null)}
+                    <div className="sm:col-span-2">
+                        <DocumentUploadField
+                            id="manual-top-up-proof"
+                            label="Screenshot / receipt"
+                            hint="Upload a screenshot of your MoMo or bank payment confirmation"
                             required
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            maxSizeMb={5}
+                            value={form.data.proof}
+                            onChange={(file) => form.setData('proof', file)}
+                            error={form.errors.proof}
                         />
-                        <InputError message={form.errors.proof} />
                     </div>
                     <div className="sm:col-span-2">
                         <Label>Note (optional)</Label>
@@ -240,7 +205,7 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                     </div>
                 </div>
 
-                <Button type="submit" disabled={form.processing} className="mt-4 w-full bg-green-600 hover:bg-green-700 sm:w-auto">
+                <Button type="submit" disabled={form.processing} className="mt-4 w-full bg-green-600 py-6 text-base font-semibold hover:bg-green-700">
                     {form.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
                     Submit for verification
                 </Button>

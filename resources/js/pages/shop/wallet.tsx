@@ -6,6 +6,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ManualTopUpPrompt from '@/components/wallet/manual-top-up-prompt';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import ShopLayout from '@/layouts/shop-layout';
@@ -136,16 +137,7 @@ export default function BuyerWallet({ wallet, transactions, paystackConfigured, 
                                 <p className="text-xs text-amber-600">Online top-up requires Paystack to be configured.</p>
                             )}
                             {manualTopUpEnabled && (
-                                <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/60 px-3 py-3 text-sm">
-                                    <p className="font-medium text-blue-900">Large amount?</p>
-                                    <p className="mt-0.5 text-blue-800/80">Pay to our MoMo/bank account and submit proof for admin credit.</p>
-                                    <Link
-                                        href={route('wallet.manual-top-up')}
-                                        className="mt-2 inline-block font-medium text-blue-700 hover:underline"
-                                    >
-                                        Use manual payment →
-                                    </Link>
-                                </div>
+                                <ManualTopUpPrompt href={route('wallet.manual-top-up')} />
                             )}
                         </div>
                     </form>

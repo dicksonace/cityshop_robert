@@ -6,6 +6,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ManualTopUpPrompt from '@/components/wallet/manual-top-up-prompt';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import SellerLayout from '@/layouts/seller-layout';
@@ -152,18 +153,13 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
             </div>
 
             {manualTopUpEnabled && (
-                <div className="mb-6 rounded-xl border border-dashed border-blue-200 bg-blue-50/70 px-4 py-4">
-                    <p className="font-medium text-blue-900">Need to add funds manually?</p>
-                    <p className="mt-0.5 text-sm text-blue-800/80">
-                        Send a larger amount to CityShop’s MoMo or bank account, then submit proof for admin credit.
-                    </p>
-                    <Link
-                        href={route('seller.wallet.manual-top-up')}
-                        className="mt-2 inline-block text-sm font-medium text-blue-700 hover:underline"
-                    >
-                        Open manual top-up →
-                    </Link>
-                </div>
+                <ManualTopUpPrompt
+                    href={route('seller.wallet.manual-top-up')}
+                    className="mb-6"
+                    title="Need to add funds manually?"
+                    description="Send a larger amount to CityShop MoMo or bank, then submit proof for admin credit."
+                    cta="Open manual top-up"
+                />
             )}
 
             <div id="withdraw" className="scroll-mt-24">

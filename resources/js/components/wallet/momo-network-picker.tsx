@@ -1,5 +1,4 @@
-import { Smartphone } from 'lucide-react';
-
+import MomoNetworkLogo from '@/components/wallet/momo-network-logo';
 import { MOMO_NETWORKS } from '@/lib/momo-networks';
 import { cn } from '@/lib/utils';
 
@@ -21,9 +20,7 @@ export default function MomoNetworkPicker({
     return (
         <div className={className}>
             <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
-                    <Smartphone className="h-5 w-5" />
-                </div>
+                <MomoNetworkLogo network={value || 'mtn'} size="sm" />
                 <div>
                     <p className="text-sm font-semibold text-gray-900">{label}</p>
                     {hint && <p className="text-xs text-gray-500">{hint}</p>}
@@ -39,15 +36,18 @@ export default function MomoNetworkPicker({
                             type="button"
                             onClick={() => onChange(network.id)}
                             className={cn(
-                                'flex min-h-[4.5rem] flex-col items-start justify-center rounded-xl border-2 px-4 py-3 text-left transition',
+                                'flex min-h-[4.5rem] items-center gap-3 rounded-xl border-2 px-3 py-3 text-left transition',
                                 selected ? network.selectedClass : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50',
                             )}
                         >
-                            <span className={cn('text-xs font-bold uppercase tracking-wide', selected ? network.accent : 'text-gray-400')}>
-                                {network.id === 'mtn' ? 'Recommended' : 'MoMo'}
+                            <MomoNetworkLogo network={network.id} size="sm" />
+                            <span className="min-w-0">
+                                <span className={cn('block text-[10px] font-bold uppercase tracking-wide', selected ? network.accent : 'text-gray-400')}>
+                                    {network.id === 'mtn' ? 'Recommended' : 'MoMo'}
+                                </span>
+                                <span className="mt-0.5 block text-sm font-semibold text-gray-900">{network.shortLabel}</span>
+                                <span className="block text-xs text-gray-500">{network.label}</span>
                             </span>
-                            <span className="mt-1 text-sm font-semibold text-gray-900">{network.shortLabel}</span>
-                            <span className="text-xs text-gray-500">{network.label}</span>
                         </button>
                     );
                 })}
