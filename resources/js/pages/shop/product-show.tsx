@@ -1,11 +1,13 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { MapPin, MessageSquare, Package, ShoppingBag, Store, Truck } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import ProductCard from '@/components/shop/product-card';
 import ProductEngagementStats from '@/components/shop/product-engagement-stats';
 import ProductImageGallery from '@/components/shop/product-image-gallery';
 import ProductReviews from '@/components/shop/product-reviews';
 import ProductSellerInfo from '@/components/shop/product-seller-info';
+import ProductShareButton from '@/components/shop/product-share-button';
 import ProductSpecifications from '@/components/shop/product-specifications';
 import RatingDisplay from '@/components/shop/rating-display';
 import MessageSellerButton from '@/components/shop/message-seller-button';
@@ -26,6 +28,11 @@ interface ProductShowProps {
 export default function ProductShow({ product, related, reviews, reviewable }: ProductShowProps) {
     const { auth, canShop = true } = usePage<SharedData>().props;
     const price = product.discount_price ?? product.price;
+    const [likes, setLikes] = useState(product.wishlist_adds ?? 0);
+
+    useEffect(() => {
+        setLikes(product.wishlist_adds ?? 0);
+    }, [product.wishlist_adds]);
 
     const handleAddToCart = () => {
         if (!auth.user) {
@@ -106,7 +113,7 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
 
                         <ProductEngagementStats
                             views={product.views}
-                            likes={product.wishlist_adds}
+                            likes={likes}
                             size="md"
                             className="mt-3"
                         />
@@ -280,8 +287,15 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                                     )}
                                 </div>
                             )}
-                            <div className="flex justify-center sm:justify-start">
-                                <WishlistButton productId={product.id} size="md" />
+                            <div className="flex items-center justify-center gap-2 sm:justify-start">
+                                <WishlistButton
+                                    productId={product.id}
+                                    size="md"
+                                    onOptimisticToggle={(adding) =>
+                                        setLikes((count) => Math.max(0, count + (adding ? 1 : -1)))
+                                    }
+                                />
+                                <ProductShareButton productName={product.name} size="md" />
                             </div>
                         </div>
                     </div>

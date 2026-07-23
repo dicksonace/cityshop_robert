@@ -1,6 +1,6 @@
 import { router, usePage } from '@inertiajs/react';
 import { Heart } from 'lucide-react';
-import { MouseEvent } from 'react';
+import { MouseEvent, useEffect, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 import { SharedData } from '@/types';
@@ -9,11 +9,24 @@ interface WishlistButtonProps {
     productId: number;
     className?: string;
     size?: 'sm' | 'md';
+    /** Called optimistically before the server responds (adding = true when liking). */
+    onOptimisticToggle?: (adding: boolean) => void;
 }
 
-export default function WishlistButton({ productId, className, size = 'sm' }: WishlistButtonProps) {
+export default function WishlistButton({
+    productId,
+    className,
+    size = 'sm',
+    onOptimisticToggle,
+}: WishlistButtonProps) {
     const { auth, wishlistProductIds = [] } = usePage<SharedData>().props;
-    const isWishlisted = (wishlistProductIds as number[]).includes(productId);
+    const serverWishlisted = (wishlistProductIds as number[]).includes(productId);
+    const [optimisticWishlisted, setOptimisticWishlisted] = useState<boolean | null>(null);
+    const isWishlisted = optimisticWishlisted ?? serverWishlisted;
+
+    useEffect(() => {
+        setOptimisticWishlisted(null);
+    }, [serverWishlisted]);
 
     const toggle = (e: MouseEvent) => {
         e.preventDefault();
@@ -24,7 +37,21 @@ export default function WishlistButton({ productId, className, size = 'sm' }: Wi
             return;
         }
 
-        router.post(route('wishlist.toggle'), { product_id: productId }, { preserveScroll: true });
+        const adding = !isWishlisted;
+        setOptimisticWishlisted(adding);
+        onOptimisticToggle?.(adding);
+
+        router.post(
+            route('wishlist.toggle'),
+            { product_id: productId },
+            {
+                preserveScroll: true,
+                onError: () => {
+                    setOptimisticWishlisted(!adding);
+                    onOptimisticToggle?.(!adding);
+                },
+            },
+        );
     };
 
     const sizeClass = size === 'md' ? 'h-10 w-10' : 'h-8 w-8';

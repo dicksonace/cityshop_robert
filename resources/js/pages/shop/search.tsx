@@ -1,17 +1,26 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Camera, Search } from 'lucide-react';
+import { Camera, Search, Store } from 'lucide-react';
 import { useMemo } from 'react';
 
 import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
 import SearchBox from '@/components/shop/search-box';
 import ShopLayout from '@/layouts/shop-layout';
 import { addProductToCart } from '@/lib/shop-actions';
-import { Paginated, Product } from '@/types/marketplace';
+import { Paginated, Product, productImageUrl } from '@/types/marketplace';
 import { SharedData } from '@/types';
+
+interface SearchStore {
+    id: number;
+    name: string;
+    slug: string;
+    shop_photo?: string | null;
+    products_count: number;
+}
 
 interface SearchPageProps {
     products: Paginated<Product>;
     categories: { id: number; name: string; slug: string; products_count: number }[];
+    stores?: SearchStore[];
     query: string;
     sort: string;
     category?: string;
@@ -26,7 +35,14 @@ const sortOptions = [
     { value: 'popular', label: 'Most popular' },
 ];
 
-export default function SearchPage({ products, categories, query, sort, category = '' }: SearchPageProps) {
+export default function SearchPage({
+    products,
+    categories,
+    stores = [],
+    query,
+    sort,
+    category = '',
+}: SearchPageProps) {
     const { auth } = usePage<SharedData>().props;
 
     const resetKey = useMemo(
@@ -57,7 +73,7 @@ export default function SearchPage({ products, categories, query, sort, category
                     <div className="flex items-center justify-center gap-2 text-orange-500">
                         <Search className="h-6 w-6" />
                         <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-                            {query ? 'Search results' : 'Find products'}
+                            {query ? 'Search results' : 'Find products & stores'}
                         </h1>
                     </div>
                     {query && (
@@ -81,6 +97,43 @@ export default function SearchPage({ products, categories, query, sort, category
             </div>
 
             <div className="mx-auto max-w-7xl px-3 py-6 sm:px-4">
+                {stores.length > 0 && query && (
+                    <section className="mb-8">
+                        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                            <Store className="h-4 w-4 text-orange-500" />
+                            Stores
+                        </h2>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {stores.map((store) => (
+                                <Link
+                                    key={store.id}
+                                    href={route('store.show', store.slug)}
+                                    className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-orange-200 hover:shadow-md"
+                                >
+                                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-orange-500 text-lg font-bold text-white">
+                                        {store.shop_photo ? (
+                                            <img
+                                                src={productImageUrl(store.shop_photo)}
+                                                alt=""
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            store.name.charAt(0).toUpperCase()
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate font-semibold text-gray-900">{store.name}</p>
+                                        <p className="text-sm text-gray-500">
+                                            {store.products_count} product{store.products_count === 1 ? '' : 's'}
+                                        </p>
+                                        <p className="mt-0.5 text-xs font-medium text-orange-500">Visit store →</p>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
                 {categories.length > 0 && query && (
                     <div className="mb-6 flex flex-wrap gap-2">
                         <span className="text-sm text-gray-500">Categories:</span>
@@ -114,8 +167,14 @@ export default function SearchPage({ products, categories, query, sort, category
                 {products.data.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center">
                         <Search className="mx-auto h-12 w-12 text-gray-300" />
-                        <p className="mt-4 text-lg font-medium text-gray-900">No products found</p>
-                        <p className="mt-1 text-sm text-gray-500">Try different keywords or browse the shop.</p>
+                        <p className="mt-4 text-lg font-medium text-gray-900">
+                            {stores.length > 0 ? 'No matching products' : 'No products found'}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">
+                            {stores.length > 0
+                                ? 'Try a store above, or different keywords.'
+                                : 'Try a store name, product keywords, or browse the shop.'}
+                        </p>
                         <Link href={route('home')} className="mt-6 inline-block text-orange-500 hover:underline">
                             Browse all products
                         </Link>

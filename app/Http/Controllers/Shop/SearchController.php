@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers\Shop;
 
+use App\Enums\SellerStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\SellerProfile;
 use App\Services\ProductDiscoveryService;
 use App\Services\ProductSearchService;
 use App\Support\InfiniteScroll;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -51,9 +54,14 @@ class SearchController extends Controller
             ->filter(fn ($c) => $c->products_count > 0)
             ->values();
 
+        $stores = $search !== ''
+            ? $this->matchingStores($search, 8)
+            : collect();
+
         return Inertia::render('shop/search', [
             'products' => $products,
             'categories' => $categories,
+            'stores' => $stores,
             'query' => $search,
             'sort' => $sort,
             'category' => $request->get('category') ? (string) $request->get('category') : '',
@@ -65,7 +73,7 @@ class SearchController extends Controller
         $q = trim((string) $request->get('q', ''));
 
         if (strlen($q) < 2) {
-            return response()->json(['products' => [], 'categories' => []]);
+            return response()->json(['products' => [], 'categories' => [], 'stores' => []]);
         }
 
         $sellerId = $request->integer('seller_id') ?: null;
@@ -115,9 +123,51 @@ class SearchController extends Controller
                 'products_count' => $c->products_count,
             ]);
 
+        $stores = $sellerId
+            ? collect()
+            : $this->matchingStores($q, 5);
+
         return response()->json([
             'products' => $products,
             'categories' => $categories,
+            'stores' => $stores,
         ]);
+    }
+
+    /**
+     * @return Collection<int, array{id: int, name: string, slug: string, shop_photo: string|null, products_count: int}>
+     */
+    private function matchingStores(string $q, int $limit): Collection
+    {
+        $parsed = $this->search->parseQuery($q);
+
+        if ($parsed['raw'] === '' || $parsed['tokens'] === []) {
+            return collect();
+        }
+
+        return SellerProfile::query()
+            ->where('status', SellerStatus::Approved)
+            ->whereNotNull('slug')
+            ->where('slug', '!=', '')
+            ->tap(fn ($query) => $this->search->constrainStoreName($query, $parsed))
+            ->limit($limit * 3)
+            ->get()
+            ->map(function (SellerProfile $profile) {
+                $productsCount = Product::query()
+                    ->visibleInShop()
+                    ->where('seller_id', $profile->user_id)
+                    ->count();
+
+                return [
+                    'id' => $profile->id,
+                    'name' => $profile->displayName(),
+                    'slug' => $profile->slug,
+                    'shop_photo' => $profile->shop_photo,
+                    'products_count' => $productsCount,
+                ];
+            })
+            ->sortByDesc('products_count')
+            ->take($limit)
+            ->values();
     }
 }

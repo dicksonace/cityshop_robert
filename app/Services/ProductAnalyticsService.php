@@ -32,6 +32,15 @@ class ProductAnalyticsService
         $this->safe(fn () => $product->increment('wishlist_adds'));
     }
 
+    public function recordWishlistRemove(Product $product): void
+    {
+        $this->safe(function () use ($product) {
+            if ((int) $product->wishlist_adds > 0) {
+                $product->decrement('wishlist_adds');
+            }
+        });
+    }
+
     public function recordPurchase(Product $product, int $quantity = 1): void
     {
         $this->safe(function () use ($product, $quantity) {

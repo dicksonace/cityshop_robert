@@ -42,14 +42,22 @@ class WishlistController extends Controller
             ->where('product_id', $validated['product_id'])
             ->first();
 
+        $product = Product::find($validated['product_id']);
+
         if ($existing) {
             if ($existing->trashed()) {
                 $existing->restore();
+                if ($product) {
+                    $this->analytics->recordWishlistAdd($product);
+                }
 
                 return back()->with('success', 'Added to wishlist!');
             }
 
             $existing->delete();
+            if ($product) {
+                $this->analytics->recordWishlistRemove($product);
+            }
 
             return back()->with('success', 'Removed from wishlist.');
         }
@@ -59,7 +67,6 @@ class WishlistController extends Controller
             'product_id' => $validated['product_id'],
         ]);
 
-        $product = Product::find($validated['product_id']);
         if ($product) {
             $this->analytics->recordWishlistAdd($product);
         }
@@ -71,7 +78,11 @@ class WishlistController extends Controller
     {
         abort_unless($wishlist->user_id === $request->user()->id, 403);
 
+        $product = $wishlist->product;
         $wishlist->delete();
+        if ($product) {
+            $this->analytics->recordWishlistRemove($product);
+        }
 
         return back()->with('success', 'Removed from wishlist.');
     }

@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { ArrowLeft, Camera, LoaderCircle, Search, Truck } from 'lucide-react';
+import { ArrowLeft, Camera, LoaderCircle, Search, Store, Truck } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,14 @@ interface SuggestCategory {
     id: number;
     name: string;
     slug: string;
+    products_count: number;
+}
+
+interface SuggestStore {
+    id: number;
+    name: string;
+    slug: string;
+    shop_photo?: string | null;
     products_count: number;
 }
 
@@ -62,6 +70,7 @@ export default function SearchBox({
     const [loading, setLoading] = useState(false);
     const [products, setProducts] = useState<SuggestProduct[]>([]);
     const [categories, setCategories] = useState<SuggestCategory[]>([]);
+    const [stores, setStores] = useState<SuggestStore[]>([]);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -72,6 +81,7 @@ export default function SearchBox({
             if (q.length < 2) {
                 setProducts([]);
                 setCategories([]);
+                setStores([]);
                 return;
             }
 
@@ -85,9 +95,11 @@ export default function SearchBox({
                 const data = await res.json();
                 setProducts(data.products ?? []);
                 setCategories(data.categories ?? []);
+                setStores(data.stores ?? []);
             } catch {
                 setProducts([]);
                 setCategories([]);
+                setStores([]);
             } finally {
                 setLoading(false);
             }
@@ -158,9 +170,9 @@ export default function SearchBox({
             : `Search products in ${storeName || 'this store'}...`
         : compact
           ? 'Search...'
-          : 'Search products, brands, categories...';
+          : 'Search products, stores, brands...';
 
-    const hasResults = products.length > 0 || categories.length > 0;
+    const hasResults = products.length > 0 || categories.length > 0 || stores.length > 0;
     const showDropdown = open && query.length >= 2;
 
     const handleBack = () => {
@@ -234,9 +246,45 @@ export default function SearchBox({
 
                     {!loading && !hasResults && (
                         <p className="px-4 py-6 text-center text-sm text-gray-500">
-                            No products found for &ldquo;{query}&rdquo;
+                            No products or stores found for &ldquo;{query}&rdquo;
                             {isStoreSearch ? ' in this store' : ''}
                         </p>
+                    )}
+
+                    {!loading && stores.length > 0 && (
+                        <div className="border-b border-gray-50 px-3 py-2">
+                            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Stores</p>
+                            {stores.map((store) => (
+                                <Link
+                                    key={store.id}
+                                    href={route('store.show', store.slug)}
+                                    className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-orange-50"
+                                    onClick={() => {
+                                        setOpen(false);
+                                        onSubmitted?.();
+                                    }}
+                                >
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-orange-500 text-sm font-bold text-white">
+                                        {store.shop_photo ? (
+                                            <img
+                                                src={productImageUrl(store.shop_photo)}
+                                                alt=""
+                                                className="h-full w-full object-cover"
+                                            />
+                                        ) : (
+                                            store.name.charAt(0).toUpperCase()
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate font-medium text-gray-900">{store.name}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {store.products_count} product{store.products_count === 1 ? '' : 's'}
+                                        </p>
+                                    </div>
+                                    <Store className="h-4 w-4 shrink-0 text-orange-400" />
+                                </Link>
+                            ))}
+                        </div>
                     )}
 
                     {!loading && categories.length > 0 && (

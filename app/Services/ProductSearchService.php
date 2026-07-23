@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\SellerStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -102,19 +103,26 @@ class ProductSearchService
 
         $matchColumns = 'products.name, products.brand, products.description, products.meta_keywords';
 
-        $query->whereRaw(
-            "MATCH({$matchColumns}) AGAINST(? IN BOOLEAN MODE)",
-            [$booleanQuery]
-        );
+        $query->where(function (Builder $outer) use ($booleanQuery, $matchColumns, $parsed) {
+            $outer->whereRaw(
+                "MATCH({$matchColumns}) AGAINST(? IN BOOLEAN MODE)",
+                [$booleanQuery]
+            )->orWhereHas(
+                'seller.sellerProfile',
+                fn (Builder $profile) => $this->constrainStoreName($profile, $parsed)
+            );
+        });
 
         $qualityBoost = $this->qualityBoostSql();
+        [$storeBoostSql, $storeBoostBindings] = $this->storeMatchBoostSql($parsed);
 
         return $query->selectRaw(
             "products.*, (
                 MATCH({$matchColumns}) AGAINST(? IN NATURAL LANGUAGE MODE) * 10
+                + {$storeBoostSql}
                 + {$qualityBoost}
             ) AS search_relevance",
-            [$parsed['raw']]
+            [$parsed['raw'], ...$storeBoostBindings]
         );
     }
 
@@ -124,32 +132,91 @@ class ProductSearchService
     private function applyScoredSearch(Builder $query, array $parsed): Builder
     {
         $query->where(function (Builder $outer) use ($parsed) {
-            foreach ($parsed['tokens'] as $token) {
-                $like = '%'.$token.'%';
-                $prefix = $token.'%';
+            $outer->where(function (Builder $productMatch) use ($parsed) {
+                foreach ($parsed['tokens'] as $token) {
+                    $like = '%'.$token.'%';
+                    $prefix = $token.'%';
 
-                $outer->where(function (Builder $inner) use ($like, $prefix, $token) {
-                    $inner->whereRaw('LOWER(products.name) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(products.brand) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(products.sku) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(products.description) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(products.meta_keywords) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(products.name) LIKE ?', [$prefix])
-                        ->orWhereHas('category', fn (Builder $cq) => $cq->whereRaw('LOWER(name) LIKE ?', [$like]));
+                    $productMatch->where(function (Builder $inner) use ($like, $prefix, $token) {
+                        $inner->whereRaw('LOWER(products.name) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(products.brand) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(products.sku) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(products.description) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(products.meta_keywords) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(products.name) LIKE ?', [$prefix])
+                            ->orWhereHas('category', fn (Builder $cq) => $cq->whereRaw('LOWER(name) LIKE ?', [$like]));
 
-                    if (strlen($token) >= 3) {
-                        $inner->orWhereRaw('LOWER(products.name) LIKE ?', ['% '.$token.'%']);
+                        if (strlen($token) >= 3) {
+                            $inner->orWhereRaw('LOWER(products.name) LIKE ?', ['% '.$token.'%']);
+                        }
+                    });
+                }
+            })->orWhereHas(
+                'seller.sellerProfile',
+                fn (Builder $profile) => $this->constrainStoreName($profile, $parsed)
+            );
+        });
+
+        [$scoreSql, $bindings] = $this->buildTokenScoreSql($parsed);
+        [$storeBoostSql, $storeBoostBindings] = $this->storeMatchBoostSql($parsed);
+
+        return $query->selectRaw(
+            "products.*, ({$scoreSql} + {$storeBoostSql} + {$this->qualityBoostSql()}) AS search_relevance",
+            [...$bindings, ...$storeBoostBindings]
+        );
+    }
+
+    /**
+     * @param  array{raw: string, tokens: list<string>, phrase: string}  $parsed
+     */
+    public function constrainStoreName(Builder $profile, array $parsed): void
+    {
+        $profile->where('status', SellerStatus::Approved);
+
+        $phrase = '%'.$parsed['phrase'].'%';
+
+        $profile->where(function (Builder $name) use ($parsed, $phrase) {
+            $name->whereRaw('LOWER(COALESCE(store_name, "")) LIKE ?', [$phrase])
+                ->orWhereRaw('LOWER(COALESCE(business_name, "")) LIKE ?', [$phrase])
+                ->orWhereRaw('LOWER(COALESCE(slug, "")) LIKE ?', ['%'.str_replace(' ', '-', $parsed['phrase']).'%']);
+
+            if ($parsed['tokens'] !== []) {
+                $name->orWhere(function (Builder $allTokens) use ($parsed) {
+                    foreach ($parsed['tokens'] as $token) {
+                        $like = '%'.$token.'%';
+                        $allTokens->where(function (Builder $field) use ($like) {
+                            $field->whereRaw('LOWER(COALESCE(store_name, "")) LIKE ?', [$like])
+                                ->orWhereRaw('LOWER(COALESCE(business_name, "")) LIKE ?', [$like])
+                                ->orWhereRaw('LOWER(COALESCE(slug, "")) LIKE ?', [$like]);
+                        });
                     }
                 });
             }
         });
+    }
 
-        [$scoreSql, $bindings] = $this->buildTokenScoreSql($parsed);
+    /**
+     * @param  array{raw: string, tokens: list<string>, phrase: string}  $parsed
+     * @return array{0: string, 1: list<mixed>}
+     */
+    private function storeMatchBoostSql(array $parsed): array
+    {
+        $phrase = '%'.$parsed['phrase'].'%';
+        $approved = SellerStatus::Approved->value;
 
-        return $query->selectRaw(
-            "products.*, ({$scoreSql} + {$this->qualityBoostSql()}) AS search_relevance",
-            $bindings
-        );
+        $sql = <<<SQL
+            CASE WHEN EXISTS (
+                SELECT 1 FROM seller_profiles
+                WHERE seller_profiles.user_id = products.seller_id
+                AND seller_profiles.status = ?
+                AND (
+                    LOWER(COALESCE(seller_profiles.store_name, '')) LIKE ?
+                    OR LOWER(COALESCE(seller_profiles.business_name, '')) LIKE ?
+                )
+            ) THEN 70 ELSE 0 END
+            SQL;
+
+        return [$sql, [$approved, $phrase, $phrase]];
     }
 
     /**
