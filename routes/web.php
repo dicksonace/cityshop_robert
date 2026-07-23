@@ -55,6 +55,7 @@ use App\Http\Controllers\Shop\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/matches-for-recent-views', [HomeController::class, 'matchesForRecentViews'])->name('home.matches-for-recent-views');
 Route::get('/search', [SearchController::class, 'index'])->name('search');
 Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
 Route::get('/search/image', [ImageSearchController::class, 'create'])->name('search.image');
@@ -84,6 +85,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/checkout/payment/{checkout}/initialize', [CheckoutController::class, 'initializePayment'])->middleware('buyer.shop')->name('checkout.initialize');
     Route::get('/checkouts/{checkout}', [CheckoutSessionController::class, 'show'])->name('checkouts.show');
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::get('/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
+    Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('invoices.pdf');
     Route::post('/orders/{order}/direct-payment', [CheckoutController::class, 'submitDirectReference'])->middleware('buyer.shop')->name('orders.direct-payment');
 
     Route::get('/my-orders', [OrderController::class, 'index'])->name('orders.index');

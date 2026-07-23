@@ -1,10 +1,7 @@
-import { Head, router, usePage } from '@inertiajs/react';
-import { Grid3X3, LayoutList, SlidersHorizontal } from 'lucide-react';
-import { useMemo, useState } from 'react';
-
 import HeroBanner from '@/components/shop/hero-banner';
 import HomeCategoryShortcuts from '@/components/shop/home-category-shortcuts';
 import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
+import MatchesForRecentViews from '@/components/shop/matches-for-recent-views';
 import ProductFilters, { ActiveFilterChips, applyFilters, ShopFilters } from '@/components/shop/product-filters';
 import SearchBox from '@/components/shop/search-box';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -12,6 +9,9 @@ import ShopLayout from '@/layouts/shop-layout';
 import { addProductToCart } from '@/lib/shop-actions';
 import { Paginated, Product } from '@/types/marketplace';
 import { SharedData } from '@/types';
+import { Head, router, usePage } from '@inertiajs/react';
+import { Grid3X3, LayoutList, SlidersHorizontal } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 interface Category {
     id: number;
@@ -179,6 +179,8 @@ export default function Home({ products, categories, brands, priceRange, filters
                         </div>
 
                         <ActiveFilterChips {...filterProps} />
+
+                        <MatchesForRecentViews />
 
                         {products.data.length === 0 ? (
                             <div className="rounded-2xl border border-dashed border-gray-200 bg-white py-20 text-center">

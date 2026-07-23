@@ -1,3 +1,8 @@
+import ShopLayout from '@/layouts/shop-layout';
+import { recordRecentView } from '@/lib/recent-views';
+import { addProductToCart, scrollToReviews } from '@/lib/shop-actions';
+import { formatPrice, Paginated, Product, ProductReview } from '@/types/marketplace';
+import { SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { MapPin, MessageSquare, Package, ShoppingBag, Store, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -13,10 +18,6 @@ import RatingDisplay from '@/components/shop/rating-display';
 import MessageSellerButton from '@/components/shop/message-seller-button';
 import WishlistButton from '@/components/shop/wishlist-button';
 import { Button } from '@/components/ui/button';
-import ShopLayout from '@/layouts/shop-layout';
-import { addProductToCart, scrollToReviews } from '@/lib/shop-actions';
-import { formatPrice, Paginated, Product, ProductReview } from '@/types/marketplace';
-import { SharedData } from '@/types';
 
 interface ProductShowProps {
     product: Product;
@@ -33,6 +34,14 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
     useEffect(() => {
         setLikes(product.wishlist_adds ?? 0);
     }, [product.wishlist_adds]);
+
+    useEffect(() => {
+        recordRecentView({
+            id: product.id,
+            category_id: product.category?.id ?? null,
+            category: product.category ?? null,
+        });
+    }, [product.id, product.category]);
 
     const handleAddToCart = () => {
         if (!auth.user) {

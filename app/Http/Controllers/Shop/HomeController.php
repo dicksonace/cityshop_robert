@@ -130,4 +130,46 @@ class HomeController extends Controller
             ],
         ]);
     }
+
+    public function matchesForRecentViews(Request $request): JsonResponse
+    {
+        $rawIds = $request->query('ids', []);
+
+        if (is_string($rawIds)) {
+            $rawIds = array_filter(explode(',', $rawIds));
+        } elseif (! is_array($rawIds)) {
+            $rawIds = [];
+        }
+
+        $ids = array_slice(array_values(array_unique(array_map('intval', $rawIds))), 0, 20);
+
+        $products = $this->discovery->matchesForRecentViews($ids, $request->user(), 12);
+
+        $categoryIds = $products
+            ->pluck('category_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $sellerCounts = $this->discovery->sellerCountsByCategory($categoryIds);
+
+        $payload = $products->map(function (Product $product) use ($sellerCounts) {
+            $categoryId = $product->category_id ? (int) $product->category_id : null;
+
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'slug' => $product->slug,
+                'price' => (float) $product->price,
+                'discount_price' => $product->discount_price !== null ? (float) $product->discount_price : null,
+                'images' => $product->images,
+                'category_id' => $categoryId,
+                'sellers_in_category' => $categoryId ? ($sellerCounts[$categoryId] ?? 1) : 1,
+            ];
+        })->values();
+
+        return response()->json(['products' => $payload]);
+    }
 }

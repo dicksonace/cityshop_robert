@@ -3,10 +3,12 @@
 namespace App\Services;
 
 use App\Models\OrderItem;
+use App\Models\Product;
 use App\Models\User;
 use App\Models\Wishlist;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -238,6 +240,64 @@ class ProductDiscoveryService
         $list = implode(',', array_map('intval', $categoryIds));
 
         return "CASE WHEN products.category_id IN ({$list}) THEN 1.15 ELSE 0 END";
+    }
+
+    /**
+     * Products similar to recently viewed items (same categories), excluding the viewed ids.
+     *
+     * @param  list<int|string>  $productIds
+     * @return Collection<int, Product>
+     */
+    public function matchesForRecentViews(array $productIds, ?User $viewer = null, int $limit = 12): Collection
+    {
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
+
+        if ($productIds === [] || $limit < 1) {
+            return collect();
+        }
+
+        $categoryIds = Product::query()
+            ->whereIn('id', $productIds)
+            ->whereNotNull('category_id')
+            ->distinct()
+            ->pluck('category_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values()
+            ->all();
+
+        $query = Product::with(['images', 'seller.sellerProfile', 'category'])
+            ->visibleInShop()
+            ->whereNotIn('id', $productIds);
+
+        if ($categoryIds !== []) {
+            $query->whereIn('category_id', $categoryIds);
+        }
+
+        $this->applySort($query, 'recommended', $this->explorationSeed(), $viewer);
+
+        return $query->limit($limit)->get();
+    }
+
+    /**
+     * @param  list<int>  $categoryIds
+     * @return array<int, int> category_id => distinct seller count
+     */
+    public function sellerCountsByCategory(array $categoryIds): array
+    {
+        $categoryIds = array_values(array_unique(array_filter(array_map('intval', $categoryIds))));
+
+        if ($categoryIds === []) {
+            return [];
+        }
+
+        return Product::visibleInShop()
+            ->whereIn('category_id', $categoryIds)
+            ->selectRaw('category_id, COUNT(DISTINCT seller_id) as sellers')
+            ->groupBy('category_id')
+            ->pluck('sellers', 'category_id')
+            ->map(fn ($count) => (int) $count)
+            ->all();
     }
 
     /**

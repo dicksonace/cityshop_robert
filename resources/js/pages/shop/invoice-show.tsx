@@ -1,6 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Printer } from 'lucide-react';
-import { useEffect } from 'react';
+import { Download, Printer } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
@@ -13,6 +12,13 @@ interface InvoiceLine {
     unit_price?: number;
     total?: number;
     image?: string | null;
+}
+
+interface SellerContact {
+    store_name: string;
+    address?: string | null;
+    location?: string | null;
+    phone?: string | null;
 }
 
 interface InvoiceShowProps {
@@ -29,14 +35,10 @@ interface InvoiceShowProps {
         payment_status: string;
         issued_at: string;
         checkout?: { id: number; checkout_number: string };
-        order?: { order_number: string; seller?: { seller_profile?: { business_name?: string }; name?: string } };
+        order?: { order_number: string; seller?: { seller_profile?: { business_name?: string; store_name?: string }; name?: string } };
     };
-    sellerContact?: {
-        store_name: string;
-        address?: string | null;
-        location?: string | null;
-        phone?: string | null;
-    } | null;
+    sellerContacts?: SellerContact[];
+    sellerContact?: SellerContact | null;
 }
 
 const typeLabels: Record<string, string> = {
@@ -55,110 +57,61 @@ function lineImageSrc(image?: string | null): string | null {
     return productImageUrl(image);
 }
 
-export default function InvoiceShow({ invoice, sellerContact }: InvoiceShowProps) {
+export default function InvoiceShow({ invoice, sellerContacts, sellerContact }: InvoiceShowProps) {
+    const contacts =
+        sellerContacts && sellerContacts.length > 0
+            ? sellerContacts
+            : sellerContact
+              ? [sellerContact]
+              : [];
+
     const sellerName =
-        sellerContact?.store_name
+        contacts[0]?.store_name
+        ?? invoice.order?.seller?.seller_profile?.store_name
         ?? invoice.order?.seller?.seller_profile?.business_name
         ?? invoice.order?.seller?.name;
 
-    useEffect(() => {
-        if (typeof window === 'undefined') {
-            return;
-        }
-        if (new URLSearchParams(window.location.search).get('print') !== '1') {
-            return;
-        }
-
-        let cancelled = false;
-        const runPrint = () => {
-            if (!cancelled) {
-                window.print();
-            }
-        };
-
-        // Wait for product images so mobile print includes them on page 1.
-        const images = Array.from(document.querySelectorAll<HTMLImageElement>('.invoice-sheet img'));
-        const pending = images.filter((img) => !img.complete);
-        if (pending.length === 0) {
-            const timer = window.setTimeout(runPrint, 250);
-            return () => {
-                cancelled = true;
-                window.clearTimeout(timer);
-            };
-        }
-
-        let left = pending.length;
-        const onDone = () => {
-            left -= 1;
-            if (left <= 0) {
-                window.setTimeout(runPrint, 150);
-            }
-        };
-        pending.forEach((img) => {
-            img.addEventListener('load', onDone, { once: true });
-            img.addEventListener('error', onDone, { once: true });
-        });
-        const fallback = window.setTimeout(runPrint, 2500);
-
-        return () => {
-            cancelled = true;
-            window.clearTimeout(fallback);
-        };
-    }, []);
+    const printUrl = route('invoices.print', invoice.id);
+    const pdfUrl = route('invoices.pdf', invoice.id);
 
     return (
         <ShopLayout hideChrome>
-            <Head title={`Invoice ${invoice.invoice_number}`}>
-                <style>{`
-                    @media print {
-                        @page {
-                            size: A4;
-                            margin: 10mm;
-                        }
-                        html, body {
-                            background: #fff !important;
-                            -webkit-print-color-adjust: exact;
-                            print-color-adjust: exact;
-                        }
-                        .invoice-sheet {
-                            box-shadow: none !important;
-                            border-radius: 0 !important;
-                            padding: 0 !important;
-                            max-width: none !important;
-                        }
-                    }
-                `}</style>
-            </Head>
+            <Head title={`Invoice ${invoice.invoice_number}`} />
 
-            <div className="mx-auto max-w-3xl px-3 py-4 sm:px-4 sm:py-8 print:max-w-none print:px-0 print:py-0">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden sm:mb-6">
+            <div className="mx-auto max-w-3xl px-3 pb-28 pt-4 sm:px-4 sm:pb-8 sm:py-8">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-6">
                     <Link
                         href={invoice.checkout ? route('checkouts.show', invoice.checkout.id) : route('orders.index')}
                         className="text-sm text-orange-500 hover:underline"
                     >
                         ← Back to order
                     </Link>
-                    <Button
-                        type="button"
-                        size="sm"
-                        className="bg-orange-500 text-white hover:bg-orange-600"
-                        onClick={() => window.print()}
-                    >
-                        <Printer className="mr-2 h-4 w-4" />
-                        Print / Save PDF
-                    </Button>
+                    <div className="hidden items-center gap-2 sm:flex">
+                        <Button asChild size="sm" className="bg-orange-500 text-white hover:bg-orange-600">
+                            <a href={printUrl} target="_blank" rel="noopener noreferrer">
+                                <Printer className="mr-2 h-4 w-4" />
+                                Print
+                            </a>
+                        </Button>
+                        <Button asChild size="sm" variant="outline">
+                            <a href={pdfUrl}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Save PDF
+                            </a>
+                        </Button>
+                    </div>
                 </div>
 
-                <article className="invoice-sheet rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:border-0 sm:p-8 sm:shadow-sm print:border-0 print:p-0 print:shadow-none">
-                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-4 print:pb-3">
+                <article className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:border-0 sm:p-8 sm:shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-4">
                         <div>
-                            <p className="text-2xl font-bold text-gray-900 print:text-xl">
+                            <p className="text-2xl font-bold text-gray-900">
                                 City<span className="text-orange-500">Shop</span>
                             </p>
                             <p className="mt-0.5 text-sm text-gray-500">cityunlock.net</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-lg font-bold text-gray-900 print:text-base">{invoice.invoice_number}</p>
+                            <p className="text-lg font-bold text-gray-900">{invoice.invoice_number}</p>
                             <p className="text-sm text-gray-500">{typeLabels[invoice.type] ?? invoice.type}</p>
                             <p className="mt-0.5 text-sm text-gray-500">
                                 {new Date(invoice.issued_at).toLocaleDateString('en-GB', {
@@ -170,31 +123,42 @@ export default function InvoiceShow({ invoice, sellerContact }: InvoiceShowProps
                         </div>
                     </div>
 
-                    {sellerContact && (
-                        <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm print:mt-3 print:p-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Seller</p>
-                            <dl className="mt-1.5 grid gap-1 sm:grid-cols-2 print:gap-0.5">
-                                <div>
-                                    <dt className="text-xs text-gray-500">Store name</dt>
-                                    <dd className="font-medium text-gray-900">{sellerContact.store_name}</dd>
+                    {contacts.length > 0 && (
+                        <div className="mt-4 space-y-3">
+                            {contacts.map((contact, index) => (
+                                <div
+                                    key={`${contact.store_name}-${index}`}
+                                    className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm"
+                                >
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        {contacts.length > 1 ? `Store ${index + 1}` : 'Seller'}
+                                    </p>
+                                    <dl className="mt-1.5 grid gap-1 sm:grid-cols-2">
+                                        <div>
+                                            <dt className="text-xs text-gray-500">Store name</dt>
+                                            <dd className="font-medium text-gray-900">{contact.store_name}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-gray-500">Phone</dt>
+                                            <dd className="text-gray-900">{contact.phone || '—'}</dd>
+                                        </div>
+                                        <div className="sm:col-span-2">
+                                            <dt className="text-xs text-gray-500">Address</dt>
+                                            <dd className="text-gray-900">{contact.address || '—'}</dd>
+                                        </div>
+                                        {(contact.location || contacts.length === 1) && (
+                                            <div className="sm:col-span-2">
+                                                <dt className="text-xs text-gray-500">Location</dt>
+                                                <dd className="text-gray-900">{contact.location || '—'}</dd>
+                                            </div>
+                                        )}
+                                    </dl>
                                 </div>
-                                <div>
-                                    <dt className="text-xs text-gray-500">Phone</dt>
-                                    <dd className="text-gray-900">{sellerContact.phone || '—'}</dd>
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <dt className="text-xs text-gray-500">Address</dt>
-                                    <dd className="text-gray-900">{sellerContact.address || '—'}</dd>
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <dt className="text-xs text-gray-500">Location</dt>
-                                    <dd className="text-gray-900">{sellerContact.location || '—'}</dd>
-                                </div>
-                            </dl>
+                            ))}
                         </div>
                     )}
 
-                    <div className="mt-4 grid gap-1 text-sm sm:grid-cols-2 print:mt-3">
+                    <div className="mt-4 grid gap-1 text-sm sm:grid-cols-2">
                         {invoice.checkout && (
                             <p className="text-gray-600">
                                 <span className="font-medium text-gray-900">Checkout:</span> {invoice.checkout.checkout_number}
@@ -212,7 +176,7 @@ export default function InvoiceShow({ invoice, sellerContact }: InvoiceShowProps
                         </p>
                     </div>
 
-                    <table className="mt-5 w-full text-sm print:mt-4">
+                    <table className="mt-5 w-full text-sm">
                         <thead>
                             <tr className="border-b text-left text-gray-500">
                                 <th className="pb-2 font-medium">Item</th>
@@ -227,16 +191,16 @@ export default function InvoiceShow({ invoice, sellerContact }: InvoiceShowProps
 
                                 return (
                                     <tr key={i}>
-                                        <td className="py-2.5 pr-2 print:py-1.5">
+                                        <td className="py-2.5 pr-2">
                                             <div className="flex items-center gap-2.5">
                                                 {src ? (
                                                     <img
                                                         src={src}
                                                         alt=""
-                                                        className="h-12 w-12 shrink-0 rounded border border-gray-200 object-contain print:h-10 print:w-10"
+                                                        className="h-12 w-12 shrink-0 rounded border border-gray-200 object-contain"
                                                     />
                                                 ) : (
-                                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400 print:h-10 print:w-10">
+                                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400">
                                                         —
                                                     </div>
                                                 )}
@@ -246,11 +210,11 @@ export default function InvoiceShow({ invoice, sellerContact }: InvoiceShowProps
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="py-2.5 text-center print:py-1.5">{line.quantity ?? 1}</td>
-                                        <td className="py-2.5 text-right print:py-1.5">
+                                        <td className="py-2.5 text-center">{line.quantity ?? 1}</td>
+                                        <td className="py-2.5 text-right">
                                             {line.unit_price != null ? formatPrice(line.unit_price) : '—'}
                                         </td>
-                                        <td className="py-2.5 text-right font-medium print:py-1.5">
+                                        <td className="py-2.5 text-right font-medium">
                                             {line.total != null ? formatPrice(line.total) : '—'}
                                         </td>
                                     </tr>
@@ -259,7 +223,7 @@ export default function InvoiceShow({ invoice, sellerContact }: InvoiceShowProps
                         </tbody>
                     </table>
 
-                    <div className="mt-4 ml-auto max-w-xs space-y-1.5 border-t pt-3 text-sm print:mt-3">
+                    <div className="mt-4 ml-auto max-w-xs space-y-1.5 border-t pt-3 text-sm">
                         <div className="flex justify-between text-gray-600">
                             <span>Subtotal</span>
                             <span>{formatPrice(invoice.subtotal)}</span>
@@ -276,10 +240,27 @@ export default function InvoiceShow({ invoice, sellerContact }: InvoiceShowProps
                         </div>
                     </div>
 
-                    <p className="mt-4 text-center text-xs text-gray-400 print:mt-3">
+                    <p className="mt-4 text-center text-xs text-gray-400">
                         Thank you for shopping on CityShop.
                     </p>
                 </article>
+            </div>
+
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:hidden">
+                <div className="mx-auto flex max-w-3xl gap-2">
+                    <Button asChild className="flex-1 bg-orange-500 text-white hover:bg-orange-600">
+                        <a href={printUrl} target="_blank" rel="noopener noreferrer">
+                            <Printer className="mr-2 h-4 w-4" />
+                            Print
+                        </a>
+                    </Button>
+                    <Button asChild variant="outline" className="flex-1">
+                        <a href={pdfUrl}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Save PDF
+                        </a>
+                    </Button>
+                </div>
             </div>
         </ShopLayout>
     );

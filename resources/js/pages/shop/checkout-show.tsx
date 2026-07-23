@@ -195,10 +195,10 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                     </div>
                     {printInvoice ? (
                         <Button asChild className="shrink-0 bg-orange-500 text-white hover:bg-orange-600">
-                            <Link href={`${route('invoices.show', printInvoice.id)}?print=1`}>
+                            <a href={route('invoices.print', printInvoice.id)} target="_blank" rel="noopener noreferrer">
                                 <Printer className="mr-2 h-4 w-4" />
                                 Print
-                            </Link>
+                            </a>
                         </Button>
                     ) : (
                         <Button
