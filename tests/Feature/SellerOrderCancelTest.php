@@ -277,4 +277,158 @@ class SellerOrderCancelTest extends TestCase
         $this->assertSame(OrderStatus::Cancelled, $checkout->status);
         $this->assertSame(PaymentStatus::Failed, $checkout->payment_status);
     }
+
+    public function test_cancelling_paid_direct_order_debits_seller_and_refunds_buyer(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = $this->approvedSeller();
+
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Direct shoes',
+            'slug' => 'shoes-'.uniqid(),
+            'price' => 100,
+            'quantity' => 0,
+            'status' => ProductStatus::Approved,
+        ]);
+
+        $checkout = Checkout::create([
+            'checkout_number' => 'CHK'.uniqid(),
+            'buyer_id' => $buyer->id,
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'receiver_name' => 'Buyer',
+            'receiver_phone' => '0240000000',
+            'region' => 'Ashanti',
+            'city' => 'Kumasi',
+            'subtotal' => 100,
+            'shipping_cost' => 20,
+            'total' => 120,
+        ]);
+
+        $order = Order::create([
+            'checkout_id' => $checkout->id,
+            'order_number' => Order::generateOrderNumber(),
+            'buyer_id' => $buyer->id,
+            'seller_id' => $seller->id,
+            'status' => OrderStatus::Processing,
+            'payment_status' => PaymentStatus::Paid,
+            'payment_channel' => PaymentChannel::Direct,
+            'payment_method' => 'direct',
+            'receiver_name' => 'Buyer',
+            'receiver_phone' => '0240000000',
+            'region' => 'Ashanti',
+            'city' => 'Kumasi',
+            'subtotal' => 100,
+            'shipping_cost' => 20,
+            'commission_amount' => 0,
+            'total' => 120,
+        ]);
+
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'seller_id' => $seller->id,
+            'product_name' => 'Direct shoes',
+            'quantity' => 1,
+            'unit_price' => 100,
+            'commission_rate' => 0,
+            'commission_amount' => 0,
+            'seller_amount' => 100,
+            'status' => OrderStatus::Processing,
+        ]);
+
+        Wallet::create([
+            'user_id' => $seller->id,
+            'available_balance' => 200,
+            'pending_balance' => 0,
+            'total_earnings' => 0,
+            'withdrawn_amount' => 0,
+        ]);
+
+        Wallet::create([
+            'user_id' => $buyer->id,
+            'available_balance' => 0,
+            'pending_balance' => 0,
+            'total_earnings' => 0,
+            'withdrawn_amount' => 0,
+        ]);
+
+        $this->actingAs($seller)
+            ->post(route('seller.orders.reject', $item), [
+                'cancellation_code' => 'out_of_stock',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('seller.orders.stage', 'cancelled'));
+
+        $this->assertSame(OrderCancellation::REFUND_COMPLETED, $item->fresh()->refund_status);
+        $this->assertEquals(80.0, (float) Wallet::where('user_id', $seller->id)->value('available_balance'));
+        $this->assertEquals(120.0, (float) Wallet::where('user_id', $buyer->id)->value('available_balance'));
+        $this->assertEquals(1, Product::find($product->id)->quantity);
+    }
+
+    public function test_cancelling_paid_direct_order_fails_without_seller_balance(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = $this->approvedSeller();
+
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Low balance item',
+            'slug' => 'low-'.uniqid(),
+            'price' => 50,
+            'quantity' => 1,
+            'status' => ProductStatus::Approved,
+        ]);
+
+        $order = Order::create([
+            'order_number' => Order::generateOrderNumber(),
+            'buyer_id' => $buyer->id,
+            'seller_id' => $seller->id,
+            'status' => OrderStatus::Pending,
+            'payment_status' => PaymentStatus::Paid,
+            'payment_channel' => PaymentChannel::Direct,
+            'payment_method' => 'direct',
+            'receiver_name' => 'Buyer',
+            'receiver_phone' => '0240000000',
+            'region' => 'Ashanti',
+            'city' => 'Kumasi',
+            'subtotal' => 50,
+            'shipping_cost' => 0,
+            'commission_amount' => 0,
+            'total' => 50,
+        ]);
+
+        $item = OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'seller_id' => $seller->id,
+            'product_name' => 'Low balance item',
+            'quantity' => 1,
+            'unit_price' => 50,
+            'commission_rate' => 0,
+            'commission_amount' => 0,
+            'seller_amount' => 50,
+            'status' => OrderStatus::Pending,
+        ]);
+
+        Wallet::create([
+            'user_id' => $seller->id,
+            'available_balance' => 10,
+            'pending_balance' => 0,
+            'total_earnings' => 0,
+            'withdrawn_amount' => 0,
+        ]);
+
+        $this->actingAs($seller)
+            ->from(route('seller.orders.show', $item))
+            ->post(route('seller.orders.reject', $item), [
+                'cancellation_code' => 'out_of_stock',
+            ])
+            ->assertRedirect(route('seller.orders.show', $item))
+            ->assertSessionHas('error');
+
+        $this->assertSame(OrderStatus::Pending, $item->fresh()->status);
+        $this->assertEquals(10.0, (float) Wallet::where('user_id', $seller->id)->value('available_balance'));
+    }
 }

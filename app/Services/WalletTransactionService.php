@@ -108,6 +108,40 @@ class WalletTransactionService
         );
     }
 
+    public static function recordAdminDebit(int $userId, float $amount, int $adminId, ?string $note = null): WalletTransaction
+    {
+        $description = 'Funds removed by admin';
+        if ($note !== null && trim($note) !== '') {
+            $description .= ' — '.trim($note);
+        }
+
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::FundRemoved,
+            amount: -1 * $amount,
+            description: $description,
+            reference: 'ADMIN-DEBIT-'.$adminId.'-'.now()->format('YmdHis'),
+        );
+    }
+
+    public static function recordDirectCancelDebit(OrderItem $item, float $amount): void
+    {
+        if (static::existsForOrderItem($item->id, WalletTransactionType::DirectCancelDebit)) {
+            return;
+        }
+
+        $orderNumber = $item->order?->order_number ?? 'N/A';
+
+        static::record(
+            userId: $item->seller_id,
+            type: WalletTransactionType::DirectCancelDebit,
+            amount: -1 * $amount,
+            description: "Pay-to-seller cancel: {$item->product_name} (Order {$orderNumber})",
+            orderItemId: $item->id,
+            reference: $orderNumber,
+        );
+    }
+
     public static function recordOrderPayment(int $userId, float $amount, string $checkoutNumber, string $reference): void
     {
         static::record(

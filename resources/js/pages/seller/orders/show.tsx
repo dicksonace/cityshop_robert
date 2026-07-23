@@ -492,7 +492,8 @@ export default function SellerOrderShow({
                                         <p className="text-sm font-medium text-gray-900">Can&apos;t fulfill this order?</p>
                                         <p className="mt-1 text-xs text-gray-500">
                                             Cancel before shipping if you&apos;re out of stock or unable to fulfill.
-                                            Paid CityShop orders refund the buyer&apos;s wallet automatically.
+                                            Paid CityShop (marketplace) orders refund the buyer from escrow.
+                                            Paid Pay-to-seller orders debit your CityShop wallet available balance and refund the buyer.
                                         </p>
                                         <Button
                                             type="button"
@@ -535,7 +536,9 @@ export default function SellerOrderShow({
                                         </div>
                                         <p className="text-xs text-gray-500">
                                             {order.payment_channel === 'direct'
-                                                ? 'Direct payment: cancelling does not auto-refund CityShop wallet — settle with the buyer separately if needed.'
+                                                ? order.payment_status === 'paid'
+                                                    ? 'Pay-to-seller: cancelling debits your CityShop wallet available balance and refunds the buyer. Top up first if your balance is too low.'
+                                                    : 'Pay-to-seller: order is not paid yet — no wallet debit.'
                                                 : order.payment_status === 'paid'
                                                     ? 'Buyer will get a full product refund in their CityShop wallet.'
                                                     : 'Order is not paid yet — no wallet refund needed.'}

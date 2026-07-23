@@ -330,6 +330,8 @@ export default function StoreStorefront({
                             storeSlug={store.slug}
                             storeName={storeName}
                             className="w-full"
+                            showBack
+                            backHref={route('home')}
                         />
                     </div>
                 </div>

@@ -23,6 +23,7 @@ interface WalletUser {
 interface RecentFunding {
     id: number;
     amount: number;
+    type: string;
     description: string;
     created_at: string | null;
     user: { id: number; name: string; role: string } | null;
@@ -48,6 +49,7 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
 
     const form = useForm({
         user_id: 0,
+        action: 'credit' as 'credit' | 'debit',
         amount: '',
         note: '',
     });
@@ -61,15 +63,16 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
         );
     };
 
-    const openFund = (user: WalletUser) => {
+    const openFund = (user: WalletUser, action: 'credit' | 'debit' = 'credit') => {
         setTarget(user);
-        form.setData({ user_id: user.id, amount: '', note: '' });
+        form.setData({ user_id: user.id, action, amount: '', note: '' });
         form.clearErrors();
     };
 
     const closeFund = () => {
         setTarget(null);
         form.reset();
+        form.setData('action', 'credit');
     };
 
     const submitFund: FormEventHandler = (e) => {
@@ -80,15 +83,20 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
         });
     };
 
+    const isDebit = form.data.action === 'debit';
+
     return (
-        <AdminLayout title="Add Funds to Wallet" active="wallet-funding">
-            <Head title="Add Funds" />
+        <AdminLayout title="Wallet Funds" active="wallet-funding">
+            <Head title="Wallet Funds" />
 
             <div className="mb-4">
-                <h1 className="text-lg font-bold text-gray-900">Add funds to wallets</h1>
+                <h1 className="text-lg font-bold text-gray-900">Wallet funds (manual)</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    Manually credit a seller or buyer wallet. The amount is added to their available balance and logged
-                    as a transaction.
+                    Add or remove available balance for sellers and buyers. Sellers also use{' '}
+                    <Link href={route('admin.manual-top-ups.index')} className="text-blue-600 hover:underline">
+                        manual top-up requests
+                    </Link>{' '}
+                    (approve = automatic credit). Pay-to-seller cancels debit the seller wallet automatically.
                 </p>
             </div>
 
@@ -183,15 +191,27 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                                                 {formatPrice(user.available_balance)}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() => openFund(user)}
-                                                    className="bg-blue-500 hover:bg-blue-600"
-                                                >
-                                                    <Wallet className="mr-1 h-4 w-4" />
-                                                    Add funds
-                                                </Button>
+                                                <div className="flex flex-wrap justify-end gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={() => openFund(user, 'credit')}
+                                                        className="bg-blue-500 hover:bg-blue-600"
+                                                    >
+                                                        <Wallet className="mr-1 h-4 w-4" />
+                                                        Add
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => openFund(user, 'debit')}
+                                                        className="border-red-200 text-red-700 hover:bg-red-50"
+                                                        disabled={user.available_balance <= 0}
+                                                    >
+                                                        Remove
+                                                    </Button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -221,17 +241,23 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                 </div>
 
                 <div className="rounded-xl bg-white p-5 shadow-sm">
-                    <h2 className="font-semibold text-gray-900">Recent admin credits</h2>
-                    <p className="mt-1 text-xs text-gray-500">Last 15 manual wallet top-ups.</p>
+                    <h2 className="font-semibold text-gray-900">Recent adjustments</h2>
+                    <p className="mt-1 text-xs text-gray-500">Last 20 admin add / remove actions.</p>
                     <div className="mt-4 space-y-3">
                         {recentFundings.length === 0 ? (
-                            <p className="text-sm text-gray-400">No manual credits yet.</p>
+                            <p className="text-sm text-gray-400">No manual adjustments yet.</p>
                         ) : (
                             recentFundings.map((tx) => (
                                 <div key={tx.id} className="border-b border-gray-50 pb-3 last:border-0 last:pb-0">
                                     <div className="flex items-center justify-between gap-2">
                                         <p className="text-sm font-medium text-gray-900">{tx.user?.name ?? 'User'}</p>
-                                        <p className="text-sm font-semibold text-green-600">{formatPrice(tx.amount)}</p>
+                                        <p
+                                            className={`text-sm font-semibold ${
+                                                tx.amount < 0 ? 'text-red-600' : 'text-green-600'
+                                            }`}
+                                        >
+                                            {formatPrice(tx.amount)}
+                                        </p>
                                     </div>
                                     <p className="text-xs text-gray-500">{tx.description}</p>
                                     {tx.created_at && (
@@ -251,7 +277,9 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                     <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
                         <div className="flex items-start justify-between">
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900">Add funds</h3>
+                                <h3 className="text-lg font-bold text-gray-900">
+                                    {isDebit ? 'Remove funds' : 'Add funds'}
+                                </h3>
                                 <p className="mt-1 text-sm text-gray-500">
                                     {target.name} · <span className="capitalize">{target.role}</span>
                                 </p>
@@ -272,12 +300,40 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
 
                         <form className="mt-4 space-y-4" onSubmit={submitFund}>
                             <div>
+                                <Label>Action *</Label>
+                                <div className="mt-2 flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('action', 'credit')}
+                                        className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ring-1 ${
+                                            !isDebit
+                                                ? 'bg-blue-500 text-white ring-blue-500'
+                                                : 'bg-white text-gray-700 ring-gray-200'
+                                        }`}
+                                    >
+                                        Add (credit)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('action', 'debit')}
+                                        className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ring-1 ${
+                                            isDebit
+                                                ? 'bg-red-600 text-white ring-red-600'
+                                                : 'bg-white text-gray-700 ring-gray-200'
+                                        }`}
+                                    >
+                                        Remove (debit)
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
                                 <Label htmlFor="amount">Amount (GH₵) *</Label>
                                 <Input
                                     id="amount"
                                     type="number"
                                     step="0.01"
                                     min="0.5"
+                                    max={isDebit ? target.available_balance : undefined}
                                     value={form.data.amount}
                                     onChange={(e) => form.setData('amount', e.target.value)}
                                     className="mt-1"
@@ -285,6 +341,7 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                                     autoFocus
                                 />
                                 <InputError message={form.errors.amount} />
+                                <InputError message={form.errors.action} />
                             </div>
                             <div>
                                 <Label htmlFor="note">Note (optional)</Label>
@@ -293,7 +350,7 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                                     value={form.data.note}
                                     onChange={(e) => form.setData('note', e.target.value)}
                                     className="mt-1"
-                                    placeholder="Reason for this credit"
+                                    placeholder={isDebit ? 'Reason for this debit' : 'Reason for this credit'}
                                 />
                                 <InputError message={form.errors.note} />
                             </div>
@@ -304,10 +361,10 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                                 <Button
                                     type="submit"
                                     disabled={form.processing}
-                                    className="bg-blue-500 hover:bg-blue-600"
+                                    className={isDebit ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-500 hover:bg-blue-600'}
                                 >
                                     {form.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                    Add funds
+                                    {isDebit ? 'Remove funds' : 'Add funds'}
                                 </Button>
                             </div>
                         </form>

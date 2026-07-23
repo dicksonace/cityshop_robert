@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { Camera, LoaderCircle, Search, Truck } from 'lucide-react';
+import { ArrowLeft, Camera, LoaderCircle, Search, Truck } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,10 @@ interface SearchBoxProps {
     sellerId?: number;
     storeSlug?: string;
     storeName?: string;
+    /** Show a Back control to the left of the search field (mobile store / product flows). */
+    showBack?: boolean;
+    /** Optional fixed destination; otherwise uses browser history, falling back to shop home. */
+    backHref?: string;
 }
 
 export default function SearchBox({
@@ -50,6 +54,8 @@ export default function SearchBox({
     sellerId,
     storeSlug,
     storeName,
+    showBack = false,
+    backHref,
 }: SearchBoxProps) {
     const [query, setQuery] = useState(initialQuery);
     const [open, setOpen] = useState(false);
@@ -157,11 +163,35 @@ export default function SearchBox({
     const hasResults = products.length > 0 || categories.length > 0;
     const showDropdown = open && query.length >= 2;
 
+    const handleBack = () => {
+        onSubmitted?.();
+        if (backHref) {
+            router.visit(backHref);
+            return;
+        }
+        if (typeof window !== 'undefined' && window.history.length > 1) {
+            window.history.back();
+            return;
+        }
+        router.visit(route('home'));
+    };
+
     return (
         <div ref={wrapperRef} className={`relative ${className}`}>
-            <form onSubmit={handleSubmit} className="flex w-full">
+            <form onSubmit={handleSubmit} className="flex w-full items-center gap-2">
+                {showBack && (
+                    <button
+                        type="button"
+                        onClick={handleBack}
+                        className={`inline-flex shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition-colors hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600 ${compact ? 'h-10 w-10' : 'h-11 w-11'}`}
+                        aria-label="Go back"
+                        title="Back"
+                    >
+                        <ArrowLeft className="h-5 w-5" />
+                    </button>
+                )}
                 <div
-                    className={`flex w-full overflow-hidden rounded-2xl border-2 border-orange-100 bg-gray-50 transition-colors focus-within:border-orange-300 focus-within:bg-white ${compact ? 'rounded-xl' : ''}`}
+                    className={`flex min-w-0 flex-1 overflow-hidden rounded-2xl border-2 border-orange-100 bg-gray-50 transition-colors focus-within:border-orange-300 focus-within:bg-white ${compact ? 'rounded-xl' : ''}`}
                 >
                     <Input
                         type="search"

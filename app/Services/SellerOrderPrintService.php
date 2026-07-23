@@ -5,10 +5,11 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
 
 class SellerOrderPrintService
 {
@@ -69,33 +70,63 @@ class SellerOrderPrintService
         ];
     }
 
-    /** Open in browser — same PDF bytes as download (no HTML size mismatch). */
+    /** Open in browser — same PDF bytes as download. */
     public function stream(OrderItem $orderItem, User $seller): Response
     {
-        $data = $this->payload($orderItem, $seller);
-        $filename = $this->filename($data['order']);
-
-        return $this->makePdf($data)->stream($filename);
+        return $this->respond($orderItem, $seller, download: false);
     }
 
     public function pdf(OrderItem $orderItem, User $seller): Response
     {
-        $data = $this->payload($orderItem, $seller);
-        $filename = $this->filename($data['order']);
-
-        return $this->makePdf($data)->download($filename);
+        return $this->respond($orderItem, $seller, download: true);
     }
 
-    private function makePdf(array $data): \Barryvdh\DomPDF\PDF
+    private function respond(OrderItem $orderItem, User $seller, bool $download): Response
     {
-        // dpi 72 => CSS pt maps 1:1 to PDF points (stable page size).
-        return Pdf::loadView('seller.orders.packing-slip', $data)
-            ->setPaper('a4', 'portrait')
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', false)
-            ->setOption('defaultFont', 'DejaVu Sans')
-            ->setOption('dpi', 72)
-            ->setOption('isFontSubsettingEnabled', true);
+        $data = $this->payload($orderItem, $seller);
+        $filename = $this->filename($data['order']);
+        $binary = $this->renderPdfBinary($data);
+
+        return response($binary, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($download ? 'attachment' : 'inline').'; filename="'.$filename.'"',
+            'Cache-Control' => 'private, max-age=0, must-revalidate',
+        ]);
+    }
+
+    private function renderPdfBinary(array $data): string
+    {
+        $tempDir = storage_path('app/mpdf-temp');
+        if (! is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $mpdf = new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4',
+            'orientation' => 'P',
+            'margin_left' => 10,
+            'margin_right' => 10,
+            'margin_top' => 10,
+            'margin_bottom' => 10,
+            'margin_header' => 0,
+            'margin_footer' => 0,
+            'default_font' => 'dejavusans',
+            'default_font_size' => 9,
+            'tempDir' => $tempDir,
+            'shrink_tables_to_fit' => 1,
+        ]);
+
+        $mpdf->SetTitle('Packing slip '.$data['order']->order_number);
+        $mpdf->SetAuthor('CityShop');
+        $mpdf->SetCreator('CityShop');
+        $mpdf->autoScriptToLang = true;
+        $mpdf->autoLangToFont = true;
+
+        $html = view('seller.orders.packing-slip', $data)->render();
+        $mpdf->WriteHTML($html);
+
+        return $mpdf->Output('', Destination::STRING_RETURN);
     }
 
     private function filename(Order $order): string
@@ -121,7 +152,7 @@ class SellerOrderPrintService
     }
 
     /**
-     * DomPDF gets a base64 data URI so Windows paths and missing chroot never break images.
+     * mPDF gets a base64 data URI so file paths never break images.
      */
     private function productImageSrc(OrderItem $item): ?string
     {
@@ -158,7 +189,6 @@ class SellerOrderPrintService
             return null;
         }
 
-        // Keep PDF small — skip huge originals.
         if (strlen($binary) > 1_500_000) {
             return null;
         }

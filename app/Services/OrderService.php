@@ -1008,8 +1008,25 @@ class OrderService
                     $item->update(['refund_status' => \App\Support\OrderCancellation::REFUND_FAILED]);
                     throw $e;
                 }
+            } elseif ($wasPaid && $order->payment_channel === PaymentChannel::Direct) {
+                try {
+                    $this->clawbackDirectPaymentToBuyer($item, $refundAmount);
+
+                    $item->seller?->sellerProfile?->decrement('total_sales');
+
+                    $product = Product::find($item->product_id);
+                    if ($product && ! $product->is_preorder) {
+                        $product->increment('quantity', $item->quantity);
+                    }
+
+                    $refundStatus = \App\Support\OrderCancellation::REFUND_COMPLETED;
+                    $item->update(['refund_status' => $refundStatus]);
+                } catch (\Throwable $e) {
+                    $item->update(['refund_status' => \App\Support\OrderCancellation::REFUND_FAILED]);
+                    throw $e;
+                }
             } elseif ($wasPaid) {
-                // Direct / other channels: restore stock only; no CityShop wallet refund.
+                // Other channels: restore stock only.
                 $product = Product::find($item->product_id);
                 if ($product && ! $product->is_preorder) {
                     $product->increment('quantity', $item->quantity);
@@ -1023,17 +1040,20 @@ class OrderService
             $order->refresh()->load('items');
             if (
                 $wasPaid
-                && $order->payment_channel === PaymentChannel::Marketplace
                 && (float) $order->shipping_cost > 0
                 && $order->items->every(fn ($i) => $i->status === OrderStatus::Cancelled)
             ) {
-                $this->refundSellerShipping($order);
+                if ($order->payment_channel === PaymentChannel::Marketplace) {
+                    $this->refundSellerShipping($order);
+                } elseif ($order->payment_channel === PaymentChannel::Direct) {
+                    $this->clawbackDirectShippingToBuyer($order);
+                }
             }
 
             $order->buyer->notify(new OrderStatusUpdatedNotification(
                 $item->fresh(),
                 'cancelled',
-                refunded: $wasPaid && $order->payment_channel === PaymentChannel::Marketplace,
+                refunded: $wasPaid && in_array($order->payment_channel, [PaymentChannel::Marketplace, PaymentChannel::Direct], true),
                 refundAmount: $refundAmount,
             ));
 
@@ -1108,10 +1128,6 @@ class OrderService
         $order = $item->order;
         if ($order->payment_status !== PaymentStatus::Paid) {
             throw new \RuntimeException('This order is not paid yet.');
-        }
-
-        if ($order->payment_channel === PaymentChannel::Direct) {
-            throw new \RuntimeException('Direct-to-seller payments cannot be auto-refunded to the CityShop wallet. Handle those manually.');
         }
 
         $adminReason = trim($reason) !== ''
@@ -1372,6 +1388,72 @@ class OrderService
         WalletTransactionService::recordShippingReleased($order, $amount);
 
         return $amount;
+    }
+
+    /**
+     * Pay-to-seller: claw back from seller CityShop available → credit buyer wallet.
+     * Seller must keep enough available balance (manual top-up / earnings) to cancel.
+     */
+    private function clawbackDirectPaymentToBuyer(OrderItem $item, float $amount): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+
+        $seller = $item->seller ?? User::find($item->seller_id);
+        if (! $seller) {
+            throw new \RuntimeException('Seller account not found for this order.');
+        }
+
+        WalletService::debitAvailable(
+            $seller,
+            $amount,
+            'Not enough CityShop wallet balance to cancel this Pay-to-seller order. '
+            .'You need GH₵'.number_format($amount, 2).' available. '
+            .'Top up your seller wallet first, then try again.',
+        );
+
+        WalletTransactionService::recordDirectCancelDebit($item, $amount);
+
+        $buyerWallet = WalletService::ensure($item->order->buyer);
+        $buyerWallet->increment('available_balance', $amount);
+        WalletTransactionService::recordOrderRefund($item, $amount);
+    }
+
+    private function clawbackDirectShippingToBuyer(Order $order): void
+    {
+        $amount = (float) $order->shipping_cost;
+        if ($amount <= 0 || ! $order->seller_id) {
+            return;
+        }
+
+        if (WalletTransactionService::shippingRefundedExists($order->id)) {
+            return;
+        }
+
+        $seller = $order->seller ?? User::find($order->seller_id);
+        if (! $seller) {
+            throw new \RuntimeException('Seller account not found for shipping refund.');
+        }
+
+        WalletService::debitAvailable(
+            $seller,
+            $amount,
+            'Not enough CityShop wallet balance to refund shipping (GH₵'.number_format($amount, 2).'). '
+            .'Top up your seller wallet first, then cancel again.',
+        );
+
+        WalletTransactionService::record(
+            userId: $seller->id,
+            type: WalletTransactionType::DirectCancelDebit,
+            amount: -1 * $amount,
+            description: 'Pay-to-seller cancel — shipping (Order '.($order->order_number ?? $order->id).')',
+            reference: 'SHIP-DIR-'.$order->id,
+        );
+
+        $buyerWallet = WalletService::ensure($order->buyer);
+        $buyerWallet->increment('available_balance', $amount);
+        WalletTransactionService::recordShippingRefund($order, $amount);
     }
 
     private function refundSellerShipping(Order $order): void

@@ -66,7 +66,7 @@ export default function SearchPage({ products, categories, query, sort, category
                         </p>
                     )}
                     <div className="mt-6">
-                        <SearchBox initialQuery={query} showButton />
+                        <SearchBox initialQuery={query} showButton showBack backHref={route('home')} />
                     </div>
                     <p className="mt-4 text-center">
                         <Link

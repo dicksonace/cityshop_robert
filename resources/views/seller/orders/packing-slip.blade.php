@@ -4,22 +4,11 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Packing slip — {{ $order->order_number }}</title>
     <style>
-        /*
-         * DomPDF-only layout (print + download both use this PDF).
-         * dpi=72 so 1pt CSS = 1pt PDF. Full content width. No floats/flex.
-         */
-        @page {
-            margin: 10mm 10mm 10mm 10mm;
-        }
-        * {
-            margin: 0;
-            padding: 0;
-        }
         body {
-            font-family: DejaVu Sans, sans-serif;
+            font-family: dejavusans, sans-serif;
             font-size: 9pt;
-            line-height: 1.25;
             color: #111111;
+            line-height: 1.3;
         }
         table {
             border-collapse: collapse;
@@ -28,7 +17,6 @@
         .wrap {
             word-wrap: break-word;
             overflow-wrap: break-word;
-            word-break: break-word;
         }
         .top { vertical-align: top; }
         .mid { vertical-align: middle; }
@@ -38,11 +26,9 @@
             font-size: 7pt;
             font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 0.3pt;
             color: #666666;
             margin-bottom: 2pt;
         }
-
         .brand {
             font-size: 16pt;
             font-weight: bold;
@@ -52,50 +38,37 @@
         .doc-title {
             font-size: 11pt;
             font-weight: bold;
-            letter-spacing: 0.6pt;
+            letter-spacing: 0.5pt;
             text-transform: uppercase;
         }
         .order-no {
             font-size: 9.5pt;
             font-weight: bold;
             margin-top: 1pt;
-            word-break: break-all;
-        }
-        .rule {
-            border: 0;
-            border-top: 1.5pt solid #111111;
-            margin: 6pt 0 7pt 0;
         }
         .accent {
+            height: 3pt;
+            background: #ea580c;
             border: 0;
-            border-top: 2.5pt solid #ea580c;
-            margin: 0 0 7pt 0;
+            margin: 6pt 0 8pt 0;
         }
-
         .box {
             border: 0.6pt solid #cccccc;
-            padding: 5pt 6pt;
-            background: #fafafa;
+            padding: 6pt 7pt;
+            background-color: #fafafa;
         }
-        .box strong { font-size: 9pt; }
-
         .meta {
-            margin: 0 0 7pt 0;
+            margin-bottom: 7pt;
             font-size: 8pt;
         }
-        .meta td { padding: 0; vertical-align: middle; }
         .pill {
-            display: inline-block;
-            padding: 1pt 5pt;
             font-size: 7pt;
             font-weight: bold;
             text-transform: uppercase;
-            background: #ecfdf5;
             color: #047857;
+            background-color: #ecfdf5;
+            padding: 1pt 5pt;
         }
-        .pill.cod { background: #ccfbf1; color: #0f766e; }
-        .pill.pending { background: #fff7ed; color: #c2410c; }
-
         .items th {
             font-size: 7pt;
             text-transform: uppercase;
@@ -106,60 +79,56 @@
         }
         .items td {
             border-bottom: 0.5pt solid #e5e5e5;
-            padding: 4pt 2pt;
+            padding: 5pt 2pt;
             font-size: 8.5pt;
             vertical-align: middle;
         }
-        .items .c-num { width: 18pt; }
-        .items .c-qty { width: 32pt; text-align: right; }
-        .items .c-money { width: 72pt; text-align: right; }
+        .c-num { width: 18pt; }
+        .c-qty { width: 34pt; text-align: right; }
+        .c-money { width: 78pt; text-align: right; }
         .thumb {
-            width: 28pt;
-            height: 28pt;
+            width: 30pt;
+            height: 30pt;
             border: 0.5pt solid #dddddd;
         }
         .thumb-ph {
-            width: 28pt;
-            height: 28pt;
+            width: 30pt;
+            height: 30pt;
             border: 0.5pt solid #dddddd;
-            background: #f3f4f6;
+            background-color: #f3f4f6;
             text-align: center;
-            font-size: 7pt;
             color: #999999;
-            line-height: 28pt;
+            font-size: 7pt;
+            line-height: 30pt;
         }
         .pname { font-weight: bold; font-size: 8.5pt; }
-        .pstatus { color: #666666; font-size: 7pt; margin-top: 1pt; }
-
+        .pstatus { color: #666666; font-size: 7pt; }
         .totals {
-            width: 200pt;
+            width: 210pt;
             margin-top: 4pt;
         }
         .totals td {
-            padding: 1.5pt 0;
+            padding: 2pt 0;
             font-size: 8.5pt;
         }
-        .totals td.amt {
+        .totals .amt {
             text-align: right;
-            padding-left: 10pt;
+            width: 95pt;
             white-space: nowrap;
-            width: 90pt;
         }
         .totals .grand td {
             border-top: 1.5pt solid #111111;
             padding-top: 4pt;
-            font-size: 10pt;
+            font-size: 10.5pt;
             font-weight: bold;
         }
-
         .notes {
             margin-top: 8pt;
             padding: 5pt 6pt;
             border: 0.6pt dashed #999999;
-            background: #fafafa;
+            background-color: #fafafa;
             font-size: 8pt;
         }
-
         .footer {
             margin-top: 10pt;
             padding-top: 5pt;
@@ -182,15 +151,15 @@
 
 <table>
     <tr>
-        <td class="top wrap" style="width:52%;">
+        <td class="top wrap" width="52%">
             <div class="brand">City<span>Shop</span></div>
-            <div class="muted" style="margin-top:1pt;">cityunlock.net</div>
+            <div class="muted">cityunlock.net</div>
             <div class="wrap" style="margin-top:3pt; font-size:8.5pt;"><strong>{{ $storeName }}</strong></div>
             @if(filled($storeAddress))
                 <div class="muted wrap">{{ $storeAddress }}</div>
             @endif
         </td>
-        <td class="top right wrap" style="width:48%;">
+        <td class="top right wrap" width="48%">
             <div class="doc-title">Packing slip</div>
             <div class="order-no">{{ $order->order_number }}</div>
             <div class="muted" style="margin-top:2pt;">
@@ -203,11 +172,11 @@
     </tr>
 </table>
 
-<hr class="accent">
+<div class="accent">&nbsp;</div>
 
 <table style="margin-bottom:7pt;">
     <tr>
-        <td class="top" style="width:49%; padding-right:1%;">
+        <td class="top" width="49%" style="padding-right:4pt;">
             <div class="box wrap">
                 <div class="label">Ship from</div>
                 <strong>{{ $storeName }}</strong><br>
@@ -216,7 +185,7 @@
                 @endif
             </div>
         </td>
-        <td class="top" style="width:49%; padding-left:1%;">
+        <td class="top" width="49%" style="padding-left:4pt;">
             <div class="box wrap">
                 <div class="label">Ship to</div>
                 <strong>{{ $order->receiver_name ?: ($order->buyer?->name ?? 'Buyer') }}</strong><br>
@@ -236,14 +205,10 @@
         <td class="wrap">
             <strong>{{ $paymentLabel }}</strong>
             &nbsp;
-            <span class="pill {{ $isCod ? 'cod' : ($isPendingPay ? 'pending' : '') }}">
-                {{ $isCod ? 'COD' : strtoupper($order->payment_status->value) }}
-            </span>
+            <span class="pill">{{ $isCod ? 'COD' : strtoupper($order->payment_status->value) }}</span>
         </td>
-        <td class="right muted" style="white-space:nowrap;">
-            Lines: {{ $items->count() }}
-            &nbsp;·&nbsp;
-            Qty: {{ $items->sum('quantity') }}
+        <td class="right muted">
+            Lines: {{ $items->count() }} · Qty: {{ $items->sum('quantity') }}
         </td>
     </tr>
 </table>
@@ -266,9 +231,9 @@
                 <td class="wrap">
                     <table>
                         <tr>
-                            <td class="mid" style="width:34pt; padding-right:5pt;">
+                            <td class="mid" width="36" style="padding-right:5pt;">
                                 @if($imageSrc)
-                                    <img class="thumb" src="{{ $imageSrc }}" width="28" height="28" alt="">
+                                    <img class="thumb" src="{{ $imageSrc }}" width="30" height="30" alt="">
                                 @else
                                     <div class="thumb-ph">—</div>
                                 @endif
@@ -293,7 +258,7 @@
 <table>
     <tr>
         <td></td>
-        <td style="width:200pt;">
+        <td width="210">
             <table class="totals">
                 <tr>
                     <td>Items subtotal</td>
@@ -323,12 +288,8 @@
 
 <table class="footer">
     <tr>
-        <td class="top wrap" style="width:60%;">
-            For packing &amp; delivery only · Not a tax invoice
-        </td>
-        <td class="top right wrap" style="width:40%;">
-            {{ $storeName }} · cityunlock.net
-        </td>
+        <td class="top wrap" width="60%">For packing &amp; delivery only · Not a tax invoice</td>
+        <td class="top right wrap" width="40%">{{ $storeName }} · cityunlock.net</td>
     </tr>
 </table>
 </body>

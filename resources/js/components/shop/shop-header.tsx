@@ -33,6 +33,9 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const params = new URLSearchParams(page.url.split('?')[1] ?? '');
     const initialSearch = params.get('q') ?? params.get('search') ?? '';
+    const component = typeof page.component === 'string' ? page.component : '';
+    // Back beside search on store / product / search pages (not shop home).
+    const showSearchBack = ['shop/store', 'shop/product-show', 'shop/search', 'shop/image-search'].includes(component);
 
     const navLinks = [
         { label: 'Shop', href: route('home') },
@@ -138,7 +141,12 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                     <CityShopBrand size="sm" className="shrink-0" />
 
                     <div className={`mx-auto hidden max-w-2xl flex-1 md:flex ${hideSearch ? 'md:hidden' : ''}`}>
-                        <SearchBox initialQuery={initialSearch} className="w-full" />
+                        <SearchBox
+                            initialQuery={initialSearch}
+                            className="w-full"
+                            showBack={showSearchBack}
+                            backHref={route('home')}
+                        />
                     </div>
 
                     {hideSearch && <div className="hidden flex-1 md:block" />}
@@ -311,7 +319,13 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                 {/* Mobile search — hidden on shop home (search lives above products) */}
                 {!hideSearch && (
                     <div className="mt-2 md:hidden">
-                        <SearchBox initialQuery={initialSearch} compact onSubmitted={() => setMobileMenuOpen(false)} />
+                        <SearchBox
+                            initialQuery={initialSearch}
+                            compact
+                            showBack={showSearchBack}
+                            backHref={route('home')}
+                            onSubmitted={() => setMobileMenuOpen(false)}
+                        />
                     </div>
                 )}
 

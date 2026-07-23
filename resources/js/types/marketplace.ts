@@ -131,9 +131,11 @@ export const walletTransactionLabels: Record<string, string> = {
     withdrawal_completed: 'Payout Sent',
     withdrawal_refunded: 'Withdrawal Refunded',
     fund_added: 'Funds Added',
+    fund_removed: 'Funds Removed',
     order_payment: 'Order Payment',
     order_refund: 'Order Refund',
     sale_reversed: 'Sale Reversed',
+    direct_cancel_debit: 'Pay-to-seller Cancel',
 };
 
 export function formatWalletTransactionType(type: string): string {

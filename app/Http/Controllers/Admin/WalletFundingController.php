@@ -46,15 +46,22 @@ class WalletFundingController extends Controller
             ]);
 
         $recentFundings = WalletTransaction::query()
-            ->where('type', \App\Enums\WalletTransactionType::FundAdded)
-            ->where('reference', 'like', 'ADMIN-%')
+            ->whereIn('type', [
+                \App\Enums\WalletTransactionType::FundAdded,
+                \App\Enums\WalletTransactionType::FundRemoved,
+            ])
+            ->where(function ($q) {
+                $q->where('reference', 'like', 'ADMIN-%')
+                    ->orWhere('reference', 'like', 'ADMIN-DEBIT-%');
+            })
             ->with('user:id,name,email,role')
             ->latest()
-            ->limit(15)
+            ->limit(20)
             ->get()
             ->map(fn (WalletTransaction $tx) => [
                 'id' => $tx->id,
                 'amount' => (float) $tx->amount,
+                'type' => $tx->type->value,
                 'description' => $tx->description,
                 'created_at' => $tx->created_at?->toIso8601String(),
                 'user' => $tx->user ? [
@@ -79,22 +86,43 @@ class WalletFundingController extends Controller
                 'required',
                 Rule::exists('users', 'id')->whereIn('role', [UserRole::Seller->value, UserRole::Buyer->value]),
             ],
+            'action' => ['required', Rule::in(['credit', 'debit'])],
             'amount' => ['required', 'numeric', 'min:0.5', 'max:1000000'],
             'note' => ['nullable', 'string', 'max:255'],
         ]);
 
         $target = User::findOrFail($validated['user_id']);
+        $amount = (float) $validated['amount'];
+        $action = $validated['action'];
 
-        WalletService::adminCredit(
-            $target,
-            (float) $validated['amount'],
-            $request->user(),
-            $validated['note'] ?? null,
-        );
+        try {
+            if ($action === 'debit') {
+                WalletService::adminDebit(
+                    $target,
+                    $amount,
+                    $request->user(),
+                    $validated['note'] ?? null,
+                );
 
-        return back()->with(
-            'success',
-            'GH₵'.number_format((float) $validated['amount'], 2).' added to '.$target->name."'s wallet.",
-        );
+                return back()->with(
+                    'success',
+                    'GH₵'.number_format($amount, 2).' removed from '.$target->name."'s wallet.",
+                );
+            }
+
+            WalletService::adminCredit(
+                $target,
+                $amount,
+                $request->user(),
+                $validated['note'] ?? null,
+            );
+
+            return back()->with(
+                'success',
+                'GH₵'.number_format($amount, 2).' added to '.$target->name."'s wallet.",
+            );
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 }

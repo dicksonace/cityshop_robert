@@ -72,6 +72,8 @@ export function transactionTypeBadgeClass(type: string): string {
         case 'withdrawal':
         case 'withdrawal_completed':
         case 'order_payment':
+        case 'fund_removed':
+        case 'direct_cancel_debit':
             return 'bg-rose-100 text-rose-800 ring-1 ring-rose-200';
         case 'sale_reversed':
             return 'bg-red-100 text-red-800 ring-1 ring-red-200';

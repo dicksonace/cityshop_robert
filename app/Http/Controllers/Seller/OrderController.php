@@ -197,7 +197,7 @@ class OrderController extends Controller
         }
 
         $msg = $orderItem->fresh()->refund_status === \App\Support\OrderCancellation::REFUND_COMPLETED
-            ? 'Order cancelled. The buyer has been refunded to their CityShop wallet.'
+            ? 'Order cancelled. The buyer was refunded to their CityShop wallet (debited from your available balance).'
             : 'Order cancelled.';
 
         return redirect()->route('seller.orders.stage', 'cancelled')
@@ -215,7 +215,7 @@ class OrderController extends Controller
                 ->with('error', 'This Pay-to-seller order will appear after the buyer submits payment.');
         }
 
-        // Same DomPDF output as download — avoids HTML vs PDF size/layout mismatch.
+        // Same mPDF output as download — print/open matches download size.
         return $printService->stream($orderItem, $request->user());
     }
 
