@@ -204,7 +204,7 @@ class OrderController extends Controller
             ->with('success', $msg);
     }
 
-    public function print(Request $request, OrderItem $orderItem, SellerOrderPrintService $printService): View|RedirectResponse
+    public function print(Request $request, OrderItem $orderItem, SellerOrderPrintService $printService): Response|RedirectResponse
     {
         abort_unless($orderItem->seller_id === $request->user()->id, 403);
         $orderItem->loadMissing('order');
@@ -215,11 +215,8 @@ class OrderController extends Controller
                 ->with('error', 'This Pay-to-seller order will appear after the buyer submits payment.');
         }
 
-        return $printService->html(
-            $orderItem,
-            $request->user(),
-            autoPrint: $request->boolean('auto'),
-        );
+        // Same DomPDF output as download — avoids HTML vs PDF size/layout mismatch.
+        return $printService->stream($orderItem, $request->user());
     }
 
     public function pdf(Request $request, OrderItem $orderItem, SellerOrderPrintService $printService): Response|RedirectResponse

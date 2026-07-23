@@ -106,20 +106,14 @@ class SellerOrderPrintTest extends TestCase
         $seller = $this->approvedSeller('Ace Gadgets');
         $item = $this->makeOrderItem($buyer, $seller);
 
-        $this->actingAs($seller)
-            ->get(route('seller.orders.print', $item))
-            ->assertOk()
-            ->assertSee('Packing slip', false)
-            ->assertSee($item->order->order_number, false)
-            ->assertSee('Wireless earbuds', false)
-            ->assertSee('Kofi Buyer', false)
-            ->assertSee('Ace Gadgets', false)
-            ->assertSee('All Total', false)
-            ->assertSee('GH₵170.00', false);
+        $print = $this->actingAs($seller)->get(route('seller.orders.print', $item));
+        $print->assertOk();
+        $this->assertStringContainsString('application/pdf', (string) $print->headers->get('content-type'));
 
         $pdf = $this->actingAs($seller)->get(route('seller.orders.pdf', $item));
         $pdf->assertOk();
         $this->assertStringContainsString('application/pdf', (string) $pdf->headers->get('content-type'));
+        $this->assertGreaterThan(1000, strlen($pdf->getContent()));
     }
 
     public function test_seller_cannot_print_another_sellers_order(): void

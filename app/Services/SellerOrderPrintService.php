@@ -9,7 +9,6 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\View\View;
 
 class SellerOrderPrintService
 {
@@ -20,6 +19,7 @@ class SellerOrderPrintService
      *   order: Order,
      *   seller: User,
      *   storeName: string,
+     *   storeAddress: string|null,
      *   items: Collection<int, OrderItem>,
      *   itemImages: array<int, string|null>,
      *   subtotal: float,
@@ -27,9 +27,10 @@ class SellerOrderPrintService
      *   allTotal: float,
      *   printedAt: \Illuminate\Support\Carbon,
      *   paymentLabel: string,
+     *   focusItemId: int,
      * }
      */
-    public function payload(OrderItem $orderItem, User $seller, string $mode = 'html'): array
+    public function payload(OrderItem $orderItem, User $seller): array
     {
         abort_unless($orderItem->seller_id === $seller->id, 403);
 
@@ -47,13 +48,16 @@ class SellerOrderPrintService
 
         $itemImages = [];
         foreach ($items as $item) {
-            $itemImages[$item->id] = $this->productImageSrc($item, $mode);
+            $itemImages[$item->id] = $this->productImageSrc($item);
         }
+
+        $profile = $seller->sellerProfile;
 
         return [
             'order' => $order,
             'seller' => $seller,
-            'storeName' => $seller->sellerProfile?->displayName() ?? $seller->name ?? 'Seller',
+            'storeName' => $profile?->displayName() ?? $seller->name ?? 'Seller',
+            'storeAddress' => filled($profile?->business_address) ? trim((string) $profile->business_address) : null,
             'items' => $items,
             'itemImages' => $itemImages,
             'subtotal' => $subtotal,
@@ -61,38 +65,42 @@ class SellerOrderPrintService
             'allTotal' => $allTotal,
             'printedAt' => now(),
             'paymentLabel' => $this->paymentLabel($order),
+            'focusItemId' => $orderItem->id,
         ];
     }
 
-    public function html(OrderItem $orderItem, User $seller, bool $autoPrint = false): View
+    /** Open in browser — same PDF bytes as download (no HTML size mismatch). */
+    public function stream(OrderItem $orderItem, User $seller): Response
     {
-        return view('seller.orders.packing-slip', [
-            ...$this->payload($orderItem, $seller, 'html'),
-            'focusItemId' => $orderItem->id,
-            'mode' => 'html',
-            'autoPrint' => $autoPrint,
-        ]);
+        $data = $this->payload($orderItem, $seller);
+        $filename = $this->filename($data['order']);
+
+        return $this->makePdf($data)->stream($filename);
     }
 
     public function pdf(OrderItem $orderItem, User $seller): Response
     {
-        $data = [
-            ...$this->payload($orderItem, $seller, 'pdf'),
-            'focusItemId' => $orderItem->id,
-            'mode' => 'pdf',
-            'autoPrint' => false,
-        ];
+        $data = $this->payload($orderItem, $seller);
+        $filename = $this->filename($data['order']);
 
-        $filename = 'CityShop-Order-'.$data['order']->order_number.'.pdf';
+        return $this->makePdf($data)->download($filename);
+    }
 
+    private function makePdf(array $data): \Barryvdh\DomPDF\PDF
+    {
+        // dpi 72 => CSS pt maps 1:1 to PDF points (stable page size).
         return Pdf::loadView('seller.orders.packing-slip', $data)
             ->setPaper('a4', 'portrait')
             ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true)
+            ->setOption('isRemoteEnabled', false)
             ->setOption('defaultFont', 'DejaVu Sans')
-            ->setOption('dpi', 96)
-            ->setOption('isFontSubsettingEnabled', true)
-            ->download($filename);
+            ->setOption('dpi', 72)
+            ->setOption('isFontSubsettingEnabled', true);
+    }
+
+    private function filename(Order $order): string
+    {
+        return 'CityShop-Order-'.$order->order_number.'.pdf';
     }
 
     private function paymentLabel(Order $order): string
@@ -113,10 +121,9 @@ class SellerOrderPrintService
     }
 
     /**
-     * Browser HTML uses a public /storage URL.
      * DomPDF gets a base64 data URI so Windows paths and missing chroot never break images.
      */
-    private function productImageSrc(OrderItem $item, string $mode): ?string
+    private function productImageSrc(OrderItem $item): ?string
     {
         $images = $item->product?->images;
         if (! $images || $images->isEmpty()) {
@@ -131,10 +138,6 @@ class SellerOrderPrintService
         }
 
         $path = ltrim(str_replace('\\', '/', $path), '/');
-
-        if ($mode !== 'pdf') {
-            return asset('storage/'.$path);
-        }
 
         $absolute = Storage::disk('public')->path($path);
         if (! is_file($absolute)) {
