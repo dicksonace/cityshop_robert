@@ -52,6 +52,18 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
         order.payment_channel === 'direct' && order.payment_status === 'pending' && hasPaymentClaim;
     const canCancel = SELLER_CANCELLABLE.has(String(item.status));
     const statusLabel = formatOrderStatus(item.status);
+    const isDirect = order.payment_channel === 'direct';
+    const isPaid = order.payment_status === 'paid';
+
+    const paymentLabel = isCod
+        ? null
+        : isDirect
+            ? isPaid
+                ? 'Paid to seller'
+                : 'Pay to seller'
+            : isPaid
+                ? 'Paid · CityShop secured'
+                : 'CityShop secured';
 
     const rejectPayment = () => {
         const reason = window.prompt(
@@ -98,6 +110,18 @@ export default function SellerOrderCard({ item, stageSlug }: SellerOrderCardProp
                     <p className="mt-1 text-xs text-gray-400">{order.order_number}</p>
                     <p className="mt-2 text-lg font-bold text-orange-500">{formatPrice(item.unit_price * item.quantity)}</p>
                     <p className="text-xs text-gray-400">Qty {item.quantity} · {timeAgo(order.created_at)}</p>
+                    {paymentLabel && (
+                        <p
+                            className={cn(
+                                'mt-1.5 inline-flex max-w-full rounded-md px-2 py-0.5 text-[11px] font-semibold leading-snug',
+                                isDirect
+                                    ? 'bg-amber-50 text-amber-800'
+                                    : 'bg-emerald-50 text-emerald-700',
+                            )}
+                        >
+                            {paymentLabel}
+                        </p>
+                    )}
                 </div>
             </div>
 

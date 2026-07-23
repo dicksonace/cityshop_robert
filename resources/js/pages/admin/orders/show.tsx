@@ -1,7 +1,10 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
+import { Button } from '@/components/ui/button';
 import AdminLayout from '@/layouts/admin-layout';
-import { formatPrice, formatOrderStatus, Order, OrderItem } from '@/types/marketplace';
+import { formatPrice, formatOrderStatus, orderStatusBadgeClass, Order, OrderItem } from '@/types/marketplace';
+import { SharedData } from '@/types';
 
 interface Checkout {
     id: number;
@@ -28,14 +31,38 @@ interface AdminOrderShowProps {
     checkout: Checkout | null;
 }
 
-
 export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps) {
+    const { flash } = usePage<SharedData>().props;
+    const [busyId, setBusyId] = useState<number | null>(null);
+
+    const confirmDelivery = (itemId: number) => {
+        setBusyId(itemId);
+        router.post(route('admin.orders.confirm-delivery.store', itemId), {}, {
+            preserveScroll: true,
+            onFinish: () => setBusyId(null),
+        });
+    };
+
     return (
         <AdminLayout title={`Order ${order.order_number}`} active="orders">
             <Head title={`Order ${order.order_number}`} />
             <div className="mb-4">
-                <Link href={route('admin.orders.index')} className="text-sm text-orange-500 hover:underline">← All orders</Link>
+                <Link href={route('admin.orders.index')} className="text-sm text-orange-500 hover:underline">
+                    ← All orders
+                </Link>
             </div>
+
+            {(flash.success || flash.error) && (
+                <div
+                    className={`mb-4 rounded-xl px-4 py-3 text-sm ${
+                        flash.error
+                            ? 'border border-red-200 bg-red-50 text-red-800'
+                            : 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+                    }`}
+                >
+                    {flash.error ?? flash.success}
+                </div>
+            )}
 
             <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -47,7 +74,9 @@ export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps)
                         </div>
                         <div className="flex justify-between">
                             <dt className="text-gray-500">Buyer</dt>
-                            <dd>{order.buyer?.name} ({order.buyer?.email})</dd>
+                            <dd>
+                                {order.buyer?.name} ({order.buyer?.email})
+                            </dd>
                         </div>
                         <div className="flex justify-between">
                             <dt className="text-gray-500">Status</dt>
@@ -64,7 +93,9 @@ export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps)
                         {order.sellerPaymentMethod && (
                             <div className="flex justify-between">
                                 <dt className="text-gray-500">Seller method</dt>
-                                <dd>{order.sellerPaymentMethod.label} ({order.sellerPaymentMethod.type})</dd>
+                                <dd>
+                                    {order.sellerPaymentMethod.label} ({order.sellerPaymentMethod.type})
+                                </dd>
                             </div>
                         )}
                         {order.direct_payment_reference && (
@@ -107,26 +138,39 @@ export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps)
 
             <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
                 <h2 className="font-semibold">Items</h2>
-                <table className="mt-4 w-full text-sm">
-                    <thead>
-                        <tr className="border-b text-left text-gray-500">
-                            <th className="pb-2">Product</th>
-                            <th className="pb-2">Seller</th>
-                            <th className="pb-2">Qty</th>
-                            <th className="pb-2 text-right">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                        {order.items?.map((item) => (
-                            <tr key={item.id}>
-                                <td className="py-2">{item.product_name}</td>
-                                <td className="py-2">{item.seller?.name ?? '—'}</td>
-                                <td className="py-2">{item.quantity}</td>
-                                <td className="py-2 text-right">{formatPrice(item.unit_price * item.quantity)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <div className="mt-4 space-y-3">
+                    {order.items?.map((item) => (
+                        <div
+                            key={item.id}
+                            className="flex flex-col gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                            <div className="min-w-0">
+                                <p className="font-medium text-gray-900">{item.product_name}</p>
+                                <p className="mt-0.5 text-sm text-gray-500">
+                                    {item.seller?.name ?? '—'} · Qty {item.quantity} ·{' '}
+                                    {formatPrice(item.unit_price * item.quantity)}
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                <span
+                                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(item.status)}`}
+                                >
+                                    {formatOrderStatus(item.status)}
+                                </span>
+                                {item.status === 'awaiting_confirmation' && (
+                                    <Button
+                                        size="sm"
+                                        className="bg-orange-500 hover:bg-orange-600"
+                                        disabled={busyId === item.id}
+                                        onClick={() => confirmDelivery(item.id)}
+                                    >
+                                        {busyId === item.id ? 'Confirming…' : 'Confirm delivery'}
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {checkout?.orders && checkout.orders.length > 1 && (
@@ -137,9 +181,13 @@ export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps)
                             <li key={vo.id} className="flex items-center justify-between py-2">
                                 <span>
                                     {vo.order_number}
-                                    {vo.id === order.id && <span className="ml-2 text-xs text-orange-500">(this order)</span>}
+                                    {vo.id === order.id && (
+                                        <span className="ml-2 text-xs text-orange-500">(this order)</span>
+                                    )}
                                 </span>
-                                <span className="capitalize text-gray-500">{vo.payment_channel} · {vo.payment_status}</span>
+                                <span className="capitalize text-gray-500">
+                                    {vo.payment_channel} · {vo.payment_status}
+                                </span>
                                 <span className="font-medium">{formatPrice(vo.total)}</span>
                             </li>
                         ))}
@@ -153,7 +201,9 @@ export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps)
                     <ul className="mt-4 divide-y text-sm">
                         {checkout.payments.map((p) => (
                             <li key={p.id} className="flex justify-between py-2">
-                                <span className="capitalize">{p.channel} · {p.status}</span>
+                                <span className="capitalize">
+                                    {p.channel} · {p.status}
+                                </span>
                                 <span>{p.reference ?? '—'}</span>
                                 <span className="font-medium">{formatPrice(p.amount)}</span>
                             </li>
@@ -168,7 +218,10 @@ export default function AdminOrderShow({ order, checkout }: AdminOrderShowProps)
                     <ul className="mt-4 divide-y text-sm">
                         {checkout.invoices.map((inv) => (
                             <li key={inv.id} className="flex justify-between py-2">
-                                <span>{inv.invoice_number} <span className="text-gray-400">({inv.type.replace(/_/g, ' ')})</span></span>
+                                <span>
+                                    {inv.invoice_number}{' '}
+                                    <span className="text-gray-400">({inv.type.replace(/_/g, ' ')})</span>
+                                </span>
                                 <span>{formatPrice(inv.total)}</span>
                             </li>
                         ))}

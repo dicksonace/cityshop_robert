@@ -25,6 +25,12 @@ export default function AdminOrdersIndex({ orders }: OrdersIndexProps) {
                     Unprocessed 24h+
                 </Link>
                 <Link
+                    href={route('admin.orders.confirm-delivery')}
+                    className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
+                >
+                    Confirm delivery
+                </Link>
+                <Link
                     href={route('admin.orders.cancellations')}
                     className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm"
                 >

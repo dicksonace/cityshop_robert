@@ -224,6 +224,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/unprocessed', [AdminOrderController::class, 'unprocessed'])->name('orders.unprocessed');
     Route::post('/orders/items/{orderItem}/cancel-unprocessed', [AdminOrderController::class, 'cancelUnprocessed'])->name('orders.unprocessed.cancel');
+    Route::get('/orders/confirm-delivery', [AdminOrderController::class, 'awaitingConfirmation'])->name('orders.confirm-delivery');
+    Route::post('/orders/items/{orderItem}/confirm-delivery', [AdminOrderController::class, 'confirmDelivery'])->name('orders.confirm-delivery.store');
     Route::get('/orders/cancellations', [AdminOrderController::class, 'cancellations'])->name('orders.cancellations');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
 

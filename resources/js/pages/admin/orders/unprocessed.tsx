@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AdminLayout from '@/layouts/admin-layout';
-import { formatPrice, Paginated } from '@/types/marketplace';
+import { formatOrderStatus, formatPrice, orderStatusBadgeClass, Paginated } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
 interface UnprocessedItem {
@@ -53,8 +53,9 @@ function formatWait(hours: number | null): string {
 export default function AdminUnprocessedOrders({ items, hours, count }: UnprocessedProps) {
     const { flash } = usePage<SharedData>().props;
     const [cancellingId, setCancellingId] = useState<number | null>(null);
+    const defaultReason = 'Admin cancelled: order does not look like it will go through.';
     const { data, setData, post, processing, reset } = useForm({
-        reason: 'Admin cancelled: seller did not process the order within 24 hours.',
+        reason: defaultReason,
     });
 
     const submitCancel = (itemId: number) => {
@@ -63,7 +64,7 @@ export default function AdminUnprocessedOrders({ items, hours, count }: Unproces
             onSuccess: () => {
                 setCancellingId(null);
                 reset();
-                setData('reason', 'Admin cancelled: seller did not process the order within 24 hours.');
+                setData('reason', defaultReason);
             },
         });
     };
@@ -73,10 +74,10 @@ export default function AdminUnprocessedOrders({ items, hours, count }: Unproces
             <Head title="Unprocessed orders (24h+)" />
 
             <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <p className="font-semibold">Seller inactive for {hours}+ hours</p>
+                <p className="font-semibold">Paid {hours}+ hours ago — not yet out for delivery</p>
                 <p className="mt-1">
-                    These marketplace items were paid, but the seller never started processing them.
-                    Cancel to refund the buyer’s CityShop wallet (product total; delivery fee refunds when the whole seller package is cancelled).
+                    Each card shows the current fulfillment stage. You can cancel and refund the buyer’s CityShop wallet at any time if you
+                    suspect the order will not go through (before it is out for delivery).
                 </p>
                 <p className="mt-2 font-medium">{count} waiting</p>
             </div>
@@ -127,7 +128,12 @@ export default function AdminUnprocessedOrders({ items, hours, count }: Unproces
                                 </p>
                             </div>
                             <div className="shrink-0 text-left sm:text-right">
-                                <p className="text-sm font-bold text-red-600">Waiting {formatWait(item.hours_waiting)}</p>
+                                <span
+                                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatusBadgeClass(item.status)}`}
+                                >
+                                    {formatOrderStatus(item.status)}
+                                </span>
+                                <p className="mt-2 text-sm font-bold text-red-600">Waiting {formatWait(item.hours_waiting)}</p>
                                 {item.paid_at && (
                                     <p className="mt-1 text-xs text-gray-400">
                                         Paid {new Date(item.paid_at).toLocaleString()}
@@ -138,7 +144,7 @@ export default function AdminUnprocessedOrders({ items, hours, count }: Unproces
                                     className="mt-3 bg-red-600 hover:bg-red-700"
                                     onClick={() => setCancellingId(cancellingId === item.id ? null : item.id)}
                                 >
-                                    Cancel ❌ & refund wallet
+                                    Cancel & refund wallet
                                 </Button>
                             </div>
                         </div>
@@ -173,7 +179,7 @@ export default function AdminUnprocessedOrders({ items, hours, count }: Unproces
 
                 {items.data.length === 0 && (
                     <div className="rounded-xl bg-white p-10 text-center text-gray-500 shadow-sm">
-                        No paid orders waiting {hours}+ hours without seller action.
+                        No paid orders stuck {hours}+ hours before out for delivery.
                     </div>
                 )}
             </div>

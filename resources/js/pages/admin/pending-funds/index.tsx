@@ -89,7 +89,7 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
             <div className="mb-4">
                 <h1 className="text-lg font-bold text-gray-900">Pending fund releases</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    Buyer confirmed delivery. Approve to move seller earnings from Pending to Available, or reject to hold and open a dispute.
+                    Buyer confirmed delivery. You can release seller earnings to Available anytime — including held items — or reject to hold and open a dispute.
                 </p>
             </div>
 
@@ -187,7 +187,7 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
 
                                 {item.funds_release_status === 'held' && (
                                     <p className="mt-3 text-sm text-amber-800">
-                                        Funds are held. Resolve or cancel the related dispute under Support → Refund requests, then Approve to release.
+                                        Funds are held (often after a dispute). You can still Approve anytime to release to the seller’s Available balance.
                                     </p>
                                 )}
 

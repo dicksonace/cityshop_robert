@@ -88,7 +88,7 @@ class OrderController extends Controller
         ]);
 
         $reason = $validated['reason']
-            ?? 'Admin cancelled: seller did not process the order within 24 hours.';
+            ?? 'Admin cancelled: order does not look like it will go through.';
 
         if (! str_starts_with(mb_strtolower($reason), 'admin')) {
             $reason = 'Admin: '.$reason;
@@ -103,6 +103,67 @@ class OrderController extends Controller
         return back()->with(
             'success',
             'Order cancelled. The buyer has been refunded to their CityShop wallet.'
+        );
+    }
+
+    public function awaitingConfirmation(): Response
+    {
+        $items = OrderItem::query()
+            ->where('status', \App\Enums\OrderStatus::AwaitingConfirmation)
+            ->with([
+                'order.buyer',
+                'order.checkout:id,checkout_number',
+                'seller.sellerProfile',
+            ])
+            ->latest('updated_at')
+            ->paginate(20)
+            ->through(function (OrderItem $item) {
+                return [
+                    'id' => $item->id,
+                    'product_name' => $item->product_name,
+                    'quantity' => $item->quantity,
+                    'unit_price' => (float) $item->unit_price,
+                    'line_total' => $item->lineTotal(),
+                    'status' => $item->status->value,
+                    'updated_at' => $item->updated_at?->toIso8601String(),
+                    'order' => [
+                        'id' => $item->order->id,
+                        'order_number' => $item->order->order_number,
+                        'payment_channel' => $item->order->payment_channel?->value ?? 'marketplace',
+                        'checkout_number' => $item->order->checkout?->checkout_number,
+                    ],
+                    'buyer' => [
+                        'id' => $item->order->buyer?->id,
+                        'name' => $item->order->buyer?->name,
+                        'email' => $item->order->buyer?->email,
+                        'mobile' => $item->order->buyer?->mobile,
+                    ],
+                    'seller' => [
+                        'id' => $item->seller?->id,
+                        'name' => $item->seller?->name,
+                        'store' => $item->seller?->sellerProfile?->store_name
+                            ?? $item->seller?->sellerProfile?->business_name,
+                    ],
+                ];
+            });
+
+        return Inertia::render('admin/orders/confirm-delivery', [
+            'items' => $items,
+            'count' => OrderItem::where('status', \App\Enums\OrderStatus::AwaitingConfirmation)->count(),
+        ]);
+    }
+
+    public function confirmDelivery(OrderItem $orderItem): RedirectResponse
+    {
+        try {
+            $this->orders->confirmBuyerDelivery($orderItem);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with(
+            'success',
+            'Delivery confirmed on behalf of the buyer. Marketplace seller funds stay pending until you approve release under Pending Funds.'
         );
     }
 

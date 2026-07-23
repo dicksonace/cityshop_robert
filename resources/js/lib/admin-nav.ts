@@ -20,6 +20,7 @@ export type AdminNavKey =
     | 'categories'
     | 'orders'
     | 'orders-unprocessed'
+    | 'orders-confirm-delivery'
     | 'orders-cancellations'
     | 'withdrawals'
     | 'wallet-funding'
@@ -43,6 +44,7 @@ const sectionMap: Record<AdminNavKey, string> = {
     categories: 'catalog',
     orders: 'orders',
     'orders-unprocessed': 'orders',
+    'orders-confirm-delivery': 'orders',
     'orders-cancellations': 'orders',
     withdrawals: 'finance',
     'wallet-funding': 'finance',
@@ -117,6 +119,13 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                     label: 'Unprocessed 24h+',
                     href: route('admin.orders.unprocessed'),
                     badgeKey: 'stale_unprocessed_orders',
+                    defaultOnPath: true,
+                },
+                {
+                    key: 'orders-confirm-delivery',
+                    label: 'Confirm delivery',
+                    href: route('admin.orders.confirm-delivery'),
+                    badgeKey: 'awaiting_buyer_confirmation',
                     defaultOnPath: true,
                 },
                 {

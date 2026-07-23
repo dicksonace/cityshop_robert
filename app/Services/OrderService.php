@@ -596,7 +596,7 @@ class OrderService
         return PaymentChannel::Marketplace;
     }
 
-    public function releaseSellerFunds(OrderItem $item, ?int $reviewedBy = null): void
+    public function releaseSellerFunds(OrderItem $item, ?int $reviewedBy = null, bool $adminOverride = false): void
     {
         $item->load(['order', 'seller']);
 
@@ -612,7 +612,10 @@ class OrderService
             throw new \RuntimeException('This item is not waiting for fund release approval.');
         }
 
-        if (Dispute::where('order_item_id', $item->id)->whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->exists()) {
+        if (
+            ! $adminOverride
+            && Dispute::where('order_item_id', $item->id)->whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->exists()
+        ) {
             throw new \RuntimeException('Cannot release funds while a dispute is open.');
         }
 
@@ -621,7 +624,7 @@ class OrderService
                 $wallet = Wallet::where('user_id', $item->seller_id)->firstOrFail();
                 $amount = (float) $item->seller_amount;
 
-                $wallet->decrement('pending_balance', $amount);
+                $wallet->decrement('pending_balance', min($amount, (float) $wallet->pending_balance));
                 $wallet->increment('available_balance', $amount);
 
                 WalletTransactionService::recordSaleReleased($item);
@@ -893,7 +896,12 @@ class OrderService
         $cutoff = now()->subHours($hours);
 
         return OrderItem::query()
-            ->where('status', OrderStatus::Pending)
+            ->whereIn('status', [
+                OrderStatus::Pending,
+                OrderStatus::Processing,
+                OrderStatus::CallConfirmed,
+                OrderStatus::Packed,
+            ])
             ->whereHas('order', function ($q) use ($cutoff) {
                 $q->where('payment_status', PaymentStatus::Paid)
                     ->where(function ($channel) {
@@ -924,14 +932,22 @@ class OrderService
     }
 
     /**
-     * Admin cancels a stale unpaid-by-seller item and refunds the buyer wallet.
+     * Admin cancels a paid item that the seller has not completed (queue / stuck fulfillment).
+     * Marketplace refunds go to the buyer wallet.
      */
     public function adminCancelUnprocessedItem(OrderItem $item, string $reason): OrderItem
     {
         $item->load(['order', 'seller']);
 
-        if ($item->status !== OrderStatus::Pending) {
-            throw new \RuntimeException('Only unprocessed (pending) items can be cancelled from this queue.');
+        $cancellable = [
+            OrderStatus::Pending,
+            OrderStatus::Processing,
+            OrderStatus::CallConfirmed,
+            OrderStatus::Packed,
+        ];
+
+        if (! in_array($item->status, $cancellable, true)) {
+            throw new \RuntimeException('This order is too far along to cancel from this queue (already out for delivery or finished).');
         }
 
         $order = $item->order;
@@ -943,23 +959,16 @@ class OrderService
             throw new \RuntimeException('Direct-to-seller payments cannot be auto-refunded to the CityShop wallet. Handle those manually.');
         }
 
-        $paidAt = $this->itemPaidAt($item);
-        if (! $paidAt || $paidAt->gt(now()->subDay())) {
-            throw new \RuntimeException('Seller still has time — cancel only after 24 hours with no action.');
-        }
-
         $adminReason = trim($reason) !== ''
             ? $reason
-            : 'Admin cancelled: seller did not process the order within 24 hours.';
+            : 'Admin cancelled: seller did not process the order in time.';
 
-        $cancelled = $this->rejectOrderItem(
+        return $this->rejectOrderItem(
             $item,
             $adminReason,
             'unable_to_fulfill',
             \App\Support\OrderCancellation::BY_ADMIN,
         );
-
-        return $cancelled;
     }
 
     private function syncOrderStatusAfterItemChange(Order $order): void

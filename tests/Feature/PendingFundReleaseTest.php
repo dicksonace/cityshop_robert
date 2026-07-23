@@ -111,6 +111,30 @@ class PendingFundReleaseTest extends TestCase
         $this->assertEquals(0.0, (float) $wallet->available_balance);
     }
 
+    public function test_admin_can_confirm_delivery_on_behalf_of_buyer(): void
+    {
+        ['seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeAwaitingItem();
+
+        $this->actingAs($admin)
+            ->get(route('admin.orders.confirm-delivery'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/orders/confirm-delivery')
+                ->where('count', 1));
+
+        $this->actingAs($admin)
+            ->post(route('admin.orders.confirm-delivery.store', $item->id))
+            ->assertRedirect();
+
+        $item->refresh();
+        $this->assertSame(OrderStatus::Delivered, $item->status);
+        $this->assertSame(FundsReleaseStatus::Pending, $item->funds_release_status);
+
+        $wallet = Wallet::where('user_id', $seller->id)->first();
+        $this->assertEquals(105.0, (float) $wallet->pending_balance);
+        $this->assertEquals(0.0, (float) $wallet->available_balance);
+    }
+
     public function test_admin_approve_releases_pending_to_available(): void
     {
         ['buyer' => $buyer, 'seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeAwaitingItem();
@@ -146,5 +170,24 @@ class PendingFundReleaseTest extends TestCase
 
         $this->assertSame(FundsReleaseStatus::Held, $item->funds_release_status);
         $this->assertTrue(Dispute::where('order_item_id', $item->id)->where('status', 'open')->exists());
+    }
+
+    public function test_admin_can_release_held_funds_even_with_open_dispute(): void
+    {
+        ['seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeAwaitingItem();
+
+        app(OrderService::class)->confirmBuyerDelivery($item);
+        app(OrderService::class)->holdSellerFunds($item->fresh(), 'Suspicious delivery claim', $admin->id);
+
+        $this->actingAs($admin)
+            ->post(route('admin.pending-funds.approve', $item->id))
+            ->assertRedirect();
+
+        $item->refresh();
+        $wallet = Wallet::where('user_id', $seller->id)->first();
+
+        $this->assertSame(FundsReleaseStatus::Released, $item->funds_release_status);
+        $this->assertEquals(10.0, (float) $wallet->pending_balance);
+        $this->assertEquals(95.0, (float) $wallet->available_balance);
     }
 }

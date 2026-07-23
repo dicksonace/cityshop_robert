@@ -154,4 +154,42 @@ class AdminUnprocessedOrdersTest extends TestCase
         $count = app(OrderService::class)->staleUnprocessedItemsQuery(24)->count();
         $this->assertSame(0, $count);
     }
+
+    public function test_admin_can_cancel_processing_item_in_stale_queue(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+        $item = $this->makeStalePaidItem($buyer, $seller, 30);
+        $item->update(['status' => OrderStatus::Processing]);
+
+        $this->assertSame(1, app(OrderService::class)->staleUnprocessedItemsQuery(24)->count());
+
+        $this->actingAs($admin)
+            ->post(route('admin.orders.unprocessed.cancel', $item), [
+                'reason' => 'Admin cancelled: suspect order will not complete',
+            ])
+            ->assertRedirect();
+
+        $item->refresh();
+        $this->assertSame(OrderStatus::Cancelled, $item->status);
+
+        $buyerWallet = Wallet::where('user_id', $buyer->id)->first();
+        $this->assertEquals(100.0, (float) $buyerWallet->available_balance);
+    }
+
+    public function test_admin_can_cancel_without_waiting_24_hours_via_service(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+        $item = $this->makeStalePaidItem($buyer, $seller, 2);
+
+        app(OrderService::class)->adminCancelUnprocessedItem(
+            $item,
+            'Admin cancelled: suspected issue',
+        );
+
+        $item->refresh();
+        $this->assertSame(OrderStatus::Cancelled, $item->status);
+    }
 }

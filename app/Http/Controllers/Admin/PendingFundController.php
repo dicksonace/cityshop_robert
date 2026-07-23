@@ -91,7 +91,7 @@ class PendingFundController extends Controller
                 $orderItem->update(['funds_release_notes' => $validated['admin_notes']]);
             }
 
-            $this->orderService->releaseSellerFunds($orderItem, $request->user()->id);
+            $this->orderService->releaseSellerFunds($orderItem, $request->user()->id, true);
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
