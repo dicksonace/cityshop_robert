@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import MomoNetworkLogo from '@/components/wallet/momo-network-logo';
+import { BankPaymentLogo, bankPaymentTitle } from '@/lib/payment-method-display';
 import { momoNetworkLabel, momoNumberFieldLabel, normalizeMomoNetworkId } from '@/lib/momo-networks';
 import { cn } from '@/lib/utils';
 
@@ -39,7 +40,7 @@ export default function DirectPaymentDetails({
 
     const numberLabel = isBank ? 'Account number' : momoNumberFieldLabel(network, accountNumber);
     const networkTitle = isBank
-        ? bankName || 'Bank transfer'
+        ? bankPaymentTitle({ bank_name: bankName })
         : networkId
           ? momoNetworkLabel(networkId)
           : 'Mobile Money';
@@ -49,9 +50,7 @@ export default function DirectPaymentDetails({
             <div className="overflow-hidden rounded-xl border border-dashed border-sky-300 bg-gradient-to-br from-sky-50/80 via-white to-cyan-50/40 shadow-sm">
                 <div className="flex items-center gap-3 border-b border-sky-100/80 bg-white/70 px-3 py-2.5">
                     {isBank ? (
-                        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-[10px] font-black tracking-wide text-white">
-                            BANK
-                        </span>
+                        <BankPaymentLogo bankName={bankName || networkTitle} />
                     ) : (
                         <MomoNetworkLogo network={networkId ?? network} size="md" />
                     )}

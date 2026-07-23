@@ -94,6 +94,17 @@ class PaymentMethodController extends Controller
             'is_default' => ['boolean'],
         ]);
 
+        if (($validated['type'] ?? '') === SellerPaymentMethodType::Bank->value) {
+            $request->validate([
+                'bank_name' => ['required', 'string', 'max:100'],
+                'account_number' => ['required', 'string', 'max:100'],
+            ]);
+            $validated['bank_name'] = trim((string) $validated['bank_name']);
+            $validated['network'] = null;
+        } else {
+            $validated['bank_name'] = null;
+        }
+
         try {
             $security->assertAccountNotBlocked($profile, $validated['account_number'] ?? null);
         } catch (\InvalidArgumentException $e) {

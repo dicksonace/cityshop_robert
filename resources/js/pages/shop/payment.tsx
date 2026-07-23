@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
+import { isBankPaymentMethod, bankPaymentTitle } from '@/lib/payment-method-display';
 import { formatPrice, Order, productImageUrl } from '@/types/marketplace';
 
 interface CheckoutData {
@@ -22,6 +23,7 @@ interface CheckoutData {
             account_number?: string;
             network?: string;
             bank_name?: string;
+            type?: string;
             instructions?: string;
         };
     })[];
@@ -154,7 +156,8 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
     });
 
     const accountNumber = method?.account_number ?? '';
-    const isBank = Boolean(method?.bank_name && !method?.network);
+    const isBank = isBankPaymentMethod(method);
+    const bankTitle = bankPaymentTitle(method);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -171,8 +174,8 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
                 <p className="font-medium">Order {order.order_number}</p>
                 <p className="font-bold text-orange-500">{formatPrice(order.total)}</p>
             </div>
-            {method?.bank_name && (
-                <p className="mt-1 text-xs text-gray-500">{method.bank_name}</p>
+            {isBank && (
+                <p className="mt-1 text-xs text-gray-500">{bankTitle}</p>
             )}
 
             {method && accountNumber && (
@@ -180,10 +183,14 @@ function DirectPaymentCard({ order }: { order: PaymentProps['directOrders'][0] &
                     className="mt-4"
                     accountNumber={accountNumber}
                     accountName={method.account_name}
-                    network={method.network}
+                    network={isBank ? null : method.network}
                     isBank={isBank}
-                    bankName={method.bank_name}
-                    hint={`Send ${formatPrice(order.total)} to the number above. Leave the MoMo reference blank if you’re paying by USSD/keypad — then upload a screenshot or SMS ID below.${method.instructions ? ` ${method.instructions}` : ''}`}
+                    bankName={method.bank_name || (isBank ? bankTitle : null)}
+                    hint={
+                        isBank
+                            ? `Send ${formatPrice(order.total)} to the bank account above, then upload a screenshot or transaction ID below.${method.instructions ? ` ${method.instructions}` : ''}`
+                            : `Send ${formatPrice(order.total)} to the number above. Leave the MoMo reference blank if you’re paying by USSD/keypad — then upload a screenshot or SMS ID below.${method.instructions ? ` ${method.instructions}` : ''}`
+                    }
                 />
             )}
 

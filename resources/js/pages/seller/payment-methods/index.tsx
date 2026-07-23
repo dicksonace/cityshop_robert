@@ -130,7 +130,19 @@ export default function PaymentMethodsIndex({ profile, methods, types }: Payment
                         <form onSubmit={addMethod} className="mt-4 space-y-3">
                             <div>
                                 <Label>Type</Label>
-                                <select value={methodForm.data.type} onChange={(e) => methodForm.setData('type', e.target.value)} className="mt-1 w-full rounded-md border px-3 py-2 text-sm">
+                                <select
+                                    value={methodForm.data.type}
+                                    onChange={(e) => {
+                                        const type = e.target.value;
+                                        methodForm.setData({
+                                            ...methodForm.data,
+                                            type,
+                                            network: type === 'mobile_money' ? (methodForm.data.network || 'MTN') : '',
+                                            bank_name: type === 'bank' ? methodForm.data.bank_name : '',
+                                        });
+                                    }}
+                                    className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                                >
                                     {types.map((t) => (
                                         <option key={t.value} value={t.value}>{t.label}</option>
                                     ))}
@@ -157,11 +169,13 @@ export default function PaymentMethodsIndex({ profile, methods, types }: Payment
                                 <>
                                     <div>
                                         <Label>Bank name</Label>
-                                        <Input value={methodForm.data.bank_name} onChange={(e) => methodForm.setData('bank_name', e.target.value)} className="mt-1" />
+                                        <Input value={methodForm.data.bank_name} onChange={(e) => methodForm.setData('bank_name', e.target.value)} required className="mt-1" placeholder="e.g. GCB, GTBank, Absa" />
+                                        <InputError message={methodForm.errors.bank_name} />
                                     </div>
                                     <div>
                                         <Label>Account number</Label>
-                                        <Input value={methodForm.data.account_number} onChange={(e) => methodForm.setData('account_number', e.target.value)} className="mt-1" />
+                                        <Input value={methodForm.data.account_number} onChange={(e) => methodForm.setData('account_number', e.target.value)} required className="mt-1" />
+                                        <InputError message={methodForm.errors.account_number} />
                                     </div>
                                 </>
                             )}

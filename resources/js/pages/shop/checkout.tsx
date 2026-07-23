@@ -5,10 +5,12 @@ import { FormEventHandler, useState } from 'react';
 import InputError from '@/components/input-error';
 import DirectPaymentDetails from '@/components/shop/direct-payment-details';
 import PaymentMethodIcon from '@/components/shop/payment-method-icon';
+import SellerPaymentMethodPicker from '@/components/shop/seller-payment-method-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
+import { isBankPaymentMethod } from '@/lib/payment-method-display';
 import { CartItem, formatPrice, productImageUrl, Wallet } from '@/types/marketplace';
 import { BuyerAddress } from '@/types/buyer-address';
 
@@ -422,44 +424,43 @@ export default function Checkout({
                                                             choice.channel === 'direct' ? 'border-orange-300 bg-orange-50/40' : ''
                                                         }`}
                                                     >
-                                                        <PaymentMethodIcon method="momo" />
+                                                        {group.payment_methods.every((m) => isBankPaymentMethod(m)) && group.payment_methods.length > 0 ? (
+                                                            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-[10px] font-black text-white shadow-sm">
+                                                                BANK
+                                                            </span>
+                                                        ) : (
+                                                            <PaymentMethodIcon method="momo" />
+                                                        )}
                                                         <span className="min-w-0 flex-1 font-medium text-gray-900">Pay seller directly</span>
                                                         <input type="radio" checked={choice.channel === 'direct'} onChange={() => setSellerChannel(group.seller_id, 'direct', group.payment_methods[0]?.id)} />
                                                     </label>
                                                 )}
                                                 {choice.channel === 'direct' && group.payment_methods.length > 0 && (() => {
+                                                    const selectedId = choice.method_id ?? group.payment_methods[0]?.id;
                                                     const selectedMethod =
-                                                        group.payment_methods.find((m) => m.id === (choice.method_id ?? group.payment_methods[0]?.id))
+                                                        group.payment_methods.find((m) => m.id === selectedId)
                                                         ?? group.payment_methods[0];
+                                                    const selectedIsBank = isBankPaymentMethod(selectedMethod);
 
                                                     return (
-                                                        <div className="space-y-2">
-                                                            {group.payment_methods.length > 1 && (
-                                                                <select
-                                                                    className="w-full rounded-md border px-3 py-2 text-sm"
-                                                                    value={choice.method_id ?? group.payment_methods[0]?.id}
-                                                                    onChange={(e) => setSellerChannel(group.seller_id, 'direct', Number(e.target.value))}
-                                                                >
-                                                                    {group.payment_methods.map((m) => (
-                                                                        <option key={m.id} value={m.id}>
-                                                                            {m.display_label
-                                                                                ?? (m.network
-                                                                                    ? `${m.network} — ${m.account_number}${m.account_name ? ` · ${m.account_name}` : ''}`
-                                                                                    : m.bank_name
-                                                                                      ? `${m.bank_name} — ${m.account_number}${m.account_name ? ` · ${m.account_name}` : ''}`
-                                                                                      : m.label ?? m.type)}
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
-                                                            )}
+                                                        <div className="ml-1 space-y-3 border-l-2 border-sky-100 pl-3">
+                                                            <SellerPaymentMethodPicker
+                                                                methods={group.payment_methods}
+                                                                selectedId={selectedId}
+                                                                onSelect={(methodId) => setSellerChannel(group.seller_id, 'direct', methodId)}
+                                                            />
                                                             {selectedMethod?.account_number && (
                                                                 <DirectPaymentDetails
                                                                     accountNumber={selectedMethod.account_number}
                                                                     accountName={selectedMethod.account_name}
-                                                                    network={selectedMethod.network}
-                                                                    isBank={Boolean(selectedMethod.bank_name && !selectedMethod.network)}
+                                                                    network={selectedIsBank ? null : selectedMethod.network}
+                                                                    isBank={selectedIsBank}
                                                                     bankName={selectedMethod.bank_name}
-                                                                    hint="After you continue, send the payment to this number. You’ll confirm on the next step — no MoMo reference needed."
+                                                                    hint={
+                                                                        selectedIsBank
+                                                                            ? 'After you continue, send the payment to this bank account. You’ll confirm on the next step.'
+                                                                            : 'After you continue, send the payment to this number. You’ll confirm on the next step — no MoMo reference needed.'
+                                                                    }
                                                                 />
                                                             )}
                                                         </div>
