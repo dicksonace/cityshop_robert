@@ -247,11 +247,10 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                         <InputError message={form.errors.amount} />
                     </div>
                     <div>
-                        <Label>Payment reference / ID</Label>
+                        <Label>Payment reference / ID <span className="font-normal text-gray-400">(optional)</span></Label>
                         <Input
                             value={form.data.payment_reference}
                             onChange={(e) => form.setData('payment_reference', e.target.value)}
-                            required
                             className="mt-1"
                             placeholder="From MoMo or bank SMS"
                         />
@@ -307,7 +306,8 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                                     </span>
                                 </div>
                                 <p className="mt-1 text-gray-500">
-                                    Ref: {item.payment_reference} · {formatDate(item.created_at)}
+                                    {item.payment_reference ? `Ref: ${item.payment_reference} · ` : ''}
+                                    {formatDate(item.created_at)}
                                 </p>
                                 {item.admin_notes && <p className="mt-1 text-gray-700">Admin: {item.admin_notes}</p>}
                             </div>

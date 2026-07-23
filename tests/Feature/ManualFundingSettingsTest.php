@@ -39,6 +39,8 @@ class ManualFundingSettingsTest extends TestCase
         $this->assertSame('CITY SHOP MOMO', $settings['accounts'][0]['label']);
         $this->assertSame('mtn', $settings['accounts'][0]['network']);
         $this->assertSame('0539790093', $settings['accounts'][0]['account_number']);
+        // Known CityShop receive numbers always surface business + Robert Asare.
+        $this->assertSame('City Unlock Ventures / Robert Asare', $settings['accounts'][0]['account_name']);
     }
 
     public function test_admin_momo_account_requires_network(): void
@@ -65,6 +67,35 @@ class ManualFundingSettingsTest extends TestCase
 
         $response->assertRedirect(route('admin.manual-funding.settings'));
         $response->assertSessionHasErrors('accounts.0.network');
+    }
+
+    public function test_missing_telecel_and_airteltigo_are_filled_in(): void
+    {
+        PlatformSettings::saveManualFundingAccounts([
+            'enabled' => true,
+            'instructions' => 'Pay us',
+            'accounts' => [
+                [
+                    'type' => 'momo',
+                    'label' => 'MTN only',
+                    'account_name' => 'CITY UNLOCK VENTURES',
+                    'account_number' => '0539790093',
+                    'network' => 'mtn',
+                    'bank_name' => null,
+                ],
+            ],
+        ]);
+
+        $settings = PlatformSettings::manualFundingAccounts();
+        $networks = collect($settings['accounts'])->pluck('network')->filter()->values()->all();
+
+        $this->assertContains('mtn', $networks);
+        $this->assertContains('telecel', $networks);
+        $this->assertContains('airteltigo', $networks);
+
+        $telecel = collect($settings['accounts'])->firstWhere('network', 'telecel');
+        $this->assertSame('513014', $telecel['account_number']);
+        $this->assertSame('City Unlock Ventures / Robert Asare', $telecel['account_name']);
     }
 
     public function test_normalize_momo_network_accepts_legacy_labels(): void

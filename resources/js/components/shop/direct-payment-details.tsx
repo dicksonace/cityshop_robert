@@ -68,7 +68,17 @@ export default function DirectPaymentDetails({
                         {accountName ? (
                             <>
                                 <p className="mt-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Account name</p>
-                                <p className="mt-0.5 text-sm font-bold uppercase leading-snug text-sky-700">{accountName}</p>
+                                <div className="mt-0.5 space-y-0.5 text-sm font-bold leading-snug text-sky-700">
+                                    {accountName
+                                        .split(/\n|\s*\/\s*/)
+                                        .map((part) => part.trim())
+                                        .filter(Boolean)
+                                        .map((line) => (
+                                            <p key={line} className="uppercase">
+                                                {line}
+                                            </p>
+                                        ))}
+                                </div>
                             </>
                         ) : null}
                     </div>

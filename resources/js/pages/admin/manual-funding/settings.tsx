@@ -57,7 +57,7 @@ const defaultCityShopAccounts = (): Account[] => [
     },
     {
         type: 'momo',
-        label: 'AirtelTigo Money',
+        label: 'AirtelTigo Cash',
         account_name: 'City Unlock Ventures / Robert Asare',
         account_number: '0273706541',
         network: 'airteltigo',

@@ -75,7 +75,8 @@ class ManualTopUpController extends Controller
                 return false;
             }
 
-            $reference = 'MANUAL-'.$locked->id.'-'.preg_replace('/\s+/', '', $locked->payment_reference);
+            $refPart = preg_replace('/\s+/', '', (string) ($locked->payment_reference ?? '')) ?: 'proof';
+            $reference = 'MANUAL-'.$locked->id.'-'.$refPart;
 
             $ok = WalletService::creditFromVerifiedTopUp(
                 $locked->user_id,

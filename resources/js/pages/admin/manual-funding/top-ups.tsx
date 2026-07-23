@@ -155,7 +155,7 @@ export default function ManualTopUps({ requests, status, counts }: Props) {
                             <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
                                 <div>
                                     <dt className="text-gray-500">Payment reference</dt>
-                                    <dd className="font-medium text-gray-900">{item.payment_reference}</dd>
+                                    <dd className="font-medium text-gray-900">{item.payment_reference || '—'}</dd>
                                 </div>
                                 <div>
                                     <dt className="text-gray-500">Sender</dt>

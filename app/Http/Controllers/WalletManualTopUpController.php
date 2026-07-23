@@ -74,7 +74,7 @@ class WalletManualTopUpController extends Controller
 
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:10', 'max:500000'],
-            'payment_reference' => ['required', 'string', 'max:100'],
+            'payment_reference' => ['nullable', 'string', 'max:100'],
             'network' => ['required', 'string', 'in:mtn,telecel,airteltigo'],
             'user_note' => ['nullable', 'string', 'max:500'],
             'proof' => ['required', 'image', 'max:5120'],
@@ -85,7 +85,7 @@ class WalletManualTopUpController extends Controller
         WalletTopUpRequest::create([
             'user_id' => $user->id,
             'amount' => $validated['amount'],
-            'payment_reference' => trim($validated['payment_reference']),
+            'payment_reference' => trim((string) ($validated['payment_reference'] ?? '')),
             'sender_name' => null,
             'sender_number' => null,
             'network' => $validated['network'],

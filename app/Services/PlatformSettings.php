@@ -61,12 +61,20 @@ class PlatformSettings
             }
 
             $type = ($account['type'] ?? '') === 'bank' ? 'bank' : 'momo';
+            $accountNumber = (string) ($account['account_number'] ?? '');
+            $accountName = (string) ($account['account_name'] ?? '');
+
+            // CityShop receive numbers should always show business + Robert Asare.
+            $canonical = static::cityShopReceiveAccountName($accountNumber);
+            if ($canonical !== null) {
+                $accountName = $canonical;
+            }
 
             return [
                 'type' => $type,
                 'label' => (string) ($account['label'] ?? ''),
-                'account_name' => (string) ($account['account_name'] ?? ''),
-                'account_number' => (string) ($account['account_number'] ?? ''),
+                'account_name' => $accountName,
+                'account_number' => $accountNumber,
                 'network' => $type === 'momo'
                     ? (static::normalizeMomoNetwork($account['network'] ?? null) ?? 'mtn')
                     : null,
@@ -75,12 +83,91 @@ class PlatformSettings
         }, $decoded['accounts'] ?? []));
 
         $accounts = array_values(array_filter($accounts));
+        $accounts = static::ensureCityShopMomoAccounts($accounts);
 
         return [
             'enabled' => (bool) ($decoded['enabled'] ?? false),
             'instructions' => (string) ($decoded['instructions'] ?? ''),
             'accounts' => $accounts,
         ];
+    }
+
+    /**
+     * Canonical MoMo account name for CityShop’s public receive numbers.
+     */
+    public static function cityShopReceiveAccountName(string $accountNumber): ?string
+    {
+        $digits = preg_replace('/\D+/', '', $accountNumber) ?? '';
+
+        return match ($digits) {
+            '0539790093', '513014', '0273706541' => 'City Unlock Ventures / Robert Asare',
+            default => null,
+        };
+    }
+
+    /**
+     * MTN / Telecel / AirtelTigo receive accounts used for manual deposits.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function defaultCityShopMomoAccounts(): array
+    {
+        return [
+            [
+                'type' => 'momo',
+                'label' => 'MTN Mobile Money',
+                'account_name' => 'City Unlock Ventures / Robert Asare',
+                'account_number' => '0539790093',
+                'network' => 'mtn',
+                'bank_name' => null,
+            ],
+            [
+                'type' => 'momo',
+                'label' => 'Telecel Cash',
+                'account_name' => 'City Unlock Ventures / Robert Asare',
+                'account_number' => '513014',
+                'network' => 'telecel',
+                'bank_name' => null,
+            ],
+            [
+                'type' => 'momo',
+                'label' => 'AirtelTigo Cash',
+                'account_name' => 'City Unlock Ventures / Robert Asare',
+                'account_number' => '0273706541',
+                'network' => 'airteltigo',
+                'bank_name' => null,
+            ],
+        ];
+    }
+
+    /**
+     * Fill in any missing CityShop MoMo network so buyers never see “Not configured”.
+     *
+     * @param  list<array<string, mixed>>  $accounts
+     * @return list<array<string, mixed>>
+     */
+    public static function ensureCityShopMomoAccounts(array $accounts): array
+    {
+        $byNetwork = [];
+        foreach ($accounts as $account) {
+            if (($account['type'] ?? '') !== 'momo') {
+                continue;
+            }
+            $network = static::normalizeMomoNetwork($account['network'] ?? null);
+            if ($network) {
+                $byNetwork[$network] = true;
+            }
+        }
+
+        foreach (static::defaultCityShopMomoAccounts() as $default) {
+            $network = $default['network'];
+            if (! isset($byNetwork[$network])) {
+                $accounts[] = $default;
+                $byNetwork[$network] = true;
+            }
+        }
+
+        return array_values($accounts);
     }
 
     /**
