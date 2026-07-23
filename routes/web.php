@@ -180,6 +180,8 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::get('/wallet/withdrawals', [SellerWalletController::class, 'withdrawals'])->name('wallet.withdrawals');
             Route::get('/wallet/withdrawals/{withdrawal}', [SellerWalletController::class, 'showWithdrawal'])->name('wallet.withdrawals.show');
             Route::post('/wallet/withdraw', [SellerWalletController::class, 'withdraw'])->name('wallet.withdraw');
+            Route::post('/wallet/add-funds', [SellerWalletController::class, 'addFunds'])->name('wallet.add-funds');
+            Route::get('/wallet/callback', [SellerWalletController::class, 'callback'])->name('wallet.callback');
             Route::post('/wallet/payout-methods', [SellerWalletController::class, 'storePayoutMethod'])->name('wallet.payout-methods.store');
             Route::delete('/wallet/payout-methods/{payoutMethod}', [SellerWalletController::class, 'destroyPayoutMethod'])->name('wallet.payout-methods.destroy');
             Route::get('/wallet/manual-top-up', [WalletManualTopUpController::class, 'show'])->name('wallet.manual-top-up');

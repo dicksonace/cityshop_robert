@@ -7,16 +7,21 @@ use App\Http\Controllers\Controller;
 use App\Models\SellerPayoutMethod;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\PaystackService;
 use App\Services\PlatformSettings;
 use App\Services\SellerPaymentMethodSecurityService;
+use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class WalletController extends Controller
 {
+    public function __construct(private PaystackService $paystack) {}
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -57,6 +62,7 @@ class WalletController extends Controller
                 ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
                 ->exists(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
+            'paystackConfigured' => $this->paystack->isConfigured(),
         ]);
     }
 
@@ -233,5 +239,80 @@ class WalletController extends Controller
         WalletTransactionService::recordWithdrawal($withdrawal);
 
         return back()->with('success', 'Withdrawal request submitted. Processing typically takes 1 hour.');
+    }
+
+    public function addFunds(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
+            'method' => ['required', 'in:momo,card'],
+        ]);
+
+        if (! $this->paystack->isConfigured()) {
+            return back()->with('error', 'Online top-up is not available. Use manual top-up or contact support.');
+        }
+
+        $amount = (float) $validated['amount'];
+        $reference = 'STOP-'.strtoupper(uniqid());
+        $email = $request->user()->email ?: ('seller'.$request->user()->id.'@cityunlock.net');
+
+        try {
+            $data = $this->paystack->initializeTransaction(
+                $email,
+                $amount,
+                $reference,
+                [
+                    'type' => 'wallet_topup',
+                    'user_id' => $request->user()->id,
+                    'method' => $validated['method'],
+                    'role' => 'seller',
+                ],
+                route('seller.wallet.callback'),
+            );
+
+            return Inertia::location($data['authorization_url']);
+        } catch (\Throwable $e) {
+            Log::error('Seller wallet top-up init failed', ['error' => $e->getMessage()]);
+
+            return back()->with('error', 'Could not start payment. Please try again.');
+        }
+    }
+
+    public function callback(Request $request): RedirectResponse
+    {
+        $reference = $request->query('reference');
+
+        if (! $reference) {
+            return redirect()->route('seller.wallet')->with('error', 'Invalid payment reference.');
+        }
+
+        try {
+            $data = $this->paystack->verifyTransaction($reference);
+
+            if ($data['status'] !== 'success') {
+                return redirect()->route('seller.wallet')->with('error', 'Payment was not successful.');
+            }
+
+            $metadata = $data['metadata'] ?? [];
+            if (($metadata['type'] ?? '') !== 'wallet_topup') {
+                return redirect()->route('seller.wallet')->with('error', 'Invalid wallet top-up.');
+            }
+
+            if ((int) ($metadata['user_id'] ?? 0) !== $request->user()->id) {
+                return redirect()->route('seller.wallet')->with('error', 'Payment does not belong to your account.');
+            }
+
+            $amount = round(((int) ($data['amount'] ?? 0)) / 100, 2);
+            $method = (string) ($metadata['method'] ?? 'momo');
+
+            WalletService::creditFromVerifiedTopUp($request->user()->id, $amount, $reference, $method);
+
+            return redirect()->route('seller.dashboard')
+                ->with('success', 'GH₵'.number_format($amount, 2).' added to your wallet. You can cancel Pay-to-seller orders and refund buyers.');
+        } catch (\Throwable $e) {
+            Log::error('Seller wallet callback error', ['error' => $e->getMessage()]);
+
+            return redirect()->route('seller.wallet')->with('error', 'Could not verify payment. Contact support if charged.');
+        }
     }
 }

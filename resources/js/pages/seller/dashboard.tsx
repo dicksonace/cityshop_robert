@@ -57,6 +57,8 @@ interface DashboardProps {
     profile: SellerProfile;
     storeUrl: string | null;
     orderPipelineCounts: Record<string, number>;
+    paystackConfigured?: boolean;
+    manualTopUpEnabled?: boolean;
 }
 
 export default function SellerDashboard({
@@ -69,6 +71,8 @@ export default function SellerDashboard({
     profile,
     storeUrl,
     orderPipelineCounts,
+    paystackConfigured = false,
+    manualTopUpEnabled = false,
 }: DashboardProps) {
     const [secondsLeft, setSecondsLeft] = useState(AUTO_REFRESH_SECONDS);
     const [refreshing, setRefreshing] = useState(false);
@@ -165,6 +169,8 @@ export default function SellerDashboard({
                     onRefresh={refreshDashboard}
                     refreshing={refreshing}
                     countdownSec={secondsLeft}
+                    paystackConfigured={paystackConfigured}
+                    manualTopUpEnabled={manualTopUpEnabled}
                 />
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:col-span-3 lg:grid-cols-2">

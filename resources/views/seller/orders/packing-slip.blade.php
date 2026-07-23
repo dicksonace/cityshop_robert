@@ -83,23 +83,24 @@
             font-size: 8.5pt;
             vertical-align: middle;
         }
-        .c-num { width: 18pt; }
-        .c-qty { width: 34pt; text-align: right; }
-        .c-money { width: 78pt; text-align: right; }
+        .c-num { width: 16pt; }
+        .c-img { width: 42pt; }
+        .c-qty { width: 32pt; text-align: right; }
+        .c-money { width: 72pt; text-align: right; }
         .thumb {
-            width: 30pt;
-            height: 30pt;
+            width: 38pt;
+            height: 38pt;
             border: 0.5pt solid #dddddd;
         }
         .thumb-ph {
-            width: 30pt;
-            height: 30pt;
+            width: 38pt;
+            height: 38pt;
             border: 0.5pt solid #dddddd;
             background-color: #f3f4f6;
             text-align: center;
             color: #999999;
             font-size: 7pt;
-            line-height: 30pt;
+            line-height: 38pt;
         }
         .pname { font-weight: bold; font-size: 8.5pt; }
         .pstatus { color: #666666; font-size: 7pt; }
@@ -147,6 +148,7 @@
         collect([$order->city, $order->region])->filter()->implode(', '),
     ]));
     $money = fn (float $n) => 'GHS '.number_format($n, 2);
+    $storeAddressLines = $storeAddressLines ?? [];
 @endphp
 
 <table>
@@ -155,9 +157,9 @@
             <div class="brand">City<span>Shop</span></div>
             <div class="muted">cityunlock.net</div>
             <div class="wrap" style="margin-top:3pt; font-size:8.5pt;"><strong>{{ $storeName }}</strong></div>
-            @if(filled($storeAddress))
-                <div class="muted wrap">{{ $storeAddress }}</div>
-            @endif
+            @foreach($storeAddressLines as $line)
+                <div class="muted wrap">{{ $line }}</div>
+            @endforeach
         </td>
         <td class="top right wrap" width="48%">
             <div class="doc-title">Packing slip</div>
@@ -178,16 +180,21 @@
     <tr>
         <td class="top" width="49%" style="padding-right:4pt;">
             <div class="box wrap">
-                <div class="label">Ship from</div>
+                <div class="label">Ship from (seller)</div>
                 <strong>{{ $storeName }}</strong><br>
-                @if(filled($storeAddress))
-                    {{ $storeAddress }}
+                @forelse($storeAddressLines as $line)
+                    {{ $line }}<br>
+                @empty
+                    <span class="muted">Seller address not set on profile</span><br>
+                @endforelse
+                @if(filled($sellerPhone))
+                    Tel: {{ $sellerPhone }}
                 @endif
             </div>
         </td>
         <td class="top" width="49%" style="padding-left:4pt;">
             <div class="box wrap">
-                <div class="label">Ship to</div>
+                <div class="label">Ship to (buyer)</div>
                 <strong>{{ $order->receiver_name ?: ($order->buyer?->name ?? 'Buyer') }}</strong><br>
                 @if($order->receiver_phone)
                     Tel: {{ $order->receiver_phone }}<br>
@@ -217,6 +224,7 @@
     <thead>
         <tr>
             <th class="c-num">#</th>
+            <th class="c-img">Photo</th>
             <th>Product</th>
             <th class="c-qty">Qty</th>
             <th class="c-money">Unit</th>
@@ -228,24 +236,18 @@
             @php $imageSrc = $itemImages[$item->id] ?? null; @endphp
             <tr>
                 <td class="c-num">{{ $index + 1 }}</td>
-                <td class="wrap">
-                    <table>
-                        <tr>
-                            <td class="mid" width="36" style="padding-right:5pt;">
-                                @if($imageSrc)
-                                    <img class="thumb" src="{{ $imageSrc }}" width="30" height="30" alt="">
-                                @else
-                                    <div class="thumb-ph">—</div>
-                                @endif
-                            </td>
-                            <td class="mid wrap">
-                                <div class="pname">{{ $item->product_name }}</div>
-                                @if($item->status)
-                                    <div class="pstatus">{{ str_replace('_', ' ', ucfirst($item->status->value ?? (string) $item->status)) }}</div>
-                                @endif
-                            </td>
-                        </tr>
-                    </table>
+                <td class="c-img mid">
+                    @if($imageSrc)
+                        <img class="thumb" src="{{ $imageSrc }}" width="38" height="38" alt="">
+                    @else
+                        <div class="thumb-ph">—</div>
+                    @endif
+                </td>
+                <td class="wrap mid">
+                    <div class="pname">{{ $item->product_name }}</div>
+                    @if($item->status)
+                        <div class="pstatus">{{ str_replace('_', ' ', ucfirst($item->status->value ?? (string) $item->status)) }}</div>
+                    @endif
                 </td>
                 <td class="c-qty">{{ $item->quantity }}</td>
                 <td class="c-money">{{ $money((float) $item->unit_price) }}</td>

@@ -156,8 +156,8 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                 <ManualTopUpPrompt
                     href={route('seller.wallet.manual-top-up')}
                     className="mb-6"
-                    title="Need to add funds manually?"
-                    description="Send a larger amount to CityShop MoMo or bank, then submit proof for admin credit."
+                    title="Need to top up for buyer refunds?"
+                    description="If you withdrew funds and need to cancel a Pay-to-seller order, top up first. Use Auto Paystack from the dashboard, or submit a manual MoMo/bank proof here."
                     cta="Open manual top-up"
                 />
             )}

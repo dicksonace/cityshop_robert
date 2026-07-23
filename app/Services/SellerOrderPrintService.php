@@ -20,7 +20,8 @@ class SellerOrderPrintService
      *   order: Order,
      *   seller: User,
      *   storeName: string,
-     *   storeAddress: string|null,
+     *   storeAddressLines: list<string>,
+     *   sellerPhone: string|null,
      *   items: Collection<int, OrderItem>,
      *   itemImages: array<int, string|null>,
      *   subtotal: float,
@@ -58,7 +59,8 @@ class SellerOrderPrintService
             'order' => $order,
             'seller' => $seller,
             'storeName' => $profile?->displayName() ?? $seller->name ?? 'Seller',
-            'storeAddress' => filled($profile?->business_address) ? trim((string) $profile->business_address) : null,
+            'storeAddressLines' => $this->sellerAddressLines($seller),
+            'sellerPhone' => $this->sellerPhone($seller),
             'items' => $items,
             'itemImages' => $itemImages,
             'subtotal' => $subtotal,
@@ -152,7 +154,46 @@ class SellerOrderPrintService
     }
 
     /**
-     * mPDF gets a base64 data URI so file paths never break images.
+     * @return list<string>
+     */
+    private function sellerAddressLines(User $seller): array
+    {
+        $profile = $seller->sellerProfile;
+        $lines = [];
+
+        foreach ([
+            $profile?->business_address,
+            $seller->residential_address,
+            $seller->digital_address,
+            collect([$seller->city, $seller->region])->filter()->implode(', '),
+        ] as $line) {
+            $line = is_string($line) ? trim($line) : '';
+            if ($line === '') {
+                continue;
+            }
+            if (! in_array($line, $lines, true)) {
+                $lines[] = $line;
+            }
+        }
+
+        return $lines;
+    }
+
+    private function sellerPhone(User $seller): ?string
+    {
+        foreach ([$seller->mobile, $seller->whatsapp] as $phone) {
+            $phone = is_string($phone) ? trim($phone) : '';
+            if ($phone !== '') {
+                return $phone;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Local filesystem path for mPDF (more reliable than data URIs).
+     * WebP/GIF are converted to JPEG thumbs when GD is available.
      */
     private function productImageSrc(OrderItem $item): ?string
     {
@@ -179,20 +220,77 @@ class SellerOrderPrintService
             return null;
         }
 
-        $mime = @mime_content_type($absolute) ?: 'image/jpeg';
-        if (! str_starts_with($mime, 'image/')) {
+        $prepared = $this->prepareImageForPdf($absolute, (int) $item->id);
+        if ($prepared === null) {
             return null;
         }
 
-        $binary = @file_get_contents($absolute);
-        if ($binary === false || $binary === '') {
+        // mPDF expects forward slashes on Windows paths.
+        return str_replace('\\', '/', $prepared);
+    }
+
+    private function prepareImageForPdf(string $absolute, int $itemId): ?string
+    {
+        $mime = @mime_content_type($absolute) ?: '';
+        $ext = strtolower(pathinfo($absolute, PATHINFO_EXTENSION));
+
+        $needsConvert = in_array($ext, ['webp', 'gif', 'bmp'], true)
+            || in_array($mime, ['image/webp', 'image/gif', 'image/bmp'], true);
+
+        $tempDir = storage_path('app/mpdf-temp/thumbs');
+        if (! is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $thumbPath = $tempDir.DIRECTORY_SEPARATOR.'item-'.$itemId.'-'.md5($absolute.filemtime($absolute)).'.jpg';
+
+        if (is_file($thumbPath) && filesize($thumbPath) > 0) {
+            return $thumbPath;
+        }
+
+        if (! function_exists('imagecreatetruecolor')) {
+            // No GD — only pass formats mPDF usually handles natively.
+            if ($needsConvert) {
+                return null;
+            }
+
+            return $absolute;
+        }
+
+        $source = match (true) {
+            $mime === 'image/jpeg' || in_array($ext, ['jpg', 'jpeg'], true) => @imagecreatefromjpeg($absolute),
+            $mime === 'image/png' || $ext === 'png' => @imagecreatefrompng($absolute),
+            ($mime === 'image/webp' || $ext === 'webp') && function_exists('imagecreatefromwebp') => @imagecreatefromwebp($absolute),
+            ($mime === 'image/gif' || $ext === 'gif') && function_exists('imagecreatefromgif') => @imagecreatefromgif($absolute),
+            default => false,
+        };
+
+        if ($source === false) {
+            return $needsConvert ? null : $absolute;
+        }
+
+        $srcW = imagesx($source);
+        $srcH = imagesy($source);
+        if ($srcW < 1 || $srcH < 1) {
+            imagedestroy($source);
+
             return null;
         }
 
-        if (strlen($binary) > 1_500_000) {
-            return null;
-        }
+        $max = 160;
+        $scale = min($max / $srcW, $max / $srcH, 1);
+        $dstW = max(1, (int) round($srcW * $scale));
+        $dstH = max(1, (int) round($srcH * $scale));
 
-        return 'data:'.$mime.';base64,'.base64_encode($binary);
+        $thumb = imagecreatetruecolor($dstW, $dstH);
+        $white = imagecolorallocate($thumb, 255, 255, 255);
+        imagefill($thumb, 0, 0, $white);
+        imagecopyresampled($thumb, $source, 0, 0, 0, 0, $dstW, $dstH, $srcW, $srcH);
+        imagedestroy($source);
+
+        $ok = imagejpeg($thumb, $thumbPath, 82);
+        imagedestroy($thumb);
+
+        return $ok && is_file($thumbPath) ? $thumbPath : null;
     }
 }

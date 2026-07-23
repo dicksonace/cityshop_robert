@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Seller;
 use App\Enums\SellerStatus;
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
+use App\Services\PaystackService;
+use App\Services\PlatformSettings;
 use App\Services\SellerDashboardService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,7 +14,10 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __construct(private SellerDashboardService $dashboard) {}
+    public function __construct(
+        private SellerDashboardService $dashboard,
+        private PaystackService $paystack,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -24,6 +29,8 @@ class DashboardController extends Controller
             ->latest()
             ->limit(6)
             ->get();
+
+        $funding = PlatformSettings::manualFundingAccounts();
 
         return Inertia::render('seller/dashboard', [
             'stats' => $this->dashboard->stats($seller),
@@ -37,6 +44,8 @@ class DashboardController extends Controller
                 ? route('store.show', $seller->sellerProfile->slug, absolute: true)
                 : null,
             'orderPipelineCounts' => $this->dashboard->orderPipelineCounts($seller),
+            'paystackConfigured' => $this->paystack->isConfigured(),
+            'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
         ]);
     }
 
