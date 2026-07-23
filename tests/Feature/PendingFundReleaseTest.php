@@ -16,6 +16,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\OrderService;
+use App\Services\WalletTransactionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -92,6 +93,8 @@ class PendingFundReleaseTest extends TestCase
             'withdrawn_amount' => 0,
         ]);
 
+        WalletTransactionService::recordShippingPending($order);
+
         return compact('buyer', 'seller', 'admin', 'order', 'item');
     }
 
@@ -118,15 +121,18 @@ class PendingFundReleaseTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('admin.pending-funds.approve', $item->id))
-            ->assertRedirect();
+            ->assertRedirect()
+            ->assertSessionHas('success');
 
         $item->refresh();
         $wallet = Wallet::where('user_id', $seller->id)->first();
 
         $this->assertSame(FundsReleaseStatus::Released, $item->funds_release_status);
         $this->assertSame(OrderStatus::Processing, $item->status);
-        $this->assertEquals(10.0, (float) $wallet->pending_balance);
-        $this->assertEquals(95.0, (float) $wallet->available_balance);
+        // Product (95) + shipping (10) both move to Available when admin approves.
+        $this->assertEquals(0.0, (float) $wallet->pending_balance);
+        $this->assertEquals(105.0, (float) $wallet->available_balance);
+        $this->assertTrue(WalletTransactionService::shippingReleasedExists($item->order_id));
     }
 
     public function test_buyer_confirm_releases_funds_when_admin_has_not(): void
@@ -145,9 +151,10 @@ class PendingFundReleaseTest extends TestCase
 
         $this->assertSame(OrderStatus::Delivered, $item->status);
         $this->assertSame(FundsReleaseStatus::Released, $item->funds_release_status);
-        $this->assertEquals(10.0, (float) $wallet->pending_balance);
-        $this->assertEquals(95.0, (float) $wallet->available_balance);
+        $this->assertEquals(0.0, (float) $wallet->pending_balance);
+        $this->assertEquals(105.0, (float) $wallet->available_balance);
         $this->assertSame(0, app(OrderService::class)->pendingFundReleaseItemsQuery()->count());
+        $this->assertTrue(WalletTransactionService::shippingReleasedExists($item->order_id));
     }
 
     public function test_buyer_confirm_after_admin_release_does_not_double_pay(): void
@@ -162,8 +169,8 @@ class PendingFundReleaseTest extends TestCase
             ->assertRedirect();
 
         $wallet = Wallet::where('user_id', $seller->id)->first();
-        $this->assertEquals(95.0, (float) $wallet->available_balance);
-        $this->assertEquals(10.0, (float) $wallet->pending_balance);
+        $this->assertEquals(105.0, (float) $wallet->available_balance);
+        $this->assertEquals(0.0, (float) $wallet->pending_balance);
 
         $this->actingAs($buyer)
             ->post(route('orders.confirm-delivery', [$item->order_id, $item->id]))
@@ -174,9 +181,8 @@ class PendingFundReleaseTest extends TestCase
 
         $this->assertSame(OrderStatus::Delivered, $item->status);
         $this->assertSame(FundsReleaseStatus::Released, $item->funds_release_status);
-        $this->assertEquals(95.0, (float) $wallet->available_balance);
-        // Shipping stays pending until shipping ledger release (not double-credited on product).
-        $this->assertEquals(10.0, (float) $wallet->pending_balance);
+        $this->assertEquals(105.0, (float) $wallet->available_balance);
+        $this->assertEquals(0.0, (float) $wallet->pending_balance);
     }
 
     public function test_admin_confirm_delivery_does_not_release_funds(): void
@@ -236,8 +242,39 @@ class PendingFundReleaseTest extends TestCase
         $wallet = Wallet::where('user_id', $seller->id)->first();
 
         $this->assertSame(FundsReleaseStatus::Released, $item->funds_release_status);
-        $this->assertEquals(10.0, (float) $wallet->pending_balance);
-        $this->assertEquals(95.0, (float) $wallet->available_balance);
+        $this->assertEquals(0.0, (float) $wallet->pending_balance);
+        $this->assertEquals(105.0, (float) $wallet->available_balance);
+    }
+
+    public function test_admin_approve_releases_product_and_shipping_together(): void
+    {
+        ['seller' => $seller, 'admin' => $admin, 'item' => $item] = $this->makeItem(
+            OrderStatus::Processing,
+            FundsReleaseStatus::Pending,
+        );
+
+        // Simulate 100 goods + 100 shipping (user report: only goods used to move).
+        $item->update(['seller_amount' => 100, 'commission_amount' => 0, 'unit_price' => 100]);
+        $item->order->update(['shipping_cost' => 100, 'subtotal' => 100, 'total' => 200]);
+        $wallet = Wallet::where('user_id', $seller->id)->first();
+        $wallet->update([
+            'pending_balance' => 200,
+            'total_earnings' => 200,
+            'available_balance' => 0,
+        ]);
+        // Refresh shipping ledger amount for this order (pending record already exists from makeItem).
+        \App\Models\WalletTransaction::where('reference', 'SHIP-'.$item->order_id)
+            ->where('type', \App\Enums\WalletTransactionType::SalePending)
+            ->update(['amount' => 100]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.pending-funds.approve', $item->id))
+            ->assertRedirect()
+            ->assertSessionHas('success', fn ($msg) => str_contains($msg, 'GH₵200.00'));
+
+        $wallet->refresh();
+        $this->assertEquals(0.0, (float) $wallet->pending_balance);
+        $this->assertEquals(200.0, (float) $wallet->available_balance);
     }
 
     public function test_seller_start_processing_marks_funds_pending(): void

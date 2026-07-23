@@ -9,6 +9,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
+use App\Enums\WalletTransactionType;
 use App\Models\CartItem;
 use App\Models\Checkout;
 use App\Models\Dispute;
@@ -626,12 +627,19 @@ class OrderService
         return PaymentChannel::Marketplace;
     }
 
-    public function releaseSellerFunds(OrderItem $item, ?int $reviewedBy = null, bool $adminOverride = false): void
+    /**
+     * @return array{product: float, shipping: float}
+     */
+    public function releaseSellerFunds(OrderItem $item, ?int $reviewedBy = null, bool $adminOverride = false): array
     {
         $item->load(['order', 'seller']);
 
         if ($item->funds_release_status === FundsReleaseStatus::Released) {
-            return;
+            // Product already released — still try shipping (covers older releases that left shipping pending).
+            return [
+                'product' => 0.0,
+                'shipping' => $this->maybeReleaseSellerShipping($item->order->fresh('items')),
+            ];
         }
 
         if ($item->order->payment_channel !== PaymentChannel::Marketplace) {
@@ -662,9 +670,10 @@ class OrderService
             throw new \RuntimeException('Cannot release funds while a dispute is open.');
         }
 
-        DB::transaction(function () use ($item, $reviewedBy) {
+        $amount = (float) $item->seller_amount;
+
+        DB::transaction(function () use ($item, $reviewedBy, $amount) {
             $wallet = Wallet::where('user_id', $item->seller_id)->firstOrFail();
-            $amount = (float) $item->seller_amount;
 
             $wallet->decrement('pending_balance', min($amount, (float) $wallet->pending_balance));
             $wallet->increment('available_balance', $amount);
@@ -679,7 +688,9 @@ class OrderService
             ]);
         });
 
-        $this->maybeReleaseSellerShipping($item->order->fresh('items'));
+        $shipping = $this->maybeReleaseSellerShipping($item->order->fresh('items'));
+
+        return ['product' => $amount, 'shipping' => $shipping];
     }
 
     /**
@@ -1262,52 +1273,94 @@ class OrderService
     }
 
     /**
-     * Release shipping only after every active marketplace line is delivered and funds released.
+     * Release delivery fees still sitting in Pending after product lines were already released
+     * (e.g. before shipping was included in the same approve step).
+     *
+     * @return int Number of orders whose shipping was moved to Available
      */
-    private function maybeReleaseSellerShipping(Order $order): void
+    public function releaseStuckSellerShipping(): int
+    {
+        $orderIds = WalletTransaction::query()
+            ->where('type', WalletTransactionType::SalePending)
+            ->where('reference', 'like', 'SHIP-%')
+            ->where('reference', 'not like', 'SHIP-REL-%')
+            ->where('reference', 'not like', 'SHIP-REF-%')
+            ->where('reference', 'not like', 'SHIP-REV-%')
+            ->pluck('reference')
+            ->map(fn (string $ref) => (int) str_replace('SHIP-', '', $ref))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $fixed = 0;
+
+        foreach ($orderIds as $orderId) {
+            if (WalletTransactionService::shippingReleasedExists($orderId)) {
+                continue;
+            }
+
+            $order = Order::with('items')->find($orderId);
+            if (! $order || (float) $order->shipping_cost <= 0) {
+                continue;
+            }
+
+            if ($this->maybeReleaseSellerShipping($order) > 0) {
+                $fixed++;
+            }
+        }
+
+        return $fixed;
+    }
+
+    /**
+     * Release shipping once every active marketplace line has funds released
+     * (admin early release or buyer confirm — delivery status is not required).
+     *
+     * @return float Amount moved to Available (0 if not released this call)
+     */
+    private function maybeReleaseSellerShipping(Order $order): float
     {
         $order->loadMissing('items');
 
         if ($order->payment_channel !== PaymentChannel::Marketplace) {
-            return;
+            return 0.0;
         }
 
         $active = $order->items->filter(fn (OrderItem $item) => $item->status !== OrderStatus::Cancelled);
 
         if ($active->isEmpty()) {
-            return;
+            return 0.0;
         }
 
         $ready = $active->every(
-            fn (OrderItem $item) => $item->status === OrderStatus::Delivered
-                && $item->funds_release_status === FundsReleaseStatus::Released
+            fn (OrderItem $item) => $item->funds_release_status === FundsReleaseStatus::Released
         );
 
         if (! $ready) {
-            return;
+            return 0.0;
         }
 
-        $this->releaseSellerShipping($order);
+        return $this->releaseSellerShipping($order);
     }
 
-    private function releaseSellerShipping(Order $order): void
+    private function releaseSellerShipping(Order $order): float
     {
         $amount = (float) $order->shipping_cost;
         if ($amount <= 0 || ! $order->seller_id) {
-            return;
+            return 0.0;
         }
 
         if (! WalletTransactionService::shippingPendingExists($order->id)) {
-            return;
+            return 0.0;
         }
 
         if (WalletTransactionService::shippingReleasedExists($order->id)) {
-            return;
+            return 0.0;
         }
 
         $wallet = Wallet::where('user_id', $order->seller_id)->first();
         if (! $wallet) {
-            return;
+            return 0.0;
         }
 
         $move = min($amount, (float) $wallet->pending_balance);
@@ -1317,6 +1370,8 @@ class OrderService
         }
 
         WalletTransactionService::recordShippingReleased($order, $amount);
+
+        return $amount;
     }
 
     private function refundSellerShipping(Order $order): void

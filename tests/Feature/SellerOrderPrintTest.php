@@ -82,9 +82,9 @@ class SellerOrderPrintTest extends TestCase
             'region' => 'Ashanti',
             'city' => 'Kumasi',
             'subtotal' => 150,
-            'shipping_cost' => 0,
+            'shipping_cost' => 20,
             'commission_amount' => 7.5,
-            'total' => 150,
+            'total' => 170,
         ]);
 
         return OrderItem::create([
@@ -113,7 +113,9 @@ class SellerOrderPrintTest extends TestCase
             ->assertSee($item->order->order_number, false)
             ->assertSee('Wireless earbuds', false)
             ->assertSee('Kofi Buyer', false)
-            ->assertSee('Ace Gadgets', false);
+            ->assertSee('Ace Gadgets', false)
+            ->assertSee('All Total', false)
+            ->assertSee('GH₵170.00', false);
 
         $pdf = $this->actingAs($seller)->get(route('seller.orders.pdf', $item));
         $pdf->assertOk();

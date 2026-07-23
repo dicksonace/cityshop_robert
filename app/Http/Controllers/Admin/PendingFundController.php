@@ -17,6 +17,9 @@ class PendingFundController extends Controller
 
     public function index(Request $request): Response
     {
+        // One-pass repair: product already released but shipping still pending.
+        $this->orderService->releaseStuckSellerShipping();
+
         $status = $request->get('status', 'pending');
 
         $base = OrderItem::query()
@@ -117,14 +120,20 @@ class PendingFundController extends Controller
                 $orderItem->update(['funds_release_notes' => $validated['admin_notes']]);
             }
 
-            $this->orderService->releaseSellerFunds($orderItem, $request->user()->id, true);
+            $released = $this->orderService->releaseSellerFunds($orderItem, $request->user()->id, true);
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
 
+        $total = round(($released['product'] ?? 0) + ($released['shipping'] ?? 0), 2);
+        $parts = ['product GH₵'.number_format((float) $released['product'], 2)];
+        if (($released['shipping'] ?? 0) > 0) {
+            $parts[] = 'shipping GH₵'.number_format((float) $released['shipping'], 2);
+        }
+
         return back()->with(
             'success',
-            'Funds released to seller Available balance (GH₵'.number_format((float) $orderItem->fresh()->seller_amount, 2).'). Buyer still confirms delivery to complete the order (no second release).',
+            'Funds released to seller Available balance (GH₵'.number_format($total, 2).': '.implode(' + ', $parts).'). Buyer still confirms delivery to complete the order (no second release).',
         );
     }
 

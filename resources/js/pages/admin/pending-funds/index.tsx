@@ -144,6 +144,9 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
                                         <p className="font-semibold text-gray-900">{item.product_name}</p>
                                         <p className="mt-0.5 text-sm text-gray-500">
                                             Qty {item.quantity} · Seller earns {formatPrice(item.seller_amount)}
+                                            {item.order && item.order.shipping_cost > 0
+                                                ? ` · Shipping ${formatPrice(item.order.shipping_cost)} (to seller with release)`
+                                                : ''}
                                         </p>
                                         <p className="mt-1 text-xs font-medium text-gray-600">
                                             Order stage: {stageLabel}
