@@ -146,19 +146,6 @@ export default function SellerDashboard({
                 </div>
             </div>
 
-            {storeHealth.tips.length > 0 && (
-                <div className="mb-6 rounded-xl border border-amber-100 bg-amber-50 p-4">
-                    <p className="flex items-center gap-2 text-sm font-semibold text-amber-900">
-                        <AlertCircle className="h-4 w-4" /> Tips to grow your store
-                    </p>
-                    <ul className="mt-2 space-y-1 text-sm text-amber-800">
-                        {storeHealth.tips.map((tip) => (
-                            <li key={tip}>· {tip}</li>
-                        ))}
-                    </ul>
-                </div>
-            )}
-
             <div className="mb-6 grid gap-4 lg:grid-cols-5">
                 <WalletBalanceCard
                     className="lg:col-span-2"
@@ -194,6 +181,19 @@ export default function SellerDashboard({
                     ))}
                 </div>
             </div>
+
+            {storeHealth.tips.length > 0 && (
+                <div className="mb-6 rounded-xl border border-amber-100 bg-amber-50 p-4">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                        <AlertCircle className="h-4 w-4" /> Tips to grow your store
+                    </p>
+                    <ul className="mt-2 space-y-1 text-sm text-amber-800">
+                        {storeHealth.tips.map((tip) => (
+                            <li key={tip}>· {tip}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             <div className="mb-6">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

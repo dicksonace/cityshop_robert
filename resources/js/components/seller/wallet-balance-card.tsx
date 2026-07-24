@@ -106,6 +106,19 @@ export default function WalletBalanceCard({
                 )}
 
                 <div className="mt-6 flex flex-wrap items-center gap-3 sm:gap-4">
+                    {canTopUp && (
+                        <button
+                            type="button"
+                            onClick={openTopUp}
+                            className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 py-1.5 pl-1.5 pr-3.5 text-xs font-semibold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-100 sm:text-sm"
+                        >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500 text-white sm:h-8 sm:w-8">
+                                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" strokeWidth={2.25} />
+                            </span>
+                            Top Up
+                        </button>
+                    )}
+
                     <Link
                         href={withdrawHref}
                         className="inline-flex items-center gap-2.5 rounded-full border border-sky-200 bg-white py-2 pl-2 pr-5 text-sm font-semibold text-sky-600 shadow-sm transition hover:border-sky-300 hover:bg-sky-50"
@@ -123,60 +136,47 @@ export default function WalletBalanceCard({
                         <History className="h-4 w-4" strokeWidth={1.75} />
                         History
                     </Link>
-
-                    {canTopUp && (
-                        <button
-                            type="button"
-                            onClick={openTopUp}
-                            className="inline-flex items-center gap-2.5 rounded-full border border-orange-200 bg-orange-50 py-2 pl-2 pr-5 text-sm font-semibold text-orange-700 shadow-sm transition hover:border-orange-300 hover:bg-orange-100"
-                        >
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-white">
-                                <Plus className="h-4 w-4" strokeWidth={2.25} />
-                            </span>
-                            Top Up
-                        </button>
-                    )}
                 </div>
             </div>
 
             {topUpOpen && (
-                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-                    <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6">
-                        <div className="flex items-start justify-between gap-3">
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900">
+                <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 pt-14 sm:items-start sm:pt-20">
+                    <div className="w-full max-w-sm rounded-xl bg-white p-3.5 shadow-xl sm:p-4">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                                <h3 className="text-sm font-bold text-gray-900">
                                     {step === 'choose' ? 'Top up wallet' : 'Auto Paystack'}
                                 </h3>
-                                <p className="mt-1 text-sm text-gray-500">
-                                    Top up to refund buyers when you cancel a Pay-to-seller order after withdrawing.
-                                </p>
+                                {step === 'choose' && (
+                                    <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+                                        For refunds after Pay-to-seller cancel.
+                                    </p>
+                                )}
                             </div>
                             <button
                                 type="button"
                                 onClick={closeTopUp}
-                                className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                className="shrink-0 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                                 aria-label="Close"
                             >
-                                <X className="h-5 w-5" />
+                                <X className="h-4 w-4" />
                             </button>
                         </div>
 
                         {step === 'choose' ? (
-                            <div className="mt-5 space-y-3">
+                            <div className="mt-3 space-y-2">
                                 {paystackConfigured && (
                                     <button
                                         type="button"
                                         onClick={() => setStep('paystack')}
-                                        className="flex w-full items-start gap-3 rounded-xl border-2 border-orange-100 bg-orange-50/50 p-4 text-left transition hover:border-orange-300 hover:bg-orange-50"
+                                        className="flex w-full items-center gap-2.5 rounded-lg border border-orange-200 bg-orange-50/60 px-3 py-2.5 text-left transition hover:border-orange-300 hover:bg-orange-50"
                                     >
-                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white">
-                                            <Smartphone className="h-5 w-5" />
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500 text-white">
+                                            <Smartphone className="h-4 w-4" />
                                         </span>
-                                        <span>
-                                            <span className="block font-semibold text-gray-900">Auto Paystack</span>
-                                            <span className="mt-0.5 block text-sm text-gray-500">
-                                                Instant MoMo or card — credited automatically.
-                                            </span>
+                                        <span className="min-w-0">
+                                            <span className="block text-sm font-semibold text-gray-900">Auto Paystack</span>
+                                            <span className="block text-[11px] text-gray-500">Instant MoMo or card</span>
                                         </span>
                                     </button>
                                 )}
@@ -185,22 +185,20 @@ export default function WalletBalanceCard({
                                     <Link
                                         href={route('seller.wallet.manual-top-up')}
                                         onClick={closeTopUp}
-                                        className="flex w-full items-start gap-3 rounded-xl border-2 border-gray-100 bg-white p-4 text-left transition hover:border-sky-200 hover:bg-sky-50"
+                                        className="flex w-full items-center gap-2.5 rounded-lg border border-sky-100 bg-white px-3 py-2.5 text-left transition hover:border-sky-200 hover:bg-sky-50"
                                     >
-                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white">
-                                            <Upload className="h-5 w-5" />
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500 text-white">
+                                            <Upload className="h-4 w-4" />
                                         </span>
-                                        <span>
-                                            <span className="block font-semibold text-gray-900">Manual</span>
-                                            <span className="mt-0.5 block text-sm text-gray-500">
-                                                Send to CityShop MoMo / bank, then upload proof for admin credit.
-                                            </span>
+                                        <span className="min-w-0">
+                                            <span className="block text-sm font-semibold text-gray-900">Manual</span>
+                                            <span className="block text-[11px] text-gray-500">MoMo / bank + upload proof</span>
                                         </span>
                                     </Link>
                                 )}
                             </div>
                         ) : (
-                            <form onSubmit={submitPaystack} className="mt-5 space-y-4">
+                            <form onSubmit={submitPaystack} className="mt-3 space-y-3">
                                 <div>
                                     <Label htmlFor="topup-amount">Amount (GH₵)</Label>
                                     <Input
@@ -218,7 +216,7 @@ export default function WalletBalanceCard({
                                 </div>
                                 <div>
                                     <Label>Pay with</Label>
-                                    <div className="mt-2 flex gap-2">
+                                    <div className="mt-1.5 flex gap-2">
                                         {(['momo', 'card'] as const).map((method) => (
                                             <button
                                                 key={method}
@@ -237,16 +235,17 @@ export default function WalletBalanceCard({
                                     </div>
                                     <InputError message={paystackForm.errors.method} />
                                 </div>
-                                <div className="flex gap-2 pt-1">
-                                    <Button type="button" variant="outline" className="flex-1" onClick={() => setStep('choose')}>
+                                <div className="flex gap-2 pt-0.5">
+                                    <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setStep('choose')}>
                                         Back
                                     </Button>
                                     <Button
                                         type="submit"
+                                        size="sm"
                                         disabled={paystackForm.processing}
                                         className="flex-1 bg-orange-500 hover:bg-orange-600"
                                     >
-                                        {paystackForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                        {paystackForm.processing && <LoaderCircle className="mr-2 h-3.5 w-3.5 animate-spin" />}
                                         Continue
                                     </Button>
                                 </div>
