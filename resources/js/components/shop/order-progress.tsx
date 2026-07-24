@@ -4,9 +4,19 @@ import { cn } from '@/lib/utils';
 import { codOrderFulfillmentSteps, formatOrderStatus, orderFulfillmentSteps } from '@/types/marketplace';
 
 interface OrderProgressProps {
-    status: string;
+    status: string | { value?: string } | null | undefined;
     paymentMethod?: string | null;
+    /** When paid, Call buyer is never shown — that step is COD only. */
+    paymentStatus?: string | null;
     className?: string;
+}
+
+function statusKey(status: OrderProgressProps['status']): string {
+    if (typeof status === 'string') {
+        return status;
+    }
+
+    return status?.value ?? '';
 }
 
 /** Paid flow: Processing → Packing → Out for delivery → Delivered → Completed (no Call). */
@@ -40,17 +50,19 @@ const codStepIndex = (status: string): number => {
     return map[status] ?? 0;
 };
 
-export default function OrderProgress({ status, paymentMethod, className }: OrderProgressProps) {
-    const isCod = paymentMethod === 'cash';
+export default function OrderProgress({ status, paymentMethod, paymentStatus, className }: OrderProgressProps) {
+    const key = statusKey(status);
+    // Paid / MoMo / card / wallet / direct — never show Call buyer.
+    const isCod = paymentMethod === 'cash' && paymentStatus !== 'paid';
     const steps = isCod ? codOrderFulfillmentSteps : orderFulfillmentSteps;
-    const current = isCod ? codStepIndex(status) : paidStepIndex(status);
-    const isComplete = status === 'delivered';
-    const terminal = ['cancelled', 'refunded'].includes(status);
+    const current = isCod ? codStepIndex(key) : paidStepIndex(key);
+    const isComplete = key === 'delivered';
+    const terminal = ['cancelled', 'refunded'].includes(key);
 
     if (terminal) {
         return (
             <p className={cn('text-sm font-medium capitalize text-gray-600', className)}>
-                {formatOrderStatus(status)}
+                {formatOrderStatus(key)}
             </p>
         );
     }
@@ -96,7 +108,7 @@ export default function OrderProgress({ status, paymentMethod, className }: Orde
                 />
             </div>
             <p className="text-center text-sm font-medium text-gray-800">
-                {isCod && status === 'pending' ? 'Cash on delivery' : formatOrderStatus(status)}
+                {isCod && key === 'pending' ? 'Cash on delivery' : formatOrderStatus(key)}
             </p>
         </div>
     );

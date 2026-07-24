@@ -321,7 +321,11 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
 
                                 {(order.payment_status === 'paid' || order.payment_method === 'cash') && (
                                     <div className="mt-4 border-t pt-4">
-                                        <OrderProgress status={primaryStatus} paymentMethod={order.payment_method} />
+                                        <OrderProgress
+                                            status={primaryStatus}
+                                            paymentMethod={order.payment_method}
+                                            paymentStatus={order.payment_status}
+                                        />
                                     </div>
                                 )}
 

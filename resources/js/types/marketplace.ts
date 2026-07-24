@@ -304,7 +304,7 @@ const FULFILLMENT_RANK: Record<string, number> = {
 
 /** Furthest fulfillment status among order items (ignores cancelled/refunded when others remain). */
 export function mostAdvancedItemStatus(
-    items: Array<{ status?: string | null }> | null | undefined,
+    items: Array<{ status?: string | { value?: string } | null }> | null | undefined,
 ): string | null {
     if (!items?.length) {
         return null;
@@ -314,7 +314,8 @@ export function mostAdvancedItemStatus(
     let bestRank = -2;
 
     for (const item of items) {
-        const status = String(item.status ?? '');
+        const raw = item.status;
+        const status = typeof raw === 'string' ? raw : raw?.value ?? '';
         const rank = FULFILLMENT_RANK[status] ?? -2;
         if (rank > bestRank) {
             bestRank = rank;

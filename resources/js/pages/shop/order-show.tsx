@@ -229,7 +229,11 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                     {(order.payment_status === 'paid' || order.payment_method === 'cash') && (
                         <div className="mt-6 border-t pt-6">
                             <h3 className="mb-4 text-sm font-semibold text-gray-900">Order progress</h3>
-                            <OrderProgress status={primaryStatus} paymentMethod={order.payment_method} />
+                            <OrderProgress
+                                status={primaryStatus}
+                                paymentMethod={order.payment_method}
+                                paymentStatus={order.payment_status}
+                            />
                         </div>
                     )}
 
