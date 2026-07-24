@@ -19,9 +19,9 @@ class ConversationController extends Controller
         $userId = $request->user()->id;
 
         $conversations = Conversation::with([
-            'buyer:id,name,city,region,last_seen_at',
-            'seller:id,name,city,region,last_seen_at',
-            'seller.sellerProfile:id,user_id,business_name,store_name,slug',
+            'buyer:id,name,avatar,city,region,last_seen_at',
+            'seller:id,name,avatar,city,region,last_seen_at',
+            'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
             'product:id,name,slug',
             'latestMessage.sender:id,name',
         ])
@@ -45,9 +45,9 @@ class ConversationController extends Controller
         ChatService::markConversationRead($conversation, $request->user());
 
         $conversation->load([
-            'buyer:id,name,city,region,last_seen_at',
-            'seller:id,name,city,region,last_seen_at',
-            'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address',
+            'buyer:id,name,avatar,city,region,last_seen_at',
+            'seller:id,name,avatar,city,region,last_seen_at',
+            'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
             'product:id,name,slug',
         ]);
 
@@ -89,9 +89,9 @@ class ConversationController extends Controller
         $conversation = ChatService::findOrCreateConversation($request->user(), $seller, $product);
 
         $conversation->load([
-            'buyer:id,name,city,region,last_seen_at',
-            'seller:id,name,city,region,last_seen_at',
-            'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address',
+            'buyer:id,name,avatar,city,region,last_seen_at',
+            'seller:id,name,avatar,city,region,last_seen_at',
+            'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
             'product:id,name,slug',
         ]);
 
@@ -137,6 +137,7 @@ class ConversationController extends Controller
             'other' => [
                 'id' => $other->id,
                 'name' => $other->name,
+                'avatar' => $other->displayAvatarPath(),
                 'online' => ChatService::isOnline($other),
                 'last_seen_at' => $other->last_seen_at?->toIso8601String(),
                 'city' => $other->city,
@@ -171,6 +172,7 @@ class ConversationController extends Controller
             'other' => [
                 'id' => $other->id,
                 'name' => $other->name,
+                'avatar' => $other->displayAvatarPath(),
                 'online' => ChatService::isOnline($other),
                 'last_seen_at' => $other->last_seen_at?->toIso8601String(),
                 'city' => $other->city,

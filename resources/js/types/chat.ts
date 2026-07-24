@@ -9,6 +9,7 @@ export interface ChatCallLog {
 export interface ChatConversationOther {
     id: number;
     name: string;
+    avatar?: string | null;
     online: boolean;
     last_seen_at?: string | null;
     city?: string | null;

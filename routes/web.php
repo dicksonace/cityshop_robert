@@ -24,6 +24,7 @@ use App\Http\Controllers\Chat\ConversationController as ChatConversationControll
 use App\Http\Controllers\Chat\MessageController as ChatMessageController;
 use App\Http\Controllers\Chat\NotificationController as ChatNotificationController;
 use App\Http\Controllers\PaystackWebhookController;
+use App\Http\Controllers\Seller\AccountController as SellerAccountController;
 use App\Http\Controllers\Seller\CouponController as SellerCouponController;
 use App\Http\Controllers\Seller\DashboardController as SellerDashboardController;
 use App\Http\Controllers\Seller\DisputeController as SellerDisputeController;
@@ -147,6 +148,7 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
 
         Route::middleware(['seller.store-setup'])->group(function () {
             Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/account', [SellerAccountController::class, 'index'])->name('account');
 
             Route::get('/products', [SellerProductController::class, 'index'])->name('products.index');
             Route::get('/products/create', [SellerProductController::class, 'create'])->name('products.create');

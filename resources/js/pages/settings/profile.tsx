@@ -6,6 +6,7 @@ import { FormEventHandler } from 'react';
 import DeleteUser from '@/components/delete-user';
 import HeadingSmall from '@/components/heading-small';
 import InputError from '@/components/input-error';
+import ProfileAvatarUpload from '@/components/profile-avatar-upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +21,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: boolean; status?: string }) {
-    const { auth } = usePage<SharedData>().props;
+    const { auth, flash } = usePage<SharedData>().props;
+    const roleLabel = auth.user?.role === 'seller' ? 'Seller' : auth.user?.role === 'buyer' ? 'Buyer' : undefined;
 
     const { data, setData, patch, errors, processing, recentlySuccessful } = useForm({
         name: auth.user.name,
@@ -38,6 +40,16 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
             <Head title="Profile settings" />
 
             <SettingsLayout>
+                <div className="space-y-6">
+                    <HeadingSmall title="Profile picture" description="Upload a photo for your account (buyer and seller)" />
+
+                    {flash?.success && (
+                        <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{flash.success}</div>
+                    )}
+
+                    <ProfileAvatarUpload roleLabel={roleLabel} />
+                </div>
+
                 <div className="space-y-6">
                     <HeadingSmall title="Profile information" description="Update your name and email address" />
 

@@ -22,6 +22,7 @@ class User extends Authenticatable
         'first_name',
         'last_name',
         'email',
+        'avatar',
         'mobile',
         'whatsapp',
         'password',
@@ -138,5 +139,24 @@ class User extends Authenticatable
         }
 
         return $this->name;
+    }
+
+    /**
+     * Path used when showing this user in chat / lists.
+     * Prefer personal avatar; sellers fall back to shop photo.
+     */
+    public function displayAvatarPath(): ?string
+    {
+        if ($this->avatar) {
+            return $this->avatar;
+        }
+
+        if ($this->isSeller()) {
+            $this->loadMissing('sellerProfile');
+
+            return $this->sellerProfile?->shop_photo;
+        }
+
+        return null;
     }
 }

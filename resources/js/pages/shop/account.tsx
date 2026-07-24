@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ChevronRight, Heart, KeyRound, LogOut, MapPin, User } from 'lucide-react';
 
+import ProfileAvatarUpload from '@/components/profile-avatar-upload';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 
@@ -12,20 +13,20 @@ const links = [
 ];
 
 export default function BuyerAccount() {
-    const { auth } = usePage<SharedData>().props;
+    const { flash } = usePage<SharedData>().props;
 
     return (
         <ShopLayout>
             <Head title="Profile" />
             <div className="mx-auto max-w-lg px-3 py-4 sm:px-4 sm:py-8">
-                <div className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-100 text-xl font-bold text-orange-600">
-                        {auth.user?.name?.charAt(0)?.toUpperCase() ?? '?'}
+                {flash?.success && (
+                    <div className="mb-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-700 ring-1 ring-green-100">
+                        {flash.success}
                     </div>
-                    <div className="min-w-0">
-                        <p className="truncate text-lg font-semibold text-gray-900">{auth.user?.name}</p>
-                        <p className="truncate text-sm text-gray-500">{auth.user?.email}</p>
-                    </div>
+                )}
+
+                <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <ProfileAvatarUpload roleLabel="Buyer" />
                 </div>
 
                 <ul className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">

@@ -25,6 +25,7 @@ import { playChatReceiveSound, playChatSendSound } from '@/lib/chat-sounds';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/types/chat';
 import { SharedData } from '@/types';
+import { productImageUrl } from '@/types/marketplace';
 
 function formatTime(value?: string): string {
     if (!value) return '';
@@ -266,8 +267,12 @@ export default function ChatThreadPanel() {
                 <button type="button" onClick={showList} className="rounded-lg p-1.5 hover:bg-gray-100">
                     <ArrowLeft className="h-4 w-4 text-gray-600" />
                 </button>
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-orange-500 text-sm font-bold text-white">
-                    {otherName.charAt(0).toUpperCase()}
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-orange-500 text-sm font-bold text-white">
+                    {other?.avatar ? (
+                        <img src={productImageUrl(other.avatar)} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                        otherName.charAt(0).toUpperCase()
+                    )}
                 </div>
                 <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-gray-900">{otherName}</p>

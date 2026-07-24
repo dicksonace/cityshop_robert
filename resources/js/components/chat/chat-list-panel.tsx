@@ -6,6 +6,7 @@ import { useChat } from '@/contexts/chat-context';
 import { getCallLogListPreview } from '@/lib/call-log';
 import type { ChatConversation } from '@/types/chat';
 import { SharedData } from '@/types';
+import { productImageUrl } from '@/types/marketplace';
 
 function formatTime(value?: string): string {
     if (!value) return '';
@@ -66,8 +67,12 @@ export default function ChatListPanel() {
                         onClick={() => openConversation(c.id)}
                         className="flex w-full items-center gap-3 border-b border-gray-50 px-3 py-3 text-left transition-colors hover:bg-gray-50"
                     >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-orange-500 text-sm font-bold text-white">
-                            {name.charAt(0).toUpperCase()}
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-orange-500 text-sm font-bold text-white">
+                            {c.other.avatar ? (
+                                <img src={productImageUrl(c.other.avatar)} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                                name.charAt(0).toUpperCase()
+                            )}
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">

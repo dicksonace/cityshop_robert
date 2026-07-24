@@ -14,6 +14,7 @@ import { sellerOrdersStageHref } from '@/lib/seller-order-stages';
 
 export type SellerNavKey =
     | 'dashboard'
+    | 'account'
     | 'appearance'
     | 'products'
     | 'orders'
@@ -28,6 +29,7 @@ export type SellerNavKey =
 
 const sectionMap: Record<SellerNavKey, string> = {
     dashboard: 'dashboard',
+    account: 'dashboard',
     appearance: 'store',
     products: 'products',
     orders: 'orders',
@@ -54,7 +56,10 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
             label: 'Dashboard',
             icon: LayoutDashboard,
             defaultOpen: true,
-            items: [{ key: 'overview', label: 'Overview', href: route('seller.dashboard'), mobile: true }],
+            items: [
+                { key: 'overview', label: 'Overview', href: route('seller.dashboard'), mobile: true },
+                { key: 'account', label: 'Account & photo', href: route('seller.account') },
+            ],
         },
         {
             key: 'store',
