@@ -51,6 +51,9 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
         if (!canShop) {
             return;
         }
+        if (!product.is_preorder && product.quantity < 1) {
+            return;
+        }
         addProductToCart(product.id);
     };
 
@@ -279,10 +282,11 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                                 <div className="grid grid-cols-2 gap-2">
                                     <Button
                                         onClick={handleAddToCart}
-                                        className="w-full bg-orange-500 py-4 text-sm hover:bg-orange-600 sm:py-6 sm:text-lg"
+                                        disabled={!product.is_preorder && product.quantity < 1}
+                                        className="w-full bg-orange-500 py-4 text-sm hover:bg-orange-600 disabled:opacity-50 sm:py-6 sm:text-lg"
                                     >
                                         <ShoppingBag className="mr-1.5 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5" />
-                                        Add to Cart
+                                        {!product.is_preorder && product.quantity < 1 ? 'Out of stock' : 'Add to Cart'}
                                     </Button>
                                     {product.seller && auth.user?.id !== product.seller.id ? (
                                         <MessageSellerButton

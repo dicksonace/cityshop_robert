@@ -26,6 +26,7 @@ use App\Notifications\DisputeOpenedNotification;
 use App\Notifications\OrderPlacedNotification;
 use App\Notifications\OrderStatusUpdatedNotification;
 use App\Notifications\PaymentConfirmedNotification;
+use App\Support\ProductStock;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +62,10 @@ class OrderService
             foreach ($cartItems as $item) {
                 if (! $item->product || ! $item->product->isVisibleInShop()) {
                     throw new \RuntimeException('Your cart contains items from a seller that is no longer available.');
+                }
+
+                if (! ProductStock::canFulfill($item->product, (int) $item->quantity)) {
+                    throw new \RuntimeException(ProductStock::exceededMessage($item->product));
                 }
             }
 
@@ -351,6 +356,10 @@ class OrderService
                 if (! $item->product || ! $item->product->isVisibleInShop()) {
                     throw new \RuntimeException('Your cart contains items from a seller that is no longer available.');
                 }
+
+                if (! ProductStock::canFulfill($item->product, (int) $item->quantity)) {
+                    throw new \RuntimeException(ProductStock::exceededMessage($item->product));
+                }
             }
 
             $seller = User::with('sellerProfile.paymentMethods')->findOrFail($sellerId);
@@ -604,13 +613,10 @@ class OrderService
             ]);
 
             foreach ($order->items as $item) {
-                $product = Product::find($item->product_id);
-
-                if ($product && ! $product->is_preorder) {
-                    $product->decrement('quantity', $item->quantity);
-                }
+                $product = Product::query()->whereKey($item->product_id)->lockForUpdate()->first();
 
                 if ($product) {
+                    $this->decrementProductStock($product, (int) $item->quantity);
                     $this->analytics->recordPurchase($product, $item->quantity);
                 }
 
@@ -728,12 +734,9 @@ class OrderService
             ]);
 
             foreach ($order->items as $item) {
-                $product = Product::find($item->product_id);
-                if ($product && ! $product->is_preorder) {
-                    $product->decrement('quantity', $item->quantity);
-                }
-
+                $product = Product::query()->whereKey($item->product_id)->lockForUpdate()->first();
                 if ($product) {
+                    $this->decrementProductStock($product, (int) $item->quantity);
                     $this->analytics->recordPurchase($product, $item->quantity);
                 }
 
@@ -1786,5 +1789,31 @@ class OrderService
     public function recalculateProductRating(Product $product): void
     {
         ReviewService::syncProductRating($product);
+    }
+
+    /**
+     * Reduce stock after a paid sale. When stock hits 0, notify the seller to restock.
+     */
+    private function decrementProductStock(Product $product, int $quantity): void
+    {
+        if ($product->is_preorder || $quantity < 1) {
+            return;
+        }
+
+        $before = (int) $product->quantity;
+        $after = max(0, $before - $quantity);
+
+        if ($after === $before) {
+            return;
+        }
+
+        $product->update(['quantity' => $after]);
+
+        if ($before > 0 && $after === 0) {
+            $seller = $product->seller ?? User::find($product->seller_id);
+            if ($seller) {
+                AppNotificationService::notifySellerProductOutOfStock($seller, $product->fresh() ?? $product);
+            }
+        }
     }
 }

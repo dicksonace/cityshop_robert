@@ -94,4 +94,67 @@ class CartQuantityTest extends TestCase
             'quantity' => 2,
         ]);
     }
+
+    public function test_cannot_add_more_than_stock_left(): void
+    {
+        [$buyer, $product] = $this->makeProduct();
+        $product->update(['quantity' => 1]);
+
+        $this->actingAs($buyer)
+            ->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 1])
+            ->assertRedirect();
+
+        $this->actingAs($buyer)
+            ->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 1])
+            ->assertRedirect()
+            ->assertSessionHas('error', 'Out of stock based on your quantity. 1 left in stock. Contact seller.');
+
+        $this->assertDatabaseHas('cart_items', [
+            'user_id' => $buyer->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+    }
+
+    public function test_cannot_update_cart_above_stock(): void
+    {
+        [$buyer, $product] = $this->makeProduct();
+        $product->update(['quantity' => 1]);
+
+        $item = CartItem::create([
+            'user_id' => $buyer->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+
+        $this->actingAs($buyer)
+            ->patch(route('cart.update', $item), ['quantity' => 4])
+            ->assertRedirect()
+            ->assertSessionHas('error', 'Out of stock based on your quantity. 1 left in stock. Contact seller.');
+
+        $this->assertSame(1, $item->fresh()->quantity);
+    }
+
+    public function test_cart_index_clamps_quantity_to_stock(): void
+    {
+        [$buyer, $product] = $this->makeProduct();
+        $product->update(['quantity' => 1]);
+
+        CartItem::create([
+            'user_id' => $buyer->id,
+            'product_id' => $product->id,
+            'quantity' => 4,
+        ]);
+
+        $this->actingAs($buyer)
+            ->get(route('cart.index'))
+            ->assertOk()
+            ->assertSessionHas('error', 'Out of stock based on your quantity. 1 left in stock. Contact seller.');
+
+        $this->assertDatabaseHas('cart_items', [
+            'user_id' => $buyer->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+    }
 }

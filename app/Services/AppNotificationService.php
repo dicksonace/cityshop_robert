@@ -6,6 +6,7 @@ use App\Enums\PaymentChannel;
 use App\Models\AppNotification;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -85,6 +86,21 @@ class AppNotificationService
                 ? route('seller.orders.show', $item->id)
                 : route('seller.orders.index'),
         ]);
+    }
+
+    public static function notifySellerProductOutOfStock(User $seller, Product $product): void
+    {
+        static::send(
+            $seller,
+            'product_out_of_stock',
+            'Update stock — item sold out',
+            "{$product->name} is out of stock. Update the quantity so buyers can order again.",
+            [
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'url' => route('seller.products.edit', $product->id),
+            ],
+        );
     }
 
     public static function sellerNewOrderTitle(
