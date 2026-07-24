@@ -235,12 +235,14 @@ export const orderStatusLabels: Record<string, string> = {
 
 export const orderFulfillmentSteps = [
     { key: 'processing', label: 'Processing' },
-    { key: 'call_confirmed', label: 'Call buyer' },
     { key: 'packed', label: 'Packing' },
     { key: 'shipped', label: 'Out for delivery' },
     { key: 'awaiting_confirmation', label: 'Delivered' },
     { key: 'delivered', label: 'Completed' },
 ] as const;
+
+/** Paid / wallet / MoMo / card — no Call buyer step (that is COD only). */
+export const paidOrderFulfillmentSteps = orderFulfillmentSteps;
 
 export const codOrderFulfillmentSteps = [
     { key: 'pending', label: 'Cash on delivery' },
@@ -248,7 +250,7 @@ export const codOrderFulfillmentSteps = [
     { key: 'call_confirmed', label: 'Seller called' },
     { key: 'packed', label: 'Packing' },
     { key: 'shipped', label: 'Package on the way' },
-    { key: 'delivered', label: 'Complete' },
+    { key: 'delivered', label: 'Completed' },
 ] as const;
 
 export function formatOrderStatus(status: string | { value?: string } | null | undefined): string {

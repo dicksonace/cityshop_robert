@@ -1210,6 +1210,8 @@ class OrderService
             : [
                 OrderStatus::Pending->value => [OrderStatus::Processing],
                 OrderStatus::Processing->value => [OrderStatus::Packed],
+                // Recovery: Call buyer is COD-only; allow paid orders stuck here to continue packing.
+                OrderStatus::CallConfirmed->value => [OrderStatus::Packed],
                 OrderStatus::Packed->value => [OrderStatus::Shipped],
                 OrderStatus::Shipped->value => [OrderStatus::AwaitingConfirmation],
             ];

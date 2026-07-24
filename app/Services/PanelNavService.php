@@ -68,7 +68,11 @@ class PanelNavService
         return [
             'pending_orders' => OrderItem::where('seller_id', $sellerId)->visibleToSeller()->where('status', OrderStatus::Pending)->count(),
             'processing_orders' => OrderItem::where('seller_id', $sellerId)->visibleToSeller()->where('status', OrderStatus::Processing)->count(),
-            'call_orders' => OrderItem::where('seller_id', $sellerId)->visibleToSeller()->where('status', OrderStatus::CallConfirmed)->count(),
+            'call_orders' => OrderItem::where('seller_id', $sellerId)
+                ->visibleToSeller()
+                ->where('status', OrderStatus::CallConfirmed)
+                ->whereHas('order', fn ($q) => $q->where('payment_method', 'cash'))
+                ->count(),
             'packing_orders' => OrderItem::where('seller_id', $sellerId)->visibleToSeller()->where('status', OrderStatus::Packed)->count(),
             'delivery_orders' => OrderItem::where('seller_id', $sellerId)->visibleToSeller()->where('status', OrderStatus::Shipped)->count(),
             'awaiting_orders' => OrderItem::where('seller_id', $sellerId)->visibleToSeller()->where('status', OrderStatus::AwaitingConfirmation)->count(),

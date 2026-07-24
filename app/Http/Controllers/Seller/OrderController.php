@@ -91,6 +91,10 @@ class OrderController extends Controller
 
         if (isset($config['status'])) {
             $query->where('status', $config['status']);
+            // Call buyer stage is cash-on-delivery only.
+            if ($stage === 'call') {
+                $query->whereHas('order', fn ($q) => $q->where('payment_method', 'cash'));
+            }
         } elseif (isset($config['statuses'])) {
             $query->whereIn('status', $config['statuses']);
         }
@@ -262,7 +266,9 @@ class OrderController extends Controller
             'all' => (clone $base)->count(),
             'pending' => (clone $base)->where('status', OrderStatus::Pending)->count(),
             'processing' => (clone $base)->where('status', OrderStatus::Processing)->count(),
-            'call_confirmed' => (clone $base)->where('status', OrderStatus::CallConfirmed)->count(),
+            'call_confirmed' => (clone $base)->where('status', OrderStatus::CallConfirmed)
+                ->whereHas('order', fn ($q) => $q->where('payment_method', 'cash'))
+                ->count(),
             'packed' => (clone $base)->where('status', OrderStatus::Packed)->count(),
             'shipped' => (clone $base)->where('status', OrderStatus::Shipped)->count(),
             'awaiting_confirmation' => (clone $base)->where('status', OrderStatus::AwaitingConfirmation)->count(),

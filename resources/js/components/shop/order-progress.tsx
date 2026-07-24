@@ -9,10 +9,13 @@ interface OrderProgressProps {
     className?: string;
 }
 
+/** Paid flow: Processing → Packing → Out for delivery → Delivered → Completed (no Call). */
 const paidStepIndex = (status: string): number => {
     const map: Record<string, number> = {
         pending: 0,
         processing: 0,
+        // Legacy: paid orders should never be call_confirmed; treat as packing.
+        call_confirmed: 1,
         packed: 1,
         shipped: 2,
         awaiting_confirmation: 3,
@@ -22,6 +25,7 @@ const paidStepIndex = (status: string): number => {
     return map[status] ?? 0;
 };
 
+/** COD flow: Cash on delivery → Processing → Seller called → Packing → On the way → Completed. */
 const codStepIndex = (status: string): number => {
     const map: Record<string, number> = {
         pending: 0,
@@ -29,6 +33,7 @@ const codStepIndex = (status: string): number => {
         call_confirmed: 2,
         packed: 3,
         shipped: 4,
+        awaiting_confirmation: 4,
         delivered: 5,
     };
 
@@ -39,6 +44,7 @@ export default function OrderProgress({ status, paymentMethod, className }: Orde
     const isCod = paymentMethod === 'cash';
     const steps = isCod ? codOrderFulfillmentSteps : orderFulfillmentSteps;
     const current = isCod ? codStepIndex(status) : paidStepIndex(status);
+    const isComplete = status === 'delivered';
     const terminal = ['cancelled', 'refunded'].includes(status);
 
     if (terminal) {
@@ -53,8 +59,8 @@ export default function OrderProgress({ status, paymentMethod, className }: Orde
         <div className={cn('space-y-3', className)}>
             <div className="flex items-start justify-between gap-0.5 sm:gap-1">
                 {steps.map((step, i) => {
-                    const done = i < current;
-                    const active = i === current;
+                    const done = isComplete ? i <= current : i < current;
+                    const active = !isComplete && i === current;
 
                     return (
                         <div key={step.key} className="flex min-w-0 flex-1 flex-col items-center">
@@ -71,7 +77,8 @@ export default function OrderProgress({ status, paymentMethod, className }: Orde
                             <p
                                 className={cn(
                                     'mt-1.5 w-full text-center text-[9px] leading-tight sm:text-[10px]',
-                                    active ? 'font-semibold text-orange-600' : 'text-gray-500',
+                                    active || (isComplete && i === current) ? 'font-semibold text-orange-600' : 'text-gray-500',
+                                    isComplete && i === current && 'text-emerald-700',
                                 )}
                             >
                                 {step.label}
@@ -82,8 +89,10 @@ export default function OrderProgress({ status, paymentMethod, className }: Orde
             </div>
             <div className="flex h-1.5 overflow-hidden rounded-full bg-gray-100">
                 <div
-                    className="rounded-full bg-orange-500 transition-all"
-                    style={{ width: `${(current / Math.max(1, steps.length - 1)) * 100}%` }}
+                    className={cn('rounded-full transition-all', isComplete ? 'bg-emerald-500' : 'bg-orange-500')}
+                    style={{
+                        width: `${Math.min(100, (current / Math.max(1, steps.length - 1)) * 100)}%`,
+                    }}
                 />
             </div>
             <p className="text-center text-sm font-medium text-gray-800">

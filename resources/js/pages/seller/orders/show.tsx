@@ -69,6 +69,8 @@ const codSellerFlow: { status: string; label: string; hint: string }[] = [
 
 function nextSellerStatus(current: string, isCod: boolean): string | null {
     if (!isCod && current === 'pending') return 'processing';
+    // Call buyer is COD-only; paid orders stuck on call_confirmed go to packing.
+    if (!isCod && current === 'call_confirmed') return 'packed';
     const flow = isCod ? codSellerFlow : paidSellerFlow;
     const idx = flow.findIndex((s) => s.status === current);
     if (idx === -1 || idx >= flow.length - 1) return null;
