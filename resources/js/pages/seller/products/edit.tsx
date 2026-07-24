@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useEffect, useState } from 'react';
 
 import ImageUploader from '@/components/seller/image-uploader';
 import ProductVideoUploader from '@/components/seller/product-video-uploader';
@@ -84,6 +84,14 @@ export default function EditProduct({ product, categories }: EditProductProps) {
 
     const [formHint, setFormHint] = useState<string | null>(null);
 
+    useEffect(() => {
+        const keys = Object.keys(errors);
+        if (keys.length === 0) return;
+        const first = errors[keys[0] as keyof typeof errors];
+        setFormHint(typeof first === 'string' ? first : 'Could not save — fix the highlighted errors and try again.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [errors]);
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         if (totalImages === 0) {
@@ -104,6 +112,12 @@ export default function EditProduct({ product, categories }: EditProductProps) {
         <SellerLayout title="Edit Product" active="products">
             <Head title="Edit Product" />
             <form onSubmit={submit} className="max-w-3xl space-y-6 rounded-xl bg-white p-6 shadow-sm">
+                {formHint && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                        {formHint}
+                    </div>
+                )}
+
                 <ImageUploader
                     maxImages={6}
                     existingImages={product.images ?? []}
@@ -281,12 +295,6 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                     </div>
                 </div>
 
-                {formHint && (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
-                        {formHint}
-                    </div>
-                )}
-
                 <Button
                     type="submit"
                     disabled={processing || totalImages === 0}
@@ -295,6 +303,9 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                     {processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
                     Update Product
                 </Button>
+                {totalImages === 0 && (
+                    <p className="text-center text-xs text-amber-700">Add at least one product photo to enable Update Product.</p>
+                )}
             </form>
         </SellerLayout>
     );

@@ -218,7 +218,7 @@ class ProductController extends Controller
         $videoUpdates = $this->resolveVideoUpdates($request, $product);
 
         $product->update([
-            ...collect($validated)->except(['images', 'remove_images', 'video', 'video_duration', 'remove_video'])->toArray(),
+            ...collect($validated)->except(['images', 'image_count', 'remove_images', 'video', 'video_duration', 'remove_video'])->toArray(),
             'specifications' => $specifications,
             'status' => $nextStatus,
             'is_preorder' => false,
@@ -400,7 +400,8 @@ class ProductController extends Controller
             'specifications' => ['nullable', 'array'],
             'images' => $imageRules,
             'images.*' => ['image', 'max:5120'],
-            'image_count' => ['nullable', 'integer', 'min:1', 'max:6'],
+            // 0 is valid on update when no new photos are uploaded (existing images remain).
+            'image_count' => ['nullable', 'integer', 'min:0', 'max:6'],
             'remove_images' => ['nullable', 'array'],
             'remove_images.*' => ['integer', 'exists:product_images,id'],
             'video' => ['nullable', 'file', 'mimes:mp4,webm,mov,qt,m4v,3gp,3gpp', 'max:51200'],
