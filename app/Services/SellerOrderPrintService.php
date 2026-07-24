@@ -14,13 +14,12 @@ use Mpdf\Output\Destination;
 class SellerOrderPrintService
 {
     /**
-     * Build a packing-slip payload for one seller’s items on an order.
-     *
      * @return array{
      *   order: Order,
      *   seller: User,
      *   storeName: string,
      *   storeAddress: string|null,
+     *   storeDigitalAddress: string|null,
      *   storeLocation: string|null,
      *   sellerPhone: string|null,
      *   storeAddressLines: list<string>,
@@ -62,10 +61,12 @@ class SellerOrderPrintService
             'seller' => $seller,
             'storeName' => $contact['storeName'],
             'storeAddress' => $contact['address'],
+            'storeDigitalAddress' => $contact['digital_address'],
             'storeLocation' => $contact['location'],
             'sellerPhone' => $contact['phone'],
             'storeAddressLines' => array_values(array_filter([
                 $contact['address'],
+                $contact['digital_address'],
                 $contact['location'],
             ])),
             'items' => $items,
@@ -161,7 +162,7 @@ class SellerOrderPrintService
     }
 
     /**
-     * @return array{storeName: string, address: string|null, location: string|null, phone: string|null}
+     * @return array{storeName: string, address: string|null, digital_address: string|null, location: string|null, phone: string|null}
      */
     private function sellerContact(User $seller): array
     {
@@ -173,19 +174,20 @@ class SellerOrderPrintService
         ])->map(fn ($v) => is_string($v) ? trim($v) : '')
             ->first(fn (string $v) => $v !== '') ?: null;
 
-        $locationParts = collect([
-            $seller->digital_address,
-            collect([$seller->city, $seller->region])->filter()->implode(', '),
-        ])->map(fn ($v) => is_string($v) ? trim($v) : '')
+        $digitalAddress = is_string($seller->digital_address) ? trim($seller->digital_address) : '';
+        $digitalAddress = $digitalAddress !== '' ? $digitalAddress : null;
+
+        $location = collect([$seller->city, $seller->region])
+            ->map(fn ($v) => is_string($v) ? trim($v) : '')
             ->filter()
             ->unique()
-            ->values();
-
-        $location = $locationParts->isEmpty() ? null : $locationParts->implode(' · ');
+            ->implode(', ');
+        $location = $location !== '' ? $location : null;
 
         return [
             'storeName' => $profile?->displayName() ?? $seller->name ?? 'Seller',
             'address' => $address,
+            'digital_address' => $digitalAddress,
             'location' => $location,
             'phone' => $this->sellerPhone($seller),
         ];

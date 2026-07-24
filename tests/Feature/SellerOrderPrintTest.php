@@ -108,6 +108,7 @@ class SellerOrderPrintTest extends TestCase
             'mobile' => '0248000111',
             'city' => 'Accra',
             'region' => 'Greater Accra',
+            'digital_address' => 'GA-123-4567',
             'residential_address' => '12 Market Road',
         ])->save();
         $seller->sellerProfile?->update(['business_address' => '12 Market Road, Accra']);
@@ -116,16 +117,20 @@ class SellerOrderPrintTest extends TestCase
         $payload = app(\App\Services\SellerOrderPrintService::class)->payload($item, $seller->fresh());
         $this->assertSame('Ace Gadgets', $payload['storeName']);
         $this->assertSame('12 Market Road, Accra', $payload['storeAddress']);
+        $this->assertSame('GA-123-4567', $payload['storeDigitalAddress']);
         $this->assertSame('Accra, Greater Accra', $payload['storeLocation']);
         $this->assertSame('0248000111', $payload['sellerPhone']);
 
         $html = view('seller.orders.packing-slip', $payload)->render();
         $this->assertStringContainsString('Store name', $html);
         $this->assertStringContainsString('Address', $html);
+        $this->assertStringContainsString('Digital address', $html);
         $this->assertStringContainsString('Location', $html);
         $this->assertStringContainsString('Phone', $html);
         $this->assertStringContainsString('Ace Gadgets', $html);
         $this->assertStringContainsString('12 Market Road, Accra', $html);
+        $this->assertStringContainsString('GA-123-4567', $html);
+        $this->assertStringContainsString('Accra, Greater Accra', $html);
         $this->assertStringContainsString('0248000111', $html);
 
         $print = $this->actingAs($seller)->get(route('seller.orders.print', $item));

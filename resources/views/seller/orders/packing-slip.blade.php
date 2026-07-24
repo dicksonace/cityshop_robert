@@ -155,12 +155,11 @@
 <body>
 @php
     $isCod = $order->payment_method === 'cash';
-    $shipToLines = array_values(array_filter([
-        $order->digital_address,
-        collect([$order->city, $order->region])->filter()->implode(', '),
-    ]));
+    $buyerDigitalAddress = filled($order->digital_address) ? trim((string) $order->digital_address) : null;
+    $buyerLocation = collect([$order->city, $order->region])->filter()->implode(', ') ?: null;
     $money = fn (float $n) => 'GHS '.number_format($n, 2);
     $storeAddress = $storeAddress ?? null;
+    $storeDigitalAddress = $storeDigitalAddress ?? null;
     $storeLocation = $storeLocation ?? null;
 @endphp
 
@@ -194,6 +193,7 @@
                 <div class="label">Ship from (seller)</div>
                 <div class="field"><span class="k">Store name:</span> <strong>{{ $storeName }}</strong></div>
                 <div class="field"><span class="k">Address:</span> {{ $storeAddress ?: '—' }}</div>
+                <div class="field"><span class="k">Digital address:</span> {{ $storeDigitalAddress ?: '—' }}</div>
                 <div class="field"><span class="k">Location:</span> {{ $storeLocation ?: '—' }}</div>
                 <div class="field"><span class="k">Phone:</span> {{ filled($sellerPhone) ? $sellerPhone : '—' }}</div>
             </div>
@@ -205,9 +205,8 @@
                 @if($order->receiver_phone)
                     <div class="field"><span class="k">Phone:</span> {{ $order->receiver_phone }}</div>
                 @endif
-                @foreach($shipToLines as $line)
-                    <div class="field">{{ $line }}</div>
-                @endforeach
+                <div class="field"><span class="k">Digital address:</span> {{ $buyerDigitalAddress ?: '—' }}</div>
+                <div class="field"><span class="k">Location:</span> {{ $buyerLocation ?: '—' }}</div>
             </div>
         </td>
     </tr>
