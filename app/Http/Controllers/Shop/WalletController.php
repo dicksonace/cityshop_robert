@@ -34,11 +34,22 @@ class WalletController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        $withdrawals = Withdrawal::where('user_id', $userId)
+            ->latest()
+            ->paginate(5, ['*'], 'withdrawals_page')
+            ->withQueryString();
+
+        $hasPendingWithdrawal = Withdrawal::where('user_id', $userId)
+            ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
+            ->exists();
+
         $funding = PlatformSettings::manualFundingAccounts();
 
         return Inertia::render('shop/wallet', [
             'wallet' => $wallet,
             'transactions' => $transactions,
+            'withdrawals' => $withdrawals,
+            'hasPendingWithdrawal' => $hasPendingWithdrawal,
             'paystackConfigured' => $this->paystack->isConfigured(),
             'paystackPublicKey' => config('services.paystack.public_key'),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
@@ -163,7 +174,7 @@ class WalletController extends Controller
             $wallet->decrement('available_balance', $amount);
             WalletTransactionService::recordWithdrawal($withdrawal);
 
-            return back()->with('success', 'Withdrawal request submitted.');
+            return back()->with('success', 'Withdrawal request submitted. Processing typically takes 1 hour.');
         });
     }
 }
