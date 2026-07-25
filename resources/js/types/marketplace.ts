@@ -119,6 +119,9 @@ export interface WalletTransaction {
     order_item_id?: number | null;
     withdrawal_id?: number | null;
     created_at?: string;
+    available_before?: number | null;
+    pending_before?: number | null;
+    balance_before?: number | null;
     available_after?: number | null;
     pending_after?: number | null;
     balance_after?: number | null;

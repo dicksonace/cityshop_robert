@@ -34,6 +34,13 @@ class WalletController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        WalletTransactionService::attachRunningBalances(
+            $userId,
+            $transactions->getCollection(),
+            (float) $wallet->available_balance,
+            (float) $wallet->pending_balance,
+        );
+
         $withdrawals = Withdrawal::where('user_id', $userId)
             ->latest()
             ->paginate(5, ['*'], 'withdrawals_page')

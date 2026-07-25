@@ -112,6 +112,33 @@
         </div>
     @endforeach
 
+    <div class="box">
+        <div class="label">Ship to (buyer)</div>
+        <div class="field"><strong>{{ $buyerShipTo['name'] }}</strong></div>
+        <div class="field"><span class="k">Phone:</span> {{ $buyerShipTo['phone'] ?: '—' }}</div>
+        <div class="field"><span class="k">Digital address:</span> {{ $buyerShipTo['digital_address'] ?: '—' }}</div>
+        <div class="field"><span class="k">Location:</span> {{ $buyerShipTo['location'] ?: '—' }}</div>
+        @if (!empty($buyerShipTo['delivery_notes']))
+            <div class="field"><span class="k">Delivery notes:</span> {{ $buyerShipTo['delivery_notes'] }}</div>
+        @endif
+    </div>
+
+    <div class="box">
+        <div class="label">Delivery &amp; shipping fees</div>
+        <div class="field"><span class="k">Delivery fees:</span> <strong>GH₵{{ number_format((float) $deliveryFees, 2) }}</strong></div>
+        <div class="field">
+            <span class="k">Shipping fees:</span>
+            <strong>
+                @if ((float) $shippingFees > 0 && abs((float) $shippingFees - (float) $deliveryFees) < 0.001)
+                    Same as delivery
+                @else
+                    GH₵{{ number_format((float) $shippingFees, 2) }}
+                @endif
+            </strong>
+        </div>
+        <div class="muted" style="margin-top: 2pt;">Included once in the invoice total below.</div>
+    </div>
+
     <div style="margin-bottom: 8pt; font-size: 8pt;">
         @if ($invoice->checkout)
             <div><strong>Checkout:</strong> {{ $invoice->checkout->checkout_number }}</div>
@@ -182,12 +209,20 @@
             <td>Subtotal</td>
             <td class="right">GH₵{{ number_format((float) $invoice->subtotal, 2) }}</td>
         </tr>
-        @if ((float) $invoice->shipping_cost > 0)
-            <tr>
-                <td>Shipping</td>
-                <td class="right">GH₵{{ number_format((float) $invoice->shipping_cost, 2) }}</td>
-            </tr>
-        @endif
+        <tr>
+            <td>Delivery fees</td>
+            <td class="right">GH₵{{ number_format((float) $deliveryFees, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Shipping fees</td>
+            <td class="right">
+                @if ((float) $shippingFees > 0 && abs((float) $shippingFees - (float) $deliveryFees) < 0.001)
+                    Same as delivery
+                @else
+                    GH₵{{ number_format((float) $shippingFees, 2) }}
+                @endif
+            </td>
+        </tr>
         <tr class="grand">
             <td>Total</td>
             <td class="right amount">GH₵{{ number_format((float) $invoice->total, 2) }}</td>

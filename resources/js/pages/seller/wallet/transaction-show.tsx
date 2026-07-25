@@ -73,23 +73,24 @@ export default function SellerTransactionShow({ wallet, transaction }: Props) {
                     <p className="mt-1 text-xs text-white/50">{formatFinanceDate(transaction.created_at)}</p>
                 </div>
 
-                <div className="grid gap-4 p-5 sm:grid-cols-3">
+                <div className="grid gap-4 p-5 sm:grid-cols-2">
                     <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Balance after</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Before balance</p>
                         <p className="mt-1 text-xl font-bold text-gray-900">
-                            {formatPrice(transaction.balance_after ?? 0)}
+                            {formatPrice(transaction.balance_before ?? 0)}
                         </p>
-                        <p className="text-xs text-gray-500">Available + pending</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                            Available {formatPrice(transaction.available_before ?? 0)} · Pending{' '}
+                            {formatPrice(transaction.pending_before ?? 0)}
+                        </p>
                     </div>
                     <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-orange-600">Available after</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-orange-600">After balance</p>
                         <p className="mt-1 text-xl font-bold text-orange-600">
-                            {formatPrice(transaction.available_after ?? 0)}
+                            {formatPrice(transaction.balance_after ?? 0)}
                         </p>
-                    </div>
-                    <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-amber-700">Pending after</p>
-                        <p className="mt-1 text-xl font-bold text-amber-800">
+                        <p className="mt-1 text-xs text-orange-700/70">
+                            Available {formatPrice(transaction.available_after ?? 0)} · Pending{' '}
                             {formatPrice(transaction.pending_after ?? 0)}
                         </p>
                     </div>

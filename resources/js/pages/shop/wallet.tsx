@@ -370,20 +370,32 @@ export default function BuyerWallet({
                                 {transactions.data.map((tx) => {
                                     const isCredit = tx.amount > 0;
                                     return (
-                                        <div key={tx.id} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-center sm:justify-between">
-                                            <div className="min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-                                                        {formatWalletTransactionType(tx.type)}
-                                                    </span>
-                                                    {tx.reference && <span className="text-xs text-gray-400">{tx.reference}</span>}
+                                        <div key={tx.id} className="flex flex-col gap-2 py-4">
+                                            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+                                                            {formatWalletTransactionType(tx.type)}
+                                                        </span>
+                                                        {tx.reference && <span className="text-xs text-gray-400">{tx.reference}</span>}
+                                                    </div>
+                                                    <p className="mt-1 text-sm text-gray-600">{tx.description}</p>
+                                                    <p className="text-xs text-gray-400">{formatDate(tx.created_at)}</p>
                                                 </div>
-                                                <p className="mt-1 text-sm text-gray-600">{tx.description}</p>
-                                                <p className="text-xs text-gray-400">{formatDate(tx.created_at)}</p>
+                                                <p className={`shrink-0 text-sm font-semibold sm:text-base ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {isCredit ? '+' : ''}{formatPrice(tx.amount)}
+                                                </p>
                                             </div>
-                                            <p className={`shrink-0 text-sm font-semibold sm:text-base ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
-                                                {isCredit ? '+' : ''}{formatPrice(tx.amount)}
-                                            </p>
+                                            <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs sm:text-sm">
+                                                <div>
+                                                    <p className="text-gray-500">Before balance</p>
+                                                    <p className="font-semibold text-gray-900">{formatPrice(tx.balance_before ?? 0)}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-gray-500">After balance</p>
+                                                    <p className="font-semibold text-gray-900">{formatPrice(tx.balance_after ?? 0)}</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 })}

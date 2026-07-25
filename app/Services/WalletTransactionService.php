@@ -352,7 +352,7 @@ class WalletTransactionService
     }
 
     /**
-     * Attach available_after / pending_after / balance_after to a newest-first page of transactions.
+     * Attach before/after available, pending, and total balances to a newest-first page of transactions.
      *
      * @param  \Illuminate\Support\Collection<int, WalletTransaction>  $pageNewestFirst
      * @return \Illuminate\Support\Collection<int, WalletTransaction>
@@ -393,13 +393,23 @@ class WalletTransactionService
             $tx->setAttribute('pending_after', round($pending, 2));
             $tx->setAttribute('balance_after', round($available + $pending, 2));
             static::reverseLedgerEffect($tx->type, (float) $tx->amount, $available, $pending);
+            $tx->setAttribute('available_before', round($available, 2));
+            $tx->setAttribute('pending_before', round($pending, 2));
+            $tx->setAttribute('balance_before', round($available + $pending, 2));
         }
 
         return $pageNewestFirst;
     }
 
     /**
-     * @return array{available_after: float, pending_after: float, balance_after: float}
+     * @return array{
+     *     available_before: float,
+     *     pending_before: float,
+     *     balance_before: float,
+     *     available_after: float,
+     *     pending_after: float,
+     *     balance_after: float
+     * }
      */
     public static function balancesAfterTransaction(
         WalletTransaction $transaction,
@@ -424,16 +434,27 @@ class WalletTransactionService
 
         foreach ($newerAndSelf as $tx) {
             if ($tx->id === $transaction->id) {
-                return [
+                $after = [
                     'available_after' => round($available, 2),
                     'pending_after' => round($pending, 2),
                     'balance_after' => round($available + $pending, 2),
+                ];
+                static::reverseLedgerEffect($tx->type, (float) $tx->amount, $available, $pending);
+
+                return [
+                    'available_before' => round($available, 2),
+                    'pending_before' => round($pending, 2),
+                    'balance_before' => round($available + $pending, 2),
+                    ...$after,
                 ];
             }
             static::reverseLedgerEffect($tx->type, (float) $tx->amount, $available, $pending);
         }
 
         return [
+            'available_before' => round($available, 2),
+            'pending_before' => round($pending, 2),
+            'balance_before' => round($available + $pending, 2),
             'available_after' => round($available, 2),
             'pending_after' => round($pending, 2),
             'balance_after' => round($available + $pending, 2),

@@ -28,7 +28,7 @@ export default function ChatListPanel() {
 
     if (loading) {
         return (
-            <div className="flex flex-1 items-center justify-center text-sm text-gray-400">
+            <div className="flex items-center justify-center px-4 py-8 text-sm text-gray-400">
                 Loading messages...
             </div>
         );
@@ -36,16 +36,16 @@ export default function ChatListPanel() {
 
     if (conversations.length === 0) {
         return (
-            <div className="flex flex-1 flex-col items-center justify-center px-6 text-center text-gray-400">
-                <MessageCircle className="h-12 w-12 text-gray-300" />
-                <p className="mt-3 text-sm font-medium text-gray-600">No messages yet</p>
+            <div className="flex flex-col items-center justify-center px-6 py-8 text-center text-gray-400">
+                <MessageCircle className="h-9 w-9 text-gray-300" />
+                <p className="mt-2 text-sm font-medium text-gray-600">No messages yet</p>
                 <p className="mt-1 text-xs">Message a seller from their store or product page</p>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 overflow-y-auto">
+        <div className="overflow-y-auto overscroll-contain">
             {conversations.map((c) => {
                 const name = conversationName(c);
                 const location = [c.other.city, c.other.region].filter(Boolean).join(', ');
@@ -65,9 +65,9 @@ export default function ChatListPanel() {
                         key={c.id}
                         type="button"
                         onClick={() => openConversation(c.id)}
-                        className="flex w-full items-center gap-3 border-b border-gray-50 px-3 py-3 text-left transition-colors hover:bg-gray-50"
+                        className="flex w-full items-center gap-2.5 border-b border-gray-50 px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
                     >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-orange-500 text-sm font-bold text-white">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-orange-500 text-sm font-bold text-white">
                             {c.other.avatar ? (
                                 <img src={productImageUrl(c.other.avatar)} alt="" className="h-full w-full object-cover" />
                             ) : (

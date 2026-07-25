@@ -27,6 +27,8 @@ class InvoiceController extends Controller
         }
 
         $sellerContacts = $this->printService->resolveSellerContacts($invoice);
+        $buyerShipTo = $this->printService->resolveBuyerShipTo($invoice);
+        $fees = $this->printService->resolveFees($invoice);
         $invoice->setAttribute('line_items', $this->printService->lineItemsWithImages($invoice));
         $invoice->loadMissing(['checkout', 'order']);
 
@@ -34,6 +36,9 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'sellerContacts' => $sellerContacts,
             'sellerContact' => $sellerContacts[0] ?? null,
+            'buyerShipTo' => $buyerShipTo,
+            'deliveryFees' => $fees['delivery'],
+            'shippingFees' => $fees['shipping'],
         ]);
     }
 

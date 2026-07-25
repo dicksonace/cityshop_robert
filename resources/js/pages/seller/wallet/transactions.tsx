@@ -107,7 +107,8 @@ export default function SellerTransactions({ wallet, transactions }: Props) {
                                                         {formatPrice(tx.balance_after ?? 0)}
                                                     </p>
                                                     <p className="text-[11px] text-gray-400">
-                                                        Avail. {formatPrice(tx.available_after ?? 0)}
+                                                        Before {formatPrice(tx.balance_before ?? 0)} · Avail.{' '}
+                                                        {formatPrice(tx.available_after ?? 0)}
                                                     </p>
                                                 </div>
                                             </div>

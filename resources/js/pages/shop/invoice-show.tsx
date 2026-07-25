@@ -22,6 +22,14 @@ interface SellerContact {
     phone?: string | null;
 }
 
+interface BuyerShipTo {
+    name: string;
+    phone?: string | null;
+    digital_address?: string | null;
+    location?: string | null;
+    delivery_notes?: string | null;
+}
+
 interface InvoiceShowProps {
     invoice: {
         id: number;
@@ -40,6 +48,9 @@ interface InvoiceShowProps {
     };
     sellerContacts?: SellerContact[];
     sellerContact?: SellerContact | null;
+    buyerShipTo?: BuyerShipTo | null;
+    deliveryFees?: number;
+    shippingFees?: number;
 }
 
 const typeLabels: Record<string, string> = {
@@ -58,13 +69,24 @@ function lineImageSrc(image?: string | null): string | null {
     return productImageUrl(image);
 }
 
-export default function InvoiceShow({ invoice, sellerContacts, sellerContact }: InvoiceShowProps) {
+export default function InvoiceShow({
+    invoice,
+    sellerContacts,
+    sellerContact,
+    buyerShipTo,
+    deliveryFees,
+    shippingFees,
+}: InvoiceShowProps) {
     const contacts =
         sellerContacts && sellerContacts.length > 0
             ? sellerContacts
             : sellerContact
               ? [sellerContact]
               : [];
+
+    const delivery = deliveryFees ?? invoice.shipping_cost ?? 0;
+    const shipping = shippingFees ?? invoice.shipping_cost ?? 0;
+    const sameDeliveryAndShipping = delivery > 0 && delivery === shipping;
 
     const sellerName =
         contacts[0]?.store_name
@@ -165,6 +187,53 @@ export default function InvoiceShow({ invoice, sellerContacts, sellerContact }: 
                         </div>
                     )}
 
+                    {buyerShipTo && (
+                        <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ship to (buyer)</p>
+                            <dl className="mt-1.5 grid gap-1 sm:grid-cols-2">
+                                <div>
+                                    <dt className="text-xs text-gray-500">Name</dt>
+                                    <dd className="font-medium text-gray-900">{buyerShipTo.name}</dd>
+                                </div>
+                                <div>
+                                    <dt className="text-xs text-gray-500">Phone</dt>
+                                    <dd className="text-gray-900">{buyerShipTo.phone || '—'}</dd>
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <dt className="text-xs text-gray-500">Digital address</dt>
+                                    <dd className="text-gray-900">{buyerShipTo.digital_address || '—'}</dd>
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <dt className="text-xs text-gray-500">Location</dt>
+                                    <dd className="text-gray-900">{buyerShipTo.location || '—'}</dd>
+                                </div>
+                                {buyerShipTo.delivery_notes && (
+                                    <div className="sm:col-span-2">
+                                        <dt className="text-xs text-gray-500">Delivery notes</dt>
+                                        <dd className="text-gray-900">{buyerShipTo.delivery_notes}</dd>
+                                    </div>
+                                )}
+                            </dl>
+                        </div>
+                    )}
+
+                    <div className="mt-3 rounded-lg border border-orange-100 bg-orange-50/50 p-3 text-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">Delivery &amp; shipping fees</p>
+                        <div className="mt-2 space-y-1.5">
+                            <div className="flex justify-between gap-3">
+                                <span className="text-gray-600">Delivery fees</span>
+                                <span className="font-semibold text-gray-900">{formatPrice(delivery)}</span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                                <span className="text-gray-600">Shipping fees</span>
+                                <span className="font-semibold text-gray-900">
+                                    {sameDeliveryAndShipping ? 'Same as delivery' : formatPrice(shipping)}
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-500">Included once in the invoice total below.</p>
+                        </div>
+                    </div>
+
                     <div className="mt-4 grid gap-1 text-sm sm:grid-cols-2">
                         {invoice.checkout && (
                             <p className="text-gray-600">
@@ -235,12 +304,14 @@ export default function InvoiceShow({ invoice, sellerContacts, sellerContact }: 
                             <span>Subtotal</span>
                             <span>{formatPrice(invoice.subtotal)}</span>
                         </div>
-                        {invoice.shipping_cost > 0 && (
-                            <div className="flex justify-between text-gray-600">
-                                <span>Shipping</span>
-                                <span>{formatPrice(invoice.shipping_cost)}</span>
-                            </div>
-                        )}
+                        <div className="flex justify-between text-gray-600">
+                            <span>Delivery fees</span>
+                            <span>{formatPrice(delivery)}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                            <span>Shipping fees</span>
+                            <span>{sameDeliveryAndShipping ? 'Same as delivery' : formatPrice(shipping)}</span>
+                        </div>
                         <div className="flex justify-between text-base font-bold text-gray-900">
                             <span>Total</span>
                             <span className="text-orange-500">{formatPrice(invoice.total)}</span>

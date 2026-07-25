@@ -458,7 +458,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                                                     {isCredit ? '+' : ''}{formatPrice(tx.amount)}
                                                 </p>
                                                 <p className="mt-0.5 text-xs text-gray-500">
-                                                    Bal. {formatPrice(tx.balance_after ?? 0)}
+                                                    {formatPrice(tx.balance_before ?? 0)} → {formatPrice(tx.balance_after ?? 0)}
                                                 </p>
                                             </div>
                                             <ChevronRight className="mt-0.5 h-4 w-4 text-gray-300" />

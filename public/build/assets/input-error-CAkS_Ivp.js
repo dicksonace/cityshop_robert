@@ -1,1 +1,0 @@
-import{j as n,d as s}from"./app-I7UnDb8L.js";function o({message:r,className:t="",...e}){return r?n.jsx("p",{...e,className:s("text-sm text-red-600 dark:text-red-400",t),children:r}):null}export{o as I};

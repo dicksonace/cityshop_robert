@@ -18,6 +18,9 @@ class BuyerInvoicePrintService
      *   invoice: Invoice,
      *   typeLabel: string,
      *   sellerContacts: list<array{store_name: string, address: string|null, digital_address: string|null, location: string|null, phone: string|null}>,
+     *   buyerShipTo: array{name: string, phone: string|null, digital_address: string|null, location: string|null, delivery_notes: string|null},
+     *   deliveryFees: float,
+     *   shippingFees: float,
      *   lineItems: list<array<string, mixed>>,
      *   issuedLabel: string,
      * }
@@ -27,12 +30,15 @@ class BuyerInvoicePrintService
         $invoice->loadMissing([
             'checkout.orders.items.product.images',
             'checkout.orders.seller.sellerProfile',
+            'checkout.buyer',
             'order.items.product.images',
             'order.seller.sellerProfile',
             'order.seller',
+            'order.buyer',
         ]);
 
         $lineItems = $this->lineItemsWithImages($invoice, forPdf: true);
+        $fees = $this->resolveFees($invoice);
 
         return [
             'invoice' => $invoice,
@@ -42,6 +48,9 @@ class BuyerInvoicePrintService
                 default => $invoice->type->value,
             },
             'sellerContacts' => $this->resolveSellerContacts($invoice),
+            'buyerShipTo' => $this->resolveBuyerShipTo($invoice),
+            'deliveryFees' => $fees['delivery'],
+            'shippingFees' => $fees['shipping'],
             'lineItems' => $lineItems,
             'issuedLabel' => optional($invoice->issued_at)->format('j M Y') ?? now()->format('j M Y'),
         ];
@@ -83,6 +92,65 @@ class BuyerInvoicePrintService
             ->values()
             ->map(fn (User $seller) => $this->sellerContactFromUser($seller))
             ->all();
+    }
+
+    /**
+     * @return array{name: string, phone: string|null, digital_address: string|null, location: string|null, delivery_notes: string|null}
+     */
+    public function resolveBuyerShipTo(Invoice $invoice): array
+    {
+        $invoice->loadMissing(['checkout.buyer', 'order.buyer']);
+
+        $source = $invoice->order ?? $invoice->checkout;
+        $buyer = $invoice->order?->buyer ?? $invoice->checkout?->buyer;
+
+        $name = collect([
+            $source?->receiver_name,
+            $buyer?->name,
+        ])->map(fn ($v) => is_string($v) ? trim($v) : '')
+            ->first(fn (string $v) => $v !== '') ?: 'Buyer';
+
+        $phone = collect([
+            $source?->receiver_phone,
+            $buyer?->mobile,
+        ])->map(fn ($v) => is_string($v) ? trim($v) : '')
+            ->first(fn (string $v) => $v !== '') ?: null;
+
+        $digital = is_string($source?->digital_address) ? trim($source->digital_address) : '';
+        $digital = $digital !== '' ? $digital : null;
+
+        $location = collect([$source?->city, $source?->region])
+            ->map(fn ($v) => is_string($v) ? trim($v) : '')
+            ->filter()
+            ->unique()
+            ->implode(', ') ?: null;
+
+        $notes = is_string($source?->delivery_notes) ? trim($source->delivery_notes) : '';
+        $notes = $notes !== '' ? $notes : null;
+
+        return [
+            'name' => $name,
+            'phone' => $phone,
+            'digital_address' => $digital,
+            'location' => $location,
+            'delivery_notes' => $notes,
+        ];
+    }
+
+    /**
+     * Product delivery fees are stored as invoice shipping_cost.
+     *
+     * @return array{delivery: float, shipping: float}
+     */
+    public function resolveFees(Invoice $invoice): array
+    {
+        $amount = round((float) $invoice->shipping_cost, 2);
+
+        return [
+            'delivery' => $amount,
+            // Same charge today — shown under both labels Robert requested on print.
+            'shipping' => $amount,
+        ];
     }
 
     /**

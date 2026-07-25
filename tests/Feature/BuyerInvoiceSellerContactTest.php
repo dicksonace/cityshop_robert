@@ -151,6 +151,11 @@ class BuyerInvoiceSellerContactTest extends TestCase
                 ->where('sellerContacts.0.location', 'Accra, Greater Accra')
                 ->where('sellerContact.store_name', 'City Gadget Hub')
                 ->where('sellerContact.address', '15 Spintex Road, Accra')
+                ->where('buyerShipTo.name', 'Kofi Buyer')
+                ->where('buyerShipTo.phone', '0539790093')
+                ->where('buyerShipTo.location', 'Kumasi, Ashanti')
+                ->where('deliveryFees', 0)
+                ->where('shippingFees', 0)
             );
         $this->actingAs($buyer)
             ->get(route('invoices.print', $master))
@@ -190,8 +195,8 @@ class BuyerInvoiceSellerContactTest extends TestCase
             'region' => 'Greater Accra',
             'city' => 'Accra',
             'subtotal' => 40,
-            'shipping_cost' => 0,
-            'total' => 40,
+            'shipping_cost' => 15,
+            'total' => 55,
         ]);
 
         $order = Order::create([
@@ -208,9 +213,9 @@ class BuyerInvoiceSellerContactTest extends TestCase
             'region' => 'Greater Accra',
             'city' => 'Accra',
             'subtotal' => 40,
-            'shipping_cost' => 0,
+            'shipping_cost' => 15,
             'commission_amount' => 2,
-            'total' => 40,
+            'total' => 55,
         ]);
 
         OrderItem::create([
@@ -241,8 +246,8 @@ class BuyerInvoiceSellerContactTest extends TestCase
             ],
             'subtotal' => 40,
             'commission_amount' => 2,
-            'shipping_cost' => 0,
-            'total' => 40,
+            'shipping_cost' => 15,
+            'total' => 55,
             'payment_status' => PaymentStatus::Paid->value,
             'issued_at' => now(),
         ]);
@@ -254,6 +259,9 @@ class BuyerInvoiceSellerContactTest extends TestCase
                 ->component('shop/invoice-show')
                 ->where('sellerContacts.0.store_name', 'Phone World')
                 ->where('sellerContacts.0.address', '8 Oxford Street')
+                ->where('buyerShipTo.name', 'Ama Buyer')
+                ->where('deliveryFees', 15)
+                ->where('shippingFees', 15)
             );
     }
 }

@@ -59,17 +59,22 @@ export default function FloatingChatWidget() {
                     className={cn(
                         'flex w-full max-w-[100vw] flex-col overflow-hidden border border-gray-200 bg-white shadow-2xl',
                         'animate-in slide-in-from-bottom-4 fade-in duration-200',
-                        'h-[min(100dvh-8rem,520px)] rounded-t-2xl sm:h-[min(520px,calc(100vh-6rem))] sm:w-[min(100vw-2rem,380px)] sm:max-w-none sm:rounded-2xl',
+                        'rounded-t-2xl sm:w-[min(100vw-2rem,360px)] sm:max-w-none sm:rounded-2xl',
+                        // List: hug content so it doesn’t look like a big empty sheet.
+                        // Thread: keep a usable chat height, still shorter than before.
+                        view === 'list'
+                            ? 'max-h-[min(48dvh,340px)]'
+                            : 'h-[min(68dvh,420px)] sm:h-[min(420px,calc(100vh-7rem))]',
                     )}
                 >
-                    <div className="flex items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3 text-white">
+                    <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 text-white">
                         <div className="flex min-w-0 items-center gap-2">
-                            <MessageCircle className="h-5 w-5 shrink-0" />
-                            <span className="truncate font-semibold">
+                            <MessageCircle className="h-4 w-4 shrink-0" />
+                            <span className="truncate text-sm font-semibold">
                                 {view === 'thread' && otherName ? otherName : 'Messages'}
                             </span>
                         </div>
-                        <div className="flex shrink-0 items-center gap-1">
+                        <div className="flex shrink-0 items-center gap-0.5">
                             <button
                                 type="button"
                                 onClick={minimizeWidget}
@@ -89,7 +94,12 @@ export default function FloatingChatWidget() {
                         </div>
                     </div>
 
-                    <div className="flex min-h-0 flex-1 flex-col">
+                    <div
+                        className={cn(
+                            'flex min-h-0 flex-col',
+                            view === 'thread' ? 'flex-1' : 'max-h-[min(40dvh,290px)] overflow-hidden',
+                        )}
+                    >
                         {view === 'list' ? <ChatListPanel /> : <ChatThreadPanel />}
                     </div>
                 </div>
