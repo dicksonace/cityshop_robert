@@ -1,12 +1,16 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AddressController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
+use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\WalletController;
+use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -17,8 +21,6 @@ use Illuminate\Support\Facades\Route;
 | Token auth via Laravel Sanctum. Send:
 |   Authorization: Bearer {token}
 |   Accept: application/json
-|
-| Same business services as the Inertia web app — separate JSON controllers.
 |
 */
 
@@ -44,10 +46,29 @@ Route::prefix('v1')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
         });
 
+        Route::patch('/profile', [ProfileController::class, 'update']);
+        Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+
         Route::get('/cart', [CartController::class, 'index']);
         Route::post('/cart', [CartController::class, 'store']);
         Route::patch('/cart/{cartItem}', [CartController::class, 'update']);
         Route::delete('/cart/{cartItem}', [CartController::class, 'destroy']);
+
+        Route::get('/wishlist', [WishlistController::class, 'index']);
+        Route::post('/wishlist/toggle', [WishlistController::class, 'toggle']);
+        Route::delete('/wishlist/{wishlist}', [WishlistController::class, 'destroy']);
+
+        Route::get('/addresses', [AddressController::class, 'index']);
+        Route::post('/addresses', [AddressController::class, 'store']);
+        Route::patch('/addresses/{address}', [AddressController::class, 'update']);
+        Route::delete('/addresses/{address}', [AddressController::class, 'destroy']);
+        Route::post('/addresses/{address}/default', [AddressController::class, 'setDefault']);
+
+        Route::get('/messages', [MessageController::class, 'index']);
+        Route::post('/messages', [MessageController::class, 'store']);
+        Route::get('/messages/{conversation}', [MessageController::class, 'show']);
+        Route::post('/messages/{conversation}/send', [MessageController::class, 'send']);
+        Route::get('/messages/{conversation}/poll', [MessageController::class, 'poll']);
 
         Route::get('/checkout', [CheckoutController::class, 'preview']);
         Route::post('/checkout', [CheckoutController::class, 'store']);

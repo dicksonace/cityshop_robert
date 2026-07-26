@@ -28,11 +28,18 @@ class ProductResource extends JsonResource
             'delivery_fee' => $this->delivery_fee !== null ? (float) $this->delivery_fee : null,
             'is_preorder' => (bool) $this->is_preorder,
             'cash_on_delivery' => (bool) ($this->cash_on_delivery ?? false),
-            'images' => $this->whenLoaded('images', fn () => $this->images->map(fn ($image) => [
-                'id' => $image->id,
-                'url' => Storage::disk('public')->url($image->path),
-                'is_primary' => (bool) $image->is_primary,
-            ])->values()),
+            'images' => $this->whenLoaded('images', fn () => $this->images->map(function ($image) {
+                $path = (string) $image->path;
+                $url = str_starts_with($path, 'http://') || str_starts_with($path, 'https://')
+                    ? $path
+                    : Storage::disk('public')->url($path);
+
+                return [
+                    'id' => $image->id,
+                    'url' => $url,
+                    'is_primary' => (bool) $image->is_primary,
+                ];
+            })->values()),
             'category' => $this->whenLoaded('category', fn () => $this->category ? [
                 'id' => $this->category->id,
                 'name' => $this->category->name,
