@@ -15,7 +15,7 @@ class OrderController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $orders = Order::with(['items', 'seller.sellerProfile'])
+        $orders = Order::with(['items.product.images', 'seller.sellerProfile'])
             ->where('buyer_id', $request->user()->id)
             ->latest()
             ->paginate(min(50, max(1, (int) $request->get('per_page', 20))));
@@ -63,6 +63,8 @@ class OrderController extends Controller
 
     private function orderPayload(Order $order): array
     {
+        $order->loadMissing(['items.product.images', 'seller.sellerProfile']);
+
         return [
             'id' => $order->id,
             'order_number' => $order->order_number,
@@ -83,17 +85,31 @@ class OrderController extends Controller
             'seller' => [
                 'id' => $order->seller_id,
                 'store_name' => $order->seller?->sellerProfile?->displayName() ?? $order->seller?->name,
+                'store_slug' => $order->seller?->sellerProfile?->slug,
             ],
-            'items' => $order->items->map(fn ($item) => [
-                'id' => $item->id,
-                'product_id' => $item->product_id,
-                'product_name' => $item->product_name,
-                'quantity' => $item->quantity,
-                'unit_price' => (float) $item->unit_price,
-                'line_total' => (float) $item->lineTotal(),
-                'status' => $item->status?->value,
-                'funds_release_status' => $item->funds_release_status?->value,
-            ])->values(),
+            'items' => $order->items->map(function ($item) {
+                $image = $item->product?->images?->sortByDesc('is_primary')->first()
+                    ?? $item->product?->images?->first();
+                $path = $image?->path;
+                $imageUrl = null;
+                if (is_string($path) && $path !== '') {
+                    $imageUrl = str_starts_with($path, 'http')
+                        ? $path
+                        : \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+                }
+
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                    'quantity' => $item->quantity,
+                    'unit_price' => (float) $item->unit_price,
+                    'line_total' => (float) $item->lineTotal(),
+                    'status' => $item->status?->value,
+                    'funds_release_status' => $item->funds_release_status?->value,
+                    'image_url' => $imageUrl,
+                ];
+            })->values(),
         ];
     }
 }
