@@ -74,6 +74,8 @@ class OrderController extends Controller
             'receiver_phone' => $order->receiver_phone,
             'region' => $order->region,
             'city' => $order->city,
+            'digital_address' => $order->digital_address,
+            'delivery_notes' => $order->delivery_notes,
             'subtotal' => (float) $order->subtotal,
             'shipping_cost' => (float) $order->shipping_cost,
             'total' => (float) $order->total,
