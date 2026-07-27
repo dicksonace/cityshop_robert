@@ -162,6 +162,7 @@ class MessageController extends Controller
                 'online' => ChatService::isOnline($other),
                 'city' => $other->city,
                 'region' => $other->region,
+                'mobile' => $other->mobile,
                 'store_name' => $other->sellerProfile?->displayName(),
             ],
             'latest_message' => $latest ? [

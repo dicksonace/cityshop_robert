@@ -88,7 +88,7 @@ class OrderController extends Controller
                 'product_name' => $item->product_name,
                 'quantity' => $item->quantity,
                 'unit_price' => (float) $item->unit_price,
-                'line_total' => $item->lineTotal(),
+                'line_total' => (float) $item->lineTotal(),
                 'status' => $item->status?->value,
                 'funds_release_status' => $item->funds_release_status?->value,
             ])->values(),
