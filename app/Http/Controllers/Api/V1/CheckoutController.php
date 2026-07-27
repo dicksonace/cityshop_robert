@@ -9,11 +9,14 @@ use App\Http\Controllers\Controller;
 use App\Models\BuyerAddress;
 use App\Models\Checkout;
 use App\Models\Order;
+use App\Models\Payment;
+use App\Services\CheckoutPaymentVerifier;
 use App\Services\OrderService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 
 class CheckoutController extends Controller
@@ -21,6 +24,7 @@ class CheckoutController extends Controller
     public function __construct(
         private OrderService $orderService,
         private PaystackService $paystack,
+        private CheckoutPaymentVerifier $paymentVerifier,
     ) {}
 
     public function preview(Request $request): JsonResponse
@@ -192,36 +196,120 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'Paystack is not configured.'], 503);
         }
 
-        $checkout->loadMissing('orders');
-
-        $amount = $checkout->orders
-            ->where('payment_channel', PaymentChannel::Marketplace)
-            ->sum('total');
+        $amount = $this->paymentVerifier->marketplaceAmountGhs($checkout);
 
         if ($amount <= 0) {
             return response()->json(['message' => 'No marketplace payment required for this checkout.'], 422);
         }
 
-        $reference = 'CSH-'.uniqid();
+        $reference = 'CSH-'.uniqid('', true);
+        $amountPesewas = (int) round($amount * 100);
+        $callbackUrl = url('/api/v1/paystack/mobile-return');
 
         try {
             $data = $this->paystack->initializeTransaction(
                 $request->user()->email,
-                (float) $amount,
+                $amount,
                 $reference,
-                ['checkout_id' => $checkout->id, 'checkout_number' => $checkout->checkout_number]
+                [
+                    'checkout_id' => $checkout->id,
+                    'checkout_number' => $checkout->checkout_number,
+                    'buyer_id' => $request->user()->id,
+                    'source' => 'mobile_app',
+                ],
+                $callbackUrl,
             );
+
+            $paystackReference = (string) ($data['reference'] ?? $reference);
+
+            $checkout->loadMissing('orders');
+            foreach ($checkout->orders->where('payment_channel', PaymentChannel::Marketplace) as $order) {
+                $order->update(['payment_reference' => $paystackReference]);
+            }
+
+            Payment::where('checkout_id', $checkout->id)
+                ->where('channel', PaymentChannel::Marketplace)
+                ->where('status', '!=', PaymentStatus::Paid)
+                ->update(['reference' => $paystackReference]);
+
+            $this->paymentVerifier->rememberPending($checkout, $paystackReference, $amountPesewas);
 
             return response()->json([
                 'authorization_url' => $data['authorization_url'],
                 'access_code' => $data['access_code'],
-                'reference' => $data['reference'],
+                'reference' => $paystackReference,
+                'callback_url' => $callbackUrl,
                 'email' => $request->user()->email,
-                'amount' => (float) $amount,
+                'amount' => $amount,
+                'currency' => 'GHS',
             ]);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 500);
         }
+    }
+
+    public function verifyPaystack(Request $request, Checkout $checkout): JsonResponse
+    {
+        abort_unless($checkout->buyer_id === $request->user()->id, 403);
+
+        if ($checkout->payment_status === PaymentStatus::Paid) {
+            return response()->json([
+                'message' => 'Already paid',
+                'checkout' => $this->checkoutPayload($checkout->fresh(['orders.items'])),
+            ]);
+        }
+
+        $validated = $request->validate([
+            'reference' => ['required', 'string', 'max:100'],
+        ]);
+
+        try {
+            $this->paymentVerifier->verifyForCheckout($checkout, $validated['reference']);
+            $this->orderService->fulfillPaidCheckout($checkout, $validated['reference']);
+            $this->paymentVerifier->forgetPending($checkout);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => 'Payment successful.',
+            'checkout' => $this->checkoutPayload($checkout->fresh(['orders.items'])),
+        ]);
+    }
+
+    /**
+     * Lightweight return page for in-app WebView (no auth). App detects this URL and calls verify.
+     */
+    public function paystackMobileReturn(Request $request): Response
+    {
+        $reference = (string) ($request->query('reference') ?: $request->query('trxref') ?: '');
+        $safe = e($reference);
+
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cityshop-paystack-done</title>
+  <style>
+    body { font-family: system-ui, sans-serif; display:flex; align-items:center; justify-content:center;
+           min-height:100vh; margin:0; background:#fff7ed; color:#1c1917; text-align:center; padding:24px; }
+    p { font-size:16px; line-height:1.5; }
+  </style>
+</head>
+<body data-reference="{$safe}">
+  <div>
+    <p><strong>Payment received</strong></p>
+    <p>Return to CityShop to finish confirming your order.</p>
+  </div>
+</body>
+</html>
+HTML;
+
+        return response($html, 200)->header('Content-Type', 'text/html; charset=UTF-8');
     }
 
     public function submitDirectPayment(Request $request, Order $order): JsonResponse

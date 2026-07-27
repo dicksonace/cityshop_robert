@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BuyerAddress;
 use App\Models\Checkout;
 use App\Models\Order;
+use App\Services\CheckoutPaymentVerifier;
 use App\Services\OrderService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
@@ -26,6 +27,7 @@ class CheckoutController extends Controller
     public function __construct(
         private OrderService $orderService,
         private PaystackService $paystack,
+        private CheckoutPaymentVerifier $paymentVerifier,
     ) {}
 
     public function index(Request $request): Response
@@ -307,18 +309,24 @@ class CheckoutController extends Controller
         try {
             $data = $this->paystack->verifyTransaction($reference);
 
-            if ($data['status'] !== 'success') {
-                return redirect()->route('orders.index')->with('error', 'Payment was not successful.');
-            }
-
             $checkoutId = $data['metadata']['checkout_id'] ?? null;
             $checkout = $checkoutId
-                ? Checkout::findOrFail($checkoutId)
-                : Checkout::whereHas('orders', fn ($q) => $q->where('payment_reference', $reference))->firstOrFail();
+                ? Checkout::find($checkoutId)
+                : Checkout::whereHas('orders', fn ($q) => $q->where('payment_reference', $reference))->first();
 
+            if (! $checkout) {
+                return redirect()->route('orders.index')->with('error', 'Checkout not found for this payment.');
+            }
+
+            $this->paymentVerifier->verifyForCheckout($checkout, $reference, $data);
             $this->orderService->fulfillPaidCheckout($checkout, $reference);
+            $this->paymentVerifier->forgetPending($checkout);
 
             return redirect()->route('checkouts.show', $checkout)->with('success', 'Payment successful!');
+        } catch (ValidationException $e) {
+            Log::warning('Paystack callback rejected', ['errors' => $e->errors()]);
+
+            return redirect()->route('orders.index')->with('error', collect($e->errors())->flatten()->first() ?? 'Payment verification failed.');
         } catch (\Throwable $e) {
             Log::error('Paystack callback error', ['error' => $e->getMessage()]);
 
@@ -338,28 +346,39 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'Paystack is not configured. Add PAYSTACK keys to .env'], 503);
         }
 
-        $amount = $checkout->orders
-            ->where('payment_channel', PaymentChannel::Marketplace)
-            ->sum('total');
+        $amount = $this->paymentVerifier->marketplaceAmountGhs($checkout);
 
         if ($amount <= 0) {
             return response()->json(['message' => 'No marketplace payment required for this checkout.'], 422);
         }
 
-        $reference = 'CSH-'.uniqid();
+        $reference = 'CSH-'.uniqid('', true);
+        $amountPesewas = (int) round($amount * 100);
 
         try {
             $data = $this->paystack->initializeTransaction(
                 $request->user()->email,
-                (float) $amount,
+                $amount,
                 $reference,
-                ['checkout_id' => $checkout->id, 'checkout_number' => $checkout->checkout_number]
+                [
+                    'checkout_id' => $checkout->id,
+                    'checkout_number' => $checkout->checkout_number,
+                    'buyer_id' => $request->user()->id,
+                    'source' => 'web',
+                ]
             );
+
+            $paystackReference = (string) ($data['reference'] ?? $reference);
+            $checkout->loadMissing('orders');
+            foreach ($checkout->orders->where('payment_channel', PaymentChannel::Marketplace) as $order) {
+                $order->update(['payment_reference' => $paystackReference]);
+            }
+            $this->paymentVerifier->rememberPending($checkout, $paystackReference, $amountPesewas);
 
             return response()->json([
                 'authorization_url' => $data['authorization_url'],
                 'access_code' => $data['access_code'],
-                'reference' => $data['reference'],
+                'reference' => $paystackReference,
                 'email' => $request->user()->email,
                 'amount' => $amount,
             ]);

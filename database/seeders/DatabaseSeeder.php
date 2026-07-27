@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Category;
 use App\Models\PlatformSetting;
 use App\Models\User;
+use App\Services\PlatformSettings;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -21,6 +22,12 @@ class DatabaseSeeder extends Seeder
             ['key' => 'commission_rate'],
             ['value' => '0'],
         );
+
+        PlatformSettings::saveManualFundingAccounts([
+            'enabled' => true,
+            'instructions' => 'Send payment to one of the CityShop Mobile Money accounts below, then submit your proof and transaction reference so we can credit your wallet.',
+            'accounts' => PlatformSettings::defaultCityShopMomoAccounts(),
+        ]);
 
         User::updateOrCreate(
             ['email' => 'admin@cityshop.com'],

@@ -42,6 +42,9 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/{slug}', [ProductController::class, 'show']);
     Route::post('/search/image', [ImageSearchController::class, 'store']);
 
+    // Paystack in-app WebView return (no auth — app detects URL then calls verify)
+    Route::get('/paystack/mobile-return', [CheckoutController::class, 'paystackMobileReturn']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('auth')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
@@ -77,6 +80,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/checkouts/{checkout}', [CheckoutController::class, 'show']);
         Route::post('/checkouts/{checkout}/pay/wallet', [CheckoutController::class, 'payWithWallet']);
         Route::post('/checkouts/{checkout}/pay/initialize', [CheckoutController::class, 'initializePaystack']);
+        Route::post('/checkouts/{checkout}/pay/verify', [CheckoutController::class, 'verifyPaystack']);
         Route::post('/orders/{order}/direct-payment', [CheckoutController::class, 'submitDirectPayment']);
 
         Route::get('/orders', [OrderController::class, 'index']);
