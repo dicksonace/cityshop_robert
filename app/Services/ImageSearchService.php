@@ -15,16 +15,21 @@ class ImageSearchService
 {
     private const BINS = 64;
 
-    /** Max bit differences allowed between query and product image (0 = identical). */
-    private const MAX_DHASH_DISTANCE = 8;
+    /**
+     * Soft visual tolerance. Phone photos of catalog items often land in the
+     * 12–22 dHash range; older near-duplicate gate (8) returned empty too often.
+     */
+    private const MAX_DHASH_DISTANCE = 22;
 
-    /** Minimum combined visual score (0–1) to count as a match. */
-    private const MIN_MATCH_SCORE = 0.82;
+    /** Minimum combined visual score (0–1) to keep a candidate. */
+    private const MIN_MATCH_SCORE = 0.48;
 
-    /** If the best candidate is below this, return nothing. */
-    private const MIN_BEST_SCORE = 0.85;
+    /** If the best visual candidate is below this, try keyword fallback. */
+    private const MIN_BEST_SCORE = 0.55;
 
     private const MAX_RESULTS = 24;
+
+    public function __construct(private ProductDiscoveryService $discovery) {}
 
     /**
      * @return array{products: Collection<int, array{product: Product, score: float, match_percent: int}>, preview: string, keywords: string[], method: string}
@@ -36,10 +41,6 @@ class ImageSearchService
         $keywords = $this->extractKeywordsViaVision($file);
         $preview = 'data:'.$file->getMimeType().';base64,'.base64_encode($contents ?: '');
 
-        if (! $this->isValidSignature($querySignature)) {
-            return $this->emptyResult($preview, $keywords);
-        }
-
         $candidatesQuery = Product::with(['images', 'seller.sellerProfile', 'category'])
             ->visibleInShop();
 
@@ -48,63 +49,125 @@ class ImageSearchService
         }
 
         $candidates = $candidatesQuery->get();
-
         $scored = [];
 
-        foreach ($candidates as $product) {
-            $bestImageScore = 0.0;
+        if ($this->isValidSignature($querySignature)) {
+            foreach ($candidates as $product) {
+                $bestImageScore = 0.0;
 
-            foreach ($product->images as $image) {
-                $signature = $this->resolveSignature($image);
+                foreach ($product->images as $image) {
+                    $signature = $this->resolveSignature($image);
 
-                if (! $this->isValidSignature($signature)) {
+                    if (! $this->isValidSignature($signature)) {
+                        continue;
+                    }
+
+                    $imageScore = $this->compareSignatures($querySignature, $signature);
+                    $bestImageScore = max($bestImageScore, $imageScore);
+                }
+
+                if ($bestImageScore < self::MIN_MATCH_SCORE) {
                     continue;
                 }
 
-                $imageScore = $this->compareSignatures($querySignature, $signature);
-                $bestImageScore = max($bestImageScore, $imageScore);
+                $textScore = $keywords ? $this->keywordMatchScore($product, $keywords) : 0.0;
+
+                // Blend AI labels when present so brand/type nudges ranking.
+                $finalScore = $keywords && $textScore > 0
+                    ? min(1.0, ($bestImageScore * 0.75) + ($textScore * 0.25))
+                    : $bestImageScore;
+
+                $scored[] = [
+                    'product' => $product,
+                    'score' => round($finalScore, 4),
+                    'match_percent' => $this->scoreToPercent($finalScore),
+                ];
             }
+        }
 
-            if ($bestImageScore < self::MIN_MATCH_SCORE) {
-                continue;
+        if ($scored !== []) {
+            usort($scored, fn ($a, $b) => $b['score'] <=> $a['score']);
+            $bestScore = $scored[0]['score'];
+
+            if ($bestScore >= self::MIN_BEST_SCORE) {
+                $cutoff = max(self::MIN_MATCH_SCORE, $bestScore * 0.82);
+                $filtered = array_values(array_filter($scored, fn ($row) => $row['score'] >= $cutoff));
+
+                return [
+                    'products' => collect(array_slice($filtered, 0, self::MAX_RESULTS)),
+                    'preview' => $preview,
+                    'keywords' => $keywords ?? [],
+                    'method' => $keywords ? 'ai_visual' : 'visual',
+                ];
             }
+        }
 
-            $textScore = $keywords ? $this->keywordMatchScore($product, $keywords) : 0.0;
+        // Phone photos rarely match catalog crops visually — fall back to AI/text search.
+        if ($keywords) {
+            $keywordHits = $this->searchByKeywords($keywords, $sellerId);
+            if ($keywordHits->isNotEmpty()) {
+                return [
+                    'products' => $keywordHits,
+                    'preview' => $preview,
+                    'keywords' => $keywords,
+                    'method' => 'ai_keywords',
+                ];
+            }
+        }
 
-            // Visual match is required; AI keywords only help rank among already-similar images.
-            $finalScore = $keywords && $textScore > 0
-                ? min(1.0, ($bestImageScore * 0.85) + ($textScore * 0.15))
-                : $bestImageScore;
+        return $this->emptyResult($preview, $keywords);
+    }
 
-            $scored[] = [
+    /**
+     * @param  string[]  $keywords
+     * @return Collection<int, array{product: Product, score: float, match_percent: int}>
+     */
+    private function searchByKeywords(array $keywords, ?int $sellerId = null): Collection
+    {
+        $terms = array_values(array_filter(array_map(
+            fn ($k) => trim((string) $k),
+            $keywords
+        )));
+
+        if ($terms === []) {
+            return collect();
+        }
+
+        $query = Product::with(['images', 'seller.sellerProfile', 'category'])
+            ->visibleInShop();
+
+        if ($sellerId) {
+            $query->where('seller_id', $sellerId);
+        }
+
+        // Prefer strongest keywords first; discovery search handles multi-word queries.
+        $search = implode(' ', array_slice($terms, 0, 5));
+        $this->discovery->applySearch($query, $search);
+        $this->discovery->applySort($query, 'relevance');
+
+        $products = $query->limit(self::MAX_RESULTS)->get();
+
+        if ($products->isEmpty() && count($terms) > 1) {
+            // Retry with the top single keyword (often the product type).
+            $query = Product::with(['images', 'seller.sellerProfile', 'category'])
+                ->visibleInShop();
+            if ($sellerId) {
+                $query->where('seller_id', $sellerId);
+            }
+            $this->discovery->applySearch($query, $terms[0]);
+            $this->discovery->applySort($query, 'relevance');
+            $products = $query->limit(self::MAX_RESULTS)->get();
+        }
+
+        return $products->map(function (Product $product) use ($terms) {
+            $textScore = $this->keywordMatchScore($product, $terms);
+
+            return [
                 'product' => $product,
-                'score' => round($finalScore, 4),
-                'match_percent' => $this->scoreToPercent($bestImageScore),
+                'score' => round(max(0.4, $textScore), 4),
+                'match_percent' => $this->scoreToPercent(max(0.4, $textScore)),
             ];
-        }
-
-        if ($scored === []) {
-            return $this->emptyResult($preview, $keywords);
-        }
-
-        usort($scored, fn ($a, $b) => $b['score'] <=> $a['score']);
-
-        $bestScore = $scored[0]['score'];
-
-        if ($bestScore < self::MIN_BEST_SCORE) {
-            return $this->emptyResult($preview, $keywords);
-        }
-
-        // Only keep results close to the best match — drop weak tail.
-        $cutoff = $bestScore * 0.94;
-        $filtered = array_values(array_filter($scored, fn ($row) => $row['score'] >= $cutoff));
-
-        return [
-            'products' => collect(array_slice($filtered, 0, self::MAX_RESULTS)),
-            'preview' => $preview,
-            'keywords' => $keywords ?? [],
-            'method' => $keywords ? 'ai_visual' : 'visual',
-        ];
+        })->values();
     }
 
     public function indexImage(ProductImage $image): ?array
@@ -271,8 +334,8 @@ class ImageSearchService
         $structureScore = 1.0 - ($distance / self::BINS);
         $colorScore = $this->histogramSimilarity($a['histogram'], $b['histogram']);
 
-        // Structure (dHash) matters most; color confirms the match.
-        return (0.75 * $structureScore) + (0.25 * $colorScore);
+        // Structure still leads; color keeps different items with similar outlines from ranking high.
+        return (0.65 * $structureScore) + (0.35 * $colorScore);
     }
 
     public function hammingDistance(string $a, string $b): int
@@ -406,10 +469,18 @@ class ImageSearchService
                 return null;
             }
 
-            return array_values(array_unique(array_filter(array_map(
+            $keywords = array_values(array_unique(array_filter(array_map(
                 fn ($k) => Str::lower(trim((string) $k)),
                 (array) $json['keywords']
             ))));
+
+            $productType = isset($json['product_type']) ? Str::lower(trim((string) $json['product_type'])) : '';
+            if ($productType !== '') {
+                array_unshift($keywords, $productType);
+                $keywords = array_values(array_unique($keywords));
+            }
+
+            return $keywords;
         } catch (\Throwable $e) {
             Log::warning('OpenAI vision exception', ['message' => $e->getMessage()]);
 
