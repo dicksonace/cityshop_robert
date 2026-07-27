@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +41,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
+    Route::get('/stores/{slug}', [StoreController::class, 'show']);
     Route::post('/search/image', [ImageSearchController::class, 'store']);
 
     // Paystack in-app WebView return (no auth — app detects URL then calls verify)

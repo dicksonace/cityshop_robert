@@ -58,6 +58,14 @@ class ProductController extends Controller
             $query->where('free_shipping', true);
         }
 
+        if ($request->filled('seller_id')) {
+            $query->where('seller_id', (int) $request->get('seller_id'));
+        }
+
+        if ($sellerSlug = trim((string) $request->get('seller_slug', ''))) {
+            $query->whereHas('seller.sellerProfile', fn ($q) => $q->where('slug', $sellerSlug));
+        }
+
         // Legacy quick-filter support (same as web home)
         match ($request->get('filter')) {
             'in_ghana' => $query->where('in_ghana', true),
