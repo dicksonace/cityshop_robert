@@ -92,5 +92,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/wallet', [WalletController::class, 'show']);
         Route::get('/wallet/manual-funding', [WalletController::class, 'manualFunding']);
         Route::post('/wallet/manual-top-up', [WalletController::class, 'manualTopUp']);
+        Route::post('/wallet/paystack/initialize', [WalletController::class, 'initializePaystackTopUp']);
+        Route::post('/wallet/paystack/verify', [WalletController::class, 'verifyPaystackTopUp']);
     });
 });

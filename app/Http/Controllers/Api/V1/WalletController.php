@@ -6,19 +6,24 @@ use App\Enums\UserRole;
 use App\Enums\WalletTopUpStatus;
 use App\Http\Controllers\Controller;
 use App\Models\WalletTopUpRequest;
+use App\Services\PaystackService;
 use App\Services\PlatformSettings;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class WalletController extends Controller
 {
+    public function __construct(private PaystackService $paystack) {}
+
     public function show(Request $request): JsonResponse
     {
         $user = $request->user();
         abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
 
         $wallet = WalletService::ensure($user);
+        $funding = PlatformSettings::manualFundingAccounts();
 
         return response()->json([
             'data' => [
@@ -26,6 +31,8 @@ class WalletController extends Controller
                 'pending_balance' => (float) $wallet->pending_balance,
                 'total_earnings' => (float) $wallet->total_earnings,
                 'withdrawn_amount' => (float) $wallet->withdrawn_amount,
+                'paystack_configured' => $this->paystack->isConfigured(),
+                'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             ],
         ]);
     }
@@ -38,7 +45,114 @@ class WalletController extends Controller
             'enabled' => $settings['enabled'],
             'instructions' => $settings['instructions'],
             'accounts' => $settings['accounts'],
+            'paystack_configured' => $this->paystack->isConfigured(),
         ]);
+    }
+
+    public function initializePaystackTopUp(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
+            'method' => ['required', 'in:momo,card'],
+        ]);
+
+        if (! $this->paystack->isConfigured()) {
+            return response()->json(['message' => 'Online top-up is not available. Contact support.'], 503);
+        }
+
+        $amount = (float) $validated['amount'];
+        $reference = 'TOP-'.strtoupper(uniqid());
+        $callbackUrl = url('/api/v1/paystack/mobile-return');
+
+        try {
+            $data = $this->paystack->initializeTransaction(
+                $user->email,
+                $amount,
+                $reference,
+                [
+                    'type' => 'wallet_topup',
+                    'user_id' => $user->id,
+                    'method' => $validated['method'],
+                    'source' => 'mobile_app',
+                ],
+                $callbackUrl,
+            );
+
+            $paystackReference = (string) ($data['reference'] ?? $reference);
+
+            return response()->json([
+                'authorization_url' => $data['authorization_url'],
+                'access_code' => $data['access_code'] ?? null,
+                'reference' => $paystackReference,
+                'callback_url' => $callbackUrl,
+                'amount' => $amount,
+                'currency' => 'GHS',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('API wallet top-up init failed', ['error' => $e->getMessage()]);
+
+            return response()->json(['message' => 'Could not start payment. Please try again.'], 500);
+        }
+    }
+
+    public function verifyPaystackTopUp(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        $validated = $request->validate([
+            'reference' => ['required', 'string', 'max:100'],
+        ]);
+
+        $reference = $validated['reference'];
+
+        try {
+            $data = $this->paystack->verifyTransaction($reference);
+
+            if (($data['status'] ?? '') !== 'success') {
+                return response()->json(['message' => 'Payment was not successful.'], 422);
+            }
+
+            $metadata = $data['metadata'] ?? [];
+            if (($metadata['type'] ?? '') !== 'wallet_topup') {
+                return response()->json(['message' => 'Invalid wallet top-up.'], 422);
+            }
+
+            if ((int) ($metadata['user_id'] ?? 0) !== $user->id) {
+                return response()->json(['message' => 'Payment does not belong to your account.'], 403);
+            }
+
+            $amount = round(((int) ($data['amount'] ?? 0)) / 100, 2);
+            if ($amount < 5) {
+                return response()->json(['message' => 'Invalid payment amount.'], 422);
+            }
+
+            $method = (string) ($metadata['method'] ?? 'momo');
+            $credited = WalletService::creditFromVerifiedTopUp($user->id, $amount, $reference, $method);
+            $wallet = WalletService::ensure($user);
+
+            return response()->json([
+                'message' => $credited
+                    ? 'GH₵'.number_format($amount, 2).' added to your wallet.'
+                    : 'Payment already credited.',
+                'amount' => $amount,
+                'reference' => $reference,
+                'already_credited' => ! $credited,
+                'wallet' => [
+                    'available_balance' => (float) $wallet->available_balance,
+                    'pending_balance' => (float) $wallet->pending_balance,
+                    'total_earnings' => (float) $wallet->total_earnings,
+                    'withdrawn_amount' => (float) $wallet->withdrawn_amount,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('API wallet top-up verify failed', ['error' => $e->getMessage(), 'reference' => $reference]);
+
+            return response()->json(['message' => 'Payment verification failed.'], 422);
+        }
     }
 
     public function manualTopUp(Request $request): JsonResponse
