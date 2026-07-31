@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Review;
 use App\Services\OrderService;
 use App\Support\BuyerOrderPolicy;
 use Illuminate\Http\JsonResponse;
@@ -68,6 +69,11 @@ class OrderController extends Controller
         $order->loadMissing(['items.product.images', 'items.dispute', 'seller.sellerProfile', 'sellerPaymentMethod']);
         $method = $order->sellerPaymentMethod;
         $canRequestRefund = BuyerOrderPolicy::canRequestRefund($order);
+        $buyerReviews = Review::query()
+            ->where('order_id', $order->id)
+            ->where('user_id', $order->buyer_id)
+            ->get()
+            ->keyBy('product_id');
 
         return [
             'id' => $order->id,
@@ -107,7 +113,7 @@ class OrderController extends Controller
                 'instructions' => $method->instructions,
                 'display_label' => $method->displayLabel(),
             ] : null,
-            'items' => $order->items->map(function ($item) use ($canRequestRefund) {
+            'items' => $order->items->map(function ($item) use ($canRequestRefund, $buyerReviews) {
                 $image = $item->product?->images?->sortByDesc('is_primary')->first()
                     ?? $item->product?->images?->first();
                 $path = $image?->path;
@@ -124,11 +130,14 @@ class OrderController extends Controller
                 $canItemRefund = $canRequestRefund
                     && in_array($status, ['shipped', 'awaiting_confirmation', 'delivered'], true)
                     && (! $dispute || $disputeStatus === 'cancelled');
+                $existingReview = $item->product_id ? $buyerReviews->get($item->product_id) : null;
+                $canReview = $status === 'delivered' && $item->product_id && ! $existingReview;
 
                 return [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
                     'product_name' => $item->product_name,
+                    'product_slug' => $item->product?->slug,
                     'quantity' => $item->quantity,
                     'unit_price' => (float) $item->unit_price,
                     'line_total' => (float) $item->lineTotal(),
@@ -136,6 +145,12 @@ class OrderController extends Controller
                     'funds_release_status' => $item->funds_release_status?->value,
                     'image_url' => $imageUrl,
                     'can_request_refund' => $canItemRefund,
+                    'can_review' => $canReview,
+                    'buyer_review' => $existingReview ? [
+                        'id' => $existingReview->id,
+                        'rating' => (int) $existingReview->rating,
+                        'comment' => $existingReview->comment,
+                    ] : null,
                     'dispute' => $dispute && $disputeStatus !== 'cancelled' ? [
                         'id' => $dispute->id,
                         'status' => $disputeStatus,

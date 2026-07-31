@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\DisputeController;
+use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Support\Facades\Route;
@@ -92,6 +93,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders/{order}/items/{orderItem}/confirm-delivery', [OrderController::class, 'confirmDelivery']);
         Route::post('/orders/{order}/disputes', [DisputeController::class, 'store']);
         Route::post('/disputes/{dispute}/cancel', [DisputeController::class, 'cancel']);
+        Route::post('/orders/{order}/reviews', [ReviewController::class, 'store']);
 
         Route::get('/wallet', [WalletController::class, 'show']);
         Route::get('/wallet/manual-funding', [WalletController::class, 'manualFunding']);
