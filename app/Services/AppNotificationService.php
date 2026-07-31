@@ -188,7 +188,7 @@ class AppNotificationService
     public static function notifyDisputeResolved(User $user, Dispute $dispute): void
     {
         $dispute->loadMissing('order');
-        $resolution = $dispute->resolution ?? 'closed';
+        $resolution = $dispute->status?->value ?? 'closed';
         $title = match ($resolution) {
             'resolved_buyer' => 'Refund approved',
             'resolved_seller' => 'Refund declined',
