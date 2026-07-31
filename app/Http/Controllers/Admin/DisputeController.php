@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Dispute;
 use App\Models\Wallet;
 use App\Notifications\DisputeResolvedNotification;
+use App\Services\AppNotificationService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use Illuminate\Http\RedirectResponse;
@@ -91,6 +92,12 @@ class DisputeController extends Controller
         $dispute->load('order');
         $dispute->buyer->notify(new DisputeResolvedNotification($dispute));
         $dispute->seller->notify(new DisputeResolvedNotification($dispute));
+        if ($dispute->buyer) {
+            AppNotificationService::notifyDisputeResolved($dispute->buyer, $dispute);
+        }
+        if ($dispute->seller) {
+            AppNotificationService::notifyDisputeResolved($dispute->seller, $dispute);
+        }
 
         return back()->with('success', 'Refund request resolved.');
     }

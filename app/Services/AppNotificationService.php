@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\PaymentChannel;
 use App\Models\AppNotification;
+use App\Models\Dispute;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -101,6 +102,105 @@ class AppNotificationService
                 'url' => route('seller.products.edit', $product->id),
             ],
         );
+    }
+
+    public static function notifyBuyerOrderPlaced(
+        User $buyer,
+        Order $order,
+        bool $cashOnDelivery = false,
+    ): void {
+        $title = $cashOnDelivery ? 'Cash on delivery order placed' : 'Order placed';
+        $body = $cashOnDelivery
+            ? "Order {$order->order_number} is placed. The seller will call you to confirm."
+            : "Order {$order->order_number} was created. Complete payment if you have not already.";
+
+        static::send($buyer, 'order', $title, $body, [
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'url' => route('orders.show', $order->id),
+        ]);
+    }
+
+    public static function notifyBuyerPaymentConfirmed(User $buyer, Order $order): void
+    {
+        static::send(
+            $buyer,
+            'payment',
+            'Payment confirmed',
+            "Payment for order {$order->order_number} is confirmed. The seller will prepare your items.",
+            [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'url' => route('orders.show', $order->id),
+            ],
+        );
+    }
+
+    public static function notifyBuyerOrderStatus(
+        User $buyer,
+        OrderItem $item,
+        string $status,
+        bool $refunded = false,
+        float $refundAmount = 0,
+    ): void {
+        $item->loadMissing('order');
+        $order = $item->order;
+        $labels = [
+            'call_confirmed' => 'Seller will call you about your cash-on-delivery order',
+            'packed' => 'Your order is being packed',
+            'shipped' => 'Your order is out for delivery',
+            'awaiting_confirmation' => 'Please confirm you received your order',
+            'delivered' => 'Your order is complete',
+            'cancelled' => 'Your order was cancelled',
+        ];
+
+        $title = $labels[$status] ?? 'Order update';
+        $body = "{$item->product_name} — order {$order?->order_number}.";
+
+        if ($refunded && $refundAmount > 0) {
+            $body .= ' GH₵'.number_format($refundAmount, 2).' credited to your wallet.';
+        }
+
+        static::send($buyer, 'order_status', $title, $body, [
+            'order_id' => $order?->id,
+            'order_number' => $order?->order_number,
+            'order_item_id' => $item->id,
+            'status' => $status,
+            'url' => $order ? route('orders.show', $order->id) : null,
+        ]);
+    }
+
+    public static function notifyBuyerDirectPaymentRejected(User $buyer, Order $order, string $reason): void
+    {
+        static::send(
+            $buyer,
+            'payment',
+            'Direct payment rejected',
+            "Seller rejected payment for order {$order->order_number}. Reason: {$reason}",
+            [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'url' => route('orders.show', $order->id),
+            ],
+        );
+    }
+
+    public static function notifyDisputeResolved(User $user, Dispute $dispute): void
+    {
+        $dispute->loadMissing('order');
+        $resolution = $dispute->resolution ?? 'closed';
+        $title = match ($resolution) {
+            'resolved_buyer' => 'Refund approved',
+            'resolved_seller' => 'Refund declined',
+            default => 'Refund request closed',
+        };
+
+        static::send($user, 'dispute', $title, "Refund request on order {$dispute->order?->order_number} was updated.", [
+            'dispute_id' => $dispute->id,
+            'order_id' => $dispute->order_id,
+            'resolution' => $resolution,
+            'url' => $dispute->order_id ? route('orders.show', $dispute->order_id) : null,
+        ]);
     }
 
     public static function sellerNewOrderTitle(

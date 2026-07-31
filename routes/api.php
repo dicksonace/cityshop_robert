@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\DisputeController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\WishlistController;
@@ -79,6 +80,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/messages/{conversation}/send', [MessageController::class, 'send']);
         Route::get('/messages/{conversation}/poll', [MessageController::class, 'poll']);
         Route::delete('/messages/{conversation}/messages/{message}', [MessageController::class, 'destroy']);
+
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::get('/notifications/counts', [NotificationController::class, 'counts']);
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+        Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
         Route::get('/checkout', [CheckoutController::class, 'preview']);
         Route::post('/checkout', [CheckoutController::class, 'store']);
