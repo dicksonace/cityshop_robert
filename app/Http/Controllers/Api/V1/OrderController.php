@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Services\OrderService;
+use App\Support\BuyerOrderPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
@@ -15,7 +17,7 @@ class OrderController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $orders = Order::with(['items.product.images', 'seller.sellerProfile'])
+        $orders = Order::with(['items.product.images', 'items.dispute', 'seller.sellerProfile'])
             ->where('buyer_id', $request->user()->id)
             ->latest()
             ->paginate(min(50, max(1, (int) $request->get('per_page', 20))));
@@ -35,7 +37,7 @@ class OrderController extends Controller
     {
         abort_unless($order->buyer_id === $request->user()->id, 403);
 
-        $order->load(['items.product.images', 'seller.sellerProfile']);
+        $order->load(['items.product.images', 'items.dispute', 'seller.sellerProfile', 'sellerPaymentMethod']);
 
         return response()->json(['data' => $this->orderPayload($order)]);
     }
@@ -63,8 +65,9 @@ class OrderController extends Controller
 
     private function orderPayload(Order $order): array
     {
-        $order->loadMissing(['items.product.images', 'seller.sellerProfile', 'sellerPaymentMethod']);
+        $order->loadMissing(['items.product.images', 'items.dispute', 'seller.sellerProfile', 'sellerPaymentMethod']);
         $method = $order->sellerPaymentMethod;
+        $canRequestRefund = BuyerOrderPolicy::canRequestRefund($order);
 
         return [
             'id' => $order->id,
@@ -87,6 +90,7 @@ class OrderController extends Controller
             'shipping_cost' => (float) $order->shipping_cost,
             'total' => (float) $order->total,
             'created_at' => $order->created_at?->toIso8601String(),
+            'can_request_refund' => $canRequestRefund,
             'seller' => [
                 'id' => $order->seller_id,
                 'store_name' => $order->seller?->sellerProfile?->displayName() ?? $order->seller?->name,
@@ -103,7 +107,7 @@ class OrderController extends Controller
                 'instructions' => $method->instructions,
                 'display_label' => $method->displayLabel(),
             ] : null,
-            'items' => $order->items->map(function ($item) {
+            'items' => $order->items->map(function ($item) use ($canRequestRefund) {
                 $image = $item->product?->images?->sortByDesc('is_primary')->first()
                     ?? $item->product?->images?->first();
                 $path = $image?->path;
@@ -111,8 +115,15 @@ class OrderController extends Controller
                 if (is_string($path) && $path !== '') {
                     $imageUrl = str_starts_with($path, 'http')
                         ? $path
-                        : \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+                        : Storage::disk('public')->url($path);
                 }
+
+                $dispute = $item->dispute;
+                $status = $item->status?->value;
+                $disputeStatus = $dispute?->status?->value;
+                $canItemRefund = $canRequestRefund
+                    && in_array($status, ['shipped', 'awaiting_confirmation', 'delivered'], true)
+                    && (! $dispute || $disputeStatus === 'cancelled');
 
                 return [
                     'id' => $item->id,
@@ -121,9 +132,16 @@ class OrderController extends Controller
                     'quantity' => $item->quantity,
                     'unit_price' => (float) $item->unit_price,
                     'line_total' => (float) $item->lineTotal(),
-                    'status' => $item->status?->value,
+                    'status' => $status,
                     'funds_release_status' => $item->funds_release_status?->value,
                     'image_url' => $imageUrl,
+                    'can_request_refund' => $canItemRefund,
+                    'dispute' => $dispute && $disputeStatus !== 'cancelled' ? [
+                        'id' => $dispute->id,
+                        'status' => $disputeStatus,
+                        'reason' => $dispute->reason,
+                        'description' => $dispute->description,
+                    ] : null,
                 ];
             })->values(),
         ];
