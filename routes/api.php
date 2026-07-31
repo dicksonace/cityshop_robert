@@ -76,6 +76,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/messages/{conversation}', [MessageController::class, 'show']);
         Route::post('/messages/{conversation}/send', [MessageController::class, 'send']);
         Route::get('/messages/{conversation}/poll', [MessageController::class, 'poll']);
+        Route::delete('/messages/{conversation}/messages/{message}', [MessageController::class, 'destroy']);
 
         Route::get('/checkout', [CheckoutController::class, 'preview']);
         Route::post('/checkout', [CheckoutController::class, 'store']);

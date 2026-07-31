@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\MessageType;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\ChatService;
@@ -136,6 +137,22 @@ class MessageController extends Controller
         }
 
         return response()->json(['messages' => $messages]);
+    }
+
+    public function destroy(Request $request, Conversation $conversation, Message $message): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($message->conversation_id === $conversation->id, 404);
+
+        try {
+            $message = ChatService::deleteMessage($message, $request->user());
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+        ]);
     }
 
     private function formatConversation(Conversation $conversation, User $user, bool $detailed = false): array
