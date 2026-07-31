@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\ChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MessageController extends Controller
 {
@@ -158,7 +159,7 @@ class MessageController extends Controller
             'other' => [
                 'id' => $other->id,
                 'name' => $other->name,
-                'avatar' => $other->displayAvatarPath(),
+                'avatar' => $this->publicMediaUrl($other->displayAvatarPath()),
                 'online' => ChatService::isOnline($other),
                 'city' => $other->city,
                 'region' => $other->region,
@@ -174,5 +175,18 @@ class MessageController extends Controller
             'unread_count' => $unread,
             'last_message_at' => $conversation->last_message_at?->toIso8601String(),
         ];
+    }
+
+    private function publicMediaUrl(?string $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        return Storage::disk('public')->url($path);
     }
 }

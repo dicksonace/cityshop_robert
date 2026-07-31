@@ -63,7 +63,8 @@ class OrderController extends Controller
 
     private function orderPayload(Order $order): array
     {
-        $order->loadMissing(['items.product.images', 'seller.sellerProfile']);
+        $order->loadMissing(['items.product.images', 'seller.sellerProfile', 'sellerPaymentMethod']);
+        $method = $order->sellerPaymentMethod;
 
         return [
             'id' => $order->id,
@@ -72,6 +73,10 @@ class OrderController extends Controller
             'payment_status' => $order->payment_status?->value,
             'payment_channel' => $order->payment_channel?->value,
             'payment_method' => $order->payment_method,
+            'direct_payment_reference' => $order->direct_payment_reference,
+            'direct_payment_proof_path' => $order->direct_payment_proof_path,
+            'direct_payment_submitted_at' => $order->direct_payment_submitted_at?->toIso8601String(),
+            'direct_payment_rejection_reason' => $order->direct_payment_rejection_reason,
             'receiver_name' => $order->receiver_name,
             'receiver_phone' => $order->receiver_phone,
             'region' => $order->region,
@@ -87,6 +92,17 @@ class OrderController extends Controller
                 'store_name' => $order->seller?->sellerProfile?->displayName() ?? $order->seller?->name,
                 'store_slug' => $order->seller?->sellerProfile?->slug,
             ],
+            'seller_payment_method' => $method ? [
+                'id' => $method->id,
+                'type' => $method->type->value,
+                'label' => $method->label,
+                'account_name' => $method->account_name,
+                'account_number' => $method->account_number,
+                'network' => $method->network,
+                'bank_name' => $method->bank_name,
+                'instructions' => $method->instructions,
+                'display_label' => $method->displayLabel(),
+            ] : null,
             'items' => $order->items->map(function ($item) {
                 $image = $item->product?->images?->sortByDesc('is_primary')->first()
                     ?? $item->product?->images?->first();
