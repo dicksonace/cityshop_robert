@@ -94,7 +94,7 @@ class ProductController extends Controller
     {
         $product = Product::with(['images', 'seller.sellerProfile', 'category'])
             ->visibleInShop()
-            ->where('slug', $slug)
+            ->where(ctype_digit($slug) ? 'id' : 'slug', $slug)
             ->firstOrFail();
 
         try {
