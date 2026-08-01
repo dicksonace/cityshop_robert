@@ -83,7 +83,7 @@ class WalletController extends Controller
         ]);
     }
 
-    public function manualFunding(): JsonResponse
+    public function manualFunding(Request $request): JsonResponse
     {
         $settings = PlatformSettings::manualFundingAccounts();
 
@@ -92,6 +92,20 @@ class WalletController extends Controller
             'instructions' => $settings['instructions'],
             'accounts' => $settings['accounts'],
             'paystack_configured' => $this->paystack->isConfigured(),
+            'requests' => WalletTopUpRequest::where('user_id', $request->user()->id)
+                ->latest()
+                ->limit(20)
+                ->get()
+                ->map(fn (WalletTopUpRequest $item) => [
+                    'id' => $item->id,
+                    'amount' => (float) $item->amount,
+                    'payment_reference' => $item->payment_reference,
+                    'status' => $item->status->value,
+                    'admin_notes' => $item->admin_notes,
+                    'created_at' => $item->created_at?->toIso8601String(),
+                    'reviewed_at' => $item->reviewed_at?->toIso8601String(),
+                ])
+                ->values(),
         ]);
     }
 
