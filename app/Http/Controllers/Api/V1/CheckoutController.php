@@ -412,7 +412,9 @@ HTML;
             'payment_method' => $order->payment_method,
             'direct_payment_reference' => $order->direct_payment_reference,
             'direct_payment_proof_path' => $order->direct_payment_proof_path,
-            'direct_payment_submitted_at' => $order->direct_payment_submitted_at?->toIso8601String(),
+            'direct_payment_submitted' => filled($order->direct_payment_reference)
+                || filled($order->direct_payment_proof_path),
+            'direct_payment_confirmed_at' => $order->direct_payment_confirmed_at?->toIso8601String(),
             'direct_payment_rejection_reason' => $order->direct_payment_rejection_reason,
             'receiver_name' => $order->receiver_name,
             'receiver_phone' => $order->receiver_phone,
