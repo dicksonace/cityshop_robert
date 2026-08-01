@@ -227,7 +227,11 @@ class OrderService
 
             $checkout = $checkout->load('orders.items.seller');
             if ($paymentMethod !== 'cash') {
-                $buyer->notify(new OrderPlacedNotification($checkout->orders->first(), checkout: $checkout));
+                $firstOrder = $checkout->orders->first();
+                $buyer->notify(new OrderPlacedNotification($firstOrder, checkout: $checkout));
+                if ($firstOrder) {
+                    AppNotificationService::notifyBuyerOrderPlaced($buyer, $firstOrder);
+                }
             }
 
             return $checkout;
@@ -492,6 +496,7 @@ class OrderService
             );
 
             $buyer->notify(new OrderPlacedNotification($order, checkout: $checkout->fresh('orders')));
+            AppNotificationService::notifyBuyerOrderPlaced($buyer, $order);
 
             return $order->fresh(['items', 'sellerPaymentMethod', 'checkout']);
         });
@@ -564,6 +569,9 @@ class OrderService
 
             $locked->refresh();
             $locked->buyer->notify(new PaymentConfirmedNotification($locked->orders->first()));
+            if ($locked->buyer && $locked->orders->first()) {
+                AppNotificationService::notifyBuyerPaymentConfirmed($locked->buyer, $locked->orders->first());
+            }
             $this->invoices->sendInvoices($locked);
 
             return $locked;
@@ -670,6 +678,9 @@ class OrderService
 
             if (! $skipBuyerNotify) {
                 $locked->buyer->notify(new PaymentConfirmedNotification($locked));
+                if ($locked->buyer) {
+                    AppNotificationService::notifyBuyerPaymentConfirmed($locked->buyer, $locked);
+                }
             }
 
             Payment::where('order_id', $locked->id)->update([
@@ -781,6 +792,9 @@ class OrderService
             }
 
             $order->buyer->notify(new PaymentConfirmedNotification($order));
+            if ($order->buyer) {
+                AppNotificationService::notifyBuyerPaymentConfirmed($order->buyer, $order);
+            }
             $order->seller?->notify(new PaymentConfirmedNotification($order, $order->items->first()));
             if ($order->seller) {
                 AppNotificationService::notifySellerNewOrder($order->seller, $order, $order->items->first());
@@ -828,6 +842,9 @@ class OrderService
         ]);
 
         $order->buyer->notify(new DirectPaymentRejectedNotification($order->fresh(), $trimmed));
+        if ($order->buyer) {
+            AppNotificationService::notifyBuyerDirectPaymentRejected($order->buyer, $order->fresh(), $trimmed);
+        }
 
         return $order->fresh('items');
     }
@@ -877,7 +894,11 @@ class OrderService
         }
 
         $checkout->update(['status' => OrderStatus::Pending]);
-        $checkout->buyer->notify(new OrderPlacedNotification($checkout->orders->first(), cashOnDelivery: true, checkout: $checkout));
+        $firstOrder = $checkout->orders->first();
+        $checkout->buyer->notify(new OrderPlacedNotification($firstOrder, cashOnDelivery: true, checkout: $checkout));
+        if ($checkout->buyer && $firstOrder) {
+            AppNotificationService::notifyBuyerOrderPlaced($checkout->buyer, $firstOrder, cashOnDelivery: true);
+        }
 
         foreach ($checkout->orders as $order) {
             foreach ($order->items as $item) {
@@ -1044,6 +1065,24 @@ class OrderService
 
             $item->seller->notify(new DisputeOpenedNotification($dispute));
             $item->order->buyer->notify(new DisputeOpenedNotification($dispute));
+            if ($item->seller) {
+                AppNotificationService::send(
+                    $item->seller,
+                    'dispute',
+                    'Refund request opened',
+                    "Admin opened a refund review on order {$item->order->order_number} ({$item->product_name}).",
+                    ['dispute_id' => $dispute->id, 'order_id' => $item->order_id],
+                );
+            }
+            if ($item->order->buyer) {
+                AppNotificationService::send(
+                    $item->order->buyer,
+                    'dispute',
+                    'Refund review opened',
+                    "CityShop opened a refund review for {$item->product_name}.",
+                    ['dispute_id' => $dispute->id, 'order_id' => $item->order_id],
+                );
+            }
 
             $admins = User::where('role', UserRole::Admin)->get();
             Notification::send($admins, new DisputeOpenedNotification($dispute));
@@ -1085,6 +1124,9 @@ class OrderService
 
             $item->seller->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
+            if ($item->order->buyer) {
+                AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'delivered');
+            }
         });
 
         $item = $item->fresh(['order', 'seller']);
@@ -1129,23 +1171,38 @@ class OrderService
 
         if ($data['status'] === 'packed' && $previousStatus !== 'packed') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'packed'));
+            if ($item->order->buyer) {
+                AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'packed');
+            }
         }
 
         if ($data['status'] === 'shipped' && $previousStatus !== 'shipped') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'shipped'));
+            if ($item->order->buyer) {
+                AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'shipped');
+            }
         }
 
         if ($data['status'] === 'awaiting_confirmation' && $previousStatus !== 'awaiting_confirmation') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'awaiting_confirmation'));
+            if ($item->order->buyer) {
+                AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'awaiting_confirmation');
+            }
         }
 
         if ($data['status'] === 'call_confirmed' && $previousStatus !== 'call_confirmed') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'call_confirmed'));
+            if ($item->order->buyer) {
+                AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'call_confirmed');
+            }
         }
 
         if ($data['status'] === 'delivered' && $previousStatus !== 'delivered' && $item->order->payment_method === 'cash') {
             $item->order->update(['payment_status' => PaymentStatus::Paid, 'status' => OrderStatus::Delivered]);
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
+            if ($item->order->buyer) {
+                AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'delivered');
+            }
         }
 
         $this->syncOrderStatusAfterItemChange($item->order);
@@ -1360,6 +1417,15 @@ class OrderService
                 refunded: $wasPaid && in_array($order->payment_channel, [PaymentChannel::Marketplace, PaymentChannel::Direct], true),
                 refundAmount: $refundAmount,
             ));
+            if ($order->buyer) {
+                AppNotificationService::notifyBuyerOrderStatus(
+                    $order->buyer,
+                    $item->fresh(),
+                    'cancelled',
+                    refunded: $wasPaid && in_array($order->payment_channel, [PaymentChannel::Marketplace, PaymentChannel::Direct], true),
+                    refundAmount: $refundAmount,
+                );
+            }
 
             return $item->fresh();
         });

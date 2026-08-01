@@ -18,6 +18,7 @@ class UserResource extends JsonResource
             'role' => $this->role?->value,
             'region' => $this->region,
             'city' => $this->city,
+            'avatar' => $this->displayAvatarPath(),
         ];
     }
 }

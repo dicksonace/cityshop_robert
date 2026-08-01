@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { HTMLAttributes } from 'react';
 
-import { APP_LOGO_ALT, APP_LOGO_SRC } from '@/lib/brand';
+import { APP_LOGO_ALT, APP_LOGO_SRC, APP_LOGO_TILE_SRC } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 
 interface CityShopBrandProps extends HTMLAttributes<HTMLDivElement> {
@@ -12,10 +12,10 @@ interface CityShopBrandProps extends HTMLAttributes<HTMLDivElement> {
     inverted?: boolean;
 }
 
-const logoHeight = {
-    sm: 'h-8 max-w-[7rem]',
-    md: 'h-10 max-w-[9rem]',
-    lg: 'h-14 max-w-[11rem]',
+const sizes = {
+    sm: { mark: 'h-9 w-9', text: 'text-lg' },
+    md: { mark: 'h-10 w-10', text: 'text-xl' },
+    lg: { mark: 'h-14 w-14', text: 'text-2xl' },
 };
 
 export default function CityShopBrand({
@@ -24,24 +24,33 @@ export default function CityShopBrand({
     asLink = true,
     href,
     size = 'md',
-    inverted: _inverted = false,
+    inverted = false,
     ...props
 }: CityShopBrandProps) {
-    const heightClass = showText ? logoHeight.lg : logoHeight[size];
+    const scale = sizes[showText ? (size === 'sm' ? 'md' : size) : size];
 
     const content = (
-        <img
-            src={APP_LOGO_SRC}
-            alt={APP_LOGO_ALT}
-            className={cn('w-auto shrink-0 object-contain object-left', heightClass)}
-        />
+        <>
+            <img src={inverted ? APP_LOGO_TILE_SRC : APP_LOGO_SRC} alt="" aria-hidden className={cn('shrink-0 object-contain', scale.mark)} />
+            <span
+                className={cn(
+                    'leading-none font-extrabold tracking-tight',
+                    scale.text,
+                    inverted ? 'text-white' : 'text-gray-900',
+                    // Headers keep the mark only on the narrowest screens.
+                    !showText && 'hidden sm:inline',
+                )}
+            >
+                City<span className={inverted ? 'text-orange-200' : 'text-orange-600'}>Shop</span>
+            </span>
+        </>
     );
 
-    const wrapperClass = cn('flex items-center', className);
+    const wrapperClass = cn('flex items-center gap-2', className);
 
     if (asLink) {
         return (
-            <Link href={href ?? route('home')} className={wrapperClass}>
+            <Link href={href ?? route('home')} className={wrapperClass} aria-label={APP_LOGO_ALT}>
                 {content}
             </Link>
         );

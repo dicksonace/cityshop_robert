@@ -48,10 +48,16 @@ class PlatformSettings
             : (is_string($raw) ? json_decode($raw, true) : null);
 
         if (! is_array($decoded)) {
+            // No admin setting yet — enable CityShop MoMo defaults so wallet top-up works out of the box.
+            $defaultEnabled = filter_var(
+                env('MANUAL_WALLET_TOPUP_DEFAULT_ENABLED', true),
+                FILTER_VALIDATE_BOOLEAN
+            );
+
             return [
-                'enabled' => false,
-                'instructions' => 'Send payment to one of the accounts below, then submit your proof and reference so we can credit your wallet.',
-                'accounts' => [],
+                'enabled' => $defaultEnabled,
+                'instructions' => 'Send payment to one of the CityShop Mobile Money accounts below, then submit your proof and transaction reference so we can credit your wallet.',
+                'accounts' => static::defaultCityShopMomoAccounts(),
             ];
         }
 
@@ -83,11 +89,22 @@ class PlatformSettings
         }, $decoded['accounts'] ?? []));
 
         $accounts = array_values(array_filter($accounts));
+        $hadCustomAccounts = count($accounts) > 0;
         $accounts = static::ensureCityShopMomoAccounts($accounts);
 
+        // Prefer explicit admin flag; if never set, default on. Empty+disabled = not configured yet.
+        $explicitEnabled = array_key_exists('enabled', $decoded);
+        $enabled = $explicitEnabled
+            ? (bool) $decoded['enabled']
+            : filter_var(env('MANUAL_WALLET_TOPUP_DEFAULT_ENABLED', true), FILTER_VALIDATE_BOOLEAN);
+
+        if ($explicitEnabled && ! $enabled && ! $hadCustomAccounts) {
+            $enabled = filter_var(env('MANUAL_WALLET_TOPUP_DEFAULT_ENABLED', true), FILTER_VALIDATE_BOOLEAN);
+        }
+
         return [
-            'enabled' => (bool) ($decoded['enabled'] ?? false),
-            'instructions' => (string) ($decoded['instructions'] ?? ''),
+            'enabled' => $enabled,
+            'instructions' => (string) ($decoded['instructions'] ?? 'Send payment to one of the CityShop Mobile Money accounts below, then submit your proof and transaction reference so we can credit your wallet.'),
             'accounts' => $accounts,
         ];
     }

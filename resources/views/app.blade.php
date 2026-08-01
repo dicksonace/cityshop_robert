@@ -8,7 +8,10 @@
 
         <title inertia>{{ config('app.name', 'CityShop') }}</title>
 
-        <link rel="icon" href="/images/logo.png" type="image/png">
+        <link rel="icon" href="/favicon.ico" sizes="any">
+        <link rel="icon" href="/images/branding/icon-192.png" type="image/png" sizes="192x192">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <meta name="theme-color" content="#EA580C">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />

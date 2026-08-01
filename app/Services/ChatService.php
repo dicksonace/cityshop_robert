@@ -14,6 +14,22 @@ use Illuminate\Support\Facades\DB;
 
 class ChatService
 {
+    /**
+     * WebRTC signalling rows live in the same table as real messages, so every
+     * thread, preview and unread tally has to skip them.
+     *
+     * @return array<int, MessageType>
+     */
+    public static function visibleTypes(): array
+    {
+        return [
+            MessageType::Text,
+            MessageType::Image,
+            MessageType::CallLog,
+            MessageType::System,
+        ];
+    }
+
     public static function isOnline(?User $user): bool
     {
         if (! $user?->last_seen_at) {
@@ -250,6 +266,7 @@ class ChatService
         return Message::whereHas('conversation', function ($q) use ($user) {
             $q->where('buyer_id', $user->id)->orWhere('seller_id', $user->id);
         })
+            ->whereIn('type', static::visibleTypes())
             ->where('sender_id', '!=', $user->id)
             ->whereNull('read_at')
             ->count();

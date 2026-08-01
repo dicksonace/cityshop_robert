@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Checkout;
 use App\Models\Order;
+use App\Services\CheckoutPaymentVerifier;
 use App\Services\OrderService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
 use App\Services\WithdrawalPayoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class PaystackWebhookController extends Controller
@@ -18,6 +20,7 @@ class PaystackWebhookController extends Controller
         private PaystackService $paystack,
         private OrderService $orderService,
         private WithdrawalPayoutService $withdrawalPayouts,
+        private CheckoutPaymentVerifier $paymentVerifier,
     ) {}
 
     public function handle(Request $request): Response
@@ -74,7 +77,17 @@ class PaystackWebhookController extends Controller
                 if ($checkoutId) {
                     $checkout = Checkout::find($checkoutId);
                     if ($checkout) {
-                        $this->orderService->fulfillPaidCheckout($checkout, $data['reference'], $paidAmount);
+                        try {
+                            // Webhook payload already signed; still enforce amount/currency/metadata.
+                            $this->paymentVerifier->verifyForCheckout($checkout, (string) $data['reference'], $data);
+                            $this->orderService->fulfillPaidCheckout($checkout, (string) $data['reference'], $paidAmount);
+                            $this->paymentVerifier->forgetPending($checkout);
+                        } catch (ValidationException $e) {
+                            Log::warning('Paystack webhook rejected checkout payment', [
+                                'checkout_id' => $checkout->id,
+                                'errors' => $e->errors(),
+                            ]);
+                        }
 
                         return response('OK', 200);
                     }
@@ -87,7 +100,17 @@ class PaystackWebhookController extends Controller
 
                 if ($order) {
                     if ($order->checkout_id) {
-                        $this->orderService->fulfillPaidCheckout($order->checkout, $data['reference'], $paidAmount);
+                        $checkout = $order->checkout;
+                        try {
+                            $this->paymentVerifier->verifyForCheckout($checkout, (string) $data['reference'], $data);
+                            $this->orderService->fulfillPaidCheckout($checkout, (string) $data['reference'], $paidAmount);
+                            $this->paymentVerifier->forgetPending($checkout);
+                        } catch (ValidationException $e) {
+                            Log::warning('Paystack webhook rejected order checkout payment', [
+                                'order_id' => $order->id,
+                                'errors' => $e->errors(),
+                            ]);
+                        }
                     } else {
                         $this->orderService->fulfillPaidOrder($order, $data['reference']);
                     }
