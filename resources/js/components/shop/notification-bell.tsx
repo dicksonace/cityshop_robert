@@ -111,15 +111,17 @@ export default function NotificationBell() {
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
-                className="relative rounded-lg p-2 hover:bg-gray-50"
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-600 transition-colors hover:bg-orange-50 hover:text-orange-600"
                 aria-label="Notifications"
             >
-                <Bell className="h-5 w-5 text-gray-700" />
-                {totalUnread > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
-                        {totalUnread > 9 ? '9+' : totalUnread}
-                    </span>
-                )}
+                <span className="relative inline-flex">
+                    <Bell className="h-5 w-5" />
+                    {totalUnread > 0 && (
+                        <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                            {totalUnread > 9 ? '9+' : totalUnread}
+                        </span>
+                    )}
+                </span>
             </button>
 
             {open && (
