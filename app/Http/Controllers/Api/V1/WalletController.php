@@ -4,19 +4,26 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\UserRole;
 use App\Enums\WalletTopUpStatus;
+use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Wallet;
 use App\Models\WalletTopUpRequest;
 use App\Models\WalletTransaction;
+use App\Models\Withdrawal;
 use App\Services\PaystackService;
 use App\Services\PlatformSettings;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class WalletController extends Controller
 {
+    /** Same floor the web wallet enforces. */
+    private const MINIMUM_WITHDRAWAL = 10;
+
     public function __construct(private PaystackService $paystack) {}
 
     public function show(Request $request): JsonResponse
@@ -81,6 +88,133 @@ class WalletController extends Controller
                 'total' => $transactions->total(),
             ],
         ]);
+    }
+
+    /**
+     * Everything the app needs to draw the withdraw screen: how much can leave
+     * the wallet, whether a request is already in flight, and past payouts.
+     */
+    public function withdrawals(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        $wallet = WalletService::ensure($user);
+        $withdrawals = Withdrawal::where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'data' => $withdrawals->map(fn (Withdrawal $item) => $this->withdrawalPayload($item))->values(),
+            'summary' => [
+                'available_balance' => (float) $wallet->available_balance,
+                'pending_balance' => (float) $wallet->pending_balance,
+                'withdrawn_amount' => (float) $wallet->withdrawn_amount,
+                'minimum' => self::MINIMUM_WITHDRAWAL,
+                'has_pending' => $withdrawals->contains(
+                    fn (Withdrawal $item) => in_array(
+                        $item->status,
+                        [WithdrawalStatus::Pending, WithdrawalStatus::Processing],
+                        true,
+                    ),
+                ),
+                'default_momo_number' => $user->mobile,
+                'default_account_name' => $user->name,
+            ],
+        ]);
+    }
+
+    /**
+     * Mirrors the web buyer withdrawal: the amount leaves the available balance
+     * straight away and only comes back if an admin rejects the request.
+     */
+    public function withdraw(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:'.self::MINIMUM_WITHDRAWAL],
+            'momo_number' => ['required', 'string', 'max:20'],
+            'account_name' => ['required', 'string', 'max:255'],
+            'network' => ['required', 'in:mtn,telecel,airteltigo'],
+        ]);
+
+        $amount = round((float) $validated['amount'], 2);
+
+        return DB::transaction(function () use ($user, $validated, $amount) {
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first()
+                ?? WalletService::ensure($user);
+
+            if ($amount > (float) $wallet->available_balance) {
+                return response()->json(['message' => 'Insufficient available balance.'], 422);
+            }
+
+            $hasPending = Withdrawal::where('user_id', $user->id)
+                ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
+                ->exists();
+
+            if ($hasPending) {
+                return response()->json([
+                    'message' => 'You already have a withdrawal in processing. Please wait for it to complete.',
+                ], 422);
+            }
+
+            $withdrawal = Withdrawal::create([
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'momo_number' => $validated['momo_number'],
+                'account_name' => $validated['account_name'],
+                'network' => $validated['network'],
+                'status' => WithdrawalStatus::Pending,
+            ]);
+
+            $wallet->decrement('available_balance', $amount);
+            WalletTransactionService::recordWithdrawal($withdrawal);
+
+            return response()->json([
+                'message' => 'Withdrawal request submitted. Payouts are usually sent within 1 hour.',
+                'data' => $this->withdrawalPayload($withdrawal),
+                'wallet' => [
+                    'available_balance' => (float) $wallet->fresh()->available_balance,
+                    'pending_balance' => (float) $wallet->pending_balance,
+                ],
+            ], 201);
+        });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function withdrawalPayload(Withdrawal $withdrawal): array
+    {
+        return [
+            'id' => $withdrawal->id,
+            'amount' => (float) $withdrawal->amount,
+            'momo_number' => $withdrawal->momo_number,
+            'account_name' => $withdrawal->account_name,
+            'network' => $withdrawal->network,
+            'network_label' => match ($withdrawal->network) {
+                'mtn' => 'MTN Mobile Money',
+                'telecel' => 'Telecel Cash',
+                'airteltigo' => 'AirtelTigo Money',
+                default => ucfirst((string) $withdrawal->network),
+            },
+            'status' => $withdrawal->status?->value,
+            // The web deliberately shows pending requests as "Processing".
+            'status_label' => match ($withdrawal->status) {
+                WithdrawalStatus::Pending, WithdrawalStatus::Processing => 'Processing',
+                WithdrawalStatus::Approved => 'Approved',
+                WithdrawalStatus::Paid => 'Paid out',
+                WithdrawalStatus::Rejected => 'Rejected',
+                default => 'Processing',
+            },
+            'rejection_reason' => $withdrawal->rejection_reason ?? $withdrawal->failure_reason,
+            'created_at' => $withdrawal->created_at?->toIso8601String(),
+            'processed_at' => $withdrawal->processed_at?->toIso8601String(),
+        ];
     }
 
     public function manualFunding(Request $request): JsonResponse
