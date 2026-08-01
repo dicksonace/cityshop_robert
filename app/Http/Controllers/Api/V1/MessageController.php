@@ -23,8 +23,9 @@ class MessageController extends Controller
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
-            'product:id,name,slug',
-            'latestMessage.sender:id,name',
+            'product:id,name,slug,price,discount_price',
+            'product.images',
+            'latestVisibleMessage.sender:id,name',
         ])
             ->where(fn ($q) => $q->where('buyer_id', $userId)->orWhere('seller_id', $userId))
             ->orderByDesc('last_message_at')
@@ -55,19 +56,13 @@ class MessageController extends Controller
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
-            'product:id,name,slug',
+            'product:id,name,slug,price,discount_price',
+            'product.images',
         ]);
-
-        $messages = $conversation->messages()
-            ->with('sender:id,name')
-            ->orderBy('created_at')
-            ->limit(100)
-            ->get()
-            ->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
         return response()->json([
             'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
-            'messages' => $messages,
+            'messages' => $this->threadFor($conversation, $request->user()),
         ], 201);
     }
 
@@ -81,19 +76,13 @@ class MessageController extends Controller
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
-            'product:id,name,slug',
+            'product:id,name,slug,price,discount_price',
+            'product.images',
         ]);
-
-        $messages = $conversation->messages()
-            ->with('sender:id,name')
-            ->orderBy('created_at')
-            ->limit(100)
-            ->get()
-            ->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
         return response()->json([
             'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
-            'messages' => $messages,
+            'messages' => $this->threadFor($conversation, $request->user()),
         ]);
     }
 
@@ -126,6 +115,7 @@ class MessageController extends Controller
         $afterId = (int) $request->get('after', 0);
 
         $messages = $conversation->messages()
+            ->whereIn('type', ChatService::visibleTypes())
             ->with('sender:id,name')
             ->when($afterId > 0, fn ($q) => $q->where('id', '>', $afterId))
             ->orderBy('created_at')
@@ -155,23 +145,39 @@ class MessageController extends Controller
         ]);
     }
 
+    /** @return \Illuminate\Support\Collection<int, array<string, mixed>> */
+    private function threadFor(Conversation $conversation, User $user)
+    {
+        return $conversation->messages()
+            ->whereIn('type', ChatService::visibleTypes())
+            ->with('sender:id,name')
+            ->orderBy('created_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (Message $m) => ChatService::formatMessage($m, $user));
+    }
+
     private function formatConversation(Conversation $conversation, User $user, bool $detailed = false): array
     {
         $other = $conversation->otherParticipant($user);
         $other->loadMissing('sellerProfile');
 
-        $latest = $conversation->latestMessage;
+        $latest = $conversation->latestVisibleMessage;
         $unread = $conversation->messages()
+            ->whereIn('type', ChatService::visibleTypes())
             ->where('sender_id', '!=', $user->id)
             ->whereNull('read_at')
             ->count();
+        $product = $conversation->product;
 
         return [
             'id' => $conversation->id,
-            'product' => $conversation->product ? [
-                'id' => $conversation->product->id,
-                'name' => $conversation->product->name,
-                'slug' => $conversation->product->slug,
+            'product' => $product ? [
+                'id' => $product->id,
+                'name' => $product->name,
+                'slug' => $product->slug,
+                'price' => $product->effectivePrice(),
+                'image_url' => $this->publicMediaUrl($this->productImagePath($product)),
             ] : null,
             'other' => [
                 'id' => $other->id,
@@ -190,8 +196,15 @@ class MessageController extends Controller
                 'sender_id' => $latest->sender_id,
             ] : null,
             'unread_count' => $unread,
-            'last_message_at' => $conversation->last_message_at?->toIso8601String(),
+            'last_message_at' => ($latest?->created_at ?? $conversation->last_message_at)?->toIso8601String(),
         ];
+    }
+
+    private function productImagePath(Product $product): ?string
+    {
+        $product->loadMissing('images');
+
+        return ($product->images->firstWhere('is_primary', true) ?? $product->images->first())?->path;
     }
 
     private function publicMediaUrl(?string $path): ?string

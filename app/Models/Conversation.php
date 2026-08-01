@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ChatService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -46,6 +47,15 @@ class Conversation extends Model
     public function latestMessage(): HasOne
     {
         return $this->hasOne(Message::class)->latestOfMany();
+    }
+
+    /** The newest message a participant actually sees, ignoring call signalling. */
+    public function latestVisibleMessage(): HasOne
+    {
+        return $this->hasOne(Message::class)->ofMany(
+            ['id' => 'max'],
+            fn ($query) => $query->whereIn('type', ChatService::visibleTypes()),
+        );
     }
 
     public function otherParticipant(User $user): User
