@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AppNotification;
+use App\Models\Order;
 use App\Services\ChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,9 +59,19 @@ class NotificationController extends Controller
 
     public function counts(Request $request): JsonResponse
     {
+        $buyerId = $request->user()->id;
+
         return response()->json([
             'unread_messages' => ChatService::unreadMessageCount($request->user()),
             'unread_notifications' => ChatService::unreadNotificationCount($request->user()),
+            'total_orders' => Order::where('buyer_id', $buyerId)->count(),
+            'active_orders' => Order::where('buyer_id', $buyerId)
+                ->whereNotIn('status', [
+                    OrderStatus::Delivered,
+                    OrderStatus::Cancelled,
+                    OrderStatus::Refunded,
+                ])
+                ->count(),
         ]);
     }
 }

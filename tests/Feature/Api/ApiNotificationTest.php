@@ -2,8 +2,13 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentChannel;
+use App\Enums\PaymentStatus;
 use App\Enums\UserRole;
 use App\Models\AppNotification;
+use App\Models\Checkout;
+use App\Models\Order;
 use App\Models\User;
 use App\Services\AppNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -60,6 +65,74 @@ class ApiNotificationTest extends TestCase
             ->assertJsonPath('unread_count', 0);
 
         $this->assertSame(0, AppNotification::where('user_id', $buyer->id)->whereNull('read_at')->count());
+    }
+
+    public function test_counts_include_total_and_active_order_tallies(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $other = User::factory()->create(['role' => UserRole::Buyer]);
+
+        // Three open orders plus two closed ones: the badge should only count the open three.
+        $this->orderFor($buyer, OrderStatus::Pending);
+        $this->orderFor($buyer, OrderStatus::Shipped);
+        $this->orderFor($buyer, OrderStatus::AwaitingConfirmation);
+        $this->orderFor($buyer, OrderStatus::Delivered);
+        $this->orderFor($buyer, OrderStatus::Cancelled);
+        $this->orderFor($other, OrderStatus::Pending);
+
+        Sanctum::actingAs($buyer);
+
+        $this->getJson('/api/v1/notifications/counts')
+            ->assertOk()
+            ->assertJsonPath('total_orders', 5)
+            ->assertJsonPath('active_orders', 3);
+    }
+
+    public function test_counts_report_zero_orders_for_a_new_buyer(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => UserRole::Buyer]));
+
+        $this->getJson('/api/v1/notifications/counts')
+            ->assertOk()
+            ->assertJsonPath('total_orders', 0)
+            ->assertJsonPath('active_orders', 0);
+    }
+
+    private function orderFor(User $buyer, OrderStatus $status): Order
+    {
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+
+        $checkout = Checkout::create([
+            'checkout_number' => 'CHK'.uniqid(),
+            'buyer_id' => $buyer->id,
+            'status' => $status,
+            'payment_status' => PaymentStatus::Paid,
+            'receiver_name' => 'Buyer',
+            'receiver_phone' => '0240000000',
+            'region' => 'Greater Accra',
+            'city' => 'Accra',
+            'subtotal' => 40,
+            'shipping_cost' => 0,
+            'total' => 40,
+        ]);
+
+        return Order::create([
+            'checkout_id' => $checkout->id,
+            'order_number' => Order::generateOrderNumber(),
+            'buyer_id' => $buyer->id,
+            'seller_id' => $seller->id,
+            'status' => $status,
+            'payment_status' => PaymentStatus::Paid,
+            'payment_channel' => PaymentChannel::Marketplace,
+            'receiver_name' => 'Buyer',
+            'receiver_phone' => '0240000000',
+            'region' => 'Greater Accra',
+            'city' => 'Accra',
+            'subtotal' => 40,
+            'shipping_cost' => 0,
+            'commission_amount' => 0,
+            'total' => 40,
+        ]);
     }
 
     public function test_buyer_cannot_mark_another_users_notification_read(): void
