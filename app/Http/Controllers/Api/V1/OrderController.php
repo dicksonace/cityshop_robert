@@ -64,6 +64,15 @@ class OrderController extends Controller
         ]);
     }
 
+    private function publicUrl(?string $path): ?string
+    {
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+
+        return str_starts_with($path, 'http') ? $path : Storage::disk('public')->url($path);
+    }
+
     private function orderPayload(Order $order): array
     {
         $order->loadMissing(['items.product.images', 'items.dispute', 'seller.sellerProfile', 'sellerPaymentMethod']);
@@ -101,6 +110,7 @@ class OrderController extends Controller
                 'id' => $order->seller_id,
                 'store_name' => $order->seller?->sellerProfile?->displayName() ?? $order->seller?->name,
                 'store_slug' => $order->seller?->sellerProfile?->slug,
+                'store_logo' => $this->publicUrl($order->seller?->displayAvatarPath()),
                 'seller_name' => $order->seller?->name,
                 'mobile' => $order->seller?->mobile,
                 'whatsapp' => $order->seller?->whatsapp,
@@ -123,13 +133,7 @@ class OrderController extends Controller
             'items' => $order->items->map(function ($item) use ($canRequestRefund, $buyerReviews) {
                 $image = $item->product?->images?->sortByDesc('is_primary')->first()
                     ?? $item->product?->images?->first();
-                $path = $image?->path;
-                $imageUrl = null;
-                if (is_string($path) && $path !== '') {
-                    $imageUrl = str_starts_with($path, 'http')
-                        ? $path
-                        : Storage::disk('public')->url($path);
-                }
+                $imageUrl = $this->publicUrl($image?->path);
 
                 $dispute = $item->dispute;
                 $status = $item->status?->value;
