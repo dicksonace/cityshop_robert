@@ -1,12 +1,13 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangle, CheckCircle2, ChevronRight, FileText, Printer, Star } from 'lucide-react';
-import { FormEventHandler, useEffect, useState } from 'react';
+import { FormEventHandler, useEffect, useRef, useState } from 'react';
 
 import { LightboxTrigger, orderItemLightboxImages } from '@/components/shop/image-lightbox';
 import OrderProgress from '@/components/shop/order-progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ShopLayout from '@/layouts/shop-layout';
+import { trackPurchase } from '@/lib/analytics';
 import { buyerFulfillmentLabel, formatOrderStatus, formatPrice, mostAdvancedItemStatus, orderStatusBadgeClass, Order, OrderItem, productImageUrl } from '@/types/marketplace';
 
 interface CheckoutShowProps {
@@ -160,6 +161,8 @@ function RefundStatus({ dispute }: { dispute: { id: number; status: string; reas
 }
 
 export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
+    const purchaseTracked = useRef(false);
+
     useEffect(() => {
         if (typeof window === 'undefined') return;
         if (window.location.hash !== '#write-review') return;
@@ -168,6 +171,26 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
         }, 150);
         return () => window.clearTimeout(timer);
     }, []);
+
+    useEffect(() => {
+        if (purchaseTracked.current) return;
+        if (checkout.payment_status !== 'paid') return;
+
+        const key = `cityshop_purchase_${checkout.id}`;
+        try {
+            if (sessionStorage.getItem(key)) return;
+            sessionStorage.setItem(key, '1');
+        } catch {
+            // sessionStorage may be unavailable
+        }
+
+        purchaseTracked.current = true;
+        trackPurchase({
+            transactionId: checkout.checkout_number,
+            value: Number(checkout.total),
+            shipping: Number(checkout.shipping_cost ?? 0),
+        });
+    }, [checkout.id, checkout.checkout_number, checkout.payment_status, checkout.shipping_cost, checkout.total]);
 
     const printInvoice =
         checkout.invoices?.find((inv) => inv.type === 'customer_master')

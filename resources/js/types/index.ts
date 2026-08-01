@@ -23,6 +23,8 @@ export interface NavItem {
 
 export interface SharedData {
     name: string;
+    appUrl?: string;
+    seo?: { defaultDescription?: string; defaultImage?: string };
     csrfToken?: string;
     quote: { message: string; author: string };
     auth: Auth;

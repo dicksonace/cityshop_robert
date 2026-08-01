@@ -1,10 +1,12 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Camera, Search, Store } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
 import SearchBox from '@/components/shop/search-box';
+import SeoHead from '@/components/seo-head';
 import ShopLayout from '@/layouts/shop-layout';
+import { trackSearch } from '@/lib/analytics';
 import { addProductToCart } from '@/lib/shop-actions';
 import { Paginated, Product, productImageUrl } from '@/types/marketplace';
 import { SharedData } from '@/types';
@@ -64,9 +66,23 @@ export default function SearchPage({
         addProductToCart(productId);
     };
 
+    useEffect(() => {
+        if (query) {
+            trackSearch(query);
+        }
+    }, [query]);
+
     return (
         <ShopLayout>
-            <Head title={query ? `Search: ${query}` : 'Search'} />
+            <SeoHead
+                title={query ? `Search: ${query}` : 'Search'}
+                description={
+                    query
+                        ? `Search results for “${query}” on CityShop.`
+                        : 'Search products and stores from Ghana sellers on CityShop.'
+                }
+                url={query ? `/search?q=${encodeURIComponent(query)}` : '/search'}
+            />
 
             <div className="border-b border-gray-100 bg-gradient-to-b from-orange-50/80 to-white">
                 <div className="mx-auto max-w-4xl px-4 py-8 sm:py-10">

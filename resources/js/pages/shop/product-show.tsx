@@ -1,9 +1,10 @@
 import ShopLayout from '@/layouts/shop-layout';
+import { trackAddToCart, trackViewItem } from '@/lib/analytics';
 import { recordRecentView } from '@/lib/recent-views';
 import { addProductToCart, scrollToReviews } from '@/lib/shop-actions';
-import { formatPrice, Paginated, Product, ProductReview } from '@/types/marketplace';
+import { formatPrice, Paginated, Product, ProductReview, productImageUrl } from '@/types/marketplace';
 import { SharedData } from '@/types';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { MapPin, MessageSquare, Package, ShoppingBag, Store, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -16,6 +17,7 @@ import ProductShareButton from '@/components/shop/product-share-button';
 import ProductSpecifications from '@/components/shop/product-specifications';
 import RatingDisplay from '@/components/shop/rating-display';
 import MessageSellerButton from '@/components/shop/message-seller-button';
+import SeoHead from '@/components/seo-head';
 import WishlistButton from '@/components/shop/wishlist-button';
 import { Button } from '@/components/ui/button';
 
@@ -41,7 +43,13 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
             category_id: product.category?.id ?? null,
             category: product.category ?? null,
         });
-    }, [product.id, product.category]);
+        trackViewItem({
+            id: product.id,
+            name: product.name,
+            price,
+            category: product.category?.name,
+        });
+    }, [product.id, product.category, product.name, price]);
 
     const handleAddToCart = () => {
         if (!auth.user) {
@@ -54,7 +62,9 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
         if (!product.is_preorder && product.quantity < 1) {
             return;
         }
-        addProductToCart(product.id);
+        addProductToCart(product.id, {
+            analytics: { name: product.name, price },
+        });
     };
 
     const handleRelatedAddToCart = (productId: number) => {
@@ -68,9 +78,52 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
         addProductToCart(productId);
     };
 
+    const seoTitle = product.meta_title?.trim() || product.name;
+    const seoDescription =
+        product.meta_description?.trim() ||
+        product.description?.replace(/\s+/g, ' ').trim().slice(0, 300) ||
+        `Buy ${product.name} on CityShop from local Ghana sellers.`;
+    const ogImage = product.images?.[0]?.path ? productImageUrl(product.images[0].path) : null;
+    const productUrl = `/products/${product.slug}`;
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: product.name,
+        description: seoDescription,
+        image: ogImage ? [ogImage] : undefined,
+        sku: String(product.id),
+        brand: product.brand ? { '@type': 'Brand', name: product.brand } : undefined,
+        offers: {
+            '@type': 'Offer',
+            priceCurrency: 'GHS',
+            price: Number(price).toFixed(2),
+            availability:
+                product.is_preorder || product.quantity > 0
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+            url: productUrl,
+        },
+        aggregateRating:
+            product.review_count > 0
+                ? {
+                      '@type': 'AggregateRating',
+                      ratingValue: product.rating,
+                      reviewCount: product.review_count,
+                  }
+                : undefined,
+    };
+
     return (
         <ShopLayout>
-            <Head title={product.name} />
+            <SeoHead
+                title={seoTitle}
+                description={seoDescription}
+                image={ogImage}
+                url={productUrl}
+                type="product"
+                keywords={product.meta_keywords}
+                jsonLd={jsonLd}
+            />
             <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
                 <div className="grid w-full grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
                     <ProductImageGallery

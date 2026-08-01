@@ -32,41 +32,62 @@ class PaystackWebhookController extends Controller
         $event = $request->input('event');
         $data = $request->input('data');
 
+        if ($event === 'charge.failed' && $data) {
+            Log::info('Paystack charge.failed', [
+                'reference' => $data['reference'] ?? null,
+                'gateway_response' => $data['gateway_response'] ?? null,
+                'metadata' => $data['metadata'] ?? [],
+            ]);
+
+            return response('OK', 200);
+        }
+
         if ($event === 'charge.success' && $data) {
             try {
                 $metadata = $data['metadata'] ?? [];
+                $paidAmount = $this->paystack->paidAmountGhs($data);
 
                 if (($metadata['type'] ?? '') === 'wallet_topup') {
                     $userId = (int) ($metadata['user_id'] ?? 0);
-                    $amount = round(((int) ($data['amount'] ?? 0)) / 100, 2);
                     $method = (string) ($metadata['method'] ?? 'momo');
+                    $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
 
-                    if ($userId > 0 && $amount > 0) {
-                        WalletService::creditFromVerifiedTopUp($userId, $amount, $data['reference'], $method);
+                    if ($expected !== null && ! $this->paystack->amountsMatch($paidAmount, $expected)) {
+                        Log::warning('Paystack wallet top-up amount mismatch', [
+                            'reference' => $data['reference'] ?? null,
+                            'paid' => $paidAmount,
+                            'expected' => $expected,
+                        ]);
+
+                        return response('OK', 200);
+                    }
+
+                    if ($userId > 0 && $paidAmount > 0) {
+                        WalletService::creditFromVerifiedTopUp($userId, $paidAmount, $data['reference'], $method);
                     }
 
                     return response('OK', 200);
                 }
 
-                $checkoutId = $data['metadata']['checkout_id'] ?? null;
+                $checkoutId = $metadata['checkout_id'] ?? null;
 
                 if ($checkoutId) {
                     $checkout = Checkout::find($checkoutId);
                     if ($checkout) {
-                        $this->orderService->fulfillPaidCheckout($checkout, $data['reference']);
+                        $this->orderService->fulfillPaidCheckout($checkout, $data['reference'], $paidAmount);
 
                         return response('OK', 200);
                     }
                 }
 
-                $orderId = $data['metadata']['order_id'] ?? null;
+                $orderId = $metadata['order_id'] ?? null;
                 $order = $orderId
                     ? Order::find($orderId)
                     : Order::where('payment_reference', $data['reference'])->first();
 
                 if ($order) {
                     if ($order->checkout_id) {
-                        $this->orderService->fulfillPaidCheckout($order->checkout, $data['reference']);
+                        $this->orderService->fulfillPaidCheckout($order->checkout, $data['reference'], $paidAmount);
                     } else {
                         $this->orderService->fulfillPaidOrder($order, $data['reference']);
                     }

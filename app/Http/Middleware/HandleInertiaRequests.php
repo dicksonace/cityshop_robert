@@ -60,6 +60,11 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'csrfToken' => csrf_token(),
             'name' => config('app.name', 'CityShop'),
+            'appUrl' => rtrim((string) config('app.url'), '/'),
+            'seo' => [
+                'defaultDescription' => 'Shop products from local Ghana sellers on CityShop — secure checkout, delivery across Ghana.',
+                'defaultImage' => '/images/logo.png',
+            ],
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $user ? $user->load('sellerProfile') : null,

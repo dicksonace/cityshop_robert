@@ -24,6 +24,7 @@ use App\Http\Controllers\Chat\ConversationController as ChatConversationControll
 use App\Http\Controllers\Chat\MessageController as ChatMessageController;
 use App\Http\Controllers\Chat\NotificationController as ChatNotificationController;
 use App\Http\Controllers\PaystackWebhookController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Seller\AccountController as SellerAccountController;
 use App\Http\Controllers\Seller\CouponController as SellerCouponController;
 use App\Http\Controllers\Seller\DashboardController as SellerDashboardController;
@@ -56,6 +57,8 @@ use App\Http\Controllers\Shop\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+Route::get('/robots.txt', [SitemapController::class, 'robots'])->name('robots');
 Route::get('/matches-for-recent-views', [HomeController::class, 'matchesForRecentViews'])->name('home.matches-for-recent-views');
 Route::get('/search', [SearchController::class, 'index'])->name('search');
 Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('search.suggest');

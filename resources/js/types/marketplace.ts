@@ -26,6 +26,9 @@ export interface Product {
     name: string;
     slug: string;
     description?: string;
+    meta_title?: string | null;
+    meta_description?: string | null;
+    meta_keywords?: string | null;
     specifications?: Record<string, string> | null;
     price: number;
     discount_price?: number | null;

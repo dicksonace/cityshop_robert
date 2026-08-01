@@ -41,6 +41,11 @@ return [
         'webhook_secret' => env('PAYSTACK_WEBHOOK_SECRET'),
     ],
 
+    'analytics' => [
+        'ga4_measurement_id' => env('GA4_MEASUREMENT_ID'),
+        'meta_pixel_id' => env('META_PIXEL_ID'),
+    ],
+
     'sms' => [
         'driver' => env('SMS_DRIVER', 'log'),
         'hubtel_client_id' => env('HUBTEL_CLIENT_ID'),

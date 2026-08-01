@@ -64,6 +64,16 @@ class PaystackService
         return hash_equals(hash_hmac('sha512', $payload, $secret), $signature);
     }
 
+    public function paidAmountGhs(array $transactionData): float
+    {
+        return round(((int) ($transactionData['amount'] ?? 0)) / 100, 2);
+    }
+
+    public function amountsMatch(float $paidGhs, float $expectedGhs, float $tolerance = 0.01): bool
+    {
+        return abs(round($paidGhs, 2) - round($expectedGhs, 2)) <= $tolerance;
+    }
+
     public function mobileMoneyBankCode(string $network): string
     {
         return match (strtolower($network)) {

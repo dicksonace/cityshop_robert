@@ -88,6 +88,7 @@ class WalletController extends Controller
                     'type' => 'wallet_topup',
                     'user_id' => $request->user()->id,
                     'method' => $validated['method'],
+                    'expected_amount' => $amount,
                 ],
                 route('wallet.callback'),
             );
@@ -128,6 +129,17 @@ class WalletController extends Controller
 
             $amount = round(((int) ($data['amount'] ?? 0)) / 100, 2);
             $method = (string) ($metadata['method'] ?? 'momo');
+            $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
+
+            if ($expected !== null && ! $this->paystack->amountsMatch($amount, $expected)) {
+                Log::warning('Wallet top-up amount mismatch', [
+                    'reference' => $reference,
+                    'paid' => $amount,
+                    'expected' => $expected,
+                ]);
+
+                return redirect()->route('wallet.index')->with('error', 'Payment amount could not be verified.');
+            }
 
             WalletService::creditFromVerifiedTopUp($request->user()->id, $amount, $reference, $method);
 

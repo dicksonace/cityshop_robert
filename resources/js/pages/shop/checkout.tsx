@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
+import { trackBeginCheckout } from '@/lib/analytics';
 import {
     checkoutCartKey,
     clearCheckoutDraft,
@@ -204,6 +205,16 @@ export default function Checkout({
             setData('payment_method', 'momo');
         }
     }, [canUseWallet, data.payment_method, setData]);
+
+    useEffect(() => {
+        const itemCount = sellerGroups.reduce((n, g) => n + g.items.length, 0);
+        const value = sellerGroups.reduce((sum, g) => sum + g.package_total, 0);
+        if (value > 0) {
+            trackBeginCheckout(value, itemCount);
+        }
+        // Fire once when checkout page loads with cart contents.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <ShopLayout>

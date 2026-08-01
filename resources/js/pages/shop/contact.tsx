@@ -1,8 +1,9 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import { Clock, LoaderCircle, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 import InputError from '@/components/input-error';
+import SeoHead from '@/components/seo-head';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,7 +44,11 @@ export default function Contact({ contact, subjects, defaults }: ContactProps) {
 
     return (
         <ShopLayout>
-            <Head title="Contact Us" />
+            <SeoHead
+                title="Contact Us"
+                description="Contact CityShop support for buyers and sellers across Ghana."
+                url="/contact"
+            />
             <div className="mx-auto max-w-6xl px-4 py-10">
                 <div className="text-center">
                     <h1 className="text-3xl font-bold text-gray-900">Contact Us</h1>

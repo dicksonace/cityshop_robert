@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BuyerAddress;
 use App\Models\Checkout;
 use App\Models\Order;
+use App\Models\Payment;
 use App\Services\OrderService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
@@ -316,7 +317,8 @@ class CheckoutController extends Controller
                 ? Checkout::findOrFail($checkoutId)
                 : Checkout::whereHas('orders', fn ($q) => $q->where('payment_reference', $reference))->firstOrFail();
 
-            $this->orderService->fulfillPaidCheckout($checkout, $reference);
+            $paidAmount = $this->paystack->paidAmountGhs($data);
+            $this->orderService->fulfillPaidCheckout($checkout, $reference, $paidAmount);
 
             return redirect()->route('checkouts.show', $checkout)->with('success', 'Payment successful!');
         } catch (\Throwable $e) {
@@ -353,8 +355,17 @@ class CheckoutController extends Controller
                 $request->user()->email,
                 (float) $amount,
                 $reference,
-                ['checkout_id' => $checkout->id, 'checkout_number' => $checkout->checkout_number]
+                [
+                    'checkout_id' => $checkout->id,
+                    'checkout_number' => $checkout->checkout_number,
+                    'expected_amount' => (float) $amount,
+                ]
             );
+
+            Payment::where('checkout_id', $checkout->id)
+                ->where('channel', PaymentChannel::Marketplace)
+                ->where('status', PaymentStatus::Pending)
+                ->update(['reference' => $data['reference'] ?? $reference]);
 
             return response()->json([
                 'authorization_url' => $data['authorization_url'],

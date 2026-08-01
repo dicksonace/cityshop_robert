@@ -4,12 +4,13 @@ import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
 import MatchesForRecentViews from '@/components/shop/matches-for-recent-views';
 import ProductFilters, { ActiveFilterChips, applyFilters, ShopFilters } from '@/components/shop/product-filters';
 import SearchBox from '@/components/shop/search-box';
+import SeoHead from '@/components/seo-head';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import ShopLayout from '@/layouts/shop-layout';
 import { addProductToCart } from '@/lib/shop-actions';
 import { Paginated, Product } from '@/types/marketplace';
 import { SharedData } from '@/types';
-import { Head, router, usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Grid3X3, LayoutList, SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -67,7 +68,11 @@ export default function Home({ products, categories, brands, priceRange, filters
 
     return (
         <ShopLayout hideHeaderSearch>
-            <Head title="Shop" />
+            <SeoHead
+                title="Shop"
+                description="Discover products from trusted Ghana sellers. Free delivery options, secure checkout, and local stores on CityShop."
+                url="/"
+            />
             <HeroBanner slides={heroSlides} />
 
             <HomeCategoryShortcuts

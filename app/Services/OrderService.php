@@ -30,6 +30,7 @@ use App\Support\ProductStock;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -515,16 +516,35 @@ class OrderService
         return $checkout->orders->first();
     }
 
-    public function fulfillPaidCheckout(Checkout $checkout, string $paystackReference): Checkout
+    public function fulfillPaidCheckout(Checkout $checkout, string $paystackReference, ?float $paidAmountGhs = null): Checkout
     {
-        if ($checkout->payment_status === PaymentStatus::Paid) {
-            return $checkout;
-        }
+        return DB::transaction(function () use ($checkout, $paystackReference, $paidAmountGhs) {
+            $locked = Checkout::query()->whereKey($checkout->id)->lockForUpdate()->firstOrFail();
 
-        return DB::transaction(function () use ($checkout, $paystackReference) {
-            $checkout->load('orders.items');
+            if ($locked->payment_status === PaymentStatus::Paid) {
+                return $locked->load('orders.items');
+            }
 
-            foreach ($checkout->orders as $order) {
+            $locked->load(['orders.items', 'buyer']);
+
+            if ($paidAmountGhs !== null) {
+                $expected = (float) $locked->orders
+                    ->where('payment_channel', PaymentChannel::Marketplace)
+                    ->sum('total');
+
+                if ($expected > 0 && ! app(PaystackService::class)->amountsMatch($paidAmountGhs, $expected)) {
+                    Log::warning('Paystack checkout amount mismatch', [
+                        'checkout_id' => $locked->id,
+                        'reference' => $paystackReference,
+                        'paid' => $paidAmountGhs,
+                        'expected' => $expected,
+                    ]);
+
+                    throw new \RuntimeException('Payment amount does not match checkout total.');
+                }
+            }
+
+            foreach ($locked->orders as $order) {
                 if ($order->payment_channel === PaymentChannel::Direct) {
                     continue;
                 }
@@ -532,9 +552,9 @@ class OrderService
                 $this->fulfillPaidOrder($order, $paystackReference, skipCheckoutUpdate: true, skipBuyerNotify: true);
             }
 
-            $this->syncCheckoutPaymentStatus($checkout);
+            $this->syncCheckoutPaymentStatus($locked);
 
-            Payment::where('checkout_id', $checkout->id)
+            Payment::where('checkout_id', $locked->id)
                 ->where('channel', PaymentChannel::Marketplace)
                 ->update([
                     'status' => PaymentStatus::Paid,
@@ -542,11 +562,11 @@ class OrderService
                     'paid_at' => now(),
                 ]);
 
-            $checkout->refresh();
-            $checkout->buyer->notify(new PaymentConfirmedNotification($checkout->orders->first()));
-            $this->invoices->sendInvoices($checkout);
+            $locked->refresh();
+            $locked->buyer->notify(new PaymentConfirmedNotification($locked->orders->first()));
+            $this->invoices->sendInvoices($locked);
 
-            return $checkout;
+            return $locked;
         });
     }
 
@@ -601,18 +621,22 @@ class OrderService
 
     public function fulfillPaidOrder(Order $order, string $paystackReference, bool $skipCheckoutUpdate = false, bool $skipBuyerNotify = false): Order
     {
-        if ($order->payment_status === PaymentStatus::Paid) {
-            return $order;
-        }
-
         return DB::transaction(function () use ($order, $paystackReference, $skipCheckoutUpdate, $skipBuyerNotify) {
-            $order->update([
+            $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->payment_status === PaymentStatus::Paid) {
+                return $locked->load('items');
+            }
+
+            $locked->load(['items', 'buyer']);
+
+            $locked->update([
                 'payment_status' => PaymentStatus::Paid,
                 'payment_reference' => $paystackReference,
                 'status' => OrderStatus::Processing,
             ]);
 
-            foreach ($order->items as $item) {
+            foreach ($locked->items as $item) {
                 $product = Product::query()->whereKey($item->product_id)->lockForUpdate()->first();
 
                 if ($product) {
@@ -620,7 +644,7 @@ class OrderService
                     $this->analytics->recordPurchase($product, $item->quantity);
                 }
 
-                if ($order->payment_channel === PaymentChannel::Marketplace) {
+                if ($locked->payment_channel === PaymentChannel::Marketplace) {
                     $wallet = Wallet::firstOrCreate(
                         ['user_id' => $item->seller_id],
                         ['available_balance' => 0, 'pending_balance' => 0, 'total_earnings' => 0, 'withdrawn_amount' => 0]
@@ -634,31 +658,31 @@ class OrderService
 
                 $seller = User::find($item->seller_id);
                 $seller?->sellerProfile?->increment('total_sales');
-                $seller?->notify(new PaymentConfirmedNotification($order, $item));
+                $seller?->notify(new PaymentConfirmedNotification($locked, $item));
                 if ($seller) {
-                    AppNotificationService::notifySellerNewOrder($seller, $order, $item);
+                    AppNotificationService::notifySellerNewOrder($seller, $locked, $item);
                 }
             }
 
-            if ($order->payment_channel === PaymentChannel::Marketplace && (float) $order->shipping_cost > 0) {
-                $this->creditSellerShippingPending($order);
+            if ($locked->payment_channel === PaymentChannel::Marketplace && (float) $locked->shipping_cost > 0) {
+                $this->creditSellerShippingPending($locked);
             }
 
             if (! $skipBuyerNotify) {
-                $order->buyer->notify(new PaymentConfirmedNotification($order));
+                $locked->buyer->notify(new PaymentConfirmedNotification($locked));
             }
 
-            Payment::where('order_id', $order->id)->update([
+            Payment::where('order_id', $locked->id)->update([
                 'status' => PaymentStatus::Paid,
                 'reference' => $paystackReference,
                 'paid_at' => now(),
             ]);
 
-            if (! $skipCheckoutUpdate && $order->checkout_id) {
-                $this->syncCheckoutPaymentStatus($order->checkout);
+            if (! $skipCheckoutUpdate && $locked->checkout_id) {
+                $this->syncCheckoutPaymentStatus($locked->checkout);
             }
 
-            return $order->fresh('items');
+            return $locked->fresh('items');
         });
     }
 

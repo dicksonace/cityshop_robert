@@ -13,6 +13,39 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
+        @php
+            $ga4 = config('services.analytics.ga4_measurement_id');
+            $metaPixel = config('services.analytics.meta_pixel_id');
+        @endphp
+
+        @if ($ga4)
+            <script async src="https://www.googletagmanager.com/gtag/js?id={{ $ga4 }}"></script>
+            <script>
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', @json($ga4), { send_page_view: false });
+            </script>
+        @endif
+
+        @if ($metaPixel)
+            <script>
+                !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+                n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+                n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+                t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script',
+                'https://connect.facebook.net/en_US/fbevents.js');
+                fbq('init', @json($metaPixel));
+            </script>
+        @endif
+
+        <script>
+            window.__cityshopAnalytics = {
+                ga4: @json($ga4 ?: null),
+                metaPixel: @json($metaPixel ?: null)
+            };
+        </script>
+
         @routes
         @viteReactRefresh
         @vite(['resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])

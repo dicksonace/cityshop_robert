@@ -1,9 +1,10 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 
+import SeoHead from '@/components/seo-head';
 import StoreStorefront from '@/components/store/store-storefront';
 import ShopLayout from '@/layouts/shop-layout';
 import { addProductToCart } from '@/lib/shop-actions';
-import { Paginated, Product, SellerProfile } from '@/types/marketplace';
+import { Paginated, Product, SellerProfile, productImageUrl } from '@/types/marketplace';
 import { StoreCustomizationSettings } from '@/types/store-customization';
 import { SharedData } from '@/types';
 
@@ -45,6 +46,10 @@ export default function StorePage({
 }: StorePageProps) {
     const { auth } = usePage<SharedData>().props;
     const storeName = store.business_name ?? store.store_name ?? 'Store';
+    const storeDesc =
+        store.store_description?.replace(/\s+/g, ' ').trim().slice(0, 300) ||
+        `Shop ${storeName} on CityShop — products from a trusted Ghana seller.`;
+    const storeImage = store.shop_photo ? productImageUrl(store.shop_photo) : null;
 
     const handleAddToCart = (productId: number) => {
         if (!auth.user) {
@@ -56,7 +61,21 @@ export default function StorePage({
 
     return (
         <ShopLayout>
-            <Head title={search ? `${search} · ${storeName}` : storeName} />
+            <SeoHead
+                title={search ? `${search} · ${storeName}` : storeName}
+                description={storeDesc}
+                image={storeImage}
+                url={storeUrl || `/store/${store.slug}`}
+                type="profile"
+                jsonLd={{
+                    '@context': 'https://schema.org',
+                    '@type': 'Store',
+                    name: storeName,
+                    description: storeDesc,
+                    url: storeUrl || `/store/${store.slug}`,
+                    image: storeImage || undefined,
+                }}
+            />
             <StoreStorefront
                 store={store}
                 customization={customization}
