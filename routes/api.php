@@ -102,6 +102,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders/{order}/reviews', [ReviewController::class, 'store']);
 
         Route::get('/wallet', [WalletController::class, 'show']);
+        Route::get('/wallet/transactions', [WalletController::class, 'transactions']);
         Route::get('/wallet/manual-funding', [WalletController::class, 'manualFunding']);
         Route::post('/wallet/manual-top-up', [WalletController::class, 'manualTopUp']);
         Route::post('/wallet/paystack/initialize', [WalletController::class, 'initializePaystackTopUp']);

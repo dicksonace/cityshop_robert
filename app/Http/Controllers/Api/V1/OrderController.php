@@ -101,6 +101,13 @@ class OrderController extends Controller
                 'id' => $order->seller_id,
                 'store_name' => $order->seller?->sellerProfile?->displayName() ?? $order->seller?->name,
                 'store_slug' => $order->seller?->sellerProfile?->slug,
+                'seller_name' => $order->seller?->name,
+                'mobile' => $order->seller?->mobile,
+                'whatsapp' => $order->seller?->whatsapp,
+                'email' => $order->seller?->email,
+                'business_address' => $order->seller?->sellerProfile?->business_address,
+                'city' => $order->seller?->city,
+                'region' => $order->seller?->region,
             ],
             'seller_payment_method' => $method ? [
                 'id' => $method->id,

@@ -6,9 +6,11 @@ use App\Enums\UserRole;
 use App\Enums\WalletTopUpStatus;
 use App\Http\Controllers\Controller;
 use App\Models\WalletTopUpRequest;
+use App\Models\WalletTransaction;
 use App\Services\PaystackService;
 use App\Services\PlatformSettings;
 use App\Services\WalletService;
+use App\Services\WalletTransactionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +35,50 @@ class WalletController extends Controller
                 'withdrawn_amount' => (float) $wallet->withdrawn_amount,
                 'paystack_configured' => $this->paystack->isConfigured(),
                 'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
+            ],
+        ]);
+    }
+
+    /**
+     * Wallet ledger, newest first, with the running balance around each entry —
+     * the same view the web wallet page shows.
+     */
+    public function transactions(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        $wallet = WalletService::ensure($user);
+        $perPage = min(max((int) $request->integer('per_page', 20), 1), 50);
+
+        $transactions = WalletTransaction::where('user_id', $user->id)
+            ->latest()
+            ->paginate($perPage);
+
+        WalletTransactionService::attachRunningBalances(
+            $user->id,
+            $transactions->getCollection(),
+            (float) $wallet->available_balance,
+            (float) $wallet->pending_balance,
+        );
+
+        return response()->json([
+            'data' => $transactions->getCollection()->map(fn (WalletTransaction $tx) => [
+                'id' => $tx->id,
+                'type' => $tx->type->value,
+                'type_label' => $tx->type->label(),
+                'amount' => (float) $tx->amount,
+                'description' => $tx->description,
+                'reference' => $tx->reference,
+                'created_at' => $tx->created_at?->toIso8601String(),
+                'balance_before' => $tx->getAttribute('balance_before'),
+                'balance_after' => $tx->getAttribute('balance_after'),
+            ])->values(),
+            'meta' => [
+                'current_page' => $transactions->currentPage(),
+                'last_page' => $transactions->lastPage(),
+                'per_page' => $transactions->perPage(),
+                'total' => $transactions->total(),
             ],
         ]);
     }
