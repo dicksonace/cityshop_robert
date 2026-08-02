@@ -3,6 +3,7 @@ import { ArrowLeft, MapPin, MessageCircle, Phone, PhoneOff, Send, Store } from '
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import OnlineIndicator from '@/components/shop/online-indicator';
+import { useConversationRealtime } from '@/hooks/use-conversation-realtime';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 
@@ -132,6 +133,28 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
         }
     }, [auth.user.id, endCall, sendSignal]);
 
+    const ingestIncoming = useCallback(
+        async (incoming: ChatMessage[]) => {
+            if (!incoming.length) return;
+            setMessages((prev) => {
+                const ids = new Set(prev.map((m) => m.id));
+                const added = incoming.filter((m) => !ids.has(m.id));
+                return [...prev, ...added];
+            });
+            for (const msg of incoming) {
+                lastIdRef.current = Math.max(lastIdRef.current, msg.id);
+                if (msg.type.startsWith('call')) {
+                    await handleCallSignal(msg);
+                }
+            }
+        },
+        [handleCallSignal],
+    );
+
+    const realtimeLive = useConversationRealtime(conversation.id, (msg) => {
+        void ingestIncoming([msg as unknown as ChatMessage]);
+    });
+
     useEffect(() => {
         const poll = async () => {
             try {
@@ -141,26 +164,16 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
                 const data = await res.json();
                 if (data.other) setOther(data.other);
                 if (data.messages?.length) {
-                    setMessages((prev) => {
-                        const ids = new Set(prev.map((m) => m.id));
-                        const added = data.messages.filter((m: ChatMessage) => !ids.has(m.id));
-                        return [...prev, ...added];
-                    });
-                    for (const msg of data.messages as ChatMessage[]) {
-                        lastIdRef.current = Math.max(lastIdRef.current, msg.id);
-                        if (msg.type.startsWith('call')) {
-                            await handleCallSignal(msg);
-                        }
-                    }
+                    await ingestIncoming(data.messages as ChatMessage[]);
                 }
             } catch {
                 // silent poll failure
             }
         };
 
-        const interval = setInterval(poll, 2000);
+        const interval = setInterval(poll, realtimeLive ? 15000 : 2000);
         return () => clearInterval(interval);
-    }, [conversation.id, handleCallSignal]);
+    }, [conversation.id, ingestIncoming, realtimeLive]);
 
     const sendMessage = async (e: FormEvent) => {
         e.preventDefault();

@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\WishlistController;
+use Illuminate\Broadcasting\BroadcastController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,6 +52,25 @@ Route::prefix('v1')->group(function () {
     Route::get('/paystack/mobile-return', [CheckoutController::class, 'paystackMobileReturn']);
 
     Route::middleware('auth:sanctum')->group(function () {
+        Route::match(['get', 'post'], '/broadcasting/auth', [BroadcastController::class, 'authenticate']);
+
+        Route::get('/realtime/config', function () {
+            $key = config('broadcasting.connections.reverb.key');
+            $host = (string) config('broadcasting.connections.reverb.options.host');
+            if (in_array($host, ['localhost', '127.0.0.1', '0.0.0.0', ''], true)) {
+                $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: request()->getHost();
+            }
+
+            return response()->json([
+                'enabled' => filled($key) && config('broadcasting.default') === 'reverb',
+                'key' => $key,
+                'host' => $host,
+                'port' => (int) config('broadcasting.connections.reverb.options.port', 443),
+                'scheme' => config('broadcasting.connections.reverb.options.scheme', 'https'),
+                'auth_endpoint' => url('/api/v1/broadcasting/auth'),
+            ]);
+        });
+
         Route::prefix('auth')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::post('/logout', [AuthController::class, 'logout']);

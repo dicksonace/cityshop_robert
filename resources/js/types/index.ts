@@ -35,6 +35,12 @@ export interface SharedData {
     unreadMessages?: number;
     unreadNotifications?: number;
     panelNavCounts?: Record<string, number>;
+    reverb?: {
+        key?: string | null;
+        host?: string | null;
+        port?: number | string | null;
+        scheme?: string | null;
+    };
     flash: { success?: string; error?: string; info?: string; sellerInviteUrl?: string };
     [key: string]: unknown;
 }

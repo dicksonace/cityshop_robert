@@ -13,13 +13,14 @@ import {
     Trash2,
     X,
 } from 'lucide-react';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import OnlineIndicator from '@/components/shop/online-indicator';
 import ChatCallLogItem from '@/components/chat/chat-call-log-item';
 import { useChat } from '@/contexts/chat-context';
 import { useToastOptional } from '@/contexts/toast-context';
 import { useChatVoiceCall } from '@/hooks/use-chat-voice-call';
+import { useConversationRealtime } from '@/hooks/use-conversation-realtime';
 import * as chatApi from '@/lib/chat-api';
 import { playChatReceiveSound, playChatSendSound } from '@/lib/chat-sounds';
 import { cn } from '@/lib/utils';
@@ -33,7 +34,13 @@ function formatTime(value?: string): string {
 }
 
 function isTimelineMessage(msg: ChatMessage): boolean {
-    return msg.type === 'text' || msg.type === 'image' || msg.type === 'call_log';
+    return (
+        msg.type === 'text' ||
+        msg.type === 'image' ||
+        msg.type === 'video' ||
+        msg.type === 'voice' ||
+        msg.type === 'call_log'
+    );
 }
 
 export default function ChatThreadPanel() {
@@ -81,6 +88,42 @@ export default function ChatThreadPanel() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, callState]);
 
+    const ingestMessages = useCallback(
+        async (incoming: ChatMessage[], { playSound }: { playSound: boolean }) => {
+            if (!incoming.length) return;
+
+            let receivedNew = false;
+            for (const msg of incoming) {
+                if (msg.type.startsWith('call')) {
+                    await handleCallMessage(msg);
+                }
+                if (
+                    playSound &&
+                    (msg.type === 'text' ||
+                        msg.type === 'image' ||
+                        msg.type === 'video' ||
+                        msg.type === 'voice') &&
+                    msg.sender_id !== auth.user?.id
+                ) {
+                    receivedNew = true;
+                }
+            }
+            if (receivedNew) {
+                playChatReceiveSound();
+            }
+            setMessages((prev) => {
+                const ids = new Set(prev.map((m) => m.id));
+                return [...prev, ...incoming.filter((m) => !ids.has(m.id))];
+            });
+            lastIdRef.current = Math.max(lastIdRef.current, ...incoming.map((m) => m.id));
+        },
+        [auth.user?.id, handleCallMessage, setMessages],
+    );
+
+    const realtimeLive = useConversationRealtime(activeConversation?.id, (msg) => {
+        void ingestMessages([msg], { playSound: true });
+    });
+
     useEffect(() => {
         if (!activeConversation) return;
 
@@ -92,35 +135,22 @@ export default function ChatThreadPanel() {
                     setActiveConversation((prev) => (prev ? { ...prev, other: data.other! } : prev));
                 }
                 if (data.messages?.length) {
-                    let receivedNew = false;
-                    for (const msg of data.messages) {
-                        if (msg.type.startsWith('call')) {
-                            await handleCallMessage(msg);
-                        }
-                        if (
-                            (msg.type === 'text' || msg.type === 'image') &&
-                            msg.sender_id !== auth.user?.id
-                        ) {
-                            receivedNew = true;
-                        }
-                    }
-                    if (receivedNew) {
-                        playChatReceiveSound();
-                    }
-                    setMessages((prev) => {
-                        const ids = new Set(prev.map((m) => m.id));
-                        return [...prev, ...data.messages.filter((m) => !ids.has(m.id))];
-                    });
-                    lastIdRef.current = Math.max(lastIdRef.current, ...data.messages.map((m) => m.id));
+                    await ingestMessages(data.messages, { playSound: !realtimeLive });
                 }
             } catch {
                 // ignore poll errors
             }
         };
 
-        const interval = setInterval(poll, 2000);
+        // Live Reverb carries new messages; keep a slow poll for presence + missed events.
+        const interval = setInterval(poll, realtimeLive ? 15000 : 2000);
         return () => clearInterval(interval);
-    }, [activeConversation, auth.user?.id, handleCallMessage, setActiveConversation, setMessages]);
+    }, [
+        activeConversation,
+        ingestMessages,
+        realtimeLive,
+        setActiveConversation,
+    ]);
 
     const replaceMessage = (updated: ChatMessage) => {
         setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));

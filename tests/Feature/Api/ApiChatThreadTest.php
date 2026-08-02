@@ -185,6 +185,76 @@ class ApiChatThreadTest extends TestCase
         $this->assertSame(2, Message::where('conversation_id', $conversation->id)->count());
     }
 
+    public function test_realtime_config_is_available_to_authenticated_clients(): void
+    {
+        [$buyer] = $this->conversation();
+
+        Sanctum::actingAs($buyer);
+
+        config([
+            'broadcasting.default' => 'reverb',
+            'broadcasting.connections.reverb.key' => 'test-reverb-key',
+            'broadcasting.connections.reverb.options.host' => 'reverb.example',
+            'broadcasting.connections.reverb.options.port' => 443,
+            'broadcasting.connections.reverb.options.scheme' => 'https',
+        ]);
+
+        $this->getJson('/api/v1/realtime/config')
+            ->assertOk()
+            ->assertJsonPath('enabled', true)
+            ->assertJsonPath('key', 'test-reverb-key')
+            ->assertJsonPath('host', 'reverb.example')
+            ->assertJsonPath('auth_endpoint', url('/api/v1/broadcasting/auth'));
+    }
+
+    public function test_broadcast_auth_allows_conversation_members(): void
+    {
+        [$buyer, , $conversation] = $this->conversation();
+
+        Sanctum::actingAs($buyer);
+
+        config([
+            'broadcasting.default' => 'reverb',
+            'broadcasting.connections.reverb.key' => 'test-reverb-key',
+            'broadcasting.connections.reverb.secret' => 'test-reverb-secret',
+            'broadcasting.connections.reverb.app_id' => 'test-app',
+            'broadcasting.connections.reverb.options.host' => '127.0.0.1',
+            'broadcasting.connections.reverb.options.port' => 8080,
+            'broadcasting.connections.reverb.options.scheme' => 'http',
+            'broadcasting.connections.reverb.options.useTLS' => false,
+        ]);
+
+        $this->postJson('/api/v1/broadcasting/auth', [
+            'socket_id' => '1234.5678',
+            'channel_name' => 'private-conversation.'.$conversation->id,
+        ])->assertOk()
+            ->assertJsonStructure(['auth']);
+    }
+
+    public function test_broadcast_auth_rejects_outsiders(): void
+    {
+        [, , $conversation] = $this->conversation();
+        $outsider = User::factory()->create(['role' => UserRole::Buyer]);
+
+        Sanctum::actingAs($outsider);
+
+        config([
+            'broadcasting.default' => 'reverb',
+            'broadcasting.connections.reverb.key' => 'test-reverb-key',
+            'broadcasting.connections.reverb.secret' => 'test-reverb-secret',
+            'broadcasting.connections.reverb.app_id' => 'test-app',
+            'broadcasting.connections.reverb.options.host' => '127.0.0.1',
+            'broadcasting.connections.reverb.options.port' => 8080,
+            'broadcasting.connections.reverb.options.scheme' => 'http',
+            'broadcasting.connections.reverb.options.useTLS' => false,
+        ]);
+
+        $this->postJson('/api/v1/broadcasting/auth', [
+            'socket_id' => '1234.5678',
+            'channel_name' => 'private-conversation.'.$conversation->id,
+        ])->assertForbidden();
+    }
+
     /** @return array{0: User, 1: User, 2: Conversation} */
     private function conversation(bool $withImage = false, ?float $discountPrice = null): array
     {

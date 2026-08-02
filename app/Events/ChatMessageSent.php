@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\Message;
+use App\Services\ChatService;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -29,20 +30,14 @@ class ChatMessageSent implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        $message = $this->message->relationLoaded('sender')
+            ? $this->message
+            : $this->message->load('sender:id,name');
+
         return [
-            'message' => [
-                'id' => $this->message->id,
-                'conversation_id' => $this->message->conversation_id,
-                'sender_id' => $this->message->sender_id,
-                'type' => $this->message->type->value,
-                'body' => $this->message->body,
-                'metadata' => $this->message->metadata,
-                'created_at' => $this->message->created_at?->toIso8601String(),
-                'sender' => [
-                    'id' => $this->message->sender->id,
-                    'name' => $this->message->sender->name,
-                ],
-            ],
+            'message' => array_merge(ChatService::formatMessage($message), [
+                'conversation_id' => $message->conversation_id,
+            ]),
         ];
     }
 }
