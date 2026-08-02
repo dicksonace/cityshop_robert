@@ -11,5 +11,7 @@ enum MessageType: string
     case CallEnd = 'call_end';
     case CallLog = 'call_log';
     case Image = 'image';
+    case Video = 'video';
+    case Voice = 'voice';
     case System = 'system';
 }

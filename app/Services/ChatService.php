@@ -25,6 +25,8 @@ class ChatService
         return [
             MessageType::Text,
             MessageType::Image,
+            MessageType::Video,
+            MessageType::Voice,
             MessageType::CallLog,
             MessageType::System,
         ];
@@ -108,6 +110,8 @@ class ChatService
                 $notificationBody = match (true) {
                     $type === MessageType::Text => $body,
                     $type === MessageType::Image => 'Sent a photo',
+                    $type === MessageType::Video => 'Sent a video',
+                    $type === MessageType::Voice => 'Sent a voice message',
                     default => 'New activity',
                 };
 
@@ -198,6 +202,11 @@ class ChatService
             'body' => $deleted ? null : $message->body,
             'metadata' => $message->metadata,
             'image_url' => $metadata['image_url'] ?? null,
+            'video_url' => $metadata['video_url'] ?? null,
+            'voice_url' => $metadata['voice_url'] ?? null,
+            'duration_seconds' => isset($metadata['duration_seconds'])
+                ? (int) $metadata['duration_seconds']
+                : null,
             'call_log' => $metadata['call_log'] ?? null,
             'read_at' => $message->read_at?->toIso8601String(),
             'reply_to' => $metadata['reply_to'] ?? null,

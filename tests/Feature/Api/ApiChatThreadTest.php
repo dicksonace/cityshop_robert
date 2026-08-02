@@ -148,6 +148,43 @@ class ApiChatThreadTest extends TestCase
         Storage::disk('public')->assertExists($message->metadata['image_path']);
     }
 
+    public function test_a_buyer_can_send_video_and_voice_in_chat(): void
+    {
+        Storage::fake('public');
+
+        [$buyer, , $conversation] = $this->conversation();
+
+        Sanctum::actingAs($buyer);
+
+        $this->post(
+            "/api/v1/messages/{$conversation->id}/video",
+            [
+                'video' => UploadedFile::fake()->create('clip.mp4', 1200, 'video/mp4'),
+                'caption' => 'Quick look',
+                'duration_seconds' => 14,
+            ],
+            ['Accept' => 'application/json'],
+        )
+            ->assertCreated()
+            ->assertJsonPath('message.type', 'video')
+            ->assertJsonPath('message.body', 'Quick look')
+            ->assertJsonPath('message.duration_seconds', 14);
+
+        $this->post(
+            "/api/v1/messages/{$conversation->id}/voice",
+            [
+                'voice' => UploadedFile::fake()->create('note.m4a', 200, 'audio/mp4'),
+                'duration_seconds' => 6,
+            ],
+            ['Accept' => 'application/json'],
+        )
+            ->assertCreated()
+            ->assertJsonPath('message.type', 'voice')
+            ->assertJsonPath('message.duration_seconds', 6);
+
+        $this->assertSame(2, Message::where('conversation_id', $conversation->id)->count());
+    }
+
     /** @return array{0: User, 1: User, 2: Conversation} */
     private function conversation(bool $withImage = false, ?float $discountPrice = null): array
     {

@@ -79,6 +79,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/messages/{conversation}', [MessageController::class, 'show']);
         Route::post('/messages/{conversation}/send', [MessageController::class, 'send']);
         Route::post('/messages/{conversation}/image', [MessageController::class, 'uploadImage']);
+        Route::post('/messages/{conversation}/video', [MessageController::class, 'uploadVideo']);
+        Route::post('/messages/{conversation}/voice', [MessageController::class, 'uploadVoice']);
         Route::get('/messages/{conversation}/poll', [MessageController::class, 'poll']);
         Route::delete('/messages/{conversation}/messages/{message}', [MessageController::class, 'destroy']);
 

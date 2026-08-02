@@ -77,6 +77,69 @@ class MessageController extends Controller
         ]);
     }
 
+    public function uploadVideo(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'video' => ['required', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/3gpp', 'max:51200'],
+            'caption' => ['nullable', 'string', 'max:500'],
+            'duration_seconds' => ['nullable', 'integer', 'min:0', 'max:600'],
+        ]);
+
+        $path = $request->file('video')->store('chat/'.$conversation->id, 'public');
+        $url = Storage::disk('public')->url($path);
+
+        $message = ChatService::sendMessage(
+            $conversation,
+            $request->user(),
+            $validated['caption'] ?? '',
+            MessageType::Video,
+            [
+                'video_path' => $path,
+                'video_url' => $url,
+                'duration_seconds' => $validated['duration_seconds'] ?? null,
+            ],
+        );
+
+        $message->load('sender:id,name');
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+        ]);
+    }
+
+    public function uploadVoice(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'voice' => ['required', 'file', 'mimetypes:audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/3gpp', 'max:10240'],
+            'duration_seconds' => ['nullable', 'integer', 'min:1', 'max:600'],
+        ]);
+
+        $path = $request->file('voice')->store('chat/'.$conversation->id, 'public');
+        $url = Storage::disk('public')->url($path);
+
+        $message = ChatService::sendMessage(
+            $conversation,
+            $request->user(),
+            '',
+            MessageType::Voice,
+            [
+                'voice_path' => $path,
+                'voice_url' => $url,
+                'duration_seconds' => $validated['duration_seconds'] ?? null,
+            ],
+        );
+
+        $message->load('sender:id,name');
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+        ]);
+    }
+
     public function update(Request $request, Conversation $conversation, Message $message): JsonResponse
     {
         abort_unless($conversation->involves($request->user()), 403);
