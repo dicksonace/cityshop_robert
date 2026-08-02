@@ -63,6 +63,7 @@ class ProductController extends Controller
 
         return Inertia::render('shop/product-show', [
             'product' => $product,
+            'cashOnDelivery' => $product->cashOnDeliveryAvailable(),
             'related' => $related,
             'reviews' => $reviews,
             'reviewable' => $reviewable ? [

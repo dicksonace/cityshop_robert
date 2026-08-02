@@ -46,6 +46,7 @@ class CheckoutController extends Controller
                 'store_slug' => $profile?->slug,
                 'accept_marketplace_payments' => $profile?->accept_marketplace_payments ?? true,
                 'accept_direct_payments' => $profile?->accept_direct_payments ?? false,
+                'accepts_cash' => $profile?->acceptsCashOnDelivery() ?? true,
                 'payment_methods' => ($profile?->paymentMethods ?? collect())
                     ->where('is_active', true)
                     ->filter(fn ($method) => ! $method->isDisabled())

@@ -29,6 +29,7 @@ interface PaymentMethodsProps {
     profile: {
         accept_marketplace_payments: boolean;
         accept_direct_payments: boolean;
+        cash_on_delivery_enabled: boolean;
         payment_methods_locked: boolean;
         payment_methods_lock_reason: string | null;
     };
@@ -43,6 +44,7 @@ export default function PaymentMethodsIndex({ profile, methods, types }: Payment
     const settingsForm = useForm({
         accept_marketplace_payments: profile.accept_marketplace_payments,
         accept_direct_payments: profile.accept_direct_payments,
+        cash_on_delivery_enabled: profile.cash_on_delivery_enabled,
     });
 
     const methodForm = useForm({
@@ -112,6 +114,19 @@ export default function PaymentMethodsIndex({ profile, methods, types }: Payment
                             <div>
                                 <p className="font-medium">My payment methods</p>
                                 <p className="text-sm text-gray-500">Buyer pays you directly. You confirm payment in your orders.</p>
+                            </div>
+                        </label>
+                        <label className="flex items-start gap-3 rounded-lg border p-3">
+                            <input
+                                type="checkbox"
+                                checked={settingsForm.data.cash_on_delivery_enabled}
+                                onChange={(e) => settingsForm.setData('cash_on_delivery_enabled', e.target.checked)}
+                            />
+                            <div>
+                                <p className="font-medium">Cash on delivery</p>
+                                <p className="text-sm text-gray-500">
+                                    Buyer pays cash when you deliver. Turn it off any time and checkout stops offering it for your store.
+                                </p>
                             </div>
                         </label>
                         <Button type="submit" disabled={settingsForm.processing} className="bg-orange-500 hover:bg-orange-600">

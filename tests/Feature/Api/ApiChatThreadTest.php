@@ -11,6 +11,8 @@ use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -106,6 +108,44 @@ class ApiChatThreadTest extends TestCase
         $this->getJson("/api/v1/messages/{$conversation->id}")
             ->assertOk()
             ->assertJsonPath('conversation.product.price', fn ($price) => (float) $price === 39000.0);
+    }
+
+    public function test_a_buyer_can_send_a_photo_in_chat(): void
+    {
+        Storage::fake('public');
+
+        [$buyer, , $conversation] = $this->conversation();
+
+        Sanctum::actingAs($buyer);
+
+        $response = $this->post(
+            "/api/v1/messages/{$conversation->id}/image",
+            [
+                'image' => UploadedFile::fake()->image('honda.jpg', 640, 480),
+                'caption' => 'Still available?',
+            ],
+            ['Accept' => 'application/json'],
+        );
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('message.type', 'image')
+            ->assertJsonPath('message.body', 'Still available?');
+
+        $imageUrl = $response->json('message.image_url');
+        $this->assertIsString($imageUrl);
+        $this->assertStringContainsString('chat/'.$conversation->id, $imageUrl);
+
+        $message = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('type', MessageType::Image)
+            ->first();
+
+        $this->assertNotNull($message);
+        $this->assertSame($buyer->id, $message->sender_id);
+        $this->assertSame('Still available?', $message->body);
+        $this->assertStringContainsString('chat/'.$conversation->id, (string) ($message->metadata['image_path'] ?? ''));
+        Storage::disk('public')->assertExists($message->metadata['image_path']);
     }
 
     /** @return array{0: User, 1: User, 2: Conversation} */

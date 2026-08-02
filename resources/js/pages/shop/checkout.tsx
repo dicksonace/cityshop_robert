@@ -39,6 +39,7 @@ interface SellerGroup {
     store_slug?: string | null;
     accept_marketplace_payments: boolean;
     accept_direct_payments: boolean;
+    accepts_cash: boolean;
     payment_methods: SellerPaymentMethod[];
     items: CartItem[];
     subtotal: number;
@@ -200,11 +201,22 @@ export default function Checkout({
     const walletCoversMarketplace = walletBalance >= marketplaceTotal;
     const canUseWallet = hasMarketplaceOrders && walletCoversMarketplace;
 
+    // One payment method covers the whole order, so a single store that has
+    // cash on delivery switched off takes the option off the table.
+    const storesWithoutCash = sellerGroups.filter((group) => !group.accepts_cash);
+    const canUseCash = storesWithoutCash.length === 0;
+
     useEffect(() => {
         if (data.payment_method === 'wallet' && !canUseWallet) {
             setData('payment_method', 'momo');
         }
     }, [canUseWallet, data.payment_method, setData]);
+
+    useEffect(() => {
+        if (data.payment_method === 'cash' && !canUseCash) {
+            setData('payment_method', 'momo');
+        }
+    }, [canUseCash, data.payment_method, setData]);
 
     useEffect(() => {
         const itemCount = sellerGroups.reduce((n, g) => n + g.items.length, 0);
@@ -385,20 +397,29 @@ export default function Checkout({
                                     </label>
                                 ))}
                                 <label
-                                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 hover:bg-gray-50 ${
-                                        data.payment_method === 'cash' ? 'border-orange-300 bg-orange-50/40' : ''
-                                    }`}
+                                    className={`flex items-start gap-3 rounded-xl border p-3 ${
+                                        canUseCash ? 'cursor-pointer hover:bg-gray-50' : 'cursor-not-allowed opacity-60'
+                                    } ${data.payment_method === 'cash' ? 'border-orange-300 bg-orange-50/40' : ''}`}
                                 >
                                     <PaymentMethodIcon method="cash" />
                                     <div className="min-w-0 flex-1">
                                         <span className="font-medium text-gray-900">Cash on Delivery</span>
-                                        <p className="mt-0.5 text-xs text-gray-500">
-                                            Pay when the seller brings the item.
-                                        </p>
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            Note: Select a seller near your area, or check store information if near you.
-                                        </p>
-                                        {sellerGroups.some((g) => g.store_slug) && (
+                                        {canUseCash ? (
+                                            <>
+                                                <p className="mt-0.5 text-xs text-gray-500">
+                                                    Pay when the seller brings the item.
+                                                </p>
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    Note: Select a seller near your area, or check store information if near you.
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <p className="mt-0.5 text-xs text-gray-500">
+                                                {storesWithoutCash.map((g) => g.seller_name).join(', ')}{' '}
+                                                {storesWithoutCash.length === 1 ? 'does' : 'do'} not take cash on delivery.
+                                            </p>
+                                        )}
+                                        {canUseCash && sellerGroups.some((g) => g.store_slug) && (
                                             <div
                                                 className="mt-2 flex flex-wrap gap-1.5"
                                                 onClick={(e) => e.preventDefault()}
@@ -424,6 +445,7 @@ export default function Checkout({
                                         value="cash"
                                         checked={data.payment_method === 'cash'}
                                         onChange={() => setData('payment_method', 'cash')}
+                                        disabled={!canUseCash}
                                         className="mt-1"
                                     />
                                 </label>

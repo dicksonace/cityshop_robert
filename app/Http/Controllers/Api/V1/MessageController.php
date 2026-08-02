@@ -108,6 +108,36 @@ class MessageController extends Controller
         ], 201);
     }
 
+    public function uploadImage(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+            'caption' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $path = $request->file('image')->store('chat/'.$conversation->id, 'public');
+        $url = Storage::disk('public')->url($path);
+
+        $message = ChatService::sendMessage(
+            $conversation,
+            $request->user(),
+            $validated['caption'] ?? '',
+            MessageType::Image,
+            [
+                'image_path' => $path,
+                'image_url' => $url,
+            ],
+        );
+
+        $message->load('sender:id,name');
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+        ], 201);
+    }
+
     public function poll(Request $request, Conversation $conversation): JsonResponse
     {
         abort_unless($conversation->involves($request->user()), 403);

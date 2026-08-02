@@ -112,6 +112,13 @@ class Product extends Model
         return $this->belongsTo(User::class, 'seller_id');
     }
 
+    /** Cash on delivery needs the product's opt-in and the store's switch. */
+    public function cashOnDeliveryAvailable(): bool
+    {
+        return (bool) $this->cash_on_delivery
+            && ($this->seller?->sellerProfile?->acceptsCashOnDelivery() ?? true);
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);

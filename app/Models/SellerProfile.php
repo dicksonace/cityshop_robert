@@ -36,6 +36,7 @@ class SellerProfile extends Model
         'total_sales',
         'accept_marketplace_payments',
         'accept_direct_payments',
+        'cash_on_delivery_enabled',
         'payment_methods_locked_at',
         'payment_methods_locked_by',
         'payment_methods_lock_reason',
@@ -47,6 +48,7 @@ class SellerProfile extends Model
             'is_business_registered' => 'boolean',
             'accept_marketplace_payments' => 'boolean',
             'accept_direct_payments' => 'boolean',
+            'cash_on_delivery_enabled' => 'boolean',
             'status' => SellerStatus::class,
             'approved_at' => 'datetime',
             'payment_methods_locked_at' => 'datetime',
@@ -106,6 +108,12 @@ class SellerProfile extends Model
     public function paymentMethodsAreLocked(): bool
     {
         return $this->payment_methods_locked_at !== null;
+    }
+
+    /** Stores without the column set keep the old always-on behaviour. */
+    public function acceptsCashOnDelivery(): bool
+    {
+        return (bool) ($this->cash_on_delivery_enabled ?? true);
     }
 
     public function isApproved(): bool

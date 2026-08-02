@@ -100,6 +100,13 @@ class OrderService
             foreach ($grouped as $sellerId => $items) {
                 $seller = User::with('sellerProfile.paymentMethods')->findOrFail($sellerId);
                 $profile = $seller->sellerProfile;
+
+                if ($paymentMethod === 'cash' && $profile && ! $profile->acceptsCashOnDelivery()) {
+                    throw new \RuntimeException(
+                        $profile->displayName().' is not taking cash on delivery right now. Choose another payment method.'
+                    );
+                }
+
                 $choice = $this->sellerPaymentChoice($sellerPayments, (int) $sellerId);
                 $channel = $this->resolvePaymentChannel($profile, $choice);
 

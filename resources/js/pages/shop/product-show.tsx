@@ -23,12 +23,14 @@ import { Button } from '@/components/ui/button';
 
 interface ProductShowProps {
     product: Product;
+    /** The product opt-in and the store's switch, already combined. */
+    cashOnDelivery: boolean;
     related: Product[];
     reviews: Paginated<ProductReview>;
     reviewable?: { order_id: number; order_item_id: number } | null;
 }
 
-export default function ProductShow({ product, related, reviews, reviewable }: ProductShowProps) {
+export default function ProductShow({ product, cashOnDelivery, related, reviews, reviewable }: ProductShowProps) {
     const { auth, canShop = true } = usePage<SharedData>().props;
     const price = product.discount_price ?? product.price;
     const [likes, setLikes] = useState(product.wishlist_adds ?? 0);
@@ -157,7 +159,7 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                             {product.is_negotiable && (
                                 <span className="rounded-md bg-amber-500 px-2 py-1 text-xs font-bold text-white">NEGOTIABLE</span>
                             )}
-                            {product.cash_on_delivery && (
+                            {cashOnDelivery && (
                                 <span className="rounded-md bg-teal-600 px-2 py-1 text-xs font-bold text-white">CASH ON DELIVERY</span>
                             )}
                         </div>
@@ -289,7 +291,7 @@ export default function ProductShow({ product, related, reviews, reviewable }: P
                                     </div>
                                 )}
 
-                                {product.cash_on_delivery && (
+                                {cashOnDelivery && (
                                     <p className="px-1 text-sm font-medium text-teal-700">Cash on delivery available</p>
                                 )}
                                 {product.is_negotiable && (

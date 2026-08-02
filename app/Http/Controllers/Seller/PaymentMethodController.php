@@ -26,6 +26,7 @@ class PaymentMethodController extends Controller
                 'id' => $profile->id,
                 'accept_marketplace_payments' => $profile->accept_marketplace_payments,
                 'accept_direct_payments' => $profile->accept_direct_payments,
+                'cash_on_delivery_enabled' => $profile->acceptsCashOnDelivery(),
                 'payment_methods_locked' => $profile->paymentMethodsAreLocked(),
                 'payment_methods_lock_reason' => $profile->payment_methods_lock_reason,
             ],
@@ -58,6 +59,7 @@ class PaymentMethodController extends Controller
         $validated = $request->validate([
             'accept_marketplace_payments' => ['required', 'boolean'],
             'accept_direct_payments' => ['required', 'boolean'],
+            'cash_on_delivery_enabled' => ['required', 'boolean'],
         ]);
 
         if (! $validated['accept_marketplace_payments'] && ! $validated['accept_direct_payments']) {

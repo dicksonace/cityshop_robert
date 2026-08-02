@@ -34,7 +34,7 @@ class ProductResource extends JsonResource
             'delivery_fee' => $this->delivery_fee !== null ? (float) $this->delivery_fee : null,
             'delivery_days' => $this->delivery_days !== null ? (int) $this->delivery_days : null,
             'is_preorder' => (bool) $this->is_preorder,
-            'cash_on_delivery' => (bool) ($this->cash_on_delivery ?? false),
+            'cash_on_delivery' => $this->cashOnDeliveryAvailable(),
             'pickup_available' => (bool) ($this->pickup_available ?? false),
             'ships_nationwide' => (bool) ($this->ships_nationwide ?? false),
             'is_negotiable' => (bool) ($this->is_negotiable ?? false),
