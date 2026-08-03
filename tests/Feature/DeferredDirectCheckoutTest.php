@@ -119,4 +119,101 @@ class DeferredDirectCheckoutTest extends TestCase
             CartItem::where('user_id', $buyer->id)->where('product_id', $product->id)->doesntExist()
         );
     }
+
+    public function test_api_direct_only_checkout_does_not_create_order_until_proof_submitted(): void
+    {
+        Storage::fake('public');
+
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+        $profile = SellerProfile::create([
+            'user_id' => $seller->id,
+            'store_name' => 'Bank Only Shop',
+            'status' => SellerStatus::Approved,
+            'approved_at' => now(),
+            'accept_direct_payments' => true,
+            'accept_marketplace_payments' => false,
+        ]);
+        $method = SellerPaymentMethod::create([
+            'seller_profile_id' => $profile->id,
+            'type' => SellerPaymentMethodType::Bank,
+            'account_name' => 'Seller Bank',
+            'account_number' => '1234567890',
+            'bank_name' => 'UBA Bank',
+            'is_active' => true,
+            'is_default' => true,
+        ]);
+
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Deferred Phone',
+            'slug' => 'deferred-phone',
+            'price' => 1500,
+            'quantity' => 5,
+            'status' => ProductStatus::Approved,
+            'free_shipping' => true,
+        ]);
+
+        CartItem::create([
+            'user_id' => $buyer->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+        ]);
+
+        $address = BuyerAddress::create([
+            'user_id' => $buyer->id,
+            'first_name' => 'Kofi',
+            'last_name' => 'Amoah',
+            'phone' => '0538790083',
+            'address_line' => 'Sefwi Bekwai',
+            'region' => 'Western North',
+            'city' => 'Sefwi Bekwai',
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($buyer, 'sanctum')
+            ->postJson('/api/v1/checkout', [
+                'address_id' => $address->id,
+                'payment_method' => 'momo',
+                'seller_payments' => [
+                    (string) $seller->id => [
+                        'channel' => 'direct',
+                        'method_id' => $method->id,
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('next', 'direct_pay')
+            ->assertJsonPath('packages.0.seller_id', $seller->id)
+            ->assertJsonMissingPath('checkout.id');
+
+        $this->assertSame(0, Order::count());
+        $this->assertDatabaseHas('cart_items', [
+            'user_id' => $buyer->id,
+            'product_id' => $product->id,
+        ]);
+
+        $this->actingAs($buyer, 'sanctum')
+            ->getJson('/api/v1/checkout/direct-pay')
+            ->assertOk()
+            ->assertJsonPath('packages.0.payment_method.account_number', '1234567890');
+
+        $this->actingAs($buyer, 'sanctum')
+            ->post(
+                "/api/v1/checkout/direct-pay/{$seller->id}",
+                [
+                    'proof' => UploadedFile::fake()->image('paid.jpg'),
+                    'reference' => 'MP2608030001',
+                ],
+                ['Accept' => 'application/json'],
+            )
+            ->assertCreated()
+            ->assertJsonPath('next', 'orders')
+            ->assertJsonPath('order.direct_payment_reference', 'MP2608030001');
+
+        $this->assertSame(1, Order::count());
+        $this->assertTrue(
+            CartItem::where('user_id', $buyer->id)->where('product_id', $product->id)->doesntExist()
+        );
+    }
 }

@@ -14,9 +14,11 @@ use App\Services\CheckoutPaymentVerifier;
 use App\Services\OrderService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
+use App\Support\DirectCheckoutDraft;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class CheckoutController extends Controller
@@ -113,13 +115,42 @@ class CheckoutController extends Controller
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
 
+        $shipping = $address->toShippingArray();
+        $sellerPayments = $request->input('seller_payments', []);
+        $sellerCoupons = $request->input('seller_coupons', []);
+        $method = $request->string('payment_method')->toString();
+
+        // Match web: pay-to-seller only — no order until proof / transaction ID is submitted.
+        if ($method !== 'cash'
+            && $this->orderService->cartIsDirectOnly($request->user(), $sellerPayments)) {
+            DirectCheckoutDraft::putForUser(
+                $request->user(),
+                $address->id,
+                $shipping,
+                $sellerPayments,
+                $sellerCoupons,
+            );
+
+            $packages = $this->orderService->directPayPackagesFromCart(
+                $request->user(),
+                $sellerPayments,
+            )->map(fn (array $package) => $this->directPackagePayload($package))->values();
+
+            return response()->json([
+                'message' => 'Send payment to the seller, then upload proof. No order is created until you submit.',
+                'next' => 'direct_pay',
+                'packages' => $packages,
+                'shipping' => $shipping,
+            ]);
+        }
+
         try {
             $checkout = $this->orderService->createCheckoutFromCart(
                 $request->user(),
-                $address->toShippingArray(),
-                $request->string('payment_method')->toString(),
-                $request->input('seller_payments', []),
-                $request->input('seller_coupons', []),
+                $shipping,
+                $method,
+                $sellerPayments,
+                $sellerCoupons,
             );
         } catch (ValidationException $e) {
             throw $e;
@@ -127,7 +158,7 @@ class CheckoutController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        $method = $request->string('payment_method')->toString();
+        DirectCheckoutDraft::clearForUser($request->user());
 
         if ($method === 'cash') {
             $this->orderService->confirmCashOnDelivery($checkout);
@@ -163,6 +194,98 @@ class CheckoutController extends Controller
             'message' => 'Checkout created. Complete payment.',
             'checkout' => $this->checkoutPayload($checkout->fresh(['orders.items'])),
             'next' => 'paystack_or_direct',
+        ], 201);
+    }
+
+    public function directPay(Request $request): JsonResponse
+    {
+        $draft = DirectCheckoutDraft::getForUser($request->user());
+        if (! $draft) {
+            return response()->json([
+                'message' => 'Start checkout again to pay the seller.',
+            ], 422);
+        }
+
+        $packages = $this->orderService->directPayPackagesFromCart(
+            $request->user(),
+            $draft['seller_payments'] ?? [],
+        )->map(fn (array $package) => $this->directPackagePayload($package))->values();
+
+        if ($packages->isEmpty()) {
+            DirectCheckoutDraft::clearForUser($request->user());
+
+            return response()->json([
+                'message' => 'Your cart changed. Choose payment again.',
+                'packages' => [],
+            ], 422);
+        }
+
+        return response()->json([
+            'packages' => $packages,
+            'shipping' => $draft['shipping'] ?? null,
+        ]);
+    }
+
+    public function submitDirectPay(Request $request, int $sellerId): JsonResponse
+    {
+        $draft = DirectCheckoutDraft::getForUser($request->user());
+        if (! $draft) {
+            return response()->json([
+                'message' => 'Start checkout again to pay the seller.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'reference' => ['nullable', 'string', 'max:255'],
+            'proof' => ['nullable', 'image', 'max:5120'],
+        ]);
+
+        $reference = trim((string) ($validated['reference'] ?? ''));
+        $hasProof = $request->hasFile('proof');
+
+        if ($reference === '' && ! $hasProof) {
+            throw ValidationException::withMessages([
+                'proof' => 'Upload a payment screenshot, or enter a transaction ID from your MoMo SMS.',
+            ]);
+        }
+
+        $proofPath = null;
+        if ($request->hasFile('proof')) {
+            $proofPath = $request->file('proof')->store('direct-payment-proofs', 'public');
+        }
+
+        try {
+            $order = $this->orderService->createClaimedDirectOrderFromCart(
+                $request->user(),
+                $sellerId,
+                $draft['shipping'],
+                $draft['seller_payments'] ?? [],
+                $draft['seller_coupons'] ?? [],
+                $reference !== '' ? $reference : null,
+                $proofPath,
+            );
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $remaining = $this->orderService->directPayPackagesFromCart(
+            $request->user(),
+            $draft['seller_payments'] ?? [],
+        );
+
+        if ($remaining->isEmpty()) {
+            DirectCheckoutDraft::clearForUser($request->user());
+        }
+
+        return response()->json([
+            'message' => 'Payment submitted. The seller will confirm once received.',
+            'order' => $this->orderPayload($order),
+            'remaining_packages' => $remaining
+                ->map(fn (array $package) => $this->directPackagePayload($package))
+                ->values(),
+            'next' => $remaining->isEmpty() ? 'orders' : 'direct_pay',
         ], 201);
     }
 
@@ -450,6 +573,51 @@ HTML;
                 'line_total' => $item->lineTotal(),
                 'status' => $item->status?->value,
             ])->values(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $package
+     * @return array<string, mixed>
+     */
+    private function directPackagePayload(array $package): array
+    {
+        $items = collect($package['items'] ?? [])->map(function ($item) {
+            $images = collect($item['product']['images'] ?? [])
+                ->map(function ($image) {
+                    $path = is_array($image) ? ($image['path'] ?? null) : null;
+                    if (! $path) {
+                        return null;
+                    }
+
+                    return [
+                        'path' => $path,
+                        'url' => Storage::disk('public')->url($path),
+                    ];
+                })
+                ->filter()
+                ->values();
+
+            return [
+                'id' => $item['id'] ?? null,
+                'quantity' => $item['quantity'] ?? 1,
+                'product' => [
+                    'name' => $item['product']['name'] ?? 'Product',
+                    'images' => $images,
+                ],
+            ];
+        })->values();
+
+        return [
+            'seller_id' => $package['seller_id'],
+            'seller_name' => $package['seller_name'],
+            'store_slug' => $package['store_slug'] ?? null,
+            'subtotal' => (float) ($package['subtotal'] ?? 0),
+            'shipping_cost' => (float) ($package['shipping_cost'] ?? 0),
+            'shipping_label' => $package['shipping_label'] ?? 'Delivery',
+            'package_total' => (float) ($package['package_total'] ?? 0),
+            'items' => $items,
+            'payment_method' => $package['payment_method'] ?? null,
         ];
     }
 }
