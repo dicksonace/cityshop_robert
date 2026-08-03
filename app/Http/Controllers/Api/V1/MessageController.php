@@ -190,12 +190,14 @@ class MessageController extends Controller
                     $ext = strtolower((string) ($value->getClientOriginalExtension()
                         ?: pathinfo($value->getClientOriginalName(), PATHINFO_EXTENSION)));
 
+                    // Android/MediaRecorder m4a is often sniffed as video/mp4 (same container).
                     $allowedMimes = [
                         'audio/mpeg',
                         'audio/mp4',
                         'audio/x-m4a',
                         'audio/m4a',
                         'audio/aac',
+                        'audio/x-aac',
                         'audio/mp4a-latm',
                         'audio/wav',
                         'audio/x-wav',
@@ -203,6 +205,9 @@ class MessageController extends Controller
                         'audio/ogg',
                         'audio/3gpp',
                         'audio/3gpp2',
+                        'video/mp4',
+                        'video/3gpp',
+                        'application/mp4',
                         'application/octet-stream',
                     ];
                     $allowedExt = ['mp3', 'm4a', 'aac', 'wav', 'webm', 'ogg', '3gp', 'mpeg', 'mp4'];

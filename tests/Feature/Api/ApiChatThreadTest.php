@@ -230,6 +230,25 @@ class ApiChatThreadTest extends TestCase
             ->assertJsonPath('message.type', 'voice');
     }
 
+    public function test_android_m4a_sniffed_as_video_mp4_is_accepted(): void
+    {
+        Storage::fake('public');
+
+        [$buyer, , $conversation] = $this->conversation();
+
+        Sanctum::actingAs($buyer);
+
+        $this->post(
+            "/api/v1/messages/{$conversation->id}/voice",
+            [
+                'voice' => UploadedFile::fake()->create('voice.m4a', 200, 'video/mp4'),
+            ],
+            ['Accept' => 'application/json'],
+        )
+            ->assertCreated()
+            ->assertJsonPath('message.type', 'voice');
+    }
+
     public function test_realtime_config_is_available_to_authenticated_clients(): void
     {
         [$buyer] = $this->conversation();
