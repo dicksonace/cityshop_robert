@@ -498,48 +498,7 @@ export default function ChatThreadPanel() {
                                         </div>
                                     </div>
 
-                                    {showMenu && msg.type === 'text' && (
-                                        <div
-                                            className={cn(
-                                                'absolute z-10 mt-1 min-w-[7rem] overflow-hidden rounded-lg border border-gray-100 bg-white py-1 shadow-lg',
-                                                mine ? 'right-0' : 'left-0',
-                                            )}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            {!msg.is_deleted && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => startReply(msg)}
-                                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    <CornerUpLeft className="h-3.5 w-3.5" />
-                                                    Reply
-                                                </button>
-                                            )}
-                                            {mine && msg.can_edit && !msg.is_deleted && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => startEdit(msg)}
-                                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    <Pencil className="h-3.5 w-3.5" />
-                                                    Edit
-                                                </button>
-                                            )}
-                                            {mine && msg.can_delete && !msg.is_deleted && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDelete(msg)}
-                                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50"
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                    Delete
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {showMenu && msg.type === 'image' && !msg.is_deleted && (
+                                    {showMenu && ['text', 'image', 'video', 'voice'].includes(msg.type) && !msg.is_deleted && (
                                         <div
                                             className={cn(
                                                 'absolute z-10 mt-1 min-w-[7rem] overflow-hidden rounded-lg border border-gray-100 bg-white py-1 shadow-lg',
@@ -555,6 +514,26 @@ export default function ChatThreadPanel() {
                                                 <CornerUpLeft className="h-3.5 w-3.5" />
                                                 Reply
                                             </button>
+                                            {mine && msg.can_edit && msg.type === 'text' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => startEdit(msg)}
+                                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                    Edit
+                                                </button>
+                                            )}
+                                            {mine && msg.can_delete && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDelete(msg)}
+                                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                    Delete
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </div>

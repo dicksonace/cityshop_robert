@@ -152,7 +152,7 @@ class ChatService
         });
     }
 
-    public static function canModifyMessage(Message $message, User $user): bool
+    public static function canEditMessage(Message $message, User $user): bool
     {
         return $message->sender_id === $user->id
             && $message->type === MessageType::Text
@@ -160,9 +160,29 @@ class ChatService
             && empty($message->metadata['deleted_at']);
     }
 
+    /** Own chat content (text/photo/video/voice) can be removed before the other person reads it. */
+    public static function canDeleteMessage(Message $message, User $user): bool
+    {
+        return $message->sender_id === $user->id
+            && in_array($message->type, [
+                MessageType::Text,
+                MessageType::Image,
+                MessageType::Video,
+                MessageType::Voice,
+            ], true)
+            && $message->read_at === null
+            && empty($message->metadata['deleted_at']);
+    }
+
+    /** @deprecated Use canEditMessage / canDeleteMessage */
+    public static function canModifyMessage(Message $message, User $user): bool
+    {
+        return static::canEditMessage($message, $user);
+    }
+
     public static function updateMessage(Message $message, User $user, string $body): Message
     {
-        abort_unless(static::canModifyMessage($message, $user), 422, 'This message can no longer be edited.');
+        abort_unless(static::canEditMessage($message, $user), 422, 'This message can no longer be edited.');
 
         $metadata = $message->metadata ?? [];
         $metadata['edited_at'] = now()->toIso8601String();
@@ -177,7 +197,7 @@ class ChatService
 
     public static function deleteMessage(Message $message, User $user): Message
     {
-        abort_unless(static::canModifyMessage($message, $user), 422, 'This message can no longer be deleted.');
+        abort_unless(static::canDeleteMessage($message, $user), 422, 'This message can no longer be deleted.');
 
         $metadata = $message->metadata ?? [];
         $metadata['deleted_at'] = now()->toIso8601String();
@@ -201,19 +221,19 @@ class ChatService
             'type' => $message->type->value,
             'body' => $deleted ? null : $message->body,
             'metadata' => $message->metadata,
-            'image_url' => $metadata['image_url'] ?? null,
-            'video_url' => $metadata['video_url'] ?? null,
-            'voice_url' => $metadata['voice_url'] ?? null,
-            'duration_seconds' => isset($metadata['duration_seconds'])
-                ? (int) $metadata['duration_seconds']
-                : null,
+            'image_url' => $deleted ? null : ($metadata['image_url'] ?? null),
+            'video_url' => $deleted ? null : ($metadata['video_url'] ?? null),
+            'voice_url' => $deleted ? null : ($metadata['voice_url'] ?? null),
+            'duration_seconds' => $deleted
+                ? null
+                : (isset($metadata['duration_seconds']) ? (int) $metadata['duration_seconds'] : null),
             'call_log' => $metadata['call_log'] ?? null,
             'read_at' => $message->read_at?->toIso8601String(),
             'reply_to' => $metadata['reply_to'] ?? null,
             'edited_at' => $metadata['edited_at'] ?? null,
             'is_deleted' => $deleted,
-            'can_edit' => $viewer ? static::canModifyMessage($message, $viewer) : false,
-            'can_delete' => $viewer ? static::canModifyMessage($message, $viewer) : false,
+            'can_edit' => $viewer ? static::canEditMessage($message, $viewer) : false,
+            'can_delete' => $viewer ? static::canDeleteMessage($message, $viewer) : false,
             'created_at' => $message->created_at?->toIso8601String(),
             'sender' => [
                 'id' => $message->sender->id,

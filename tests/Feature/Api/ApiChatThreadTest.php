@@ -185,6 +185,32 @@ class ApiChatThreadTest extends TestCase
         $this->assertSame(2, Message::where('conversation_id', $conversation->id)->count());
     }
 
+    public function test_a_buyer_can_delete_their_unread_video(): void
+    {
+        Storage::fake('public');
+
+        [$buyer, , $conversation] = $this->conversation();
+
+        Sanctum::actingAs($buyer);
+
+        $messageId = $this->post(
+            "/api/v1/messages/{$conversation->id}/video",
+            [
+                'video' => UploadedFile::fake()->create('clip.mp4', 800, 'video/mp4'),
+            ],
+            ['Accept' => 'application/json'],
+        )
+            ->assertCreated()
+            ->assertJsonPath('message.can_delete', true)
+            ->json('message.id');
+
+        $this->deleteJson("/api/v1/messages/{$conversation->id}/messages/{$messageId}")
+            ->assertOk()
+            ->assertJsonPath('message.is_deleted', true)
+            ->assertJsonPath('message.video_url', null)
+            ->assertJsonPath('message.can_delete', false);
+    }
+
     public function test_android_style_m4a_octet_stream_voice_is_accepted(): void
     {
         Storage::fake('public');
