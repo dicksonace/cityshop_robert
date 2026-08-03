@@ -173,7 +173,7 @@ class ApiChatThreadTest extends TestCase
         $this->post(
             "/api/v1/messages/{$conversation->id}/voice",
             [
-                'voice' => UploadedFile::fake()->create('note.m4a', 200, 'audio/mp4'),
+                'voice' => UploadedFile::fake()->create('note.m4a', 200, 'audio/x-m4a'),
                 'duration_seconds' => 6,
             ],
             ['Accept' => 'application/json'],
@@ -183,6 +183,25 @@ class ApiChatThreadTest extends TestCase
             ->assertJsonPath('message.duration_seconds', 6);
 
         $this->assertSame(2, Message::where('conversation_id', $conversation->id)->count());
+    }
+
+    public function test_android_style_m4a_octet_stream_voice_is_accepted(): void
+    {
+        Storage::fake('public');
+
+        [$buyer, , $conversation] = $this->conversation();
+
+        Sanctum::actingAs($buyer);
+
+        $this->post(
+            "/api/v1/messages/{$conversation->id}/voice",
+            [
+                'voice' => UploadedFile::fake()->create('voice.m4a', 200, 'application/octet-stream'),
+            ],
+            ['Accept' => 'application/json'],
+        )
+            ->assertCreated()
+            ->assertJsonPath('message.type', 'voice');
     }
 
     public function test_realtime_config_is_available_to_authenticated_clients(): void

@@ -175,7 +175,43 @@ class MessageController extends Controller
         abort_unless($conversation->involves($request->user()), 403);
 
         $validated = $request->validate([
-            'voice' => ['required', 'file', 'mimetypes:audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/x-wav,audio/webm,audio/ogg,audio/3gpp', 'max:10240'],
+            'voice' => [
+                'required',
+                'file',
+                'max:10240',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $value instanceof \Illuminate\Http\UploadedFile) {
+                        $fail('The voice field must be a file.');
+
+                        return;
+                    }
+
+                    $mime = strtolower((string) $value->getMimeType());
+                    $ext = strtolower((string) ($value->getClientOriginalExtension()
+                        ?: pathinfo($value->getClientOriginalName(), PATHINFO_EXTENSION)));
+
+                    $allowedMimes = [
+                        'audio/mpeg',
+                        'audio/mp4',
+                        'audio/x-m4a',
+                        'audio/m4a',
+                        'audio/aac',
+                        'audio/mp4a-latm',
+                        'audio/wav',
+                        'audio/x-wav',
+                        'audio/webm',
+                        'audio/ogg',
+                        'audio/3gpp',
+                        'audio/3gpp2',
+                        'application/octet-stream',
+                    ];
+                    $allowedExt = ['mp3', 'm4a', 'aac', 'wav', 'webm', 'ogg', '3gp', 'mpeg', 'mp4'];
+
+                    if (! in_array($mime, $allowedMimes, true) && ! in_array($ext, $allowedExt, true)) {
+                        $fail('The voice must be an audio file (m4a, mp3, wav, aac, ogg, or webm).');
+                    }
+                },
+            ],
             'duration_seconds' => ['nullable', 'integer', 'min:1', 'max:600'],
         ]);
 
