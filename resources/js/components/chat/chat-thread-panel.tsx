@@ -405,6 +405,8 @@ export default function ChatThreadPanel() {
                         const mine = msg.sender_id === auth.user?.id;
                         const showMenu = menuMessageId === msg.id;
                         const isImage = msg.type === 'image' && msg.image_url && !msg.is_deleted;
+                        const isVideo = msg.type === 'video' && msg.video_url && !msg.is_deleted;
+                        const isVoice = msg.type === 'voice' && msg.voice_url && !msg.is_deleted;
 
                         return (
                             <div
@@ -415,7 +417,7 @@ export default function ChatThreadPanel() {
                                     <div
                                         className={cn(
                                             'overflow-hidden rounded-2xl text-sm',
-                                            isImage ? 'p-1' : 'px-3 py-2',
+                                            isImage || isVideo ? 'p-1' : 'px-3 py-2',
                                             mine ? 'bg-orange-500 text-white' : 'bg-white text-gray-900 shadow-sm',
                                             msg.is_deleted && 'px-3 py-2 italic opacity-70',
                                         )}
@@ -427,7 +429,7 @@ export default function ChatThreadPanel() {
                                                     mine
                                                         ? 'border-orange-200 bg-orange-600/40 text-orange-50'
                                                         : 'border-orange-300 bg-orange-50 text-gray-600',
-                                                    isImage && 'mx-1 mt-1',
+                                                    (isImage || isVideo) && 'mx-1 mt-1',
                                                 )}
                                             >
                                                 <p className="font-semibold">{msg.reply_to.sender_name}</p>
@@ -451,6 +453,30 @@ export default function ChatThreadPanel() {
                                                     <p className="px-2 py-1.5 text-sm">{msg.body}</p>
                                                 )}
                                             </div>
+                                        ) : isVideo ? (
+                                            <div>
+                                                <video
+                                                    src={msg.video_url!}
+                                                    controls
+                                                    playsInline
+                                                    preload="metadata"
+                                                    className="max-h-64 w-full rounded-xl bg-black"
+                                                >
+                                                    Your browser does not support video.
+                                                </video>
+                                                {msg.body?.trim() && (
+                                                    <p className="px-2 py-1.5 text-sm">{msg.body}</p>
+                                                )}
+                                            </div>
+                                        ) : isVoice ? (
+                                            <div className={cn('min-w-[12rem]', (isImage || isVideo) && 'px-1')}>
+                                                <audio src={msg.voice_url!} controls preload="metadata" className="w-full" />
+                                                {msg.duration_seconds ? (
+                                                    <p className={cn('mt-1 text-[11px]', mine ? 'text-orange-100' : 'text-gray-400')}>
+                                                        {msg.duration_seconds}s
+                                                    </p>
+                                                ) : null}
+                                            </div>
                                         ) : (
                                             <p>{msg.body}</p>
                                         )}
@@ -458,7 +484,7 @@ export default function ChatThreadPanel() {
                                         <div
                                             className={cn(
                                                 'flex items-center gap-1.5 text-[10px]',
-                                                isImage ? 'px-2 pb-1' : 'mt-0.5',
+                                                isImage || isVideo ? 'px-2 pb-1' : 'mt-0.5',
                                                 mine ? 'text-orange-100' : 'text-gray-400',
                                             )}
                                         >

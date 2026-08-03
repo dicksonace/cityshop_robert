@@ -50,6 +50,9 @@ export interface ChatMessage {
     body: string | null;
     metadata?: Record<string, unknown> | null;
     image_url?: string | null;
+    video_url?: string | null;
+    voice_url?: string | null;
+    duration_seconds?: number | null;
     call_log?: ChatCallLog | null;
     read_at?: string | null;
     reply_to?: ChatReplyTo | null;
