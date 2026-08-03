@@ -16,6 +16,8 @@ export interface PanelNavGroup {
     icon: LucideIcon;
     items: PanelNavSubItem[];
     defaultOpen?: boolean;
+    /** When set, clicking the section title navigates here (chevron still expands/collapses). */
+    href?: string;
 }
 
 export type PanelNavCounts = Record<string, number>;

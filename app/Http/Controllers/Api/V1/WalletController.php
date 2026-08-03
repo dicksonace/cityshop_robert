@@ -152,16 +152,6 @@ class WalletController extends Controller
                 return response()->json(['message' => 'Insufficient available balance.'], 422);
             }
 
-            $hasPending = Withdrawal::where('user_id', $user->id)
-                ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
-                ->exists();
-
-            if ($hasPending) {
-                return response()->json([
-                    'message' => 'You already have a withdrawal in processing. Please wait for it to complete.',
-                ], 422);
-            }
-
             $withdrawal = Withdrawal::create([
                 'user_id' => $user->id,
                 'amount' => $amount,

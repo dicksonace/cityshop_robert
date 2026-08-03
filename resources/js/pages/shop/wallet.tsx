@@ -171,12 +171,12 @@ export default function BuyerWallet({
                         }
                     >
                         {hasPendingWithdrawal ? (
-                            <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                                You have a withdrawal in processing. Please wait for it to complete (usually within 1 hour) before submitting another.
+                            <p className="mb-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
+                                You have a withdrawal in processing (usually within 1 hour). You can still request another with your remaining balance.
                             </p>
-                        ) : (
-                            <form onSubmit={submitWithdraw} className="space-y-5">
-                                {withdrawStep === 'details' && (
+                        ) : null}
+                        <form onSubmit={submitWithdraw} className="space-y-5">
+                            {withdrawStep === 'details' && (
                                     <div className="space-y-4">
                                         <MomoNetworkPicker
                                             value={withdrawForm.data.network}
@@ -287,7 +287,6 @@ export default function BuyerWallet({
                                     </Button>
                                 </div>
                             </form>
-                        )}
                     </WithdrawalHighlight>
                 </div>
 

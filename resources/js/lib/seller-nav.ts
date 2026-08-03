@@ -55,6 +55,7 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
             key: 'dashboard',
             label: 'Dashboard',
             icon: LayoutDashboard,
+            href: route('seller.dashboard'),
             defaultOpen: true,
             items: [
                 { key: 'overview', label: 'Overview', href: route('seller.dashboard'), mobile: true },

@@ -223,7 +223,7 @@ export default function PanelSidebarNav({
                     const groupActive = activeGroupKey === group.key;
                     const groupBadge = group.items.reduce((sum, item) => sum + resolveBadgeCount(item, counts, unreadMessages), 0);
                     const isOpen = search ? true : (expanded[group.key] ?? group.defaultOpen ?? false);
-                    const singleItem = group.items.length === 1;
+                    const singleItem = group.items.length === 1 && !group.href;
 
                     if (singleItem) {
                         const item = group.items[0];
@@ -247,19 +247,43 @@ export default function PanelSidebarNav({
                         );
                     }
 
+                    const headerClass = cn(
+                        'flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors',
+                        groupActive ? 'bg-orange-50/70 text-orange-700' : 'text-gray-700 hover:bg-gray-50',
+                    );
+
                     return (
                         <Collapsible key={group.key} open={isOpen} onOpenChange={(open) => toggleGroup(group.key, open)}>
-                            <CollapsibleTrigger
-                                className={cn(
-                                    'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors',
-                                    groupActive ? 'bg-orange-50/70 text-orange-700' : 'text-gray-700 hover:bg-gray-50',
+                            <div className="flex items-center gap-0.5">
+                                {group.href ? (
+                                    <Link
+                                        href={group.href}
+                                        onClick={() => {
+                                            toggleGroup(group.key, true);
+                                            handleNavigate();
+                                        }}
+                                        className={headerClass}
+                                    >
+                                        <group.icon className="h-4 w-4 shrink-0" />
+                                        <span className="truncate">{group.label}</span>
+                                    </Link>
+                                ) : (
+                                    <CollapsibleTrigger className={headerClass}>
+                                        <group.icon className="h-4 w-4 shrink-0" />
+                                        <span className="flex-1 truncate">{group.label}</span>
+                                    </CollapsibleTrigger>
                                 )}
-                            >
-                                <group.icon className="h-4 w-4 shrink-0" />
-                                <span className="flex-1 truncate">{group.label}</span>
                                 <NavBadge count={groupBadge} />
-                                <ChevronDown className={cn('h-4 w-4 shrink-0 text-gray-400 transition-transform', isOpen && 'rotate-180')} />
-                            </CollapsibleTrigger>
+                                <CollapsibleTrigger
+                                    className={cn(
+                                        'rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600',
+                                        groupActive && 'text-orange-500',
+                                    )}
+                                    aria-label={isOpen ? `Collapse ${group.label}` : `Expand ${group.label}`}
+                                >
+                                    <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', isOpen && 'rotate-180')} />
+                                </CollapsibleTrigger>
+                            </div>
                             <CollapsibleContent className="space-y-0.5 pb-1 pt-0.5">
                                 {group.items.map((item) => renderSubItem(item, group.items))}
                             </CollapsibleContent>

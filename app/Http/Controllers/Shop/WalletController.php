@@ -173,14 +173,6 @@ class WalletController extends Controller
                 return back()->with('error', 'Insufficient available balance.');
             }
 
-            $pending = Withdrawal::where('user_id', $request->user()->id)
-                ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
-                ->exists();
-
-            if ($pending) {
-                return back()->with('error', 'You already have a pending withdrawal request.');
-            }
-
             $withdrawal = Withdrawal::create([
                 'user_id' => $request->user()->id,
                 'amount' => $amount,

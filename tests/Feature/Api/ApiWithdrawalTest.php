@@ -127,7 +127,7 @@ class ApiWithdrawalTest extends TestCase
         ])->assertStatus(422)->assertJsonPath('message', 'Insufficient available balance.');
     }
 
-    public function test_only_one_request_can_be_open_at_a_time(): void
+    public function test_another_withdrawal_is_allowed_while_one_is_processing(): void
     {
         $buyer = $this->buyerWithBalance(500);
 
@@ -148,15 +148,15 @@ class ApiWithdrawalTest extends TestCase
             'account_name' => 'Kofi Amoah',
             'network' => 'mtn',
         ])
-            ->assertStatus(422)
-            ->assertJsonPath(
-                'message',
-                'You already have a withdrawal in processing. Please wait for it to complete.',
-            );
+            ->assertCreated()
+            ->assertJsonPath('data.amount', 50);
+
+        $this->assertDatabaseCount('withdrawals', 2);
 
         $this->getJson('/api/v1/wallet/withdrawals')
             ->assertOk()
-            ->assertJsonPath('summary.has_pending', true);
+            ->assertJsonPath('summary.has_pending', true)
+            ->assertJsonPath('summary.available_balance', 450);
     }
 
     public function test_a_settled_request_does_not_block_the_next_one(): void
