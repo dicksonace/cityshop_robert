@@ -20,10 +20,13 @@ interface NotificationsPageProps {
     layout?: 'shop' | 'seller';
 }
 
-function notificationHref(item: NotificationItem): string | null {
+function notificationHref(item: NotificationItem, layout: 'shop' | 'seller' = 'shop'): string | null {
     if (item.data?.url) return item.data.url;
     if (item.data?.conversation_id) return route('chat.show', item.data.conversation_id);
-    if (item.data?.order_id) return route('seller.orders.show', item.data.order_id);
+    if (item.data?.order_id) {
+        // Buyer shop must not hit /seller/* (403 Unauthorized). Seller centre lists orders.
+        return layout === 'seller' ? route('seller.orders.index') : route('orders.show', item.data.order_id);
+    }
     return null;
 }
 
@@ -61,7 +64,7 @@ export default function NotificationsPage({ notifications, layout = 'shop' }: No
                 'X-Requested-With': 'XMLHttpRequest',
             },
         }).then(() => {
-            const href = notificationHref(item);
+            const href = notificationHref(item, layout);
             if (href) {
                 router.visit(href);
             }

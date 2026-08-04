@@ -84,7 +84,10 @@ class DisputeController extends Controller
             [
                 'dispute_id' => $dispute->id,
                 'order_id' => $order->id,
-                'url' => route('checkouts.show', $order->checkout_id ?? $order->id),
+                // Never pass order id into checkouts.show — that 403s when IDs do not match.
+                'url' => $order->checkout_id
+                    ? route('checkouts.show', $order->checkout_id)
+                    : route('orders.show', $order->id),
             ],
         );
 

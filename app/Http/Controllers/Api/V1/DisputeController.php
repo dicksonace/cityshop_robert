@@ -85,6 +85,9 @@ class DisputeController extends Controller
             [
                 'dispute_id' => $dispute->id,
                 'order_id' => $order->id,
+                'url' => $order->checkout_id
+                    ? route('checkouts.show', $order->checkout_id)
+                    : route('orders.show', $order->id),
             ],
         );
 

@@ -24,7 +24,8 @@ type NotificationItem = {
 function notificationHref(n: NotificationItem): string | null {
     if (n.data?.url) return n.data.url;
     if (n.data?.conversation_id) return route('chat.show', n.data.conversation_id);
-    if (n.data?.order_id) return route('seller.orders.show', n.data.order_id);
+    // Shop bell is for buyers — never send them to /seller/* (that is a hard 403).
+    if (n.data?.order_id) return route('orders.show', n.data.order_id);
     return null;
 }
 
