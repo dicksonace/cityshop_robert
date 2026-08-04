@@ -36,6 +36,13 @@ class EnsureRole
                 return redirect()->route('seller.dashboard');
             }
 
+            // Buyers who tap a seller-only link (broken notification fallback) should not see a raw 403.
+            if (($request->is('seller') || $request->is('seller/*')) && $user->isBuyer()) {
+                return redirect()
+                    ->route('home')
+                    ->with('error', 'That page is only for sellers. Open My Orders to track your purchases.');
+            }
+
             abort(403, 'Unauthorized.');
         }
 
