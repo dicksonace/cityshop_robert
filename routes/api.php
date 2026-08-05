@@ -44,6 +44,7 @@ Route::prefix('v1')->group(function () {
 
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/products/matches-for-recent-views', [ProductController::class, 'matchesForRecentViews']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
     Route::get('/stores/{slug}', [StoreController::class, 'show']);
     Route::post('/search/image', [ImageSearchController::class, 'store']);

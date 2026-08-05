@@ -100,4 +100,18 @@ class MatchesForRecentViewsTest extends TestCase
             ->assertOk()
             ->assertJson(['products' => []]);
     }
+
+    public function test_api_matches_for_recent_views(): void
+    {
+        [, $viewed, $match] = $this->seedCategoryWithProducts();
+
+        $this->getJson('/api/v1/products/matches-for-recent-views?ids='.$viewed->id)
+            ->assertOk()
+            ->assertJsonPath('products.0.id', $match->id)
+            ->assertJsonStructure([
+                'products' => [
+                    ['id', 'name', 'slug', 'price', 'discount_price', 'effective_price', 'image_url', 'category_id', 'sellers_in_category'],
+                ],
+            ]);
+    }
 }

@@ -12,6 +12,7 @@ use App\Services\ReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -164,5 +165,55 @@ class ProductController extends Controller
             ],
             'reviewable' => $reviewable,
         ]);
+    }
+
+    public function matchesForRecentViews(Request $request): JsonResponse
+    {
+        $rawIds = $request->query('ids', []);
+
+        if (is_string($rawIds)) {
+            $rawIds = array_filter(explode(',', $rawIds));
+        } elseif (! is_array($rawIds)) {
+            $rawIds = [];
+        }
+
+        $ids = array_slice(array_values(array_unique(array_map('intval', $rawIds))), 0, 20);
+
+        $products = $this->discovery->matchesForRecentViews($ids, $request->user(), 12);
+
+        $categoryIds = $products
+            ->pluck('category_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $sellerCounts = $this->discovery->sellerCountsByCategory($categoryIds);
+
+        $payload = $products->map(function (Product $product) use ($sellerCounts) {
+            $categoryId = $product->category_id ? (int) $product->category_id : null;
+            $imagePath = ($product->images->firstWhere('is_primary', true) ?? $product->images->first())?->path;
+            $imageUrl = null;
+            if (is_string($imagePath) && $imagePath !== '') {
+                $imageUrl = str_starts_with($imagePath, 'http://') || str_starts_with($imagePath, 'https://')
+                    ? $imagePath
+                    : Storage::disk('public')->url($imagePath);
+            }
+
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'slug' => $product->slug,
+                'price' => (float) $product->price,
+                'discount_price' => $product->discount_price !== null ? (float) $product->discount_price : null,
+                'effective_price' => (float) $product->effectivePrice(),
+                'image_url' => $imageUrl,
+                'category_id' => $categoryId,
+                'sellers_in_category' => $categoryId ? ($sellerCounts[$categoryId] ?? 1) : 1,
+            ];
+        })->values();
+
+        return response()->json(['products' => $payload]);
     }
 }
