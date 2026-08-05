@@ -553,6 +553,15 @@ export default function Checkout({
 
                                                     return (
                                                         <div className="ml-1 space-y-3 border-l-2 border-sky-100 pl-3">
+                                                            <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2.5">
+                                                                <p className="text-sm font-semibold text-orange-900">
+                                                                    Pay to seller account
+                                                                </p>
+                                                                <p className="mt-1 text-xs leading-relaxed text-orange-800/90">
+                                                                    Make sure you have a trusted seller before you make
+                                                                    payment directly. CityShop does not hold this money.
+                                                                </p>
+                                                            </div>
                                                             <SellerPaymentMethodPicker
                                                                 methods={group.payment_methods}
                                                                 selectedId={selectedId}
