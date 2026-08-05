@@ -86,11 +86,18 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if ($user->isSeller()) {
+            return back()->with(
+                'error',
+                'Seller accounts cannot be deleted here. Contact CityShop support or ask an admin to close the store.',
+            );
+        }
+
         $request->validate([
             'password' => ['required', 'current_password'],
         ]);
-
-        $user = $request->user();
 
         Auth::logout();
 

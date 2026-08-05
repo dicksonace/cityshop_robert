@@ -96,4 +96,36 @@ class ProfileUpdateTest extends TestCase
 
         $this->assertNotNull($user->fresh());
     }
+
+    public function test_sellers_cannot_delete_their_account()
+    {
+        $seller = User::factory()->create(['role' => \App\Enums\UserRole::Seller]);
+
+        $response = $this
+            ->actingAs($seller)
+            ->from('/settings/profile')
+            ->delete('/settings/profile', [
+                'password' => 'password',
+            ]);
+
+        $response
+            ->assertRedirect('/settings/profile')
+            ->assertSessionHas('error');
+
+        $this->assertNotNull($seller->fresh());
+        $this->assertAuthenticatedAs($seller);
+    }
+
+    public function test_seller_profile_page_hides_delete_account()
+    {
+        $seller = User::factory()->create(['role' => \App\Enums\UserRole::Seller]);
+
+        $this->actingAs($seller)
+            ->get('/settings/profile')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('settings/profile')
+                ->where('auth.user.role', 'seller')
+            );
+    }
 }
