@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Review;
 use App\Services\OrderService;
 use App\Support\BuyerOrderPolicy;
+use App\Support\DeliveryConfirmationPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -146,6 +147,8 @@ class OrderController extends Controller
                 $existingReview = $item->product_id ? $buyerReviews->get($item->product_id) : null;
                 $canReview = $status === 'delivered' && $item->product_id && ! $existingReview;
 
+                DeliveryConfirmationPolicy::appendToItem($item);
+
                 return [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
@@ -157,6 +160,8 @@ class OrderController extends Controller
                     'status' => $status,
                     'funds_release_status' => $item->funds_release_status?->value,
                     'image_url' => $imageUrl,
+                    'auto_confirm_in' => $item->getAttribute('auto_confirm_in'),
+                    'auto_confirm_at' => $item->getAttribute('auto_confirm_at'),
                     'can_request_refund' => $canItemRefund,
                     'can_review' => $canReview,
                     'buyer_review' => $existingReview ? [
