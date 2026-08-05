@@ -296,6 +296,64 @@ class ApiChatThreadTest extends TestCase
         $this->assertSame($product->id, $sent->json('conversation.product.id'));
     }
 
+    public function test_seller_receives_product_card_via_poll_even_if_cursor_skipped_it(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Bens',
+            'slug' => 'bens-'.uniqid(),
+            'price' => 50,
+            'quantity' => 1,
+            'status' => ProductStatus::Approved,
+            'is_preorder' => false,
+        ]);
+
+        Sanctum::actingAs($buyer);
+
+        $started = $this->postJson('/api/v1/messages', [
+            'seller_id' => $seller->id,
+            'product_id' => $product->id,
+        ])->assertCreated();
+
+        $conversationId = $started->json('conversation.id');
+
+        $sent = $this->postJson("/api/v1/messages/{$conversationId}/product", [
+            'product_id' => $product->id,
+        ])->assertCreated();
+
+        $productMessageId = (int) $sent->json('message.id');
+
+        // Simulate a later signalling/text row advancing the seller's cursor past the product.
+        $later = Message::create([
+            'conversation_id' => $conversationId,
+            'sender_id' => $buyer->id,
+            'type' => MessageType::Text,
+            'body' => 'Are you there?',
+        ]);
+
+        Sanctum::actingAs($seller);
+
+        $poll = $this->getJson("/api/v1/messages/{$conversationId}/poll?after={$later->id}")
+            ->assertOk();
+
+        $types = collect($poll->json('messages'))->pluck('type')->all();
+        $this->assertContains('product', $types);
+        $this->assertSame(
+            $productMessageId,
+            (int) collect($poll->json('messages'))->firstWhere('type', 'product')['id'],
+        );
+        $this->assertSame('Bens', collect($poll->json('messages'))->firstWhere('type', 'product')['product']['name']);
+
+        $thread = $this->getJson("/api/v1/messages/{$conversationId}")->assertOk();
+        $this->assertSame(
+            1,
+            collect($thread->json('messages'))->where('type', 'product')->count(),
+        );
+    }
+
     public function test_opening_chat_from_another_product_keeps_product_private_until_sent(): void
     {
         $buyer = User::factory()->create(['role' => UserRole::Buyer]);

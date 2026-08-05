@@ -109,16 +109,22 @@ class ChatService
     /** Product strip is only for items actually shared in the thread (not just opened). */
     public static function sharedProductForConversation(Conversation $conversation): ?Product
     {
-        $hasShared = Message::query()
+        $lastShare = Message::query()
             ->where('conversation_id', $conversation->id)
             ->where('type', MessageType::Product)
-            ->exists();
+            ->orderByDesc('id')
+            ->first();
 
-        if (! $hasShared) {
+        if (! $lastShare) {
             return null;
         }
 
-        return $conversation->product;
+        $productId = $lastShare->metadata['product']['id'] ?? $conversation->product_id;
+        if (! $productId) {
+            return null;
+        }
+
+        return Product::query()->find($productId);
     }
 
     /** @return array{id: int, name: string, slug: string, price: float, image_url: ?string} */
@@ -367,7 +373,9 @@ class ChatService
 
     public static function markConversationRead(Conversation $conversation, User $user): void
     {
+        // Only mark timeline messages — never call-signalling rows the UI hides.
         Message::where('conversation_id', $conversation->id)
+            ->whereIn('type', static::visibleTypes())
             ->where('sender_id', '!=', $user->id)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
@@ -376,6 +384,61 @@ class ChatService
             ->whereNull('read_at')
             ->where('data->conversation_id', $conversation->id)
             ->update(['read_at' => now()]);
+    }
+
+    /**
+     * Mark only messages the client was actually given (avoids blue ticks on
+     * product cards the other person never rendered).
+     *
+     * @param  array<int, int>  $messageIds
+     */
+    public static function markMessagesRead(Conversation $conversation, User $user, array $messageIds): void
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $messageIds))));
+        if ($ids === []) {
+            return;
+        }
+
+        Message::where('conversation_id', $conversation->id)
+            ->whereIn('id', $ids)
+            ->whereIn('type', static::visibleTypes())
+            ->where('sender_id', '!=', $user->id)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        AppNotification::where('user_id', $user->id)
+            ->whereNull('read_at')
+            ->where('data->conversation_id', $conversation->id)
+            ->update(['read_at' => now()]);
+    }
+
+    /**
+     * New rows after $afterId, plus any still-unread messages for this viewer
+     * (fills gaps when realtime delivered a later id first and skipped a product card).
+     *
+     * @return \Illuminate\Support\Collection<int, Message>
+     */
+    public static function pollVisibleMessages(Conversation $conversation, User $viewer, int $afterId = 0)
+    {
+        return $conversation->messages()
+            ->whereIn('type', static::visibleTypes())
+            ->with('sender:id,name')
+            ->where(function ($q) use ($afterId, $viewer) {
+                if ($afterId > 0) {
+                    $q->where('id', '>', $afterId);
+                } else {
+                    // after=0 means "give me nothing historical here" — callers
+                    // load the thread via show(); poll only streams forward + unread.
+                    $q->whereRaw('0 = 1');
+                }
+
+                $q->orWhere(function ($unread) use ($viewer) {
+                    $unread->where('sender_id', '!=', $viewer->id)
+                        ->whereNull('read_at');
+                });
+            })
+            ->orderBy('id')
+            ->get();
     }
 
     public static function unreadMessageCount(User $user): int

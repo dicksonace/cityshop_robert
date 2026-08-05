@@ -44,6 +44,10 @@ function isTimelineMessage(msg: ChatMessage): boolean {
     );
 }
 
+function maxMessageId(list: ChatMessage[]): number {
+    return list.reduce((max, m) => (m.id > max ? m.id : max), 0);
+}
+
 export default function ChatThreadPanel() {
     const { auth } = usePage<SharedData>().props;
     const { activeConversation, messages, setMessages, setActiveConversation, showList, loading, refreshConversations, attachProduct, clearAttachProduct } = useChat();
@@ -83,7 +87,7 @@ export default function ChatThreadPanel() {
 
     useEffect(() => {
         setOther(activeConversation?.other);
-        lastIdRef.current = messages.at(-1)?.id ?? 0;
+        lastIdRef.current = maxMessageId(messages.filter(isTimelineMessage));
     }, [activeConversation, messages]);
 
     useEffect(() => {
@@ -118,7 +122,10 @@ export default function ChatThreadPanel() {
                 const ids = new Set(prev.map((m) => m.id));
                 return [...prev, ...incoming.filter((m) => !ids.has(m.id))];
             });
-            lastIdRef.current = Math.max(lastIdRef.current, ...incoming.map((m) => m.id));
+            lastIdRef.current = Math.max(
+                lastIdRef.current,
+                maxMessageId(incoming.filter(isTimelineMessage)),
+            );
         },
         [auth.user?.id, handleCallMessage, setMessages],
     );
@@ -493,7 +500,9 @@ export default function ChatThreadPanel() {
                                   (msg.metadata?.product as ChatMessage['product'] | undefined) ??
                                   null)
                                 : null;
-                        const isProduct = Boolean(productCard);
+                        // Always treat product-type rows as product bubbles so sellers
+                        // never "miss" a share when metadata is thin.
+                        const isProduct = msg.type === 'product' && !msg.is_deleted;
 
                         return (
                             <div
@@ -530,42 +539,53 @@ export default function ChatThreadPanel() {
 
                                         {msg.is_deleted ? (
                                             <p className="px-2 py-1">Message deleted</p>
-                                        ) : isProduct && productCard ? (
-                                            <Link
-                                                href={route('products.show', productCard.slug)}
-                                                className="block min-w-[14rem] p-2.5 transition hover:bg-orange-50/60"
-                                            >
-                                                <div className="flex gap-2.5">
-                                                    {productCard.image_url ? (
-                                                        <img
-                                                            src={productImageUrl(productCard.image_url)}
-                                                            alt=""
-                                                            className="h-14 w-14 shrink-0 rounded-lg object-cover"
-                                                        />
-                                                    ) : (
-                                                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-orange-500">
-                                                            <MessageCircle className="h-5 w-5" />
-                                                        </div>
-                                                    )}
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="line-clamp-2 text-xs font-semibold text-gray-900">
-                                                            {productCard.name}
-                                                        </p>
-                                                        {typeof productCard.price === 'number' && (
-                                                            <p className="mt-1 text-sm font-bold text-orange-600">
-                                                                GH₵{' '}
-                                                                {productCard.price.toLocaleString('en-GH', {
-                                                                    minimumFractionDigits: 2,
-                                                                    maximumFractionDigits: 2,
-                                                                })}
-                                                            </p>
+                                        ) : isProduct ? (
+                                            productCard?.slug ? (
+                                                <Link
+                                                    href={route('products.show', productCard.slug)}
+                                                    className="block min-w-[14rem] p-2.5 transition hover:bg-orange-50/60"
+                                                >
+                                                    <div className="flex gap-2.5">
+                                                        {productCard.image_url ? (
+                                                            <img
+                                                                src={productImageUrl(productCard.image_url)}
+                                                                alt=""
+                                                                className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-orange-500">
+                                                                <MessageCircle className="h-5 w-5" />
+                                                            </div>
                                                         )}
-                                                        <p className="mt-1 text-[10px] font-medium text-gray-400">
-                                                            Tap to view product
-                                                        </p>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="line-clamp-2 text-xs font-semibold text-gray-900">
+                                                                {productCard.name || msg.body || 'Product'}
+                                                            </p>
+                                                            {typeof productCard.price === 'number' && (
+                                                                <p className="mt-1 text-sm font-bold text-orange-600">
+                                                                    GH₵{' '}
+                                                                    {productCard.price.toLocaleString('en-GH', {
+                                                                        minimumFractionDigits: 2,
+                                                                        maximumFractionDigits: 2,
+                                                                    })}
+                                                                </p>
+                                                            )}
+                                                            <p className="mt-1 text-[10px] font-medium text-gray-400">
+                                                                Tap to view product
+                                                            </p>
+                                                        </div>
                                                     </div>
+                                                </Link>
+                                            ) : (
+                                                <div className="min-w-[14rem] p-2.5">
+                                                    <p className="text-xs font-semibold text-gray-900">
+                                                        {msg.body || 'Shared a product'}
+                                                    </p>
+                                                    <p className="mt-1 text-[10px] font-medium text-gray-400">
+                                                        Product
+                                                    </p>
                                                 </div>
-                                            </Link>
+                                            )
                                         ) : isImage ? (
                                             <div>
                                                 <a href={msg.image_url!} target="_blank" rel="noreferrer">

@@ -25,7 +25,7 @@ class ConversationController extends Controller
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
             'product:id,name,slug,price,discount_price',
             'product.images',
-            'latestMessage.sender:id,name',
+            'latestVisibleMessage.sender:id,name',
         ])
             ->where(fn ($q) => $q->where('buyer_id', $userId)->orWhere('seller_id', $userId))
             ->orderByDesc('last_message_at')
@@ -133,16 +133,15 @@ class ConversationController extends Controller
 
         $afterId = (int) $request->get('after', 0);
 
-        $messages = $conversation->messages()
-            ->whereIn('type', ChatService::visibleTypes())
-            ->with('sender:id,name')
-            ->when($afterId > 0, fn ($q) => $q->where('id', '>', $afterId))
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
+        $polled = ChatService::pollVisibleMessages($conversation, $request->user(), $afterId);
+        $messages = $polled->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
-        if ($messages->isNotEmpty()) {
-            ChatService::markConversationRead($conversation, $request->user());
+        if ($polled->isNotEmpty()) {
+            ChatService::markMessagesRead(
+                $conversation,
+                $request->user(),
+                $polled->pluck('id')->all(),
+            );
         }
 
         $other = $conversation->otherParticipant($request->user());
@@ -180,7 +179,7 @@ class ConversationController extends Controller
         $other = $conversation->otherParticipant($user);
         $other->loadMissing('sellerProfile');
 
-        $latest = $conversation->latestMessage;
+        $latest = $conversation->latestVisibleMessage;
         $unread = $conversation->messages()
             ->whereIn('type', ChatService::visibleTypes())
             ->where('sender_id', '!=', $user->id)
@@ -220,7 +219,7 @@ class ConversationController extends Controller
                     : null,
             ] : null,
             'unread_count' => $unread,
-            'last_message_at' => $conversation->last_message_at?->toIso8601String(),
+            'last_message_at' => ($latest?->created_at ?? $conversation->last_message_at)?->toIso8601String(),
         ];
 
         return $data;

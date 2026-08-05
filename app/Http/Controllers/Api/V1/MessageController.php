@@ -292,16 +292,15 @@ class MessageController extends Controller
 
         $afterId = (int) $request->get('after', 0);
 
-        $messages = $conversation->messages()
-            ->whereIn('type', ChatService::visibleTypes())
-            ->with('sender:id,name')
-            ->when($afterId > 0, fn ($q) => $q->where('id', '>', $afterId))
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
+        $polled = ChatService::pollVisibleMessages($conversation, $request->user(), $afterId);
+        $messages = $polled->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
-        if ($messages->isNotEmpty()) {
-            ChatService::markConversationRead($conversation, $request->user());
+        if ($polled->isNotEmpty()) {
+            ChatService::markMessagesRead(
+                $conversation,
+                $request->user(),
+                $polled->pluck('id')->all(),
+            );
         }
 
         $readMessageIds = Message::query()
