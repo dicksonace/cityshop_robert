@@ -61,16 +61,16 @@ export default function FloatingChatWidget() {
                         'animate-in slide-in-from-bottom-4 fade-in duration-200',
                         'rounded-t-2xl sm:w-[min(100vw-2rem,360px)] sm:max-w-none sm:rounded-2xl',
                         // List: hug content so it doesn’t look like a big empty sheet.
-                        // Thread: keep a usable chat height, still shorter than before.
+                        // Thread: near full-screen on phones so sellers can read/reply comfortably.
                         view === 'list'
-                            ? 'max-h-[min(48dvh,340px)]'
-                            : 'h-[min(68dvh,420px)] sm:h-[min(420px,calc(100vh-7rem))]',
+                            ? 'max-h-[min(55dvh,400px)]'
+                            : 'h-[min(92dvh,720px)] sm:h-[min(520px,calc(100vh-7rem))]',
                     )}
                 >
-                    <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 text-white">
+                    <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-3 text-white sm:py-2.5">
                         <div className="flex min-w-0 items-center gap-2">
-                            <MessageCircle className="h-4 w-4 shrink-0" />
-                            <span className="truncate text-sm font-semibold">
+                            <MessageCircle className="h-5 w-5 shrink-0 sm:h-4 sm:w-4" />
+                            <span className="truncate text-base font-semibold sm:text-sm">
                                 {view === 'thread' && otherName ? otherName : 'Messages'}
                             </span>
                         </div>
@@ -78,18 +78,18 @@ export default function FloatingChatWidget() {
                             <button
                                 type="button"
                                 onClick={minimizeWidget}
-                                className="rounded-lg p-1.5 hover:bg-white/20"
+                                className="rounded-lg p-2 hover:bg-white/20 sm:p-1.5"
                                 aria-label="Minimize chat"
                             >
-                                <ChevronDown className="h-4 w-4" />
+                                <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4" />
                             </button>
                             <button
                                 type="button"
                                 onClick={closeWidget}
-                                className="rounded-lg p-1.5 hover:bg-white/20"
+                                className="rounded-lg p-2 hover:bg-white/20 sm:p-1.5"
                                 aria-label="Close chat"
                             >
-                                <X className="h-4 w-4" />
+                                <X className="h-5 w-5 sm:h-4 sm:w-4" />
                             </button>
                         </div>
                     </div>
@@ -97,7 +97,7 @@ export default function FloatingChatWidget() {
                     <div
                         className={cn(
                             'flex min-h-0 flex-col',
-                            view === 'thread' ? 'flex-1' : 'max-h-[min(40dvh,290px)] overflow-hidden',
+                            view === 'thread' ? 'flex-1' : 'max-h-[min(48dvh,340px)] overflow-hidden',
                         )}
                     >
                         {view === 'list' ? <ChatListPanel /> : <ChatThreadPanel />}

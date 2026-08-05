@@ -649,27 +649,29 @@ export default function ChatThreadPanel() {
 
             <div className="border-t border-gray-100 bg-white">
                 {(replyingTo || editingMessage) && (
-                    <div className="flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-2">
-                        <div className="min-w-0 flex-1 border-l-2 border-orange-400 pl-2">
-                            <p className="text-[11px] font-semibold text-orange-600">
+                    <div className="flex items-center gap-3 border-b border-orange-100 bg-orange-50/80 px-3 py-3 sm:py-2.5">
+                        <div className="min-w-0 flex-1 border-l-[3px] border-orange-500 pl-3">
+                            <p className="text-sm font-semibold text-orange-700 sm:text-xs">
                                 {editingMessage ? 'Editing message' : `Replying to ${replyingTo?.sender.name}`}
                             </p>
                             {!editingMessage && replyingTo && (
-                                <p className="truncate text-xs text-gray-500">{replyPreview(replyingTo)}</p>
+                                <p className="mt-0.5 truncate text-sm text-gray-600 sm:text-xs">
+                                    {replyPreview(replyingTo)}
+                                </p>
                             )}
                         </div>
                         <button
                             type="button"
                             onClick={cancelComposerExtras}
-                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 hover:text-gray-700 sm:h-8 sm:w-8"
                             aria-label="Cancel"
                         >
-                            <X className="h-4 w-4" />
+                            <X className="h-5 w-5 sm:h-4 sm:w-4" />
                         </button>
                     </div>
                 )}
 
-                <form onSubmit={sendMessage} className="flex items-center gap-1.5 p-3">
+                <form onSubmit={sendMessage} className="flex items-center gap-2 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:gap-1.5 sm:pb-3">
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -681,10 +683,10 @@ export default function ChatThreadPanel() {
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploadingImage || sending}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50 sm:h-9 sm:w-9"
                         title="Send photo"
                     >
-                        <ImagePlus className="h-4 w-4" />
+                        <ImagePlus className="h-5 w-5 sm:h-4 sm:w-4" />
                     </button>
                     <input
                         ref={inputRef}
@@ -700,16 +702,16 @@ export default function ChatThreadPanel() {
                                     ? 'Write a reply...'
                                     : 'Type a message...'
                         }
-                        className="flex-1 rounded-full border border-gray-200 px-4 py-2 text-sm focus:border-orange-300 focus:outline-none focus:ring-1 focus:ring-orange-300"
+                        className="min-h-11 flex-1 rounded-full border border-gray-200 px-4 py-2.5 text-base focus:border-orange-300 focus:outline-none focus:ring-1 focus:ring-orange-300 sm:min-h-0 sm:py-2 sm:text-sm"
                         maxLength={2000}
                         disabled={uploadingImage}
                     />
                     <button
                         type="submit"
                         disabled={!body.trim() || sending || uploadingImage}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 sm:h-9 sm:w-9"
                     >
-                        <Send className="h-4 w-4" />
+                        <Send className="h-5 w-5 sm:h-4 sm:w-4" />
                     </button>
                 </form>
             </div>
