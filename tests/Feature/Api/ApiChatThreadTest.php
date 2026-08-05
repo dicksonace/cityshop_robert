@@ -249,7 +249,7 @@ class ApiChatThreadTest extends TestCase
             ->assertJsonPath('message.type', 'voice');
     }
 
-    public function test_opening_chat_from_a_product_sends_a_product_card(): void
+    public function test_opening_chat_from_a_product_does_not_auto_send_the_card(): void
     {
         $buyer = User::factory()->create(['role' => UserRole::Buyer]);
         $seller = User::factory()->create(['role' => UserRole::Seller]);
@@ -278,28 +278,21 @@ class ApiChatThreadTest extends TestCase
             'product_id' => $product->id,
         ])->assertCreated();
 
-        $messages = collect($first->json('messages'));
-        $this->assertTrue($messages->contains(fn ($m) => ($m['type'] ?? null) === 'product'));
-        $card = $messages->firstWhere('type', 'product');
-        $this->assertSame($product->id, $card['product']['id']);
-        $this->assertSame('City Switch', $card['product']['name']);
-        $this->assertEqualsWithDelta(1762.33, (float) $card['product']['price'], 0.01);
-        $this->assertStringContainsString('products/switch.jpg', $card['product']['image_url']);
+        $this->assertSame(0, collect($first->json('messages'))->where('type', 'product')->count());
+        $this->assertSame($product->id, $first->json('attach_product.id'));
+        $this->assertSame('City Switch', $first->json('attach_product.name'));
+        $this->assertEqualsWithDelta(1762.33, (float) $first->json('attach_product.price'), 0.01);
         $this->assertSame($product->id, $first->json('conversation.product.id'));
 
-        // Reopening the same product must not spam another card.
-        $second = $this->postJson('/api/v1/messages', [
-            'seller_id' => $seller->id,
+        $sent = $this->postJson('/api/v1/messages/'.$first->json('conversation.id').'/product', [
             'product_id' => $product->id,
         ])->assertCreated();
 
-        $this->assertCount(
-            1,
-            collect($second->json('messages'))->where('type', 'product'),
-        );
+        $this->assertSame('product', $sent->json('message.type'));
+        $this->assertSame($product->id, $sent->json('message.product.id'));
     }
 
-    public function test_opening_chat_from_another_product_updates_the_card(): void
+    public function test_opening_chat_from_another_product_updates_the_conversation_product(): void
     {
         $buyer = User::factory()->create(['role' => UserRole::Buyer]);
         $seller = User::factory()->create(['role' => UserRole::Seller]);
@@ -335,9 +328,8 @@ class ApiChatThreadTest extends TestCase
             'product_id' => $secondProduct->id,
         ])->assertCreated();
 
-        $productCards = collect($res->json('messages'))->where('type', 'product')->values();
-        $this->assertCount(2, $productCards);
-        $this->assertSame($secondProduct->id, $productCards->last()['product']['id']);
+        $this->assertSame(0, collect($res->json('messages'))->where('type', 'product')->count());
+        $this->assertSame($secondProduct->id, $res->json('attach_product.id'));
         $this->assertSame($secondProduct->id, $res->json('conversation.product.id'));
     }
 

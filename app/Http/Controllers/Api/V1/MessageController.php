@@ -56,10 +56,6 @@ class MessageController extends Controller
 
         $conversation = ChatService::findOrCreateConversation($request->user(), $seller, $product);
 
-        if ($product) {
-            ChatService::shareProductCard($conversation, $request->user(), $product);
-        }
-
         $conversation->load([
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
@@ -71,6 +67,7 @@ class MessageController extends Controller
         return response()->json([
             'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
             'messages' => $this->threadFor($conversation, $request->user()),
+            'attach_product' => $product ? ChatService::productCardPayload($product) : null,
         ], 201);
     }
 
@@ -113,6 +110,45 @@ class MessageController extends Controller
 
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
+        ], 201);
+    }
+
+    public function sendProduct(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'product_id' => ['required', 'exists:products,id'],
+        ]);
+
+        $product = Product::findOrFail($validated['product_id']);
+        $sellerId = $conversation->seller_id;
+
+        if ((int) $product->seller_id !== (int) $sellerId) {
+            return response()->json(['message' => 'That product does not belong to this seller.'], 422);
+        }
+
+        $message = ChatService::shareProductCard($conversation, $request->user(), $product, force: true);
+
+        if (! $message) {
+            return response()->json(['message' => 'Could not share product.'], 422);
+        }
+
+        $message->load('sender:id,name');
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+            'conversation' => $this->formatConversation(
+                $conversation->fresh([
+                    'buyer:id,name,avatar,city,region,last_seen_at',
+                    'seller:id,name,avatar,city,region,last_seen_at',
+                    'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
+                    'product:id,name,slug,price,discount_price',
+                    'product.images',
+                ]),
+                $request->user(),
+                detailed: true,
+            ),
         ], 201);
     }
 
@@ -268,7 +304,17 @@ class MessageController extends Controller
             ChatService::markConversationRead($conversation, $request->user());
         }
 
-        return response()->json(['messages' => $messages]);
+        $readMessageIds = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_id', $request->user()->id)
+            ->whereNotNull('read_at')
+            ->pluck('id')
+            ->all();
+
+        return response()->json([
+            'messages' => $messages,
+            'read_message_ids' => $readMessageIds,
+        ]);
     }
 
     public function destroy(Request $request, Conversation $conversation, Message $message): JsonResponse

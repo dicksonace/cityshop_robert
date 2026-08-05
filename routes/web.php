@@ -127,6 +127,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/messages/{conversation}', [ChatConversationController::class, 'show'])->name('chat.show');
     Route::get('/messages/{conversation}/poll', [ChatConversationController::class, 'poll'])->name('chat.poll');
     Route::post('/messages/{conversation}/send', [ChatMessageController::class, 'store'])->name('chat.messages.store');
+    Route::post('/messages/{conversation}/product', [ChatMessageController::class, 'sendProduct'])->name('chat.messages.product');
     Route::post('/messages/{conversation}/image', [ChatMessageController::class, 'uploadImage'])->name('chat.messages.image');
     Route::post('/messages/{conversation}/video', [ChatMessageController::class, 'uploadVideo'])->name('chat.messages.video');
     Route::post('/messages/{conversation}/voice', [ChatMessageController::class, 'uploadVoice'])->name('chat.messages.voice');

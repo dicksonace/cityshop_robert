@@ -73,24 +73,30 @@ class ChatService
     }
 
     /**
-     * Share a product card in the thread when the buyer opens chat from a product page.
-     * Skips if the most recent product card in this conversation is already the same item.
+     * Share a product card in the thread.
+     * Without $force, skips if the most recent product card is already this item.
      */
-    public static function shareProductCard(Conversation $conversation, User $sender, Product $product): ?Message
-    {
+    public static function shareProductCard(
+        Conversation $conversation,
+        User $sender,
+        Product $product,
+        bool $force = false,
+    ): ?Message {
         $product->loadMissing('images');
 
         $payload = static::productCardPayload($product);
 
-        $lastProduct = Message::query()
-            ->where('conversation_id', $conversation->id)
-            ->where('type', MessageType::Product)
-            ->orderByDesc('id')
-            ->first();
+        if (! $force) {
+            $lastProduct = Message::query()
+                ->where('conversation_id', $conversation->id)
+                ->where('type', MessageType::Product)
+                ->orderByDesc('id')
+                ->first();
 
-        $lastProductId = $lastProduct?->metadata['product']['id'] ?? null;
-        if ($lastProductId !== null && (int) $lastProductId === (int) $product->id) {
-            return null;
+            $lastProductId = $lastProduct?->metadata['product']['id'] ?? null;
+            if ($lastProductId !== null && (int) $lastProductId === (int) $product->id) {
+                return null;
+            }
         }
 
         if ($conversation->product_id !== $product->id) {

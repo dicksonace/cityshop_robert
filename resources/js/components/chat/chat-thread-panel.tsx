@@ -46,10 +46,11 @@ function isTimelineMessage(msg: ChatMessage): boolean {
 
 export default function ChatThreadPanel() {
     const { auth } = usePage<SharedData>().props;
-    const { activeConversation, messages, setMessages, setActiveConversation, showList, loading, refreshConversations } = useChat();
+    const { activeConversation, messages, setMessages, setActiveConversation, showList, loading, refreshConversations, attachProduct, clearAttachProduct } = useChat();
     const toast = useToastOptional();
     const [body, setBody] = useState('');
     const [sending, setSending] = useState(false);
+    const [sendingProduct, setSendingProduct] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
     const [other, setOther] = useState(activeConversation?.other);
     const [menuMessageId, setMenuMessageId] = useState<number | null>(null);
@@ -135,6 +136,16 @@ export default function ChatThreadPanel() {
                 if (data.other) {
                     setOther(data.other);
                     setActiveConversation((prev) => (prev ? { ...prev, other: data.other! } : prev));
+                }
+                if (data.read_message_ids?.length) {
+                    const readSet = new Set(data.read_message_ids);
+                    setMessages((prev) =>
+                        prev.map((m) =>
+                            m.sender_id === auth.user?.id && !m.read_at && readSet.has(m.id)
+                                ? { ...m, read_at: new Date().toISOString() }
+                                : m,
+                        ),
+                    );
                 }
                 if (data.messages?.length) {
                     await ingestMessages(data.messages, { playSound: !realtimeLive });
@@ -248,6 +259,37 @@ export default function ChatThreadPanel() {
             toast?.error(err instanceof Error ? err.message : 'Could not send photo');
         } finally {
             setUploadingImage(false);
+        }
+    };
+
+    const handleSendProduct = async () => {
+        if (!activeConversation || !attachProduct || sendingProduct) return;
+        setSendingProduct(true);
+        try {
+            const message = await chatApi.sendChatProduct(activeConversation.id, attachProduct.id);
+            setMessages((prev) => [...prev, message]);
+            lastIdRef.current = Math.max(lastIdRef.current, message.id);
+            clearAttachProduct();
+            setActiveConversation((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          product: {
+                              id: attachProduct.id,
+                              name: attachProduct.name,
+                              slug: attachProduct.slug,
+                              price: attachProduct.price,
+                              image_url: attachProduct.image_url,
+                          },
+                      }
+                    : prev,
+            );
+            refreshConversations();
+            playChatSendSound();
+        } catch (err) {
+            toast?.error(err instanceof Error ? err.message : 'Could not send product');
+        } finally {
+            setSendingProduct(false);
         }
     };
 
@@ -577,8 +619,22 @@ export default function ChatThreadPanel() {
                                             {msg.edited_at && !msg.is_deleted && msg.type === 'text' && (
                                                 <span>· edited</span>
                                             )}
-                                            {mine && !msg.read_at && !msg.is_deleted && (
-                                                <span className={isProduct || !mine ? '' : 'text-orange-200'}>· unread</span>
+                                            {mine && !msg.is_deleted && (
+                                                <span
+                                                    className={cn(
+                                                        'inline-flex items-center',
+                                                        msg.read_at
+                                                            ? isProduct || !mine
+                                                                ? 'text-sky-500'
+                                                                : 'text-sky-100'
+                                                            : isProduct || !mine
+                                                              ? 'text-gray-400'
+                                                              : 'text-orange-200',
+                                                    )}
+                                                    title={msg.read_at ? 'Read' : 'Sent'}
+                                                >
+                                                    {msg.read_at ? '✓✓' : '✓'}
+                                                </span>
                                             )}
                                         </div>
                                     </div>
@@ -648,6 +704,50 @@ export default function ChatThreadPanel() {
             </div>
 
             <div className="border-t border-gray-100 bg-white">
+                {attachProduct && (
+                    <div className="flex items-center gap-2.5 border-b border-orange-100 bg-orange-50/90 px-3 py-3">
+                        {attachProduct.image_url ? (
+                            <img
+                                src={productImageUrl(attachProduct.image_url)}
+                                alt=""
+                                className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                            />
+                        ) : (
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white text-orange-500">
+                                <MessageCircle className="h-5 w-5" />
+                            </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-gray-900">{attachProduct.name}</p>
+                            {typeof attachProduct.price === 'number' && (
+                                <p className="text-sm font-bold text-orange-600">
+                                    GH₵{' '}
+                                    {attachProduct.price.toLocaleString('en-GH', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                    })}
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleSendProduct}
+                            disabled={sendingProduct}
+                            className="shrink-0 rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+                        >
+                            {sendingProduct ? 'Sending…' : 'Send'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={clearAttachProduct}
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-gray-500 ring-1 ring-gray-200 hover:bg-gray-50"
+                            aria-label="Dismiss product"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                )}
+
                 {(replyingTo || editingMessage) && (
                     <div className="flex items-center gap-3 border-b border-orange-100 bg-orange-50/80 px-3 py-3 sm:py-2.5">
                         <div className="min-w-0 flex-1 border-l-[3px] border-orange-500 pl-3">

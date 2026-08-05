@@ -99,6 +99,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/messages', [MessageController::class, 'store']);
         Route::get('/messages/{conversation}', [MessageController::class, 'show']);
         Route::post('/messages/{conversation}/send', [MessageController::class, 'send']);
+        Route::post('/messages/{conversation}/product', [MessageController::class, 'sendProduct']);
         Route::post('/messages/{conversation}/image', [MessageController::class, 'uploadImage']);
         Route::post('/messages/{conversation}/video', [MessageController::class, 'uploadVideo']);
         Route::post('/messages/{conversation}/voice', [MessageController::class, 'uploadVoice']);

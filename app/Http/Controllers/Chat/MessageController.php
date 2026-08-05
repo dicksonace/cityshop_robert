@@ -6,6 +6,7 @@ use App\Enums\MessageType;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Product;
 use App\Services\ChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,6 +52,33 @@ class MessageController extends Controller
             null,
             $replyTo,
         );
+
+        $message->load('sender:id,name');
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+        ]);
+    }
+
+    public function sendProduct(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'product_id' => ['required', 'exists:products,id'],
+        ]);
+
+        $product = Product::findOrFail($validated['product_id']);
+
+        if ((int) $product->seller_id !== (int) $conversation->seller_id) {
+            return response()->json(['message' => 'That product does not belong to this seller.'], 422);
+        }
+
+        $message = ChatService::shareProductCard($conversation, $request->user(), $product, force: true);
+
+        if (! $message) {
+            return response()->json(['message' => 'Could not share product.'], 422);
+        }
 
         $message->load('sender:id,name');
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Chat;
 use App\Enums\MessageType;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\ChatService;
@@ -99,10 +100,6 @@ class ConversationController extends Controller
 
         $conversation = ChatService::findOrCreateConversation($request->user(), $seller, $product);
 
-        if ($product) {
-            ChatService::shareProductCard($conversation, $request->user(), $product);
-        }
-
         $conversation->load([
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
@@ -123,6 +120,7 @@ class ConversationController extends Controller
             return response()->json([
                 'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
                 'messages' => $messages,
+                'attach_product' => $product ? ChatService::productCardPayload($product) : null,
             ]);
         }
 
@@ -150,8 +148,16 @@ class ConversationController extends Controller
         $other = $conversation->otherParticipant($request->user());
         $other->loadMissing('sellerProfile');
 
+        $readMessageIds = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_id', $request->user()->id)
+            ->whereNotNull('read_at')
+            ->pluck('id')
+            ->all();
+
         return response()->json([
             'messages' => $messages,
+            'read_message_ids' => $readMessageIds,
             'other' => [
                 'id' => $other->id,
                 'name' => $other->name,

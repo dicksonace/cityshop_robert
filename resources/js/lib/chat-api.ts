@@ -41,9 +41,18 @@ export async function fetchConversation(conversationId: number): Promise<{
     return parseJsonResponse(res);
 }
 
+export type ChatAttachProduct = {
+    id: number;
+    name: string;
+    slug: string;
+    price?: number;
+    image_url?: string | null;
+};
+
 export async function startConversation(sellerId: number, productId?: number): Promise<{
     conversation: ChatConversation;
     messages: ChatMessage[];
+    attach_product?: ChatAttachProduct | null;
 }> {
     const res = await fetch(route('chat.store'), {
         method: 'POST',
@@ -55,6 +64,17 @@ export async function startConversation(sellerId: number, productId?: number): P
         }),
     });
     return parseJsonResponse(res);
+}
+
+export async function sendChatProduct(conversationId: number, productId: number): Promise<ChatMessage> {
+    const res = await fetch(route('chat.messages.product', conversationId), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify({ product_id: productId }),
+    });
+    const data = await parseJsonResponse<{ message: ChatMessage }>(res);
+    return data.message;
 }
 
 export async function sendCallSignal(
@@ -142,6 +162,7 @@ export async function deleteChatMessage(conversationId: number, messageId: numbe
 
 export async function pollConversation(conversationId: number, after: number): Promise<{
     messages: ChatMessage[];
+    read_message_ids?: number[];
     other?: ChatConversation['other'];
 }> {
     const res = await fetch(route('chat.poll', { conversation: conversationId, after }), {

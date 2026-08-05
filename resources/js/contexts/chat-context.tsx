@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import * as chatApi from '@/lib/chat-api';
+import type { ChatAttachProduct } from '@/lib/chat-api';
 import { loadChatState, saveChatState } from '@/lib/chat-storage';
 import type { ChatConversation, ChatMessage } from '@/types/chat';
 
@@ -13,6 +14,7 @@ interface ChatContextValue {
     conversations: ChatConversation[];
     activeConversation: ChatConversation | null;
     messages: ChatMessage[];
+    attachProduct: ChatAttachProduct | null;
     loading: boolean;
     openWidget: () => void;
     closeWidget: () => void;
@@ -21,6 +23,7 @@ interface ChatContextValue {
     showList: () => void;
     openConversation: (conversationId: number) => Promise<void>;
     startChatWithSeller: (sellerId: number, productId?: number) => Promise<void>;
+    clearAttachProduct: () => void;
     refreshConversations: () => Promise<void>;
     setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
     setActiveConversation: React.Dispatch<React.SetStateAction<ChatConversation | null>>;
@@ -37,6 +40,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
     const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [attachProduct, setAttachProduct] = useState<ChatAttachProduct | null>(null);
     const [loading, setLoading] = useState(false);
     const [restored, setRestored] = useState(false);
 
@@ -48,6 +52,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const loadConversation = useCallback(async (conversationId: number) => {
         setLoading(true);
         setView('thread');
+        setAttachProduct(null);
         try {
             const data = await chatApi.fetchConversation(conversationId);
             setActiveConversation(data.conversation);
@@ -119,8 +124,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setView('list');
         setActiveConversation(null);
         setMessages([]);
+        setAttachProduct(null);
         await refreshConversations();
     }, [refreshConversations]);
+
+    const clearAttachProduct = useCallback(() => {
+        setAttachProduct(null);
+    }, []);
 
     const openConversation = useCallback(
         async (conversationId: number) => {
@@ -141,6 +151,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 const data = await chatApi.startConversation(sellerId, productId);
                 setActiveConversation(data.conversation);
                 setMessages(data.messages);
+                setAttachProduct(data.attach_product ?? null);
                 await refreshConversations();
             } finally {
                 setLoading(false);
@@ -157,6 +168,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             conversations,
             activeConversation,
             messages,
+            attachProduct,
             loading,
             openWidget,
             closeWidget,
@@ -165,6 +177,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             showList,
             openConversation,
             startChatWithSeller,
+            clearAttachProduct,
             refreshConversations,
             setMessages,
             setActiveConversation,
@@ -176,6 +189,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             conversations,
             activeConversation,
             messages,
+            attachProduct,
             loading,
             openWidget,
             closeWidget,
@@ -184,6 +198,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             showList,
             openConversation,
             startChatWithSeller,
+            clearAttachProduct,
             refreshConversations,
         ],
     );
