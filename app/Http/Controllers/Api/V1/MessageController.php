@@ -356,7 +356,7 @@ class MessageController extends Controller
             ->where('sender_id', '!=', $user->id)
             ->whereNull('read_at')
             ->count();
-        $product = $conversation->product;
+        $product = ChatService::sharedProductForConversation($conversation);
 
         return [
             'id' => $conversation->id,

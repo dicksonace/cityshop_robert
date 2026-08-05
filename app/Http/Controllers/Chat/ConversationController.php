@@ -187,11 +187,8 @@ class ConversationController extends Controller
             ->whereNull('read_at')
             ->count();
 
-        $product = $conversation->product;
-        $productPayload = null;
-        if ($product) {
-            $productPayload = ChatService::productCardPayload($product);
-        }
+        $product = ChatService::sharedProductForConversation($conversation);
+        $productPayload = $product ? ChatService::productCardPayload($product) : null;
 
         $data = [
             'id' => $conversation->id,

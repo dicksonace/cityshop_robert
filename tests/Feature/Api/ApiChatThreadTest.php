@@ -86,6 +86,7 @@ class ApiChatThreadTest extends TestCase
     public function test_the_conversation_carries_what_the_product_strip_needs(): void
     {
         [$buyer, , $conversation] = $this->conversation(withImage: true);
+        $this->shareConversationProduct($conversation, $buyer);
 
         Sanctum::actingAs($buyer);
 
@@ -102,6 +103,7 @@ class ApiChatThreadTest extends TestCase
     public function test_a_discounted_product_shows_the_price_the_buyer_pays(): void
     {
         [$buyer, , $conversation] = $this->conversation(discountPrice: 39000);
+        $this->shareConversationProduct($conversation, $buyer);
 
         Sanctum::actingAs($buyer);
 
@@ -282,7 +284,8 @@ class ApiChatThreadTest extends TestCase
         $this->assertSame($product->id, $first->json('attach_product.id'));
         $this->assertSame('City Switch', $first->json('attach_product.name'));
         $this->assertEqualsWithDelta(1762.33, (float) $first->json('attach_product.price'), 0.01);
-        $this->assertSame($product->id, $first->json('conversation.product.id'));
+        // Product stays buyer-only until they tap Send — seller must not see it yet.
+        $this->assertNull($first->json('conversation.product'));
 
         $sent = $this->postJson('/api/v1/messages/'.$first->json('conversation.id').'/product', [
             'product_id' => $product->id,
@@ -290,9 +293,10 @@ class ApiChatThreadTest extends TestCase
 
         $this->assertSame('product', $sent->json('message.type'));
         $this->assertSame($product->id, $sent->json('message.product.id'));
+        $this->assertSame($product->id, $sent->json('conversation.product.id'));
     }
 
-    public function test_opening_chat_from_another_product_updates_the_conversation_product(): void
+    public function test_opening_chat_from_another_product_keeps_product_private_until_sent(): void
     {
         $buyer = User::factory()->create(['role' => UserRole::Buyer]);
         $seller = User::factory()->create(['role' => UserRole::Seller]);
@@ -330,7 +334,7 @@ class ApiChatThreadTest extends TestCase
 
         $this->assertSame(0, collect($res->json('messages'))->where('type', 'product')->count());
         $this->assertSame($secondProduct->id, $res->json('attach_product.id'));
-        $this->assertSame($secondProduct->id, $res->json('conversation.product.id'));
+        $this->assertNull($res->json('conversation.product'));
     }
 
     public function test_realtime_config_is_available_to_authenticated_clients(): void
@@ -437,6 +441,20 @@ class ApiChatThreadTest extends TestCase
         ]);
 
         return [$buyer, $seller, $conversation];
+    }
+
+    private function shareConversationProduct(Conversation $conversation, User $sender): Message
+    {
+        $product = $conversation->product()->firstOrFail();
+
+        return $this->message($conversation, $sender, MessageType::Product, $product->name, [
+            'product' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'slug' => $product->slug,
+                'price' => $product->effectivePrice(),
+            ],
+        ]);
     }
 
     private function message(

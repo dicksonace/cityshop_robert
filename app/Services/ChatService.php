@@ -59,17 +59,11 @@ class ChatService
 
     public static function findOrCreateConversation(User $buyer, User $seller, ?Product $product = null): Conversation
     {
-        $conversation = Conversation::firstOrCreate(
+        // Do not link product_id here — that would show the item to the seller
+        // before the buyer chooses to send it. Product is attached only when shared.
+        return Conversation::firstOrCreate(
             ['buyer_id' => $buyer->id, 'seller_id' => $seller->id],
-            ['product_id' => $product?->id]
         );
-
-        // Reopening chat from another product should refresh the linked item.
-        if ($product && $conversation->product_id !== $product->id) {
-            $conversation->update(['product_id' => $product->id]);
-        }
-
-        return $conversation->fresh();
     }
 
     /**
@@ -110,6 +104,21 @@ class ChatService
             MessageType::Product,
             ['product' => $payload],
         );
+    }
+
+    /** Product strip is only for items actually shared in the thread (not just opened). */
+    public static function sharedProductForConversation(Conversation $conversation): ?Product
+    {
+        $hasShared = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('type', MessageType::Product)
+            ->exists();
+
+        if (! $hasShared) {
+            return null;
+        }
+
+        return $conversation->product;
     }
 
     /** @return array{id: int, name: string, slug: string, price: float, image_url: ?string} */
