@@ -139,9 +139,14 @@ class ChatService
         return DB::transaction(function () use ($conversation, $sender, $body, $type, $metadata, $replyTo) {
             if ($replyTo) {
                 abort_unless($replyTo->conversation_id === $conversation->id, 422, 'Invalid reply target.');
-                $replyBody = $replyTo->type === MessageType::Image
-                    ? ($replyTo->body ?: 'Photo')
-                    : ($replyTo->body ?? '');
+                $replyBody = match ($replyTo->type) {
+                    MessageType::Image => $replyTo->body ?: 'Photo',
+                    MessageType::Video => $replyTo->body ?: 'Video',
+                    MessageType::Voice => 'Voice message',
+                    MessageType::Product => $replyTo->body
+                        ?: ($replyTo->metadata['product']['name'] ?? 'Product'),
+                    default => $replyTo->body ?? '',
+                };
                 $metadata = array_merge($metadata ?? [], [
                     'reply_to' => [
                         'id' => $replyTo->id,

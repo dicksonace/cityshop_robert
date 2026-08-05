@@ -26,9 +26,21 @@ class MessageController extends Controller
         if (! empty($validated['reply_to_id'])) {
             $replyTo = Message::where('conversation_id', $conversation->id)
                 ->where('id', $validated['reply_to_id'])
-                ->whereIn('type', [MessageType::Text, MessageType::Image])
+                ->whereIn('type', [
+                    MessageType::Text,
+                    MessageType::Image,
+                    MessageType::Video,
+                    MessageType::Voice,
+                    MessageType::Product,
+                ])
                 ->with('sender:id,name')
-                ->firstOrFail();
+                ->first();
+
+            if (! $replyTo) {
+                return response()->json([
+                    'message' => 'You can only reply to messages in this conversation.',
+                ], 422);
+            }
         }
 
         $message = ChatService::sendMessage(

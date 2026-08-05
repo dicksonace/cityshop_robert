@@ -288,6 +288,11 @@ export default function ChatThreadPanel() {
 
     const replyPreview = (msg: ChatMessage) => {
         if (msg.type === 'image') return msg.body?.trim() || 'Photo';
+        if (msg.type === 'video') return msg.body?.trim() || 'Video';
+        if (msg.type === 'voice') return 'Voice message';
+        if (msg.type === 'product') {
+            return msg.product?.name || msg.body?.trim() || 'Product';
+        }
         return msg.body;
     };
 
