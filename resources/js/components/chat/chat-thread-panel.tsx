@@ -39,6 +39,7 @@ function isTimelineMessage(msg: ChatMessage): boolean {
         msg.type === 'image' ||
         msg.type === 'video' ||
         msg.type === 'voice' ||
+        msg.type === 'product' ||
         msg.type === 'call_log'
     );
 }
@@ -102,7 +103,8 @@ export default function ChatThreadPanel() {
                     (msg.type === 'text' ||
                         msg.type === 'image' ||
                         msg.type === 'video' ||
-                        msg.type === 'voice') &&
+                        msg.type === 'voice' ||
+                        msg.type === 'product') &&
                     msg.sender_id !== auth.user?.id
                 ) {
                     receivedNew = true;
@@ -346,9 +348,40 @@ export default function ChatThreadPanel() {
             </div>
 
             {activeConversation.product && (
-                <div className="border-b border-gray-50 bg-orange-50/50 px-3 py-1.5 text-[11px]">
-                    <Link href={route('products.show', activeConversation.product.slug)} className="text-orange-600 hover:underline">
-                        Re: {activeConversation.product.name}
+                <div className="flex items-center gap-2 border-b border-orange-100 bg-orange-50/70 px-3 py-2">
+                    {activeConversation.product.image_url ? (
+                        <img
+                            src={productImageUrl(activeConversation.product.image_url)}
+                            alt=""
+                            className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        />
+                    ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-500">
+                            <MessageCircle className="h-4 w-4" />
+                        </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                        <Link
+                            href={route('products.show', activeConversation.product.slug)}
+                            className="block truncate text-xs font-semibold text-gray-900 hover:text-orange-600"
+                        >
+                            {activeConversation.product.name}
+                        </Link>
+                        {typeof activeConversation.product.price === 'number' && (
+                            <p className="text-[11px] font-bold text-orange-600">
+                                GH₵{' '}
+                                {activeConversation.product.price.toLocaleString('en-GH', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                })}
+                            </p>
+                        )}
+                    </div>
+                    <Link
+                        href={route('products.show', activeConversation.product.slug)}
+                        className="shrink-0 text-[11px] font-semibold text-orange-600 hover:underline"
+                    >
+                        View
                     </Link>
                 </div>
             )}
@@ -407,6 +440,13 @@ export default function ChatThreadPanel() {
                         const isImage = msg.type === 'image' && msg.image_url && !msg.is_deleted;
                         const isVideo = msg.type === 'video' && msg.video_url && !msg.is_deleted;
                         const isVoice = msg.type === 'voice' && msg.voice_url && !msg.is_deleted;
+                        const productCard =
+                            msg.type === 'product' && !msg.is_deleted
+                                ? (msg.product ??
+                                  (msg.metadata?.product as ChatMessage['product'] | undefined) ??
+                                  null)
+                                : null;
+                        const isProduct = Boolean(productCard);
 
                         return (
                             <div
@@ -417,8 +457,12 @@ export default function ChatThreadPanel() {
                                     <div
                                         className={cn(
                                             'overflow-hidden rounded-2xl text-sm',
-                                            isImage || isVideo ? 'p-1' : 'px-3 py-2',
-                                            mine ? 'bg-orange-500 text-white' : 'bg-white text-gray-900 shadow-sm',
+                                            isImage || isVideo ? 'p-1' : isProduct ? 'p-0' : 'px-3 py-2',
+                                            isProduct
+                                                ? 'border border-orange-100 bg-white text-gray-900 shadow-sm'
+                                                : mine
+                                                  ? 'bg-orange-500 text-white'
+                                                  : 'bg-white text-gray-900 shadow-sm',
                                             msg.is_deleted && 'px-3 py-2 italic opacity-70',
                                         )}
                                     >
@@ -439,6 +483,42 @@ export default function ChatThreadPanel() {
 
                                         {msg.is_deleted ? (
                                             <p className="px-2 py-1">Message deleted</p>
+                                        ) : isProduct && productCard ? (
+                                            <Link
+                                                href={route('products.show', productCard.slug)}
+                                                className="block min-w-[14rem] p-2.5 transition hover:bg-orange-50/60"
+                                            >
+                                                <div className="flex gap-2.5">
+                                                    {productCard.image_url ? (
+                                                        <img
+                                                            src={productImageUrl(productCard.image_url)}
+                                                            alt=""
+                                                            className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-orange-500">
+                                                            <MessageCircle className="h-5 w-5" />
+                                                        </div>
+                                                    )}
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="line-clamp-2 text-xs font-semibold text-gray-900">
+                                                            {productCard.name}
+                                                        </p>
+                                                        {typeof productCard.price === 'number' && (
+                                                            <p className="mt-1 text-sm font-bold text-orange-600">
+                                                                GH₵{' '}
+                                                                {productCard.price.toLocaleString('en-GH', {
+                                                                    minimumFractionDigits: 2,
+                                                                    maximumFractionDigits: 2,
+                                                                })}
+                                                            </p>
+                                                        )}
+                                                        <p className="mt-1 text-[10px] font-medium text-gray-400">
+                                                            Tap to view product
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </Link>
                                         ) : isImage ? (
                                             <div>
                                                 <a href={msg.image_url!} target="_blank" rel="noreferrer">
@@ -484,8 +564,8 @@ export default function ChatThreadPanel() {
                                         <div
                                             className={cn(
                                                 'flex items-center gap-1.5 text-[10px]',
-                                                isImage || isVideo ? 'px-2 pb-1' : 'mt-0.5',
-                                                mine ? 'text-orange-100' : 'text-gray-400',
+                                                isImage || isVideo || isProduct ? 'px-2 pb-1.5' : 'mt-0.5',
+                                                isProduct || !mine ? 'text-gray-400' : 'text-orange-100',
                                             )}
                                         >
                                             <span>{formatTime(msg.created_at)}</span>
@@ -493,12 +573,12 @@ export default function ChatThreadPanel() {
                                                 <span>· edited</span>
                                             )}
                                             {mine && !msg.read_at && !msg.is_deleted && (
-                                                <span className={mine ? 'text-orange-200' : ''}>· unread</span>
+                                                <span className={isProduct || !mine ? '' : 'text-orange-200'}>· unread</span>
                                             )}
                                         </div>
                                     </div>
 
-                                    {showMenu && ['text', 'image', 'video', 'voice'].includes(msg.type) && !msg.is_deleted && (
+                                    {showMenu && ['text', 'image', 'video', 'voice', 'product'].includes(msg.type) && !msg.is_deleted && (
                                         <div
                                             className={cn(
                                                 'absolute z-10 mt-1 min-w-[7rem] overflow-hidden rounded-lg border border-gray-100 bg-white py-1 shadow-lg',

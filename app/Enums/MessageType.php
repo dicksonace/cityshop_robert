@@ -13,5 +13,6 @@ enum MessageType: string
     case Image = 'image';
     case Video = 'video';
     case Voice = 'voice';
+    case Product = 'product';
     case System = 'system';
 }

@@ -11,6 +11,7 @@ use App\Models\Message;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ChatService
 {
@@ -27,6 +28,7 @@ class ChatService
             MessageType::Image,
             MessageType::Video,
             MessageType::Voice,
+            MessageType::Product,
             MessageType::CallLog,
             MessageType::System,
         ];
@@ -57,10 +59,73 @@ class ChatService
 
     public static function findOrCreateConversation(User $buyer, User $seller, ?Product $product = null): Conversation
     {
-        return Conversation::firstOrCreate(
+        $conversation = Conversation::firstOrCreate(
             ['buyer_id' => $buyer->id, 'seller_id' => $seller->id],
             ['product_id' => $product?->id]
         );
+
+        // Reopening chat from another product should refresh the linked item.
+        if ($product && $conversation->product_id !== $product->id) {
+            $conversation->update(['product_id' => $product->id]);
+        }
+
+        return $conversation->fresh();
+    }
+
+    /**
+     * Share a product card in the thread when the buyer opens chat from a product page.
+     * Skips if the most recent product card in this conversation is already the same item.
+     */
+    public static function shareProductCard(Conversation $conversation, User $sender, Product $product): ?Message
+    {
+        $product->loadMissing('images');
+
+        $payload = static::productCardPayload($product);
+
+        $lastProduct = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('type', MessageType::Product)
+            ->orderByDesc('id')
+            ->first();
+
+        $lastProductId = $lastProduct?->metadata['product']['id'] ?? null;
+        if ($lastProductId !== null && (int) $lastProductId === (int) $product->id) {
+            return null;
+        }
+
+        if ($conversation->product_id !== $product->id) {
+            $conversation->update(['product_id' => $product->id]);
+        }
+
+        return static::sendMessage(
+            $conversation,
+            $sender,
+            $product->name,
+            MessageType::Product,
+            ['product' => $payload],
+        );
+    }
+
+    /** @return array{id: int, name: string, slug: string, price: float, image_url: ?string} */
+    public static function productCardPayload(Product $product): array
+    {
+        $product->loadMissing('images');
+        $image = $product->images->firstWhere('is_primary', true) ?? $product->images->first();
+        $path = $image?->path;
+        $imageUrl = null;
+        if (is_string($path) && trim($path) !== '') {
+            $imageUrl = str_starts_with($path, 'http://') || str_starts_with($path, 'https://')
+                ? $path
+                : Storage::disk('public')->url($path);
+        }
+
+        return [
+            'id' => $product->id,
+            'name' => $product->name,
+            'slug' => $product->slug,
+            'price' => $product->effectivePrice(),
+            'image_url' => $imageUrl,
+        ];
     }
 
     public static function sendMessage(
@@ -112,6 +177,7 @@ class ChatService
                     $type === MessageType::Image => 'Sent a photo',
                     $type === MessageType::Video => 'Sent a video',
                     $type === MessageType::Voice => 'Sent a voice message',
+                    $type === MessageType::Product => 'Shared a product: '.$body,
                     default => 'New activity',
                 };
 
@@ -169,6 +235,7 @@ class ChatService
                 MessageType::Image,
                 MessageType::Video,
                 MessageType::Voice,
+                MessageType::Product,
             ], true)
             && $message->read_at === null
             && empty($message->metadata['deleted_at']);
@@ -224,6 +291,7 @@ class ChatService
             'image_url' => $deleted ? null : ($metadata['image_url'] ?? null),
             'video_url' => $deleted ? null : ($metadata['video_url'] ?? null),
             'voice_url' => $deleted ? null : ($metadata['voice_url'] ?? null),
+            'product' => $deleted ? null : ($metadata['product'] ?? null),
             'duration_seconds' => $deleted
                 ? null
                 : (isset($metadata['duration_seconds']) ? (int) $metadata['duration_seconds'] : null),

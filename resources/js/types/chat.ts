@@ -24,7 +24,13 @@ export interface ChatConversationOther {
 
 export interface ChatConversation {
     id: number;
-    product?: { id: number; name: string; slug: string } | null;
+    product?: {
+        id: number;
+        name: string;
+        slug: string;
+        price?: number;
+        image_url?: string | null;
+    } | null;
     other: ChatConversationOther;
     latest_message?: {
         body?: string | null;
@@ -52,6 +58,13 @@ export interface ChatMessage {
     image_url?: string | null;
     video_url?: string | null;
     voice_url?: string | null;
+    product?: {
+        id: number;
+        name: string;
+        slug: string;
+        price?: number;
+        image_url?: string | null;
+    } | null;
     duration_seconds?: number | null;
     call_log?: ChatCallLog | null;
     read_at?: string | null;

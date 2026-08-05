@@ -22,7 +22,8 @@ class ConversationController extends Controller
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
-            'product:id,name,slug',
+            'product:id,name,slug,price,discount_price',
+            'product.images',
             'latestMessage.sender:id,name',
         ])
             ->where(fn ($q) => $q->where('buyer_id', $userId)->orWhere('seller_id', $userId))
@@ -48,10 +49,12 @@ class ConversationController extends Controller
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
-            'product:id,name,slug',
+            'product:id,name,slug,price,discount_price',
+            'product.images',
         ]);
 
         $messages = $conversation->messages()
+            ->whereIn('type', ChatService::visibleTypes())
             ->with('sender:id,name')
             ->orderBy('created_at')
             ->limit(100)
@@ -78,6 +81,14 @@ class ConversationController extends Controller
         $seller = User::findOrFail($validated['seller_id']);
         $product = isset($validated['product_id']) ? Product::find($validated['product_id']) : null;
 
+        if ($product && (int) $product->seller_id !== (int) $seller->id) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'That product does not belong to this seller.'], 422);
+            }
+
+            return back()->with('error', 'That product does not belong to this seller.');
+        }
+
         if ($request->user()->id === $seller->id) {
             if ($request->wantsJson()) {
                 return response()->json(['message' => 'You cannot message yourself.'], 422);
@@ -88,15 +99,21 @@ class ConversationController extends Controller
 
         $conversation = ChatService::findOrCreateConversation($request->user(), $seller, $product);
 
+        if ($product) {
+            ChatService::shareProductCard($conversation, $request->user(), $product);
+        }
+
         $conversation->load([
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
-            'product:id,name,slug',
+            'product:id,name,slug,price,discount_price',
+            'product.images',
         ]);
 
         if ($request->wantsJson()) {
             $messages = $conversation->messages()
+                ->whereIn('type', ChatService::visibleTypes())
                 ->with('sender:id,name')
                 ->orderBy('created_at')
                 ->limit(100)
@@ -119,6 +136,7 @@ class ConversationController extends Controller
         $afterId = (int) $request->get('after', 0);
 
         $messages = $conversation->messages()
+            ->whereIn('type', ChatService::visibleTypes())
             ->with('sender:id,name')
             ->when($afterId > 0, fn ($q) => $q->where('id', '>', $afterId))
             ->orderBy('created_at')
@@ -158,17 +176,20 @@ class ConversationController extends Controller
 
         $latest = $conversation->latestMessage;
         $unread = $conversation->messages()
+            ->whereIn('type', ChatService::visibleTypes())
             ->where('sender_id', '!=', $user->id)
             ->whereNull('read_at')
             ->count();
 
+        $product = $conversation->product;
+        $productPayload = null;
+        if ($product) {
+            $productPayload = ChatService::productCardPayload($product);
+        }
+
         $data = [
             'id' => $conversation->id,
-            'product' => $conversation->product ? [
-                'id' => $conversation->product->id,
-                'name' => $conversation->product->name,
-                'slug' => $conversation->product->slug,
-            ] : null,
+            'product' => $productPayload,
             'other' => [
                 'id' => $other->id,
                 'name' => $other->name,
@@ -185,7 +206,9 @@ class ConversationController extends Controller
                 ] : null,
             ],
             'latest_message' => $latest ? [
-                'body' => $latest->body,
+                'body' => $latest->type === MessageType::Product
+                    ? ('Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')))
+                    : $latest->body,
                 'type' => $latest->type->value,
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'sender_id' => $latest->sender_id,

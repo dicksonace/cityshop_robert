@@ -249,6 +249,98 @@ class ApiChatThreadTest extends TestCase
             ->assertJsonPath('message.type', 'voice');
     }
 
+    public function test_opening_chat_from_a_product_sends_a_product_card(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'City Switch',
+            'slug' => 'city-switch-'.uniqid(),
+            'price' => 1762.33,
+            'quantity' => 3,
+            'status' => ProductStatus::Approved,
+            'is_preorder' => false,
+        ]);
+
+        ProductImage::create([
+            'product_id' => $product->id,
+            'path' => 'products/switch.jpg',
+            'is_primary' => true,
+            'sort_order' => 0,
+        ]);
+
+        Sanctum::actingAs($buyer);
+
+        $first = $this->postJson('/api/v1/messages', [
+            'seller_id' => $seller->id,
+            'product_id' => $product->id,
+        ])->assertCreated();
+
+        $messages = collect($first->json('messages'));
+        $this->assertTrue($messages->contains(fn ($m) => ($m['type'] ?? null) === 'product'));
+        $card = $messages->firstWhere('type', 'product');
+        $this->assertSame($product->id, $card['product']['id']);
+        $this->assertSame('City Switch', $card['product']['name']);
+        $this->assertEqualsWithDelta(1762.33, (float) $card['product']['price'], 0.01);
+        $this->assertStringContainsString('products/switch.jpg', $card['product']['image_url']);
+        $this->assertSame($product->id, $first->json('conversation.product.id'));
+
+        // Reopening the same product must not spam another card.
+        $second = $this->postJson('/api/v1/messages', [
+            'seller_id' => $seller->id,
+            'product_id' => $product->id,
+        ])->assertCreated();
+
+        $this->assertCount(
+            1,
+            collect($second->json('messages'))->where('type', 'product'),
+        );
+    }
+
+    public function test_opening_chat_from_another_product_updates_the_card(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+
+        $firstProduct = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'First Item',
+            'slug' => 'first-item-'.uniqid(),
+            'price' => 100,
+            'quantity' => 1,
+            'status' => ProductStatus::Approved,
+            'is_preorder' => false,
+        ]);
+        $secondProduct = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Second Item',
+            'slug' => 'second-item-'.uniqid(),
+            'price' => 200,
+            'quantity' => 1,
+            'status' => ProductStatus::Approved,
+            'is_preorder' => false,
+        ]);
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson('/api/v1/messages', [
+            'seller_id' => $seller->id,
+            'product_id' => $firstProduct->id,
+        ])->assertCreated();
+
+        $res = $this->postJson('/api/v1/messages', [
+            'seller_id' => $seller->id,
+            'product_id' => $secondProduct->id,
+        ])->assertCreated();
+
+        $productCards = collect($res->json('messages'))->where('type', 'product')->values();
+        $this->assertCount(2, $productCards);
+        $this->assertSame($secondProduct->id, $productCards->last()['product']['id']);
+        $this->assertSame($secondProduct->id, $res->json('conversation.product.id'));
+    }
+
     public function test_realtime_config_is_available_to_authenticated_clients(): void
     {
         [$buyer] = $this->conversation();

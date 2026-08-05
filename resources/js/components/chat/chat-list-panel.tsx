@@ -54,11 +54,17 @@ export default function ChatListPanel() {
                         ? c.latest_message.body
                         : c.latest_message?.type === 'image'
                           ? 'Photo'
-                          : c.latest_message?.type === 'call_log' && c.latest_message.call_log
-                            ? getCallLogListPreview(c.latest_message.call_log, auth.user?.id ?? 0)
-                            : c.latest_message?.type?.startsWith('call')
-                              ? 'Voice call'
-                              : '';
+                          : c.latest_message?.type === 'video'
+                            ? 'Video'
+                            : c.latest_message?.type === 'voice'
+                              ? 'Voice message'
+                              : c.latest_message?.type === 'product'
+                                ? c.latest_message.body || 'Product'
+                                : c.latest_message?.type === 'call_log' && c.latest_message.call_log
+                                  ? getCallLogListPreview(c.latest_message.call_log, auth.user?.id ?? 0)
+                                  : c.latest_message?.type?.startsWith('call')
+                                    ? 'Voice call'
+                                    : '';
 
                 return (
                     <button

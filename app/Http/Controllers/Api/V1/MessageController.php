@@ -46,11 +46,19 @@ class MessageController extends Controller
         $seller = User::findOrFail($validated['seller_id']);
         $product = isset($validated['product_id']) ? Product::find($validated['product_id']) : null;
 
+        if ($product && (int) $product->seller_id !== (int) $seller->id) {
+            return response()->json(['message' => 'That product does not belong to this seller.'], 422);
+        }
+
         if ($request->user()->id === $seller->id) {
             return response()->json(['message' => 'You cannot message yourself.'], 422);
         }
 
         $conversation = ChatService::findOrCreateConversation($request->user(), $seller, $product);
+
+        if ($product) {
+            ChatService::shareProductCard($conversation, $request->user(), $product);
+        }
 
         $conversation->load([
             'buyer:id,name,avatar,city,region,last_seen_at',
@@ -324,7 +332,9 @@ class MessageController extends Controller
                 'store_name' => $other->sellerProfile?->displayName(),
             ],
             'latest_message' => $latest ? [
-                'body' => $latest->body,
+                'body' => $latest->type === MessageType::Product
+                    ? ('Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')))
+                    : $latest->body,
                 'type' => $latest->type->value,
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'sender_id' => $latest->sender_id,
