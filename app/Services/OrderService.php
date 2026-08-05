@@ -268,6 +268,54 @@ class OrderService
     }
 
     /**
+     * Marketplace (Paystack/wallet) total from the live cart — no orders created.
+     *
+     * @param  array<string, array{channel: string, method_id?: int|null}>  $sellerPayments
+     * @param  array<string, string>  $sellerCoupons
+     */
+    public function marketplaceAmountFromCart(User $buyer, array $sellerPayments = [], array $sellerCoupons = []): float
+    {
+        $grouped = $this->cartGroupedBySeller($buyer);
+        if ($grouped->isEmpty()) {
+            return 0.0;
+        }
+
+        $commissionRate = PlatformSettings::commissionRate();
+        $total = 0.0;
+
+        foreach ($grouped as $sellerId => $items) {
+            $seller = $items->first()->product->seller;
+            $profile = $seller->sellerProfile;
+            $choice = $this->sellerPaymentChoice($sellerPayments, (int) $sellerId);
+            $channel = $this->resolvePaymentChannel($profile, $choice);
+
+            if ($channel !== PaymentChannel::Marketplace) {
+                continue;
+            }
+
+            $orderSubtotal = $items->sum(fn ($item) => $item->subtotal());
+            $couponDiscount = 0.0;
+            $appliedCoupon = null;
+            $couponCode = $sellerCoupons[$sellerId] ?? $sellerCoupons[(string) $sellerId] ?? null;
+            if ($couponCode) {
+                $result = $this->coupons->validateForSeller($buyer, (int) $sellerId, $couponCode, $orderSubtotal);
+                $couponDiscount = $result['discount'];
+                $appliedCoupon = $result['coupon'];
+            }
+
+            $shippingCost = static::shippingCostForSellerItems($items);
+            if ($appliedCoupon?->type === CouponType::FreeShipping) {
+                $shippingCost = 0;
+            }
+
+            $goodsTotal = max(0, round($orderSubtotal - $couponDiscount, 2));
+            $total += round($goodsTotal + $shippingCost, 2);
+        }
+
+        return round($total, 2);
+    }
+
+    /**
      * Pay-to-seller packages from the live cart (orders are not created yet).
      *
      * @param  array<string, array{channel: string, method_id?: int|null}>  $sellerPayments

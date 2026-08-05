@@ -14,6 +14,7 @@ use App\Services\OrderService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
 use App\Support\DirectCheckoutDraft;
+use App\Support\PendingCheckoutDraft;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -135,6 +136,45 @@ class CheckoutController extends Controller
             return redirect()->route('checkout.direct-pay');
         }
 
+        // Paystack (momo/card): no order until payment succeeds.
+        if (in_array($paymentMethod, ['momo', 'card'], true)) {
+            try {
+                $amount = $this->orderService->marketplaceAmountFromCart(
+                    $request->user(),
+                    $sellerPayments,
+                    $sellerCoupons,
+                );
+            } catch (ValidationException $e) {
+                return back()->withErrors($e->errors())->withInput();
+            } catch (\RuntimeException $e) {
+                return back()->with('error', $e->getMessage());
+            }
+
+            if ($amount <= 0) {
+                DirectCheckoutDraft::put(
+                    $request,
+                    $address->id,
+                    $shipping,
+                    $sellerPayments,
+                    $sellerCoupons,
+                );
+
+                return redirect()->route('checkout.direct-pay');
+            }
+
+            PendingCheckoutDraft::put(
+                $request,
+                $address->id,
+                $shipping,
+                $sellerPayments,
+                $sellerCoupons,
+                $paymentMethod,
+            );
+            DirectCheckoutDraft::clear($request);
+
+            return redirect()->route('checkout.paystack-draft');
+        }
+
         try {
             $checkout = $this->orderService->createCheckoutFromCart(
                 $request->user(),
@@ -150,6 +190,7 @@ class CheckoutController extends Controller
         }
 
         DirectCheckoutDraft::clear($request);
+        PendingCheckoutDraft::clear($request);
 
         if ($paymentMethod === 'cash') {
             $this->orderService->confirmCashOnDelivery($checkout);
@@ -265,6 +306,94 @@ class CheckoutController extends Controller
             ->with('success', 'Payment submitted for this seller. Pay any remaining sellers below.');
     }
 
+    public function paystackDraft(Request $request): Response|RedirectResponse
+    {
+        $draft = PendingCheckoutDraft::get($request);
+        if (! $draft) {
+            return redirect()->route('checkout.index')
+                ->with('error', 'Start checkout again to pay.');
+        }
+
+        try {
+            $amount = $this->orderService->marketplaceAmountFromCart(
+                $request->user(),
+                $draft['seller_payments'] ?? [],
+                $draft['seller_coupons'] ?? [],
+            );
+        } catch (\RuntimeException $e) {
+            return redirect()->route('checkout.index')->with('error', $e->getMessage());
+        }
+
+        if ($amount <= 0) {
+            return redirect()->route('checkout.direct-pay');
+        }
+
+        return Inertia::render('shop/payment-draft', [
+            'amount' => $amount,
+            'paymentMethod' => $draft['payment_method'] ?? 'momo',
+            'shipping' => $draft['shipping'] ?? [],
+            'paystackPublicKey' => config('services.paystack.public_key'),
+            'paystackConfigured' => $this->paystack->isConfigured(),
+        ]);
+    }
+
+    public function initializeDraftPayment(Request $request): JsonResponse
+    {
+        $draft = PendingCheckoutDraft::get($request);
+        if (! $draft) {
+            return response()->json(['message' => 'Start checkout again to pay.'], 422);
+        }
+
+        if (! $this->paystack->isConfigured()) {
+            return response()->json(['message' => 'Paystack is not configured.'], 503);
+        }
+
+        try {
+            $amount = $this->orderService->marketplaceAmountFromCart(
+                $request->user(),
+                $draft['seller_payments'] ?? [],
+                $draft['seller_coupons'] ?? [],
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        if ($amount <= 0) {
+            return response()->json(['message' => 'No marketplace payment required.'], 422);
+        }
+
+        $reference = 'CSH-'.uniqid('', true);
+        $amountPesewas = (int) round($amount * 100);
+
+        try {
+            $data = $this->paystack->initializeTransaction(
+                $request->user()->email,
+                $amount,
+                $reference,
+                [
+                    'buyer_id' => $request->user()->id,
+                    'source' => 'web_draft',
+                    'draft' => true,
+                ],
+                route('checkout.callback'),
+            );
+
+            $paystackReference = (string) ($data['reference'] ?? $reference);
+            PendingCheckoutDraft::rememberPaystack($request->user(), $paystackReference, $amountPesewas);
+
+            return response()->json([
+                'authorization_url' => $data['authorization_url'] ?? null,
+                'access_code' => $data['access_code'] ?? null,
+                'reference' => $paystackReference,
+                'public_key' => config('services.paystack.public_key'),
+                'email' => $request->user()->email,
+                'amount' => $amountPesewas,
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
     public function payment(Request $request, Checkout $checkout): Response|RedirectResponse
     {
         abort_unless($checkout->buyer_id === $request->user()->id, 403);
@@ -314,6 +443,46 @@ class CheckoutController extends Controller
             $checkout = $checkoutId
                 ? Checkout::find($checkoutId)
                 : Checkout::whereHas('orders', fn ($q) => $q->where('payment_reference', $reference))->first();
+
+            // Deferred Paystack: create the order only after payment succeeds.
+            if (! $checkout && ! empty($data['metadata']['draft'])) {
+                $draft = PendingCheckoutDraft::get($request);
+                if (! $draft) {
+                    return redirect()->route('checkout.index')
+                        ->with('error', 'Payment received, but checkout expired. Contact support with your reference.');
+                }
+
+                $pending = PendingCheckoutDraft::pendingPaystack($request->user());
+                if (is_array($pending) && ! empty($pending['reference'])
+                    && ! hash_equals((string) $pending['reference'], (string) $reference)) {
+                    return redirect()->route('checkout.index')
+                        ->with('error', 'Payment reference mismatch.');
+                }
+
+                $checkout = $this->orderService->createCheckoutFromCart(
+                    $request->user(),
+                    $draft['shipping'],
+                    $draft['payment_method'] ?? 'momo',
+                    $draft['seller_payments'] ?? [],
+                    $draft['seller_coupons'] ?? [],
+                );
+                $this->orderService->fulfillPaidCheckout(
+                    $checkout,
+                    (string) $reference,
+                    $this->paystack->paidAmountGhs($data),
+                );
+                PendingCheckoutDraft::clear($request);
+
+                $hasDirect = $checkout->fresh('orders')->orders
+                    ->contains(fn ($order) => $order->payment_channel === PaymentChannel::Direct);
+
+                if ($hasDirect) {
+                    return redirect()->route('checkout.payment', $checkout)
+                        ->with('success', 'Payment successful! Complete direct seller payments below.');
+                }
+
+                return redirect()->route('checkouts.show', $checkout)->with('success', 'Payment successful!');
+            }
 
             if (! $checkout) {
                 return redirect()->route('orders.index')->with('error', 'Checkout not found for this payment.');

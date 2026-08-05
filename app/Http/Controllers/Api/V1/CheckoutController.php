@@ -15,6 +15,7 @@ use App\Services\OrderService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
 use App\Support\DirectCheckoutDraft;
+use App\Support\PendingCheckoutDraft;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -144,6 +145,62 @@ class CheckoutController extends Controller
             ]);
         }
 
+        // Paystack (momo/card): hold choices in a draft — no order until payment succeeds.
+        if (in_array($method, ['momo', 'card'], true)) {
+            try {
+                $amount = $this->orderService->marketplaceAmountFromCart(
+                    $request->user(),
+                    $sellerPayments,
+                    $sellerCoupons,
+                );
+            } catch (ValidationException $e) {
+                throw $e;
+            } catch (\RuntimeException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            if ($amount <= 0) {
+                // All sellers chose direct — fall through to direct-only style flow.
+                DirectCheckoutDraft::putForUser(
+                    $request->user(),
+                    $address->id,
+                    $shipping,
+                    $sellerPayments,
+                    $sellerCoupons,
+                );
+
+                $packages = $this->orderService->directPayPackagesFromCart(
+                    $request->user(),
+                    $sellerPayments,
+                )->map(fn (array $package) => $this->directPackagePayload($package))->values();
+
+                return response()->json([
+                    'message' => 'Send payment to the seller, then upload proof. No order is created until you submit.',
+                    'next' => 'direct_pay',
+                    'packages' => $packages,
+                    'shipping' => $shipping,
+                ]);
+            }
+
+            PendingCheckoutDraft::putForUser(
+                $request->user(),
+                $address->id,
+                $shipping,
+                $sellerPayments,
+                $sellerCoupons,
+                $method,
+            );
+            DirectCheckoutDraft::clearForUser($request->user());
+
+            return response()->json([
+                'message' => 'Complete payment to place your order. No order is created until payment succeeds.',
+                'next' => 'paystack',
+                'amount' => $amount,
+                'paystack_configured' => $this->paystack->isConfigured(),
+                'shipping' => $shipping,
+            ]);
+        }
+
         try {
             $checkout = $this->orderService->createCheckoutFromCart(
                 $request->user(),
@@ -159,6 +216,7 @@ class CheckoutController extends Controller
         }
 
         DirectCheckoutDraft::clearForUser($request->user());
+        PendingCheckoutDraft::clearForUser($request->user());
 
         if ($method === 'cash') {
             $this->orderService->confirmCashOnDelivery($checkout);
@@ -415,6 +473,129 @@ class CheckoutController extends Controller
         return response()->json([
             'message' => 'Payment successful.',
             'checkout' => $this->checkoutPayload($checkout->fresh(['orders.items'])),
+        ]);
+    }
+
+    public function initializeDraftPaystack(Request $request): JsonResponse
+    {
+        $draft = PendingCheckoutDraft::getForUser($request->user());
+        if (! $draft) {
+            return response()->json(['message' => 'Start checkout again to pay.'], 422);
+        }
+
+        if (! $this->paystack->isConfigured()) {
+            return response()->json(['message' => 'Paystack is not configured.'], 503);
+        }
+
+        try {
+            $amount = $this->orderService->marketplaceAmountFromCart(
+                $request->user(),
+                $draft['seller_payments'] ?? [],
+                $draft['seller_coupons'] ?? [],
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        if ($amount <= 0) {
+            return response()->json(['message' => 'No marketplace payment required.'], 422);
+        }
+
+        $reference = 'CSH-'.uniqid('', true);
+        $amountPesewas = (int) round($amount * 100);
+        $callbackUrl = url('/api/v1/paystack/mobile-return');
+
+        try {
+            $data = $this->paystack->initializeTransaction(
+                $request->user()->email,
+                $amount,
+                $reference,
+                [
+                    'buyer_id' => $request->user()->id,
+                    'source' => 'mobile_app_draft',
+                    'draft' => true,
+                ],
+                $callbackUrl,
+            );
+
+            $paystackReference = (string) ($data['reference'] ?? $reference);
+            PendingCheckoutDraft::rememberPaystack($request->user(), $paystackReference, $amountPesewas);
+
+            return response()->json([
+                'authorization_url' => $data['authorization_url'],
+                'access_code' => $data['access_code'],
+                'reference' => $paystackReference,
+                'callback_url' => $callbackUrl,
+                'email' => $request->user()->email,
+                'amount' => $amount,
+                'currency' => 'GHS',
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function verifyDraftPaystack(Request $request): JsonResponse
+    {
+        $draft = PendingCheckoutDraft::getForUser($request->user());
+        if (! $draft) {
+            return response()->json(['message' => 'Start checkout again to pay.'], 422);
+        }
+
+        $validated = $request->validate([
+            'reference' => ['required', 'string', 'max:100'],
+        ]);
+        $reference = trim($validated['reference']);
+
+        $pending = PendingCheckoutDraft::pendingPaystack($request->user());
+        if (is_array($pending) && ! empty($pending['reference'])) {
+            if (! hash_equals((string) $pending['reference'], $reference)) {
+                return response()->json(['message' => 'This payment reference does not match.'], 422);
+            }
+        }
+
+        try {
+            $data = $this->paystack->verifyTransaction($reference);
+            if (($data['status'] ?? '') !== 'success') {
+                return response()->json(['message' => 'Payment was not successful.'], 422);
+            }
+
+            $expectedPesewas = (int) ($pending['amount_pesewas'] ?? 0);
+            $paidPesewas = (int) ($data['amount'] ?? 0);
+            if ($expectedPesewas > 0 && $paidPesewas + 1 < $expectedPesewas) {
+                return response()->json(['message' => 'Paid amount does not match checkout total.'], 422);
+            }
+
+            $checkout = $this->orderService->createCheckoutFromCart(
+                $request->user(),
+                $draft['shipping'],
+                $draft['payment_method'] ?? 'momo',
+                $draft['seller_payments'] ?? [],
+                $draft['seller_coupons'] ?? [],
+            );
+
+            $this->orderService->fulfillPaidCheckout(
+                $checkout,
+                $reference,
+                $this->paystack->paidAmountGhs($data),
+            );
+            PendingCheckoutDraft::clearForUser($request->user());
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $checkout = $checkout->fresh(['orders.items']);
+        $hasDirect = $checkout->orders
+            ->contains(fn ($order) => $order->payment_channel === PaymentChannel::Direct);
+
+        return response()->json([
+            'message' => $hasDirect
+                ? 'Payment successful. Complete direct seller payments.'
+                : 'Payment successful. Your order is placed.',
+            'checkout' => $this->checkoutPayload($checkout),
+            'next' => $hasDirect ? 'direct_payment' : 'orders',
         ]);
     }
 

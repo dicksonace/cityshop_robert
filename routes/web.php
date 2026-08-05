@@ -84,6 +84,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('buyer.shop')->name('checkout.store');
     Route::get('/checkout/direct-pay', [CheckoutController::class, 'directPay'])->middleware('buyer.shop')->name('checkout.direct-pay');
     Route::post('/checkout/direct-pay/{sellerId}', [CheckoutController::class, 'submitDirectPay'])->middleware('buyer.shop')->name('checkout.direct-pay.submit');
+    Route::get('/checkout/pay', [CheckoutController::class, 'paystackDraft'])->middleware('buyer.shop')->name('checkout.paystack-draft');
+    Route::post('/checkout/pay/initialize', [CheckoutController::class, 'initializeDraftPayment'])->middleware('buyer.shop')->name('checkout.paystack-draft.initialize');
     Route::get('/checkout/payment/{checkout}', [CheckoutController::class, 'payment'])->middleware('buyer.shop')->name('checkout.payment');
     Route::get('/checkout/callback', [CheckoutController::class, 'callback'])->middleware('buyer.shop')->name('checkout.callback');
     Route::post('/checkout/payment/{checkout}/initialize', [CheckoutController::class, 'initializePayment'])->middleware('buyer.shop')->name('checkout.initialize');

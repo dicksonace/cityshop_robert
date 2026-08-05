@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\PaymentStatus;
 use App\Models\Order;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -32,6 +33,15 @@ class BuyerOrderPolicy
 
     public static function canRequestRefund(Order $order): bool
     {
+        // Never offer refunds for unpaid / cancelled-before-pay checkouts.
+        if (! in_array($order->payment_status, [
+            PaymentStatus::Paid,
+            PaymentStatus::Partial,
+            PaymentStatus::Refunded,
+        ], true)) {
+            return false;
+        }
+
         return static::withinWindow($order->created_at);
     }
 }
