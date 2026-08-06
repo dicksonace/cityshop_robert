@@ -423,12 +423,15 @@ class ChatService
         int $callerId,
         string $callerName,
         int $durationSeconds = 0,
+        string $callKind = 'voice',
     ): Message {
+        $kind = $callKind === 'video' ? 'video' : 'voice';
+
         $message = Message::create([
             'conversation_id' => $conversation->id,
             'sender_id' => $endedBy->id,
             'type' => MessageType::CallLog,
-            'body' => 'Voice call',
+            'body' => $kind === 'video' ? 'Video call' : 'Voice call',
             'metadata' => [
                 'call_log' => [
                     'status' => $status,
@@ -436,6 +439,7 @@ class ChatService
                     'caller_name' => $callerName,
                     'ended_by_id' => $endedBy->id,
                     'duration_seconds' => $durationSeconds,
+                    'call_kind' => $kind,
                 ],
             ],
         ]);
@@ -517,6 +521,31 @@ class ChatService
                         ->whereNull('read_at');
                 });
             })
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * WebRTC signalling rows are excluded from visibleTypes (and from unread),
+     * so poll must fetch them separately when Reverb is down or lagging.
+     *
+     * @return Collection<int, Message>
+     */
+    public static function pollCallSignals(Conversation $conversation, int $afterId = 0)
+    {
+        if ($afterId <= 0) {
+            return collect();
+        }
+
+        return $conversation->messages()
+            ->whereIn('type', [
+                MessageType::CallOffer,
+                MessageType::CallAnswer,
+                MessageType::CallIce,
+                MessageType::CallEnd,
+            ])
+            ->with('sender:id,name')
+            ->where('id', '>', $afterId)
             ->orderBy('id')
             ->get();
     }

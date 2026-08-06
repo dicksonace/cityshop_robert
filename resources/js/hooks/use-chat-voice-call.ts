@@ -4,7 +4,7 @@ import * as chatApi from '@/lib/chat-api';
 import type { ChatMessage } from '@/types/chat';
 
 export type CallState = 'idle' | 'calling' | 'incoming' | 'active';
-
+export type CallKind = 'voice' | 'video';
 export type EndCallReason = 'declined' | 'completed' | 'missed' | 'cancelled';
 
 interface UseChatVoiceCallOptions {
@@ -18,14 +18,25 @@ export function useChatVoiceCall(
     options: UseChatVoiceCallOptions = {},
 ) {
     const [callState, setCallState] = useState<CallState>('idle');
+    const [callKind, setCallKind] = useState<CallKind>('voice');
     const pcRef = useRef<RTCPeerConnection | null>(null);
     const localStreamRef = useRef<MediaStream | null>(null);
     const remoteAudioRef = useRef<HTMLAudioElement>(null);
+    const localVideoRef = useRef<HTMLVideoElement>(null);
+    const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
     const processedCallIds = useRef<Set<number>>(new Set());
     const callerIdRef = useRef<number | null>(null);
     const callerNameRef = useRef<string>('');
     const callStartedAtRef = useRef<number | null>(null);
+    const callKindRef = useRef<CallKind>('voice');
+
+    const attachLocalVideo = useCallback((stream: MediaStream) => {
+        if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+            void localVideoRef.current.play().catch(() => undefined);
+        }
+    }, []);
 
     const cleanup = useCallback(() => {
         pcRef.current?.close();
@@ -35,15 +46,26 @@ export function useChatVoiceCall(
         if (remoteAudioRef.current) {
             remoteAudioRef.current.srcObject = null;
         }
+        if (localVideoRef.current) {
+            localVideoRef.current.srcObject = null;
+        }
+        if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = null;
+        }
         pendingOfferRef.current = null;
         callStartedAtRef.current = null;
+        callKindRef.current = 'voice';
+        setCallKind('voice');
         setCallState('idle');
     }, []);
 
     const sendSignal = useCallback(
         async (type: string, body = '', metadata?: Record<string, unknown>) => {
             if (!conversationId) return null;
-            return chatApi.sendCallSignal(conversationId, type, body, metadata);
+            return chatApi.sendCallSignal(conversationId, type, body, {
+                call_kind: callKindRef.current,
+                ...metadata,
+            });
         },
         [conversationId],
     );
@@ -74,6 +96,7 @@ export function useChatVoiceCall(
                             caller_id: callerIdRef.current ?? currentUserId,
                             caller_name: callerNameRef.current || options.callerName || 'User',
                             duration_seconds: durationSeconds,
+                            call_kind: callKindRef.current,
                         },
                     });
                     if (result?.call_log) {
@@ -91,8 +114,14 @@ export function useChatVoiceCall(
     const createPeerConnection = useCallback(() => {
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
         pc.ontrack = (event) => {
+            const stream = event.streams[0];
+            if (!stream) return;
             if (remoteAudioRef.current) {
-                remoteAudioRef.current.srcObject = event.streams[0];
+                remoteAudioRef.current.srcObject = stream;
+            }
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = stream;
+                void remoteVideoRef.current.play().catch(() => undefined);
             }
         };
         pc.onicecandidate = (event) => {
@@ -103,33 +132,58 @@ export function useChatVoiceCall(
         return pc;
     }, [sendSignal]);
 
-    const startCall = useCallback(async () => {
-        if (!conversationId || !currentUserId) return;
-        try {
-            callerIdRef.current = currentUserId;
-            callerNameRef.current = options.callerName ?? 'You';
+    const startCall = useCallback(
+        async (kind: CallKind = 'voice') => {
+            if (!conversationId || !currentUserId) return;
+            try {
+                callerIdRef.current = currentUserId;
+                callerNameRef.current = options.callerName ?? 'You';
+                callKindRef.current = kind;
+                setCallKind(kind);
 
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            localStreamRef.current = stream;
-            const pc = createPeerConnection();
-            pcRef.current = pc;
-            stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: kind === 'video',
+                });
+                localStreamRef.current = stream;
+                if (kind === 'video') {
+                    attachLocalVideo(stream);
+                }
+                const pc = createPeerConnection();
+                pcRef.current = pc;
+                stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            await sendSignal('call_offer', 'Voice call', { sdp: offer });
-            setCallState('calling');
-        } catch {
-            cleanup();
-            throw new Error('Could not access microphone. Please allow microphone access.');
-        }
-    }, [cleanup, conversationId, createPeerConnection, currentUserId, options.callerName, sendSignal]);
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                await sendSignal('call_offer', kind === 'video' ? 'Video call' : 'Voice call', {
+                    sdp: offer,
+                    call_kind: kind,
+                });
+                setCallState('calling');
+            } catch {
+                cleanup();
+                throw new Error(
+                    kind === 'video'
+                        ? 'Could not access camera/microphone. Please allow permissions.'
+                        : 'Could not access microphone. Please allow microphone access.',
+                );
+            }
+        },
+        [attachLocalVideo, cleanup, conversationId, createPeerConnection, currentUserId, options.callerName, sendSignal],
+    );
 
     const acceptCall = useCallback(async () => {
         if (!conversationId || !pendingOfferRef.current) return;
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const kind = callKindRef.current;
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: kind === 'video',
+            });
             localStreamRef.current = stream;
+            if (kind === 'video') {
+                attachLocalVideo(stream);
+            }
             const pc = createPeerConnection();
             pcRef.current = pc;
             stream.getTracks().forEach((track) => pc.addTrack(track, stream));
@@ -137,15 +191,15 @@ export function useChatVoiceCall(
             await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
-            await sendSignal('call_answer', '', { sdp: answer });
+            await sendSignal('call_answer', '', { sdp: answer, call_kind: kind });
             pendingOfferRef.current = null;
             callStartedAtRef.current = Date.now();
             setCallState('active');
         } catch {
             cleanup();
-            throw new Error('Could not access microphone.');
+            throw new Error('Could not access camera/microphone.');
         }
-    }, [cleanup, conversationId, createPeerConnection, sendSignal]);
+    }, [attachLocalVideo, cleanup, conversationId, createPeerConnection, sendSignal]);
 
     const handleCallMessage = useCallback(
         async (msg: ChatMessage) => {
@@ -159,6 +213,9 @@ export function useChatVoiceCall(
             }
 
             if (msg.type === 'call_offer' && msg.sender_id !== currentUserId) {
+                const kind = msg.metadata?.call_kind === 'video' ? 'video' : 'voice';
+                callKindRef.current = kind;
+                setCallKind(kind);
                 callerIdRef.current = msg.sender_id;
                 callerNameRef.current = msg.sender?.name ?? 'Caller';
                 pendingOfferRef.current = msg.metadata?.sdp as RTCSessionDescriptionInit;
@@ -189,7 +246,10 @@ export function useChatVoiceCall(
 
     return {
         callState,
+        callKind,
         remoteAudioRef,
+        localVideoRef,
+        remoteVideoRef,
         startCall,
         acceptCall,
         endCall,

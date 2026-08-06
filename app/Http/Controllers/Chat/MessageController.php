@@ -279,6 +279,7 @@ class MessageController extends Controller
                 (int) ($log['caller_id'] ?? $request->user()->id),
                 (string) ($log['caller_name'] ?? $request->user()->name),
                 (int) ($log['duration_seconds'] ?? 0),
+                (string) ($log['call_kind'] ?? $validated['metadata']['call_kind'] ?? 'voice'),
             );
         }
 

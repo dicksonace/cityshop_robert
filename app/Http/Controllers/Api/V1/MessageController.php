@@ -384,7 +384,9 @@ class MessageController extends Controller
         $afterId = (int) $request->get('after', 0);
 
         $polled = ChatService::pollVisibleMessages($conversation, $request->user(), $afterId);
-        $messages = $polled->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
+        $signals = ChatService::pollCallSignals($conversation, $afterId);
+        $combined = $polled->concat($signals)->unique('id')->sortBy('id')->values();
+        $messages = $combined->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
         if ($polled->isNotEmpty()) {
             ChatService::markMessagesRead(
@@ -420,6 +422,49 @@ class MessageController extends Controller
 
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
+        ]);
+    }
+
+    public function signal(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'type' => ['required', 'in:call_offer,call_answer,call_ice,call_end'],
+            'body' => ['nullable', 'string', 'max:500'],
+            'metadata' => ['nullable', 'array'],
+        ]);
+
+        $type = MessageType::from($validated['type']);
+
+        $message = ChatService::sendMessage(
+            $conversation,
+            $request->user(),
+            $validated['body'] ?? '',
+            $type,
+            $validated['metadata'] ?? null,
+        );
+
+        $callLogMessage = null;
+        if ($type === MessageType::CallEnd && ! empty($validated['metadata']['call_log'])) {
+            $log = $validated['metadata']['call_log'];
+            $callLogMessage = ChatService::recordCallLog(
+                $conversation,
+                $request->user(),
+                $log['status'] ?? 'cancelled',
+                (int) ($log['caller_id'] ?? $request->user()->id),
+                (string) ($log['caller_name'] ?? $request->user()->name),
+                (int) ($log['duration_seconds'] ?? 0),
+                (string) ($log['call_kind'] ?? $validated['metadata']['call_kind'] ?? 'voice'),
+            );
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message_id' => $message->id,
+            'call_log' => $callLogMessage
+                ? ChatService::formatMessage($callLogMessage->load('sender:id,name'), $request->user())
+                : null,
         ]);
     }
 

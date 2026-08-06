@@ -6,6 +6,7 @@ export interface ChatCallLog {
     caller_name: string;
     ended_by_id: number;
     duration_seconds: number;
+    call_kind?: 'voice' | 'video';
 }
 
 export function formatCallDuration(seconds: number): string {
@@ -22,27 +23,29 @@ export function getCallLogLabel(
 ): { label: string; sublabel?: string; tone: 'default' | 'missed' | 'success' } {
     const isCaller = log.caller_id === viewerId;
     const duration = formatCallDuration(log.duration_seconds);
+    const kind = log.call_kind === 'video' ? 'video' : 'voice';
+    const kindLabel = kind === 'video' ? 'video call' : 'voice call';
 
     switch (log.status) {
         case 'completed':
             return {
-                label: isCaller ? 'Outgoing voice call' : 'Incoming voice call',
+                label: isCaller ? `Outgoing ${kindLabel}` : `Incoming ${kindLabel}`,
                 sublabel: duration ? `Duration ${duration}` : undefined,
                 tone: 'success',
             };
         case 'missed':
             return isCaller
                 ? { label: 'No answer', sublabel: `Called ${otherName}`, tone: 'default' }
-                : { label: 'Missed voice call', sublabel: `From ${log.caller_name}`, tone: 'missed' };
+                : { label: `Missed ${kindLabel}`, sublabel: `From ${log.caller_name}`, tone: 'missed' };
         case 'declined':
             return isCaller
                 ? { label: 'Call declined', sublabel: `${otherName} declined`, tone: 'default' }
-                : { label: 'Declined voice call', sublabel: `From ${log.caller_name}`, tone: 'default' };
+                : { label: `Declined ${kindLabel}`, sublabel: `From ${log.caller_name}`, tone: 'default' };
         case 'cancelled':
         default:
             return isCaller
                 ? { label: 'Cancelled call', sublabel: `Called ${otherName}`, tone: 'default' }
-                : { label: 'Missed voice call', sublabel: `From ${log.caller_name}`, tone: 'missed' };
+                : { label: `Missed ${kindLabel}`, sublabel: `From ${log.caller_name}`, tone: 'missed' };
     }
 }
 

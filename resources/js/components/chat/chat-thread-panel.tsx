@@ -11,6 +11,7 @@ import {
     PhoneOff,
     Send,
     Trash2,
+    Video,
     X,
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
@@ -77,10 +78,8 @@ export default function ChatThreadPanel() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const lastIdRef = useRef(messages.at(-1)?.id ?? 0);
 
-    const { callState, remoteAudioRef, startCall, acceptCall, endCall, handleCallMessage } = useChatVoiceCall(
-        activeConversation?.id,
-        auth.user?.id,
-        {
+    const { callState, callKind, remoteAudioRef, localVideoRef, remoteVideoRef, startCall, acceptCall, endCall, handleCallMessage } =
+        useChatVoiceCall(activeConversation?.id, auth.user?.id, {
             callerName: auth.user?.name,
             onCallLog: (msg) => {
                 setMessages((prev) => {
@@ -90,8 +89,7 @@ export default function ChatThreadPanel() {
                 lastIdRef.current = Math.max(lastIdRef.current, msg.id);
                 refreshConversations();
             },
-        },
-    );
+        });
 
     const otherName =
         other?.seller_profile?.business_name ?? other?.seller_profile?.store_name ?? other?.name ?? 'Chat';
@@ -99,7 +97,7 @@ export default function ChatThreadPanel() {
 
     useEffect(() => {
         setOther(activeConversation?.other);
-        lastIdRef.current = maxMessageId(messages.filter(isTimelineMessage));
+        lastIdRef.current = maxMessageId(messages);
     }, [activeConversation, messages]);
 
     useEffect(() => {
@@ -134,10 +132,7 @@ export default function ChatThreadPanel() {
                 const ids = new Set(prev.map((m) => m.id));
                 return [...prev, ...incoming.filter((m) => !ids.has(m.id))];
             });
-            lastIdRef.current = Math.max(
-                lastIdRef.current,
-                maxMessageId(incoming.filter(isTimelineMessage)),
-            );
+            lastIdRef.current = Math.max(lastIdRef.current, maxMessageId(incoming));
         },
         [auth.user?.id, handleCallMessage, setMessages],
     );
@@ -312,9 +307,9 @@ export default function ChatThreadPanel() {
         }
     };
 
-    const handleStartCall = async () => {
+    const handleStartCall = async (kind: 'voice' | 'video' = 'voice') => {
         try {
-            await startCall();
+            await startCall(kind);
         } catch (err) {
             toast?.error(err instanceof Error ? err.message : 'Could not start call');
         }
@@ -393,14 +388,24 @@ export default function ChatThreadPanel() {
                     </div>
                 </div>
                 {callState === 'idle' ? (
-                    <button
-                        type="button"
-                        onClick={handleStartCall}
-                        className="rounded-lg p-1.5 text-green-600 hover:bg-green-50"
-                        title="Voice call"
-                    >
-                        <Phone className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-0.5">
+                        <button
+                            type="button"
+                            onClick={() => handleStartCall('voice')}
+                            className="rounded-lg p-1.5 text-green-600 hover:bg-green-50"
+                            title="Audio call"
+                        >
+                            <Phone className="h-4 w-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleStartCall('video')}
+                            className="rounded-lg p-1.5 text-sky-600 hover:bg-sky-50"
+                            title="Video call"
+                        >
+                            <Video className="h-4 w-4" />
+                        </button>
+                    </div>
                 ) : (
                     <button
                         type="button"
@@ -465,11 +470,15 @@ export default function ChatThreadPanel() {
             {(callState === 'calling' || callState === 'incoming' || callState === 'active') && (
                 <div className="border-b border-green-100 bg-green-50 px-3 py-2.5 text-center">
                     {callState === 'calling' && (
-                        <p className="text-xs font-medium text-green-700">Calling {otherName}...</p>
+                        <p className="text-xs font-medium text-green-700">
+                            {callKind === 'video' ? 'Video calling' : 'Calling'} {otherName}...
+                        </p>
                     )}
                     {callState === 'incoming' && (
                         <div className="flex flex-wrap items-center justify-center gap-2">
-                            <p className="text-xs font-medium text-green-700">{otherName} is calling</p>
+                            <p className="text-xs font-medium text-green-700">
+                                {otherName} is {callKind === 'video' ? 'video ' : ''}calling
+                            </p>
                             <button
                                 type="button"
                                 onClick={handleAcceptCall}
@@ -487,7 +496,21 @@ export default function ChatThreadPanel() {
                         </div>
                     )}
                     {callState === 'active' && (
-                        <p className="text-xs font-medium text-green-700">Call in progress · tap red phone to hang up</p>
+                        <p className="text-xs font-medium text-green-700">
+                            {callKind === 'video' ? 'Video call' : 'Call'} in progress · tap red phone to hang up
+                        </p>
+                    )}
+                    {callKind === 'video' && (callState === 'calling' || callState === 'active') && (
+                        <div className="relative mx-auto mt-2 aspect-video max-h-48 w-full max-w-sm overflow-hidden rounded-xl bg-black">
+                            <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
+                            <video
+                                ref={localVideoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                className="absolute bottom-2 right-2 h-20 w-14 rounded-lg border border-white/40 object-cover"
+                            />
+                        </div>
                     )}
                 </div>
             )}

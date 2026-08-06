@@ -134,7 +134,9 @@ class ConversationController extends Controller
         $afterId = (int) $request->get('after', 0);
 
         $polled = ChatService::pollVisibleMessages($conversation, $request->user(), $afterId);
-        $messages = $polled->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
+        $signals = ChatService::pollCallSignals($conversation, $afterId);
+        $combined = $polled->concat($signals)->unique('id')->sortBy('id')->values();
+        $messages = $combined->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
         if ($polled->isNotEmpty()) {
             ChatService::markMessagesRead(

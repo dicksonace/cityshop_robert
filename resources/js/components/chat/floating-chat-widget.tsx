@@ -30,6 +30,16 @@ export default function FloatingChatWidget() {
         }
     }, [flash?.openChat, openWidget]);
 
+    // Phone-style: lock page scroll while full-screen chat is open.
+    useEffect(() => {
+        if (!isOpen || typeof document === 'undefined') return;
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = prev;
+        };
+    }, [isOpen]);
+
     if (!mounted || !auth.user) return null;
 
     const unread = unreadMessages ?? 0;
@@ -43,14 +53,20 @@ export default function FloatingChatWidget() {
     return (
         <div
             className={cn(
-                'fixed z-[100] flex flex-col items-end gap-3 sm:right-4 sm:bottom-4 sm:p-0',
+                'fixed z-[100] flex flex-col',
+                // Desktop launcher / panel stays bottom-right.
+                'sm:right-4 sm:bottom-4 sm:items-end sm:gap-3 sm:p-0',
                 // Buyers use the bottom tab for Message — hide empty wrapper on mobile so it cannot block taps.
                 isBuyer && !isOpen && 'hidden sm:flex',
                 isOpen
-                    ? isBuyer
-                        // Buyer list/thread: float as a card above the bottom tabs — not edge-to-edge.
-                        ? 'inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] items-center px-3 pb-0 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:items-end sm:px-0'
-                        : 'inset-x-0 bottom-0 p-0 sm:inset-x-auto sm:bottom-4 sm:right-4'
+                    ? cn(
+                          // Mobile: full-width proper chat (not a floating card).
+                          'inset-x-0 top-0 sm:inset-auto',
+                          // Buyers keep bottom tabs visible (Wallet / Shop / …).
+                          isBuyer
+                              ? 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] sm:bottom-auto'
+                              : 'bottom-0 sm:bottom-auto',
+                      )
                     : 'right-0 p-3',
                 !isOpen && isBuyer && 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] pb-3 sm:bottom-4',
                 !isOpen && !isBuyer && 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
@@ -59,25 +75,15 @@ export default function FloatingChatWidget() {
             {isOpen && (
                 <div
                     className={cn(
-                        'flex w-full flex-col overflow-hidden border border-gray-200 bg-white shadow-2xl',
-                        'animate-in slide-in-from-bottom-4 fade-in duration-200',
-                        isBuyer
-                            ? cn(
-                                  // Same compact card on phone and desktop for buyers.
-                                  'max-w-[min(100%,360px)] rounded-2xl',
-                                  view === 'list'
-                                      ? 'max-h-[min(48dvh,360px)]'
-                                      : 'h-[min(70dvh,560px)] sm:h-[min(520px,calc(100vh-7rem))]',
-                              )
-                            : cn(
-                                  'max-w-[100vw] rounded-t-2xl sm:w-[min(100vw-2rem,360px)] sm:max-w-none sm:rounded-2xl',
-                                  view === 'list'
-                                      ? 'max-h-[min(55dvh,400px)]'
-                                      : 'h-[min(92dvh,720px)] sm:h-[min(520px,calc(100vh-7rem))]',
-                              ),
+                        'flex w-full flex-col overflow-hidden border-gray-200 bg-white',
+                        'animate-in fade-in duration-200',
+                        // Mobile: fill available width + height (edge to edge).
+                        'h-full max-h-full border-0 shadow-none sm:animate-in sm:slide-in-from-bottom-4',
+                        // Desktop: floating messenger card.
+                        'sm:h-[min(520px,calc(100vh-7rem))] sm:max-h-none sm:w-[min(100vw-2rem,380px)] sm:rounded-2xl sm:border sm:shadow-2xl',
                     )}
                 >
-                    <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 text-white">
+                    <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] text-white sm:pt-2.5">
                         <div className="flex min-w-0 items-center gap-2">
                             <MessageCircle className="h-4 w-4 shrink-0" />
                             <span className="truncate text-sm font-semibold">
@@ -88,7 +94,7 @@ export default function FloatingChatWidget() {
                             <button
                                 type="button"
                                 onClick={minimizeWidget}
-                                className="rounded-lg p-1.5 hover:bg-white/20"
+                                className="hidden rounded-lg p-1.5 hover:bg-white/20 sm:inline-flex"
                                 aria-label="Minimize chat"
                             >
                                 <ChevronDown className="h-4 w-4" />
@@ -104,16 +110,7 @@ export default function FloatingChatWidget() {
                         </div>
                     </div>
 
-                    <div
-                        className={cn(
-                            'flex min-h-0 flex-col',
-                            view === 'thread'
-                                ? 'flex-1'
-                                : isBuyer
-                                  ? 'max-h-[min(40dvh,300px)] overflow-hidden'
-                                  : 'max-h-[min(48dvh,340px)] overflow-hidden',
-                        )}
-                    >
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden pb-[env(safe-area-inset-bottom,0px)] sm:pb-0">
                         {view === 'list' ? <ChatListPanel /> : <ChatThreadPanel />}
                     </div>
                 </div>
@@ -131,7 +128,7 @@ export default function FloatingChatWidget() {
                     title={hasActiveChat ? `Continue chat with ${otherName}` : 'Open messages'}
                 >
                     <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
-                    {(unread > 0) && (
+                    {unread > 0 && (
                         <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-bold sm:h-6 sm:min-w-6 sm:text-xs">
                             {unread > 9 ? '9+' : unread}
                         </span>

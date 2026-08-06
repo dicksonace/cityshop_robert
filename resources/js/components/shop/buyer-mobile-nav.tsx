@@ -42,7 +42,11 @@ export default function BuyerMobileNav() {
 
     const openMessages = () => {
         if (chat) {
-            chat.openWidget();
+            if (chat.isOpen) {
+                chat.closeWidget();
+            } else {
+                chat.openWidget();
+            }
             return;
         }
         router.visit(route('chat.index'));
@@ -99,6 +103,7 @@ export default function BuyerMobileNav() {
                         <Link
                             key={item.key}
                             href={item.href!}
+                            onClick={() => chat?.closeWidget()}
                             className="flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] font-medium"
                         >
                             {content}
