@@ -23,13 +23,18 @@ class AppNotificationService
         ?string $body = null,
         ?array $data = null,
     ): AppNotification {
-        return AppNotification::create([
+        $notification = AppNotification::create([
             'user_id' => $user->id,
             'type' => $type,
             'title' => $title,
             'body' => $body,
             'data' => $data,
         ]);
+
+        $notification->setRelation('user', $user);
+        PushNotificationService::sendForNotification($notification);
+
+        return $notification;
     }
 
     /**

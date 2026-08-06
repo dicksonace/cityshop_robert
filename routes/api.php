@@ -12,8 +12,11 @@ use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\DisputeController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ReviewController;
+use App\Http\Controllers\Api\V1\UserLookupController;
+use App\Http\Controllers\Api\V1\UserBlockController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Broadcasting\BroadcastController;
@@ -78,7 +81,13 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::patch('/profile', [ProfileController::class, 'update']);
+        Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar']);
+        Route::delete('/profile/avatar', [ProfileController::class, 'destroyAvatar']);
         Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+        Route::post('/profile/payment-pin', [\App\Http\Controllers\Api\PaymentPinController::class, 'store']);
+        Route::put('/profile/payment-pin', [\App\Http\Controllers\Api\PaymentPinController::class, 'update']);
+        Route::post('/profile/payment-pin/forgot', [\App\Http\Controllers\Api\PaymentPinController::class, 'forgot']);
+        Route::post('/profile/payment-pin/reset', [\App\Http\Controllers\Api\PaymentPinController::class, 'reset']);
 
         Route::get('/cart', [CartController::class, 'index']);
         Route::post('/cart', [CartController::class, 'store']);
@@ -100,16 +109,25 @@ Route::prefix('v1')->group(function () {
         Route::get('/messages/{conversation}', [MessageController::class, 'show']);
         Route::post('/messages/{conversation}/send', [MessageController::class, 'send']);
         Route::post('/messages/{conversation}/product', [MessageController::class, 'sendProduct']);
+        Route::post('/messages/{conversation}/transfer', [MessageController::class, 'sendTransfer']);
         Route::post('/messages/{conversation}/image', [MessageController::class, 'uploadImage']);
         Route::post('/messages/{conversation}/video', [MessageController::class, 'uploadVideo']);
         Route::post('/messages/{conversation}/voice', [MessageController::class, 'uploadVoice']);
         Route::get('/messages/{conversation}/poll', [MessageController::class, 'poll']);
         Route::delete('/messages/{conversation}/messages/{message}', [MessageController::class, 'destroy']);
 
+        Route::get('/users/lookup', [UserLookupController::class, 'lookup']);
+        Route::get('/blocks', [UserBlockController::class, 'index']);
+        Route::post('/blocks', [UserBlockController::class, 'store']);
+        Route::delete('/blocks/{user}', [UserBlockController::class, 'destroy']);
+
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::get('/notifications/counts', [NotificationController::class, 'counts']);
         Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
         Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+
+        Route::post('/device-tokens', [DeviceTokenController::class, 'store']);
+        Route::delete('/device-tokens', [DeviceTokenController::class, 'destroy']);
 
         Route::get('/checkout', [CheckoutController::class, 'preview']);
         Route::post('/checkout', [CheckoutController::class, 'store']);

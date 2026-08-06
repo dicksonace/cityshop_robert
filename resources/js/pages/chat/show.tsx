@@ -1,9 +1,11 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, MapPin, MessageCircle, Phone, PhoneOff, Send, Store } from 'lucide-react';
+import { ArrowLeft, MapPin, MessageCircle, Phone, PhoneOff, Send, Store, Trash2 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import OnlineIndicator from '@/components/shop/online-indicator';
+import { useToastOptional } from '@/contexts/toast-context';
 import { useConversationRealtime } from '@/hooks/use-conversation-realtime';
+import * as chatApi from '@/lib/chat-api';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 
@@ -11,8 +13,10 @@ interface ChatMessage {
     id: number;
     sender_id: number;
     type: string;
-    body: string;
+    body: string | null;
     metadata?: Record<string, unknown> | null;
+    is_deleted?: boolean;
+    can_delete?: boolean;
     created_at?: string;
     sender: { id: number; name: string };
 }
@@ -45,11 +49,17 @@ function csrfToken(): string {
     return (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content ?? '';
 }
 
+function isVisibleMessage(msg: ChatMessage): boolean {
+    return msg.type === 'text' || msg.is_deleted === true;
+}
+
 export default function ChatShow({ conversation, messages: initialMessages }: ChatShowProps) {
     const { auth } = usePage<SharedData>().props;
+    const toast = useToastOptional();
     const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
     const [body, setBody] = useState('');
     const [sending, setSending] = useState(false);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
     const [other, setOther] = useState(conversation.other);
     const [callState, setCallState] = useState<'idle' | 'calling' | 'incoming' | 'active'>('idle');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -70,6 +80,26 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
         scrollToBottom();
     }, [messages]);
 
+    const replaceMessage = (updated: ChatMessage) => {
+        setMessages((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+    };
+
+    const handleDelete = async (msg: ChatMessage) => {
+        if (!msg.can_delete || deletingId === msg.id) return;
+        if (!window.confirm('Delete this message? The other person will see that it was deleted.')) {
+            return;
+        }
+
+        setDeletingId(msg.id);
+        try {
+            const updated = await chatApi.deleteChatMessage(conversation.id, msg.id);
+            replaceMessage(updated);
+        } catch (err) {
+            toast?.error(err instanceof Error ? err.message : 'Could not delete message');
+        } finally {
+            setDeletingId(null);
+        }
+    };
     const sendSignal = useCallback(async (type: string, body = '', metadata?: Record<string, unknown>) => {
         await fetch(route('chat.signal', conversation.id), {
             method: 'POST',
@@ -321,33 +351,54 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto border-x border-gray-100 bg-white px-4 py-4">
-                    {messages.filter((m) => m.type === 'text').length === 0 ? (
+                    {messages.filter(isVisibleMessage).length === 0 ? (
                         <div className="flex h-full flex-col items-center justify-center text-center text-gray-400">
                             <MessageCircle className="h-10 w-10" />
                             <p className="mt-2 text-sm">Start the conversation with {otherName}</p>
                         </div>
                     ) : (
-                        messages
-                            .filter((m) => m.type === 'text')
-                            .map((msg) => {
-                                const mine = msg.sender_id === auth.user.id;
-                                return (
-                                    <div key={msg.id} className={`mb-3 flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                                        <div
-                                            className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                                                mine ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-900'
-                                            }`}
+                        messages.filter(isVisibleMessage).map((msg) => {
+                            const mine = msg.sender_id === auth.user.id;
+                            const deleted = msg.is_deleted === true;
+
+                            return (
+                                <div key={msg.id} className={`group mb-3 flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
+                                    {mine && msg.can_delete && !deleted && (
+                                        <button
+                                            type="button"
+                                            onClick={() => void handleDelete(msg)}
+                                            disabled={deletingId === msg.id}
+                                            className="mb-1 rounded-full p-1.5 text-gray-400 opacity-70 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 disabled:opacity-40"
+                                            title="Delete message"
+                                            aria-label="Delete message"
                                         >
-                                            <p>{msg.body}</p>
-                                            {msg.created_at && (
-                                                <p className={`mt-1 text-[10px] ${mine ? 'text-orange-100' : 'text-gray-400'}`}>
-                                                    {new Date(msg.created_at).toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' })}
-                                                </p>
-                                            )}
-                                        </div>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
+                                    <div
+                                        className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
+                                            deleted
+                                                ? mine
+                                                    ? 'bg-orange-200/80 italic text-orange-900/70'
+                                                    : 'bg-gray-100 italic text-gray-500'
+                                                : mine
+                                                  ? 'bg-orange-500 text-white'
+                                                  : 'bg-gray-100 text-gray-900'
+                                        }`}
+                                    >
+                                        <p>{deleted ? 'Message deleted' : msg.body}</p>
+                                        {msg.created_at && (
+                                            <p className={`mt-1 text-[10px] ${mine && !deleted ? 'text-orange-100' : 'text-gray-400'}`}>
+                                                {new Date(msg.created_at).toLocaleTimeString('en-GH', {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}
+                                            </p>
+                                        )}
                                     </div>
-                                );
-                            })
+                                </div>
+                            );
+                        })
                     )}
                     <div ref={messagesEndRef} />
                 </div>

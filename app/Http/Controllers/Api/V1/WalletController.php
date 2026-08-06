@@ -11,6 +11,7 @@ use App\Models\WalletTopUpRequest;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\PaystackService;
+use App\Services\PaymentPinService;
 use App\Services\PlatformSettings;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
@@ -140,7 +141,10 @@ class WalletController extends Controller
             'momo_number' => ['required', 'string', 'max:20'],
             'account_name' => ['required', 'string', 'max:255'],
             'network' => ['required', 'in:mtn,telecel,airteltigo'],
+            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
         ]);
+
+        PaymentPinService::assertValidForAction($user, $validated['payment_pin']);
 
         $amount = round((float) $validated['amount'], 2);
 

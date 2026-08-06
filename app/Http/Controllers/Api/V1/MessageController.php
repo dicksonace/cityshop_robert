@@ -9,6 +9,7 @@ use App\Models\Message;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\ChatService;
+use App\Services\PaymentPinService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -39,22 +40,28 @@ class MessageController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'seller_id' => ['required', 'exists:users,id'],
+            'seller_id' => ['nullable', 'exists:users,id'],
+            'user_id' => ['nullable', 'exists:users,id'],
             'product_id' => ['nullable', 'exists:products,id'],
         ]);
 
-        $seller = User::findOrFail($validated['seller_id']);
+        $peerId = $validated['user_id'] ?? $validated['seller_id'] ?? null;
+        if ($peerId === null) {
+            return response()->json(['message' => 'Choose someone to chat with.'], 422);
+        }
+
+        $peer = User::findOrFail($peerId);
         $product = isset($validated['product_id']) ? Product::find($validated['product_id']) : null;
 
-        if ($product && (int) $product->seller_id !== (int) $seller->id) {
+        if ($product && (int) $product->seller_id !== (int) $peer->id) {
             return response()->json(['message' => 'That product does not belong to this seller.'], 422);
         }
 
-        if ($request->user()->id === $seller->id) {
+        if ($request->user()->id === $peer->id) {
             return response()->json(['message' => 'You cannot message yourself.'], 422);
         }
 
-        $conversation = ChatService::findOrCreateConversation($request->user(), $seller, $product);
+        $conversation = ChatService::findOrCreateConversation($request->user(), $peer, $product);
 
         $conversation->load([
             'buyer:id,name,avatar,city,region,last_seen_at',
@@ -97,13 +104,37 @@ class MessageController extends Controller
 
         $validated = $request->validate([
             'body' => ['required', 'string', 'max:2000'],
+            'reply_to_id' => ['nullable', 'integer', 'exists:messages,id'],
         ]);
+
+        $replyTo = null;
+        if (! empty($validated['reply_to_id'])) {
+            $replyTo = Message::query()
+                ->where('conversation_id', $conversation->id)
+                ->where('id', $validated['reply_to_id'])
+                ->whereIn('type', [
+                    MessageType::Text,
+                    MessageType::Image,
+                    MessageType::Video,
+                    MessageType::Voice,
+                    MessageType::Product,
+                    MessageType::Transfer,
+                ])
+                ->with('sender:id,name')
+                ->first();
+
+            if (! $replyTo) {
+                return response()->json(['message' => 'That message can no longer be replied to.'], 422);
+            }
+        }
 
         $message = ChatService::sendMessage(
             $conversation,
             $request->user(),
             $validated['body'],
             MessageType::Text,
+            null,
+            $replyTo,
         );
 
         $message->load('sender:id,name');
@@ -149,6 +180,66 @@ class MessageController extends Controller
                 $request->user(),
                 detailed: true,
             ),
+        ], 201);
+    }
+
+    public function sendTransfer(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:1', 'max:50000'],
+            'note' => ['nullable', 'string', 'max:120'],
+            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+        ]);
+
+        PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);
+
+        $conversation->loadMissing(['buyer', 'seller']);
+        $recipient = $conversation->otherParticipant($request->user());
+
+        try {
+            $transfer = \App\Services\WalletService::transfer(
+                $request->user(),
+                $recipient,
+                (float) $validated['amount'],
+                $validated['note'] ?? null,
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $amountLabel = 'GH₵'.number_format($transfer['amount'], 2);
+        $body = $transfer['note']
+            ? "Transferred {$amountLabel} — {$transfer['note']}"
+            : "Transferred {$amountLabel}";
+
+        $message = ChatService::sendMessage(
+            $conversation,
+            $request->user(),
+            $body,
+            MessageType::Transfer,
+            [
+                'transfer' => [
+                    'amount' => $transfer['amount'],
+                    'currency' => 'GHS',
+                    'note' => $transfer['note'],
+                    'reference' => $transfer['reference'],
+                    'from_user_id' => $request->user()->id,
+                    'to_user_id' => $recipient->id,
+                    'from_name' => $request->user()->name,
+                    'to_name' => $recipient->name,
+                ],
+            ],
+        );
+
+        $message->load('sender:id,name');
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+            'wallet' => [
+                'available_balance' => (float) (\App\Services\WalletService::ensure($request->user())->fresh()->available_balance),
+            ],
         ], 201);
     }
 
@@ -356,9 +447,13 @@ class MessageController extends Controller
             ->whereNull('read_at')
             ->count();
         $product = ChatService::sharedProductForConversation($conversation);
+        $iBlocked = \App\Services\UserBlockService::iBlocked($user, $other);
+        $blockedEitherWay = \App\Services\UserBlockService::isBlockedEitherWay($user, $other);
 
         return [
             'id' => $conversation->id,
+            'blocked' => $blockedEitherWay,
+            'i_blocked' => $iBlocked,
             'product' => $product ? [
                 'id' => $product->id,
                 'name' => $product->name,
@@ -377,9 +472,14 @@ class MessageController extends Controller
                 'store_name' => $other->sellerProfile?->displayName(),
             ],
             'latest_message' => $latest ? [
-                'body' => $latest->type === MessageType::Product
-                    ? ('Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')))
-                    : $latest->body,
+                'body' => match ($latest->type) {
+                    MessageType::Product => 'Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')),
+                    MessageType::Transfer => $latest->body ?: 'Money transfer',
+                    MessageType::Image => $latest->body ?: 'Photo',
+                    MessageType::Video => $latest->body ?: 'Video',
+                    MessageType::Voice => 'Voice message',
+                    default => $latest->body,
+                },
                 'type' => $latest->type->value,
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'sender_id' => $latest->sender_id,

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\WalletTransactionType;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
@@ -102,6 +103,101 @@ class WalletService
             WalletTransactionService::recordFundAdded($userId, $amount, $method, $reference);
 
             return true;
+        });
+    }
+
+    /**
+     * Instant peer-to-peer transfer in GHS between CityShop wallets.
+     *
+     * @return array{reference: string, amount: float, note: ?string}
+     *
+     * @throws \RuntimeException when balance is insufficient or users are invalid
+     */
+    public static function transfer(User $from, User $to, float $amount, ?string $note = null): array
+    {
+        if ($from->id === $to->id) {
+            throw new \RuntimeException('You cannot transfer money to yourself.');
+        }
+
+        if (UserBlockService::isBlockedEitherWay($from, $to)) {
+            throw new \RuntimeException('Transfers are blocked between these accounts.');
+        }
+
+        if ($amount < 1) {
+            throw new \RuntimeException('Minimum transfer is GH₵1.00.');
+        }
+
+        if ($amount > 50000) {
+            throw new \RuntimeException('Maximum transfer is GH₵50,000.00 per send.');
+        }
+
+        $note = $note !== null ? trim($note) : null;
+        if ($note === '') {
+            $note = null;
+        }
+        if ($note !== null && mb_strlen($note) > 120) {
+            throw new \RuntimeException('Note must be 120 characters or fewer.');
+        }
+
+        return DB::transaction(function () use ($from, $to, $amount, $note) {
+            static::ensure($from);
+            static::ensure($to);
+
+            // Lock in stable id order to avoid deadlocks on concurrent transfers.
+            $ids = [$from->id, $to->id];
+            sort($ids);
+
+            $wallets = Wallet::query()
+                ->whereIn('user_id', $ids)
+                ->orderBy('user_id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('user_id');
+
+            $senderWallet = $wallets->get($from->id);
+            $recipientWallet = $wallets->get($to->id);
+
+            if (! $senderWallet || ! $recipientWallet) {
+                throw new \RuntimeException('Could not load wallets for this transfer.');
+            }
+
+            $available = (float) $senderWallet->available_balance;
+            if ($available + 0.0001 < $amount) {
+                throw new \RuntimeException(
+                    'Insufficient wallet balance. You have GH₵'.number_format($available, 2)
+                    .' but this transfer needs GH₵'.number_format($amount, 2).'.'
+                );
+            }
+
+            $reference = 'TRF-'.strtoupper(bin2hex(random_bytes(6)));
+
+            $senderWallet->decrement('available_balance', $amount);
+            $recipientWallet->increment('available_balance', $amount);
+
+            $noteSuffix = $note ? " — {$note}" : '';
+
+            WalletTransactionService::record(
+                userId: $from->id,
+                type: WalletTransactionType::TransferOut,
+                amount: -1 * $amount,
+                description: "Transfer to {$to->name}{$noteSuffix}",
+                reference: $reference,
+            );
+
+            WalletTransactionService::record(
+                userId: $to->id,
+                type: WalletTransactionType::TransferIn,
+                amount: $amount,
+                description: "Transfer from {$from->name}{$noteSuffix}",
+                reference: $reference,
+            );
+
+            return [
+                'reference' => $reference,
+                'amount' => round($amount, 2),
+                'note' => $note,
+                'currency' => 'GHS',
+            ];
         });
     }
 }

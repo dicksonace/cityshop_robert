@@ -555,7 +555,33 @@ export default function ChatThreadPanel() {
                                                 )}
                                             >
                                                 <p className="font-semibold">{msg.reply_to.sender_name}</p>
-                                                <p className="line-clamp-2">{msg.reply_to.body}</p>
+                                                {msg.reply_to.type === 'product' && msg.reply_to.product ? (
+                                                    <div className="mt-1 flex items-center gap-2">
+                                                        {msg.reply_to.product.image_url ? (
+                                                            <img
+                                                                src={productImageUrl(msg.reply_to.product.image_url)}
+                                                                alt=""
+                                                                className="h-8 w-8 shrink-0 rounded object-cover"
+                                                            />
+                                                        ) : null}
+                                                        <div className="min-w-0">
+                                                            <p className="line-clamp-1 font-medium">
+                                                                {msg.reply_to.product.name || msg.reply_to.body}
+                                                            </p>
+                                                            {typeof msg.reply_to.product.price === 'number' && (
+                                                                <p className="text-[10px] opacity-80">
+                                                                    GH₵{' '}
+                                                                    {msg.reply_to.product.price.toLocaleString('en-GH', {
+                                                                        minimumFractionDigits: 2,
+                                                                        maximumFractionDigits: 2,
+                                                                    })}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="line-clamp-2">{msg.reply_to.body}</p>
+                                                )}
                                             </div>
                                         )}
 
@@ -785,9 +811,28 @@ export default function ChatThreadPanel() {
                                 {editingMessage ? 'Editing message' : `Replying to ${replyingTo?.sender.name}`}
                             </p>
                             {!editingMessage && replyingTo && (
-                                <p className="mt-0.5 truncate text-sm text-gray-600 sm:text-xs">
-                                    {replyPreview(replyingTo)}
-                                </p>
+                                <div className="mt-1 flex items-center gap-2">
+                                    {replyingTo.type === 'product' &&
+                                        (replyingTo.product?.image_url ||
+                                            (replyingTo.metadata?.product as { image_url?: string } | undefined)
+                                                ?.image_url) && (
+                                            <img
+                                                src={productImageUrl(
+                                                    replyingTo.product?.image_url ||
+                                                        (
+                                                            replyingTo.metadata?.product as {
+                                                                image_url?: string;
+                                                            }
+                                                        )?.image_url,
+                                                )}
+                                                alt=""
+                                                className="h-9 w-9 shrink-0 rounded object-cover"
+                                            />
+                                        )}
+                                    <p className="truncate text-sm text-gray-600 sm:text-xs">
+                                        {replyPreview(replyingTo)}
+                                    </p>
+                                </div>
                             )}
                         </div>
                         <button

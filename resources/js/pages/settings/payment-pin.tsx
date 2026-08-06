@@ -1,0 +1,266 @@
+import InputError from '@/components/input-error';
+import HeadingSmall from '@/components/heading-small';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import AppLayout from '@/layouts/app-layout';
+import SettingsLayout from '@/layouts/settings/layout';
+import { type BreadcrumbItem } from '@/types';
+import { Transition } from '@headlessui/react';
+import { Head, useForm } from '@inertiajs/react';
+import { FormEventHandler, useState } from 'react';
+
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Payment PIN',
+        href: '/settings/payment-pin',
+    },
+];
+
+type PageProps = {
+    hasPaymentPin: boolean;
+    status?: string;
+    emailHint?: string;
+};
+
+export default function PaymentPin({ hasPaymentPin, status, emailHint }: PageProps) {
+    const [mode, setMode] = useState<'manage' | 'reset'>('manage');
+
+    const setForm = useForm({
+        pin: '',
+        pin_confirmation: '',
+    });
+
+    const changeForm = useForm({
+        current_pin: '',
+        pin: '',
+        pin_confirmation: '',
+    });
+
+    const resetForm = useForm({
+        code: '',
+        pin: '',
+        pin_confirmation: '',
+    });
+
+    const forgotForm = useForm({});
+
+    const submitSet: FormEventHandler = (e) => {
+        e.preventDefault();
+        setForm.post(route('payment-pin.store'), {
+            preserveScroll: true,
+            onSuccess: () => setForm.reset(),
+        });
+    };
+
+    const submitChange: FormEventHandler = (e) => {
+        e.preventDefault();
+        changeForm.put(route('payment-pin.update'), {
+            preserveScroll: true,
+            onSuccess: () => changeForm.reset(),
+        });
+    };
+
+    const submitForgot: FormEventHandler = (e) => {
+        e.preventDefault();
+        forgotForm.post(route('payment-pin.forgot'), {
+            preserveScroll: true,
+            onSuccess: () => setMode('reset'),
+        });
+    };
+
+    const submitReset: FormEventHandler = (e) => {
+        e.preventDefault();
+        resetForm.post(route('payment-pin.reset'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                resetForm.reset();
+                setMode('manage');
+            },
+        });
+    };
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Payment PIN" />
+
+            <SettingsLayout>
+                <div className="space-y-6">
+                    <HeadingSmall
+                        title="Payment PIN"
+                        description="A 4-digit PIN protects wallet checkout, MoMo withdrawals, and chat transfers"
+                    />
+
+                    {status && (
+                        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                            {status}
+                        </p>
+                    )}
+
+                    {mode === 'manage' && !hasPaymentPin && (
+                        <form onSubmit={submitSet} className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="pin">4-digit PIN</Label>
+                                <Input
+                                    id="pin"
+                                    type="password"
+                                    inputMode="numeric"
+                                    maxLength={4}
+                                    value={setForm.data.pin}
+                                    onChange={(e) => setForm.setData('pin', e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                    autoComplete="off"
+                                />
+                                <InputError message={setForm.errors.pin} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="pin_confirmation">Confirm PIN</Label>
+                                <Input
+                                    id="pin_confirmation"
+                                    type="password"
+                                    inputMode="numeric"
+                                    maxLength={4}
+                                    value={setForm.data.pin_confirmation}
+                                    onChange={(e) =>
+                                        setForm.setData('pin_confirmation', e.target.value.replace(/\D/g, '').slice(0, 4))
+                                    }
+                                    autoComplete="off"
+                                />
+                                <InputError message={setForm.errors.pin_confirmation} />
+                            </div>
+                            <Button disabled={setForm.processing}>Set payment PIN</Button>
+                        </form>
+                    )}
+
+                    {mode === 'manage' && hasPaymentPin && (
+                        <>
+                            <form onSubmit={submitChange} className="space-y-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="current_pin">Current PIN</Label>
+                                    <Input
+                                        id="current_pin"
+                                        type="password"
+                                        inputMode="numeric"
+                                        maxLength={4}
+                                        value={changeForm.data.current_pin}
+                                        onChange={(e) =>
+                                            changeForm.setData('current_pin', e.target.value.replace(/\D/g, '').slice(0, 4))
+                                        }
+                                        autoComplete="off"
+                                    />
+                                    <InputError message={changeForm.errors.current_pin} />
+                                    <InputError message={changeForm.errors.payment_pin} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="new_pin">New PIN</Label>
+                                    <Input
+                                        id="new_pin"
+                                        type="password"
+                                        inputMode="numeric"
+                                        maxLength={4}
+                                        value={changeForm.data.pin}
+                                        onChange={(e) => changeForm.setData('pin', e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                        autoComplete="off"
+                                    />
+                                    <InputError message={changeForm.errors.pin} />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="new_pin_confirmation">Confirm new PIN</Label>
+                                    <Input
+                                        id="new_pin_confirmation"
+                                        type="password"
+                                        inputMode="numeric"
+                                        maxLength={4}
+                                        value={changeForm.data.pin_confirmation}
+                                        onChange={(e) =>
+                                            changeForm.setData(
+                                                'pin_confirmation',
+                                                e.target.value.replace(/\D/g, '').slice(0, 4),
+                                            )
+                                        }
+                                        autoComplete="off"
+                                    />
+                                    <InputError message={changeForm.errors.pin_confirmation} />
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <Button disabled={changeForm.processing}>Update PIN</Button>
+                                    <Transition
+                                        show={changeForm.recentlySuccessful}
+                                        enter="transition ease-in-out"
+                                        enterFrom="opacity-0"
+                                        leave="transition ease-in-out"
+                                        leaveTo="opacity-0"
+                                    >
+                                        <p className="text-sm text-neutral-600">Saved</p>
+                                    </Transition>
+                                </div>
+                            </form>
+
+                            <form onSubmit={submitForgot} className="border-t pt-4">
+                                <Button type="submit" variant="outline" disabled={forgotForm.processing}>
+                                    Forgot PIN? Email me a reset code
+                                </Button>
+                                <InputError message={forgotForm.errors.email} className="mt-2" />
+                            </form>
+                        </>
+                    )}
+
+                    {mode === 'reset' && (
+                        <form onSubmit={submitReset} className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                                {emailHint
+                                    ? `Enter the 6-digit code sent to ${emailHint}, then choose a new PIN.`
+                                    : 'Enter the 6-digit code from your email, then choose a new PIN.'}
+                            </p>
+                            <div className="grid gap-2">
+                                <Label htmlFor="code">Email code</Label>
+                                <Input
+                                    id="code"
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    value={resetForm.data.code}
+                                    onChange={(e) => resetForm.setData('code', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    autoComplete="off"
+                                />
+                                <InputError message={resetForm.errors.code} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="reset_pin">New PIN</Label>
+                                <Input
+                                    id="reset_pin"
+                                    type="password"
+                                    inputMode="numeric"
+                                    maxLength={4}
+                                    value={resetForm.data.pin}
+                                    onChange={(e) => resetForm.setData('pin', e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                    autoComplete="off"
+                                />
+                                <InputError message={resetForm.errors.pin} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="reset_pin_confirmation">Confirm new PIN</Label>
+                                <Input
+                                    id="reset_pin_confirmation"
+                                    type="password"
+                                    inputMode="numeric"
+                                    maxLength={4}
+                                    value={resetForm.data.pin_confirmation}
+                                    onChange={(e) =>
+                                        resetForm.setData('pin_confirmation', e.target.value.replace(/\D/g, '').slice(0, 4))
+                                    }
+                                    autoComplete="off"
+                                />
+                                <InputError message={resetForm.errors.pin_confirmation} />
+                            </div>
+                            <div className="flex flex-wrap gap-3">
+                                <Button disabled={resetForm.processing}>Reset PIN</Button>
+                                <Button type="button" variant="ghost" onClick={() => setMode('manage')}>
+                                    Back
+                                </Button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </SettingsLayout>
+        </AppLayout>
+    );
+}

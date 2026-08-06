@@ -56,6 +56,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
     const withdrawForm = useForm({
         payout_method_id: payoutMethods.find((m) => m.is_default)?.id?.toString() ?? payoutMethods[0]?.id?.toString() ?? '',
         amount: '',
+        payment_pin: '',
     });
 
     const selectedMethod = payoutMethods.find((m) => m.id === Number(withdrawForm.data.payout_method_id));
@@ -258,13 +259,41 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                         )}
 
                         {withdrawStep === 'review' && selectedMethod && (
-                            <div className="rounded-xl border-2 border-orange-200 bg-white p-4 text-sm space-y-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Review MoMo payout</p>
-                                <p><span className="text-gray-500">Network:</span> <strong>{momoNetworkLabel(selectedMethod.network)}</strong></p>
-                                <p><span className="text-gray-500">Number:</span> {selectedMethod.account_number}</p>
-                                <p><span className="text-gray-500">Name:</span> {selectedMethod.account_name}</p>
-                                <p className="text-2xl font-bold text-orange-500">{formatPrice(parseFloat(withdrawForm.data.amount) || 0)}</p>
-                                <p className="text-xs text-gray-500">Admin reviews your request and pays you manually via MoMo.</p>
+                            <div className="space-y-4">
+                                <div className="rounded-xl border-2 border-orange-200 bg-white p-4 text-sm space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Review MoMo payout</p>
+                                    <p><span className="text-gray-500">Network:</span> <strong>{momoNetworkLabel(selectedMethod.network)}</strong></p>
+                                    <p><span className="text-gray-500">Number:</span> {selectedMethod.account_number}</p>
+                                    <p><span className="text-gray-500">Name:</span> {selectedMethod.account_name}</p>
+                                    <p className="text-2xl font-bold text-orange-500">{formatPrice(parseFloat(withdrawForm.data.amount) || 0)}</p>
+                                    <p className="text-xs text-gray-500">Admin reviews your request and pays you manually via MoMo.</p>
+                                </div>
+                                <div>
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Payment PIN</label>
+                                    <input
+                                        type="password"
+                                        inputMode="numeric"
+                                        maxLength={4}
+                                        value={withdrawForm.data.payment_pin}
+                                        onChange={(e) =>
+                                            withdrawForm.setData(
+                                                'payment_pin',
+                                                e.target.value.replace(/\D/g, '').slice(0, 4),
+                                            )
+                                        }
+                                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                                        placeholder="4-digit PIN"
+                                        autoComplete="off"
+                                    />
+                                    <InputError message={withdrawForm.errors.payment_pin} />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Manage your PIN in{' '}
+                                        <a href={route('payment-pin.edit')} className="text-orange-600 underline">
+                                            Settings → Payment PIN
+                                        </a>
+                                        .
+                                    </p>
+                                </div>
                             </div>
                         )}
 

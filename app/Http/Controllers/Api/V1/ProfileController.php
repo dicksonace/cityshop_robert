@@ -7,6 +7,7 @@ use App\Http\Resources\Api\V1\UserResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
@@ -29,6 +30,46 @@ class ProfileController extends Controller
 
         return response()->json([
             'message' => 'Profile updated.',
+            'user' => new UserResource($user->fresh()),
+        ]);
+    }
+
+    public function updateAvatar(Request $request): JsonResponse
+    {
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            'avatar.required' => 'Please choose a profile picture.',
+            'avatar.image' => 'Profile picture must be an image.',
+            'avatar.max' => 'Profile picture must be 5MB or smaller.',
+        ]);
+
+        $user = $request->user();
+        $path = $request->file('avatar')->store('avatars', 'public');
+
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+
+        $user->forceFill(['avatar' => $path])->save();
+
+        return response()->json([
+            'message' => 'Profile picture updated.',
+            'user' => new UserResource($user->fresh()),
+        ]);
+    }
+
+    public function destroyAvatar(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+            $user->forceFill(['avatar' => null])->save();
+        }
+
+        return response()->json([
+            'message' => 'Profile picture removed.',
             'user' => new UserResource($user->fresh()),
         ]);
     }

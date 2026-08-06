@@ -25,6 +25,7 @@ export type AdminNavKey =
     | 'orders-cancellations'
     | 'withdrawals'
     | 'wallet-funding'
+    | 'transactions'
     | 'manual-funding-settings'
     | 'manual-top-ups'
     | 'pending-funds'
@@ -50,6 +51,7 @@ const sectionMap: Record<AdminNavKey, string> = {
     'orders-cancellations': 'orders',
     withdrawals: 'finance',
     'wallet-funding': 'finance',
+    transactions: 'finance',
     'manual-funding-settings': 'finance',
     'manual-top-ups': 'finance',
     'pending-funds': 'finance',
@@ -156,6 +158,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'withdrawals-all', label: 'All Withdrawals', href: route('admin.withdrawals.index', { status: 'all' }) },
                 { key: 'manual-top-ups', label: 'Manual Top-ups', href: route('admin.manual-top-ups.index'), badgeKey: 'pending_manual_top_ups', defaultOnPath: true },
                 { key: 'pending-funds', label: 'Pending Funds', href: route('admin.pending-funds.index'), badgeKey: 'pending_fund_releases', defaultOnPath: true },
+                { key: 'transactions', label: 'Transactions', href: route('admin.transactions.index'), defaultOnPath: true },
                 { key: 'manual-funding-settings', label: 'Receive Accounts', href: route('admin.manual-funding.settings') },
                 { key: 'wallet-funding', label: 'Add Funds to Wallet', href: route('admin.wallet-funding.index'), defaultOnPath: true },
             ],
@@ -168,7 +171,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
             items: [
                 { key: 'disputes-open', label: 'Refund requests', href: route('admin.disputes.index', { status: 'open' }), badgeKey: 'open_disputes', defaultOnPath: true },
                 { key: 'disputes-all', label: 'All refund requests', href: route('admin.disputes.index', { status: 'all' }) },
-                { key: 'chats', label: 'Buyer–Seller Chats', href: route('admin.chats.index') },
+                { key: 'chats', label: 'Chat', href: route('admin.chats.index') },
                 { key: 'announcements', label: 'Message Sellers', href: route('admin.announcements.index') },
                 { key: 'buyer-announcements', label: 'Message Buyers', href: route('admin.buyer-announcements.index') },
                 { key: 'seller-reports', label: 'Seller Reports', href: route('admin.seller-reports.index'), badgeKey: 'open_seller_reports' },

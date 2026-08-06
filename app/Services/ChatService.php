@@ -32,6 +32,7 @@ class ChatService
             MessageType::Product,
             MessageType::CallLog,
             MessageType::System,
+            MessageType::Transfer,
         ];
     }
 
@@ -60,11 +61,30 @@ class ChatService
 
     public static function findOrCreateConversation(User $buyer, User $seller, ?Product $product = null): Conversation
     {
+        if (UserBlockService::isBlockedEitherWay($buyer, $seller)) {
+            abort(403, 'Messaging is blocked between these accounts.');
+        }
+
+        // One thread per pair, regardless of who started (friend chat or product chat).
+        $existing = Conversation::query()
+            ->where(function ($q) use ($buyer, $seller) {
+                $q->where('buyer_id', $buyer->id)->where('seller_id', $seller->id);
+            })
+            ->orWhere(function ($q) use ($buyer, $seller) {
+                $q->where('buyer_id', $seller->id)->where('seller_id', $buyer->id);
+            })
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
         // Do not link product_id here — that would show the item to the seller
         // before the buyer chooses to send it. Product is attached only when shared.
-        return Conversation::firstOrCreate(
-            ['buyer_id' => $buyer->id, 'seller_id' => $seller->id],
-        );
+        return Conversation::create([
+            'buyer_id' => $buyer->id,
+            'seller_id' => $seller->id,
+        ]);
     }
 
     /**
@@ -159,22 +179,49 @@ class ChatService
         ?Message $replyTo = null,
     ): Message {
         return DB::transaction(function () use ($conversation, $sender, $body, $type, $metadata, $replyTo) {
+            $conversation->loadMissing(['buyer', 'seller']);
+            $other = $conversation->otherParticipant($sender);
+            if (UserBlockService::isBlockedEitherWay($sender, $other)) {
+                abort(403, 'Messaging is blocked between these accounts.');
+            }
+
             if ($replyTo) {
                 abort_unless($replyTo->conversation_id === $conversation->id, 422, 'Invalid reply target.');
+                $replyTo->loadMissing('sender:id,name');
+
                 $replyBody = match ($replyTo->type) {
                     MessageType::Image => $replyTo->body ?: 'Photo',
                     MessageType::Video => $replyTo->body ?: 'Video',
                     MessageType::Voice => 'Voice message',
                     MessageType::Product => $replyTo->body
                         ?: ($replyTo->metadata['product']['name'] ?? 'Product'),
+                    MessageType::Transfer => $replyTo->body ?: 'Money transfer',
                     default => $replyTo->body ?? '',
                 };
+
+                $replyMeta = [
+                    'id' => $replyTo->id,
+                    'type' => $replyTo->type->value,
+                    'body' => $replyBody,
+                    'sender_name' => $replyTo->sender->name ?? 'User',
+                ];
+
+                // Keep product card details so replies show the item, not only text.
+                if ($replyTo->type === MessageType::Product) {
+                    $product = $replyTo->metadata['product'] ?? null;
+                    if (is_array($product)) {
+                        $replyMeta['product'] = [
+                            'id' => $product['id'] ?? null,
+                            'name' => $product['name'] ?? $replyBody,
+                            'slug' => $product['slug'] ?? null,
+                            'price' => $product['price'] ?? null,
+                            'image_url' => $product['image_url'] ?? null,
+                        ];
+                    }
+                }
+
                 $metadata = array_merge($metadata ?? [], [
-                    'reply_to' => [
-                        'id' => $replyTo->id,
-                        'body' => $replyBody,
-                        'sender_name' => $replyTo->sender->name ?? 'User',
-                    ],
+                    'reply_to' => $replyMeta,
                 ]);
             }
 
@@ -205,34 +252,35 @@ class ChatService
                     $type === MessageType::Video => 'Sent a video',
                     $type === MessageType::Voice => 'Sent a voice message',
                     $type === MessageType::Product => 'Shared a product: '.$body,
+                    $type === MessageType::Transfer => $body ?: 'Sent money',
                     default => 'New activity',
                 };
 
-                AppNotification::create([
-                    'user_id' => $recipient->id,
-                    'type' => 'message',
-                    'title' => 'New message',
-                    'body' => $notificationBody,
-                    'data' => [
+                AppNotificationService::send(
+                    $recipient,
+                    'message',
+                    'New message',
+                    $notificationBody,
+                    [
                         'conversation_id' => $conversation->id,
                         'sender_id' => $sender->id,
                         'sender_name' => $sender->name,
                     ],
-                ]);
+                );
             }
 
             if ($type === MessageType::CallOffer) {
-                AppNotification::create([
-                    'user_id' => $recipient->id,
-                    'type' => 'call',
-                    'title' => 'Incoming call',
-                    'body' => "{$sender->name} is calling you",
-                    'data' => [
+                AppNotificationService::send(
+                    $recipient,
+                    'call',
+                    'Incoming call',
+                    "{$sender->name} is calling you",
+                    [
                         'conversation_id' => $conversation->id,
                         'sender_id' => $sender->id,
                         'sender_name' => $sender->name,
                     ],
-                ]);
+                );
             }
 
             try {
@@ -328,6 +376,7 @@ class ChatService
                 $metadata['voice_path'] ?? null,
             ),
             'product' => $deleted ? null : ($metadata['product'] ?? null),
+            'transfer' => $deleted ? null : ($metadata['transfer'] ?? null),
             'duration_seconds' => $deleted
                 ? null
                 : (isset($metadata['duration_seconds']) ? (int) $metadata['duration_seconds'] : null),

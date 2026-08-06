@@ -47,6 +47,14 @@ export interface ChatReplyTo {
     id: number;
     body: string;
     sender_name: string;
+    type?: string;
+    product?: {
+        id?: number | null;
+        name?: string | null;
+        slug?: string | null;
+        price?: number | null;
+        image_url?: string | null;
+    } | null;
 }
 
 export interface ChatMessage {

@@ -18,9 +18,10 @@ interface ChatShowProps {
         created_at: string;
         sender?: { id: number; name: string; role?: string };
     }>;
+    blocked?: boolean;
 }
 
-export default function AdminChatShow({ conversation, messages }: ChatShowProps) {
+export default function AdminChatShow({ conversation, messages, blocked }: ChatShowProps) {
     return (
         <AdminLayout title="Chat thread" active="chats">
             <Head title="Chat oversight" />
@@ -29,6 +30,12 @@ export default function AdminChatShow({ conversation, messages }: ChatShowProps)
                 <ArrowLeft className="h-4 w-4" />
                 Back to chats
             </Link>
+
+            {blocked && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    One of these users has blocked the other — messaging and transfers are disabled.
+                </div>
+            )}
 
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 Admin oversight view. Messages are encrypted in the database and decrypted only inside the app.

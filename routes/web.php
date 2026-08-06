@@ -256,6 +256,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/wallet-funding', [AdminWalletFundingController::class, 'index'])->name('wallet-funding.index');
     Route::post('/wallet-funding', [AdminWalletFundingController::class, 'store'])->name('wallet-funding.store');
+    Route::get('/transactions', [\App\Http\Controllers\Admin\TransactionController::class, 'index'])->name('transactions.index');
 
     Route::get('/manual-funding/settings', [AdminManualFundingSettingsController::class, 'edit'])->name('manual-funding.settings');
     Route::post('/manual-funding/settings', [AdminManualFundingSettingsController::class, 'update'])->name('manual-funding.settings.update');

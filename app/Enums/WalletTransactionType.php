@@ -16,6 +16,9 @@ enum WalletTransactionType: string
     case SaleReversed = 'sale_reversed';
     /** Seller CityShop wallet clawback when a paid pay-to-seller order is cancelled. */
     case DirectCancelDebit = 'direct_cancel_debit';
+    /** Peer-to-peer wallet send (chat transfer). */
+    case TransferOut = 'transfer_out';
+    case TransferIn = 'transfer_in';
 
     /** Mirrors the labels the web wallet shows, for API clients. */
     public function label(): string
@@ -32,6 +35,8 @@ enum WalletTransactionType: string
             self::OrderRefund => 'Order Refund',
             self::SaleReversed => 'Sale Reversed',
             self::DirectCancelDebit => 'Pay-to-seller Cancel',
+            self::TransferOut => 'Money Sent',
+            self::TransferIn => 'Money Received',
         };
     }
 }

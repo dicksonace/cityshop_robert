@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Services\CheckoutPaymentVerifier;
 use App\Services\OrderService;
+use App\Services\PaymentPinService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
 use App\Support\DirectCheckoutDraft;
@@ -104,12 +105,17 @@ class CheckoutController extends Controller
         $request->validate([
             'address_id' => ['required', 'integer'],
             'payment_method' => ['required', 'in:momo,card,cash,wallet'],
+            'payment_pin' => ['required_if:payment_method,wallet', 'nullable', 'string', 'regex:/^\d{4}$/'],
             'seller_payments' => ['nullable', 'array'],
             'seller_payments.*.channel' => ['required_with:seller_payments', 'in:marketplace,direct'],
             'seller_payments.*.method_id' => ['nullable', 'integer'],
             'seller_coupons' => ['nullable', 'array'],
             'seller_coupons.*' => ['nullable', 'string', 'max:30'],
         ]);
+
+        if ($request->string('payment_method')->toString() === 'wallet') {
+            PaymentPinService::assertValidForAction($request->user(), $request->input('payment_pin'));
+        }
 
         $address = BuyerAddress::query()
             ->whereKey($request->integer('address_id'))
@@ -366,6 +372,12 @@ class CheckoutController extends Controller
     public function payWithWallet(Request $request, Checkout $checkout): JsonResponse
     {
         abort_unless($checkout->buyer_id === $request->user()->id, 403);
+
+        $validated = $request->validate([
+            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+        ]);
+
+        PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);
 
         try {
             $this->orderService->payCheckoutWithWallet($checkout, $request->user());

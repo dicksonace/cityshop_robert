@@ -208,7 +208,10 @@ class WalletController extends Controller
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:10'],
             'payout_method_id' => ['required', 'exists:seller_payout_methods,id'],
+            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
         ]);
+
+        \App\Services\PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);
 
         $payoutMethod = SellerPayoutMethod::where('user_id', $request->user()->id)
             ->findOrFail($validated['payout_method_id']);

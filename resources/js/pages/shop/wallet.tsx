@@ -75,6 +75,7 @@ export default function BuyerWallet({
         momo_number: auth.user?.mobile ?? '',
         account_name: auth.user?.name ?? '',
         network: 'mtn',
+        payment_pin: '',
     });
 
     const refreshBalance = () => {
@@ -255,6 +256,32 @@ export default function BuyerWallet({
                                                 {formatPrice(parseFloat(withdrawForm.data.amount) || 0)}
                                             </p>
                                             <p className="mt-1 text-xs text-gray-500">Usually paid within 1 hour after admin approval.</p>
+                                        </div>
+                                        <div>
+                                            <label className="mb-1 block text-sm font-medium text-gray-700">Payment PIN</label>
+                                            <input
+                                                type="password"
+                                                inputMode="numeric"
+                                                maxLength={4}
+                                                value={withdrawForm.data.payment_pin}
+                                                onChange={(e) =>
+                                                    withdrawForm.setData(
+                                                        'payment_pin',
+                                                        e.target.value.replace(/\D/g, '').slice(0, 4),
+                                                    )
+                                                }
+                                                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                                                placeholder="4-digit PIN"
+                                                autoComplete="off"
+                                            />
+                                            <InputError message={withdrawForm.errors.payment_pin} />
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Set or reset your PIN in{' '}
+                                                <a href={route('payment-pin.edit')} className="text-orange-600 underline">
+                                                    Settings → Payment PIN
+                                                </a>
+                                                .
+                                            </p>
                                         </div>
                                     </div>
                                 )}

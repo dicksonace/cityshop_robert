@@ -11,6 +11,7 @@ use App\Models\Checkout;
 use App\Models\Order;
 use App\Services\CheckoutPaymentVerifier;
 use App\Services\OrderService;
+use App\Services\PaymentPinService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
 use App\Support\DirectCheckoutDraft;
@@ -105,6 +106,7 @@ class CheckoutController extends Controller
         $request->validate([
             'address_id' => ['required', 'integer'],
             'payment_method' => ['required', 'in:momo,card,cash,wallet'],
+            'payment_pin' => ['required_if:payment_method,wallet', 'nullable', 'string', 'regex:/^\d{4}$/'],
             'seller_payments' => ['nullable', 'array'],
             'seller_payments.*.channel' => ['required_with:seller_payments', 'in:marketplace,direct'],
             'seller_payments.*.method_id' => ['nullable', 'integer'],
@@ -121,6 +123,10 @@ class CheckoutController extends Controller
         $sellerPayments = $request->input('seller_payments', []);
         $sellerCoupons = $request->input('seller_coupons', []);
         $paymentMethod = $request->string('payment_method')->toString();
+
+        if ($paymentMethod === 'wallet') {
+            PaymentPinService::assertValidForAction($request->user(), $request->input('payment_pin'));
+        }
 
         // Pay-to-seller only: show bank/MoMo details without creating an order until proof is submitted.
         if ($paymentMethod !== 'cash'

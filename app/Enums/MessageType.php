@@ -15,4 +15,5 @@ enum MessageType: string
     case Voice = 'voice';
     case Product = 'product';
     case System = 'system';
+    case Transfer = 'transfer';
 }

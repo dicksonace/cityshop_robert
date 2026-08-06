@@ -8,9 +8,10 @@ import { Paginated } from '@/types/marketplace';
 
 interface ChatRow {
     id: number;
-    last_message_at?: string;
-    buyer?: { id: number; name: string; email: string; mobile?: string };
-    seller?: { id: number; name: string; email: string };
+    last_message_at?: string | null;
+    blocked?: boolean;
+    buyer?: { id: number; name: string; email: string; mobile?: string | null };
+    seller?: { id: number; name: string; email: string; mobile?: string | null };
     product?: { id: number; name: string };
     latest_message?: { body?: string; type?: string; sender?: { name: string } };
 }
@@ -29,29 +30,35 @@ export default function AdminChatsIndex({ conversations, search }: ChatsIndexPro
     };
 
     return (
-        <AdminLayout title="Buyer–Seller Chats" active="chats">
-            <Head title="Chats" />
+        <AdminLayout title="Chat" active="chats">
+            <Head title="Chat" />
 
             <p className="mb-4 text-sm text-gray-500">
-                Monitor conversations between buyers and sellers. Message content is encrypted at rest in the database.
+                All CityShop chats — product chats and friend-to-friend threads. Search by mobile number, name, or email.
             </p>
 
-            <form onSubmit={submitSearch} className="mb-6">
-                <div className="relative max-w-md">
+            <form onSubmit={submitSearch} className="mb-6 flex flex-wrap gap-3">
+                <div className="relative min-w-[260px] flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <Input
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search by buyer or seller name/email..."
+                        placeholder="Search mobile number, name, or email…"
                         className="pl-9"
                     />
                 </div>
+                <button
+                    type="submit"
+                    className="h-10 rounded-md bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600"
+                >
+                    Search
+                </button>
             </form>
 
             <div className="space-y-3">
                 {conversations.data.length === 0 ? (
                     <div className="rounded-xl bg-white p-10 text-center text-sm text-gray-500 shadow-sm">
-                        No conversations found.
+                        No chats found.
                     </div>
                 ) : (
                     conversations.data.map((chat) => (
@@ -63,10 +70,16 @@ export default function AdminChatsIndex({ conversations, search }: ChatsIndexPro
                             <div className="flex flex-wrap items-start justify-between gap-2">
                                 <div>
                                     <p className="font-medium text-gray-900">
-                                        {chat.buyer?.name ?? 'Buyer'} ↔ {chat.seller?.name ?? 'Seller'}
+                                        {chat.buyer?.name ?? 'User'} ↔ {chat.seller?.name ?? 'User'}
+                                        {chat.blocked && (
+                                            <span className="ml-2 rounded bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600">
+                                                Blocked
+                                            </span>
+                                        )}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                        {chat.buyer?.email} · {chat.seller?.email}
+                                        {chat.buyer?.mobile || chat.buyer?.email || '—'} ·{' '}
+                                        {chat.seller?.mobile || chat.seller?.email || '—'}
                                     </p>
                                     {chat.product && (
                                         <p className="mt-1 text-xs text-orange-600">Product: {chat.product.name}</p>
@@ -79,7 +92,12 @@ export default function AdminChatsIndex({ conversations, search }: ChatsIndexPro
                                 </p>
                             </div>
                             <p className="mt-2 line-clamp-1 text-sm text-gray-600">
-                                {chat.latest_message?.body || (chat.latest_message?.type === 'image' ? 'Photo' : 'No messages')}
+                                {chat.latest_message?.body ||
+                                    (chat.latest_message?.type === 'image'
+                                        ? 'Photo'
+                                        : chat.latest_message?.type === 'transfer'
+                                          ? 'Money transfer'
+                                          : 'No messages')}
                             </p>
                         </Link>
                     ))

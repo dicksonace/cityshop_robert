@@ -58,4 +58,10 @@ return [
         'vision_model' => env('OPENAI_VISION_MODEL', 'gpt-4o-mini'),
     ],
 
+    'fcm' => [
+        // Legacy FCM server key from Firebase Console → Project settings → Cloud Messaging.
+        // Leave blank to skip OS push (in-app notifications still work).
+        'server_key' => env('FCM_SERVER_KEY'),
+    ],
+
 ];

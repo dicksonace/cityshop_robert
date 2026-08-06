@@ -129,6 +129,7 @@ export default function Checkout({
         return {
             address_id: restoredAddressId,
             payment_method: paymentMethod,
+            payment_pin: '',
             seller_payments: sellerPayments,
             seller_coupons: sellerCoupons,
         };
@@ -147,6 +148,7 @@ export default function Checkout({
     const blockingMessage =
         errors.coupon
         ?? errors.payment_method
+        ?? errors.payment_pin
         ?? errors.address_id
         ?? Object.values(errors)[0]
         ?? page.props.flash?.error;
@@ -192,6 +194,7 @@ export default function Checkout({
             {
                 address_id: selected.id,
                 payment_method: data.payment_method,
+                payment_pin: data.payment_method === 'wallet' ? data.payment_pin : undefined,
                 seller_payments: data.seller_payments,
                 seller_coupons: data.seller_coupons,
             },
@@ -464,6 +467,31 @@ export default function Checkout({
                                 </label>
                             </div>
                             <InputError message={errors.payment_method} />
+                            {data.payment_method === 'wallet' && (
+                                <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/40 p-3">
+                                    <label className="mb-1 block text-sm font-medium text-gray-700">Payment PIN</label>
+                                    <input
+                                        type="password"
+                                        inputMode="numeric"
+                                        maxLength={4}
+                                        value={data.payment_pin}
+                                        onChange={(e) =>
+                                            setData('payment_pin', e.target.value.replace(/\D/g, '').slice(0, 4))
+                                        }
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                                        placeholder="4-digit PIN"
+                                        autoComplete="off"
+                                    />
+                                    <InputError message={errors.payment_pin} />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Need a PIN?{' '}
+                                        <Link href={route('payment-pin.edit')} className="text-orange-600 underline">
+                                            Set or reset it in Settings
+                                        </Link>
+                                        .
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
