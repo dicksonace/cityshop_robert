@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureApprovedSeller;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsureStoreSetupComplete;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\PreventSellerShopping;
 use App\Http\Middleware\TrackUserPresence;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Foundation\Application;
@@ -11,6 +12,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -39,7 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureRole::class,
             'seller.approved' => EnsureApprovedSeller::class,
             'seller.store-setup' => EnsureStoreSetupComplete::class,
-            'buyer.shop' => \App\Http\Middleware\PreventSellerShopping::class,
+            'buyer.shop' => PreventSellerShopping::class,
         ]);
 
         $middleware->web(append: [
@@ -53,7 +55,18 @@ return Application::configure(basePath: dirname(__DIR__))
         );
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        $exceptions->shouldRenderJsonWhen(function (Request $request, \Throwable $e) {
+        $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $e) {
             return $request->is('api/*') || $request->expectsJson();
+        });
+
+        // A page left open past the session lifetime posts with a dead CSRF token.
+        // Without this the buyer just gets a raw error page (or nothing at all on
+        // an Inertia visit), which reads as "the button does nothing".
+        $exceptions->respond(function (Response $response, Throwable $e, Request $request) {
+            if ($response->getStatusCode() === 419 && ! $request->expectsJson()) {
+                return back()->with('error', 'Your session expired. Please try that again.');
+            }
+
+            return $response;
         });
     })->create();

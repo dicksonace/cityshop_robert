@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ChevronRight, LoaderCircle, MapPin, Pencil } from 'lucide-react';
 import { FormEventHandler, useEffect, useMemo, useState } from 'react';
 
@@ -20,6 +20,7 @@ import {
 import { isBankPaymentMethod } from '@/lib/payment-method-display';
 import { CartItem, formatPrice, productImageUrl, Wallet } from '@/types/marketplace';
 import { BuyerAddress } from '@/types/buyer-address';
+import { SharedData } from '@/types';
 
 interface SellerPaymentMethod {
     id: number;
@@ -136,8 +137,19 @@ export default function Checkout({
     const [pickingAddress, setPickingAddress] = useState(false);
     const [activeAddressId, setActiveAddressId] = useState<number | null>(initialForm.address_id);
 
-    const { data, setData, errors } = useForm(initialForm);
+    const { data, setData } = useForm(initialForm);
     const [submitting, setSubmitting] = useState(false);
+
+    // The order is posted with router.post, so failures come back on the page
+    // props — useForm's own error bag stays empty and would hide them.
+    const page = usePage<SharedData>();
+    const errors = page.props.errors ?? {};
+    const blockingMessage =
+        errors.coupon
+        ?? errors.payment_method
+        ?? errors.address_id
+        ?? Object.values(errors)[0]
+        ?? page.props.flash?.error;
 
     useEffect(() => {
         saveCheckoutDraft({
@@ -184,6 +196,7 @@ export default function Checkout({
                 seller_coupons: data.seller_coupons,
             },
             {
+                preserveScroll: true,
                 onSuccess: () => clearCheckoutDraft(),
                 onFinish: () => setSubmitting(false),
             },
@@ -229,7 +242,7 @@ export default function Checkout({
     }, []);
 
     return (
-        <ShopLayout>
+        <ShopLayout hideFlashError>
             <Head title="Checkout" />
             <div className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-8">
                 <Link href={route('cart.index')} className="text-sm text-orange-500 hover:underline">
@@ -620,6 +633,14 @@ export default function Checkout({
                                     <span className="text-orange-500">{formatPrice(grandTotal)}</span>
                                 </div>
                             </div>
+                            {blockingMessage && (
+                                <p
+                                    role="alert"
+                                    className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
+                                >
+                                    {blockingMessage}
+                                </p>
+                            )}
                             <Button
                                 type="submit"
                                 disabled={submitting || !selected}

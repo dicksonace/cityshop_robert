@@ -10,16 +10,24 @@ interface ShopLayoutProps {
     hideHeaderSearch?: boolean;
     /** Hide header, footer, and buyer bottom nav (invoice / print-ready pages). */
     hideChrome?: boolean;
+    /** For pages that show the failure next to the action the buyer just took. */
+    hideFlashError?: boolean;
 }
 
-export default function ShopLayout({ children, hideHeaderSearch = false, hideChrome = false }: ShopLayoutProps) {
+export default function ShopLayout({
+    children,
+    hideHeaderSearch = false,
+    hideChrome = false,
+    hideFlashError = false,
+}: ShopLayoutProps) {
     const page = usePage<SharedData>();
     const { auth, flash } = page.props;
     const showBuyerNav = !hideChrome && auth.user?.role === 'buyer';
     const component = typeof page.component === 'string' ? page.component : '';
     const hasValidationErrors = Object.keys(page.props.errors ?? {}).length > 0;
     // Auth/forms already show errors next to the fields — don't duplicate as a top banner.
-    const showLayoutError = Boolean(flash?.error) && !hasValidationErrors && !component.startsWith('auth/');
+    const showLayoutError =
+        Boolean(flash?.error) && !hideFlashError && !hasValidationErrors && !component.startsWith('auth/');
 
     // Prevent a stuck horizontal scroll offset (looks like content "shifted" with empty space on one side).
     useEffect(() => {

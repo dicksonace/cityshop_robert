@@ -320,6 +320,10 @@ class CheckoutController extends Controller
                 $draft['seller_payments'] ?? [],
                 $draft['seller_coupons'] ?? [],
             );
+        } catch (ValidationException $e) {
+            return redirect()->route('checkout.index')
+                ->withErrors($e->errors())
+                ->with('error', collect($e->errors())->flatten()->first() ?? 'Please review your order and try again.');
         } catch (\RuntimeException $e) {
             return redirect()->route('checkout.index')->with('error', $e->getMessage());
         }
@@ -354,6 +358,10 @@ class CheckoutController extends Controller
                 $draft['seller_payments'] ?? [],
                 $draft['seller_coupons'] ?? [],
             );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?? 'Please review your order and try again.',
+            ], 422);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
