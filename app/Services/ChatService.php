@@ -10,6 +10,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -314,9 +315,18 @@ class ChatService
             'type' => $message->type->value,
             'body' => $deleted ? null : $message->body,
             'metadata' => $message->metadata,
-            'image_url' => $deleted ? null : ($metadata['image_url'] ?? null),
-            'video_url' => $deleted ? null : ($metadata['video_url'] ?? null),
-            'voice_url' => $deleted ? null : ($metadata['voice_url'] ?? null),
+            'image_url' => $deleted ? null : static::publicMediaUrl(
+                $metadata['image_url'] ?? null,
+                $metadata['image_path'] ?? null,
+            ),
+            'video_url' => $deleted ? null : static::publicMediaUrl(
+                $metadata['video_url'] ?? null,
+                $metadata['video_path'] ?? null,
+            ),
+            'voice_url' => $deleted ? null : static::publicMediaUrl(
+                $metadata['voice_url'] ?? null,
+                $metadata['voice_path'] ?? null,
+            ),
             'product' => $deleted ? null : ($metadata['product'] ?? null),
             'duration_seconds' => $deleted
                 ? null
@@ -334,6 +344,27 @@ class ChatService
                 'name' => $message->sender->name,
             ],
         ];
+    }
+
+    /**
+     * Prefer the stored path so media keeps working when APP_URL changes.
+     * Fall back to a stored URL, rewriting /storage/... under the current host.
+     */
+    public static function publicMediaUrl(?string $url, ?string $path = null): ?string
+    {
+        if (is_string($path) && trim($path) !== '') {
+            return Storage::disk('public')->url(ltrim($path, '/'));
+        }
+
+        if (! is_string($url) || trim($url) === '') {
+            return null;
+        }
+
+        if (preg_match('#(?:^|/)storage/(.+)$#', $url, $matches) === 1) {
+            return Storage::disk('public')->url($matches[1]);
+        }
+
+        return $url;
     }
 
     public static function recordCallLog(
@@ -416,7 +447,7 @@ class ChatService
      * New rows after $afterId, plus any still-unread messages for this viewer
      * (fills gaps when realtime delivered a later id first and skipped a product card).
      *
-     * @return \Illuminate\Support\Collection<int, Message>
+     * @return Collection<int, Message>
      */
     public static function pollVisibleMessages(Conversation $conversation, User $viewer, int $afterId = 0)
     {

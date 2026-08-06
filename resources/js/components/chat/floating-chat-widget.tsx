@@ -47,30 +47,40 @@ export default function FloatingChatWidget() {
                 // Buyers use the bottom tab for Message — hide empty wrapper on mobile so it cannot block taps.
                 isBuyer && !isOpen && 'hidden sm:flex',
                 isOpen
-                    ? 'inset-x-0 bottom-0 p-0 sm:inset-x-auto sm:bottom-4 sm:right-4'
+                    ? isBuyer
+                        // Buyer list/thread: float as a card above the bottom tabs — not edge-to-edge.
+                        ? 'inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] items-center px-3 pb-0 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:items-end sm:px-0'
+                        : 'inset-x-0 bottom-0 p-0 sm:inset-x-auto sm:bottom-4 sm:right-4'
                     : 'right-0 p-3',
                 !isOpen && isBuyer && 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] pb-3 sm:bottom-4',
                 !isOpen && !isBuyer && 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
-                isOpen && isBuyer && 'sm:bottom-4',
             )}
         >
             {isOpen && (
                 <div
                     className={cn(
-                        'flex w-full max-w-[100vw] flex-col overflow-hidden border border-gray-200 bg-white shadow-2xl',
+                        'flex w-full flex-col overflow-hidden border border-gray-200 bg-white shadow-2xl',
                         'animate-in slide-in-from-bottom-4 fade-in duration-200',
-                        'rounded-t-2xl sm:w-[min(100vw-2rem,360px)] sm:max-w-none sm:rounded-2xl',
-                        // List: hug content so it doesn’t look like a big empty sheet.
-                        // Thread: near full-screen on phones so sellers can read/reply comfortably.
-                        view === 'list'
-                            ? 'max-h-[min(55dvh,400px)]'
-                            : 'h-[min(92dvh,720px)] sm:h-[min(520px,calc(100vh-7rem))]',
+                        isBuyer
+                            ? cn(
+                                  // Same compact card on phone and desktop for buyers.
+                                  'max-w-[min(100%,360px)] rounded-2xl',
+                                  view === 'list'
+                                      ? 'max-h-[min(48dvh,360px)]'
+                                      : 'h-[min(70dvh,560px)] sm:h-[min(520px,calc(100vh-7rem))]',
+                              )
+                            : cn(
+                                  'max-w-[100vw] rounded-t-2xl sm:w-[min(100vw-2rem,360px)] sm:max-w-none sm:rounded-2xl',
+                                  view === 'list'
+                                      ? 'max-h-[min(55dvh,400px)]'
+                                      : 'h-[min(92dvh,720px)] sm:h-[min(520px,calc(100vh-7rem))]',
+                              ),
                     )}
                 >
-                    <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-3 text-white sm:py-2.5">
+                    <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 text-white">
                         <div className="flex min-w-0 items-center gap-2">
-                            <MessageCircle className="h-5 w-5 shrink-0 sm:h-4 sm:w-4" />
-                            <span className="truncate text-base font-semibold sm:text-sm">
+                            <MessageCircle className="h-4 w-4 shrink-0" />
+                            <span className="truncate text-sm font-semibold">
                                 {view === 'thread' && otherName ? otherName : 'Messages'}
                             </span>
                         </div>
@@ -78,18 +88,18 @@ export default function FloatingChatWidget() {
                             <button
                                 type="button"
                                 onClick={minimizeWidget}
-                                className="rounded-lg p-2 hover:bg-white/20 sm:p-1.5"
+                                className="rounded-lg p-1.5 hover:bg-white/20"
                                 aria-label="Minimize chat"
                             >
-                                <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4" />
+                                <ChevronDown className="h-4 w-4" />
                             </button>
                             <button
                                 type="button"
                                 onClick={closeWidget}
-                                className="rounded-lg p-2 hover:bg-white/20 sm:p-1.5"
+                                className="rounded-lg p-1.5 hover:bg-white/20"
                                 aria-label="Close chat"
                             >
-                                <X className="h-5 w-5 sm:h-4 sm:w-4" />
+                                <X className="h-4 w-4" />
                             </button>
                         </div>
                     </div>
@@ -97,7 +107,11 @@ export default function FloatingChatWidget() {
                     <div
                         className={cn(
                             'flex min-h-0 flex-col',
-                            view === 'thread' ? 'flex-1' : 'max-h-[min(48dvh,340px)] overflow-hidden',
+                            view === 'thread'
+                                ? 'flex-1'
+                                : isBuyer
+                                  ? 'max-h-[min(40dvh,300px)] overflow-hidden'
+                                  : 'max-h-[min(48dvh,340px)] overflow-hidden',
                         )}
                     >
                         {view === 'list' ? <ChatListPanel /> : <ChatThreadPanel />}

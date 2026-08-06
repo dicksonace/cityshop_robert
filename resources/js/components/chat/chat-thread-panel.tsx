@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CornerUpLeft,
@@ -17,6 +17,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import OnlineIndicator from '@/components/shop/online-indicator';
 import ChatCallLogItem from '@/components/chat/chat-call-log-item';
+import ChatVideoBubble from '@/components/chat/chat-video-bubble';
 import { useChat } from '@/contexts/chat-context';
 import { useToastOptional } from '@/contexts/toast-context';
 import { useChatVoiceCall } from '@/hooks/use-chat-voice-call';
@@ -50,7 +51,18 @@ function maxMessageId(list: ChatMessage[]): number {
 
 export default function ChatThreadPanel() {
     const { auth } = usePage<SharedData>().props;
-    const { activeConversation, messages, setMessages, setActiveConversation, showList, loading, refreshConversations, attachProduct, clearAttachProduct } = useChat();
+    const {
+        activeConversation,
+        messages,
+        setMessages,
+        setActiveConversation,
+        showList,
+        loading,
+        refreshConversations,
+        attachProduct,
+        clearAttachProduct,
+        closeWidget,
+    } = useChat();
     const toast = useToastOptional();
     const [body, setBody] = useState('');
     const [sending, setSending] = useState(false);
@@ -345,6 +357,14 @@ export default function ChatThreadPanel() {
         return msg.body;
     };
 
+    // Close the sheet first — otherwise the product page loads under the chat
+    // and a seller/buyer thinks the card did nothing.
+    const openProduct = (slug: string) => {
+        if (!slug) return;
+        closeWidget();
+        router.visit(route('products.show', slug));
+    };
+
     return (
         <div className="flex flex-1 flex-col overflow-hidden">
             <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
@@ -415,12 +435,13 @@ export default function ChatThreadPanel() {
                         </div>
                     )}
                     <div className="min-w-0 flex-1">
-                        <Link
-                            href={route('products.show', activeConversation.product.slug)}
-                            className="block truncate text-xs font-semibold text-gray-900 hover:text-orange-600"
+                        <button
+                            type="button"
+                            onClick={() => openProduct(activeConversation.product!.slug)}
+                            className="block w-full truncate text-left text-xs font-semibold text-gray-900 hover:text-orange-600"
                         >
                             {activeConversation.product.name}
-                        </Link>
+                        </button>
                         {typeof activeConversation.product.price === 'number' && (
                             <p className="text-[11px] font-bold text-orange-600">
                                 GH₵{' '}
@@ -431,12 +452,13 @@ export default function ChatThreadPanel() {
                             </p>
                         )}
                     </div>
-                    <Link
-                        href={route('products.show', activeConversation.product.slug)}
+                    <button
+                        type="button"
+                        onClick={() => openProduct(activeConversation.product!.slug)}
                         className="shrink-0 text-[11px] font-semibold text-orange-600 hover:underline"
                     >
                         View
-                    </Link>
+                    </button>
                 </div>
             )}
 
@@ -541,9 +563,10 @@ export default function ChatThreadPanel() {
                                             <p className="px-2 py-1">Message deleted</p>
                                         ) : isProduct ? (
                                             productCard?.slug ? (
-                                                <Link
-                                                    href={route('products.show', productCard.slug)}
-                                                    className="block min-w-[14rem] p-2.5 transition hover:bg-orange-50/60"
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openProduct(productCard.slug)}
+                                                    className="block min-w-[14rem] w-full p-2.5 text-left transition hover:bg-orange-50/60"
                                                 >
                                                     <div className="flex gap-2.5">
                                                         {productCard.image_url ? (
@@ -575,7 +598,7 @@ export default function ChatThreadPanel() {
                                                             </p>
                                                         </div>
                                                     </div>
-                                                </Link>
+                                                </button>
                                             ) : (
                                                 <div className="min-w-[14rem] p-2.5">
                                                     <p className="text-xs font-semibold text-gray-900">
@@ -601,20 +624,7 @@ export default function ChatThreadPanel() {
                                                 )}
                                             </div>
                                         ) : isVideo ? (
-                                            <div>
-                                                <video
-                                                    src={msg.video_url!}
-                                                    controls
-                                                    playsInline
-                                                    preload="metadata"
-                                                    className="max-h-64 w-full rounded-xl bg-black"
-                                                >
-                                                    Your browser does not support video.
-                                                </video>
-                                                {msg.body?.trim() && (
-                                                    <p className="px-2 py-1.5 text-sm">{msg.body}</p>
-                                                )}
-                                            </div>
+                                            <ChatVideoBubble src={msg.video_url!} caption={msg.body} />
                                         ) : isVoice ? (
                                             <div className={cn('min-w-[12rem]', (isImage || isVideo) && 'px-1')}>
                                                 <audio src={msg.voice_url!} controls preload="metadata" className="w-full" />
