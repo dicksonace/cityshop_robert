@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\Message;
+use App\Services\ChatService;
 use App\Services\UserBlockService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -44,6 +46,20 @@ class ChatOversightController extends Controller
                     $blocked = UserBlockService::isBlockedEitherWay($chat->buyer, $chat->seller);
                 }
 
+                $latest = $chat->latestVisibleMessage;
+                $preview = null;
+                if ($latest) {
+                    $preview = match ($latest->type?->value) {
+                        'image' => $latest->body ? "[Photo] {$latest->body}" : '[Photo]',
+                        'video' => $latest->body ? "[Video] {$latest->body}" : '[Video]',
+                        'voice' => '[Voice message]',
+                        'product' => '[Product]',
+                        'transfer' => '[Money transfer]',
+                        'call_log' => 'Voice call',
+                        default => $latest->body,
+                    };
+                }
+
                 return [
                     'id' => $chat->id,
                     'last_message_at' => $chat->last_message_at?->toIso8601String(),
@@ -65,11 +81,11 @@ class ChatOversightController extends Controller
                         'name' => $chat->product->name,
                         'slug' => $chat->product->slug,
                     ] : null,
-                    'latest_message' => $chat->latestVisibleMessage ? [
-                        'body' => $chat->latestVisibleMessage->body,
-                        'type' => $chat->latestVisibleMessage->type?->value,
-                        'sender' => $chat->latestVisibleMessage->sender
-                            ? ['name' => $chat->latestVisibleMessage->sender->name]
+                    'latest_message' => $latest ? [
+                        'body' => $preview,
+                        'type' => $latest->type?->value,
+                        'sender' => $latest->sender
+                            ? ['name' => $latest->sender->name]
                             : null,
                     ] : null,
                 ];
@@ -93,7 +109,17 @@ class ChatOversightController extends Controller
             ->with('sender:id,name,role')
             ->oldest()
             ->paginate(50)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(function (Message $message) {
+                $formatted = ChatService::formatMessage($message);
+                $formatted['sender'] = $message->sender ? [
+                    'id' => $message->sender->id,
+                    'name' => $message->sender->name,
+                    'role' => $message->sender->role?->value,
+                ] : null;
+
+                return $formatted;
+            });
 
         $blocked = $conversation->buyer && $conversation->seller
             ? UserBlockService::isBlockedEitherWay($conversation->buyer, $conversation->seller)
