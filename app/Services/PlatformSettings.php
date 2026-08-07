@@ -9,6 +9,8 @@ class PlatformSettings
 {
     public const FUNDING_ACCOUNTS_KEY = 'manual_funding_accounts';
 
+    public const WITHDRAWAL_FEE_KEY = 'withdrawal_fee';
+
     public static function get(string $key, mixed $default = null): mixed
     {
         return Cache::remember("platform_setting.{$key}", 3600, function () use ($key, $default) {
@@ -31,6 +33,73 @@ class PlatformSettings
     public static function commissionRate(): float
     {
         return (float) static::get('commission_rate', 0);
+    }
+
+    /**
+     * Flat withdrawal fee (per transaction). Admin can change amount / which channels.
+     *
+     * @return array{enabled: bool, amount: float, applies_to: string}
+     */
+    public static function withdrawalFeeSettings(): array
+    {
+        $raw = static::get(self::WITHDRAWAL_FEE_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return [
+                'enabled' => true,
+                'amount' => 10.0,
+                'applies_to' => 'bank',
+            ];
+        }
+
+        $appliesTo = (string) ($decoded['applies_to'] ?? 'bank');
+        if (! in_array($appliesTo, ['bank', 'momo', 'all', 'none'], true)) {
+            $appliesTo = 'bank';
+        }
+
+        return [
+            'enabled' => (bool) ($decoded['enabled'] ?? true),
+            'amount' => max(0, round((float) ($decoded['amount'] ?? 10), 2)),
+            'applies_to' => $appliesTo,
+        ];
+    }
+
+    /**
+     * @param  array{enabled?: bool, amount?: float|int|string, applies_to?: string}  $data
+     */
+    public static function saveWithdrawalFeeSettings(array $data): void
+    {
+        $appliesTo = (string) ($data['applies_to'] ?? 'bank');
+        if (! in_array($appliesTo, ['bank', 'momo', 'all', 'none'], true)) {
+            $appliesTo = 'bank';
+        }
+
+        static::set(self::WITHDRAWAL_FEE_KEY, [
+            'enabled' => (bool) ($data['enabled'] ?? false),
+            'amount' => max(0, round((float) ($data['amount'] ?? 0), 2)),
+            'applies_to' => $appliesTo,
+        ]);
+    }
+
+    /** Fee charged for a withdrawal to this payout channel (momo|bank). */
+    public static function feeForPayoutType(?string $payoutType): float
+    {
+        $settings = static::withdrawalFeeSettings();
+        if (! $settings['enabled'] || $settings['applies_to'] === 'none' || $settings['amount'] <= 0) {
+            return 0.0;
+        }
+
+        $type = $payoutType === 'bank' ? 'bank' : 'momo';
+        $applies = $settings['applies_to'];
+
+        if ($applies === 'all' || $applies === $type) {
+            return $settings['amount'];
+        }
+
+        return 0.0;
     }
 
     /**

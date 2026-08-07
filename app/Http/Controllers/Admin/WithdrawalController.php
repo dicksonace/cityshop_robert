@@ -38,6 +38,8 @@ class WithdrawalController extends Controller
                 return [
                     'id' => $withdrawal->id,
                     'amount' => (float) $withdrawal->amount,
+                    'fee' => (float) ($withdrawal->fee ?? 0),
+                    'total_debited' => $withdrawal->totalDebited(),
                     'momo_number' => $withdrawal->momo_number,
                     'account_name' => $withdrawal->account_name,
                     'network' => $withdrawal->network,

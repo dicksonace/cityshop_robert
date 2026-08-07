@@ -156,7 +156,7 @@ class WithdrawalPayoutService
             'paystack_status' => 'failed',
         ]);
 
-        $withdrawal->user->wallet?->increment('available_balance', $withdrawal->amount);
+        $withdrawal->user->wallet?->increment('available_balance', $withdrawal->totalDebited());
 
         WalletTransactionService::recordWithdrawalRefunded($withdrawal);
     }

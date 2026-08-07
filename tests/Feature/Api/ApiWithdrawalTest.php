@@ -39,6 +39,8 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('summary.default_momo_number', $buyer->mobile)
             ->assertJsonPath('summary.default_account_name', $buyer->name)
             ->assertJsonPath('summary.banks.0.id', 'absa')
+            ->assertJsonPath('summary.withdrawal_fee.amount', 10)
+            ->assertJsonPath('summary.withdrawal_fee.applies_to', 'bank')
             ->assertJsonCount(0, 'data');
     }
 
@@ -88,13 +90,17 @@ class ApiWithdrawalTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.payout_type', 'bank')
             ->assertJsonPath('data.network_label', 'GCB')
-            ->assertJsonPath('data.momo_number', '1234567890');
+            ->assertJsonPath('data.momo_number', '1234567890')
+            ->assertJsonPath('data.fee', 10)
+            ->assertJsonPath('data.total_debited', 90)
+            ->assertJsonPath('wallet.available_balance', 410);
 
         $this->assertDatabaseHas('withdrawals', [
             'user_id' => $buyer->id,
             'network' => 'gcb',
             'payout_channel' => 'bank',
             'momo_number' => '1234567890',
+            'fee' => 10,
         ]);
     }
 

@@ -90,8 +90,11 @@ class BuyerWalletWithdrawTest extends TestCase
             'network' => 'ecobank',
             'payout_channel' => 'bank',
             'momo_number' => '0123456789',
+            'fee' => 10,
             'status' => WithdrawalStatus::Pending->value,
         ]);
+
+        $this->assertEquals(115.0, (float) Wallet::where('user_id', $buyer->id)->value('available_balance'));
     }
 
     public function test_buyer_wallet_page_includes_withdrawal_section(): void
@@ -121,6 +124,7 @@ class BuyerWalletWithdrawTest extends TestCase
                 ->component('shop/wallet')
                 ->where('hasPendingWithdrawal', true)
                 ->has('withdrawals.data', 1)
+                ->has('withdrawalFee')
                 ->where('wallet.available_balance', '80.00'));
     }
 }

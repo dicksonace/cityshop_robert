@@ -12,6 +12,7 @@ class Withdrawal extends Model
         'user_id',
         'payout_method_id',
         'amount',
+        'fee',
         'momo_number',
         'account_name',
         'network',
@@ -33,9 +34,16 @@ class Withdrawal extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'fee' => 'decimal:2',
             'status' => WithdrawalStatus::class,
             'processed_at' => 'datetime',
         ];
+    }
+
+    /** Amount removed from available balance (payout + fee). */
+    public function totalDebited(): float
+    {
+        return round((float) $this->amount + (float) ($this->fee ?? 0), 2);
     }
 
     public function payoutMethod(): BelongsTo

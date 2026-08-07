@@ -37,6 +37,20 @@ interface WalletProps {
     withdrawals: Paginated<Withdrawal>;
     payoutMethods: PayoutMethod[];
     hasPendingWithdrawal: boolean;
+    withdrawalFee?: {
+        enabled: boolean;
+        amount: number;
+        applies_to: 'bank' | 'momo' | 'all' | 'none';
+    };
+}
+
+function feeForPayoutType(
+    settings: WalletProps['withdrawalFee'],
+    payoutType: 'momo' | 'bank',
+): number {
+    if (!settings?.enabled || settings.applies_to === 'none' || settings.amount <= 0) return 0;
+    if (settings.applies_to === 'all' || settings.applies_to === payoutType) return settings.amount;
+    return 0;
 }
 
 function formatDate(value?: string): string {
@@ -44,7 +58,14 @@ function formatDate(value?: string): string {
     return new Date(value).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export default function SellerWallet({ wallet, transactions, withdrawals, payoutMethods, hasPendingWithdrawal }: WalletProps) {
+export default function SellerWallet({
+    wallet,
+    transactions,
+    withdrawals,
+    payoutMethods,
+    hasPendingWithdrawal,
+    withdrawalFee,
+}: WalletProps) {
     const [withdrawStep, setWithdrawStep] = useState<'method' | 'amount' | 'review'>('method');
     const [showAddMethod, setShowAddMethod] = useState(payoutMethods.length === 0);
     const [refreshing, setRefreshing] = useState(false);
@@ -73,6 +94,10 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
     });
 
     const selectedMethod = payoutMethods.find((m) => m.id === Number(withdrawForm.data.payout_method_id));
+    const selectedPayoutType: 'momo' | 'bank' =
+        selectedMethod?.type === 'bank' || GHANA_BANKS.some((b) => b.id === selectedMethod?.network) ? 'bank' : 'momo';
+    const activeFee = feeForPayoutType(withdrawalFee, selectedPayoutType);
+    const maxWithdraw = Math.max(0, (wallet?.available_balance ?? 0) - activeFee);
 
     const refreshBalance = () => {
         setRefreshing(true);
@@ -274,11 +299,16 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                                     <button
                                         type="button"
                                         className="mt-2 text-sm font-medium text-orange-600 hover:underline"
-                                        onClick={() => withdrawForm.setData('amount', String(wallet.available_balance))}
+                                        onClick={() => withdrawForm.setData('amount', String(maxWithdraw))}
                                     >
-                                        Withdraw all ({formatPrice(wallet.available_balance)})
+                                        Withdraw all ({formatPrice(maxWithdraw)})
                                     </button>
-                                    <p className="mt-2 text-xs text-gray-500">Minimum withdrawal: GH₵10</p>
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Minimum withdrawal: GH₵10
+                                        {activeFee > 0
+                                            ? ` · ${selectedPayoutType === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)} per transaction`
+                                            : ''}
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -291,6 +321,14 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                                     <p><span className="text-gray-500">Number:</span> {selectedMethod.account_number}</p>
                                     <p><span className="text-gray-500">Name:</span> {selectedMethod.account_name}</p>
                                     <p className="text-2xl font-bold text-orange-500">{formatPrice(parseFloat(withdrawForm.data.amount) || 0)}</p>
+                                    {activeFee > 0 && (
+                                        <div className="space-y-0.5 text-xs text-gray-600">
+                                            <p>Withdrawal fee: {formatPrice(activeFee)}</p>
+                                            <p className="font-semibold text-gray-800">
+                                                Total deducted: {formatPrice((parseFloat(withdrawForm.data.amount) || 0) + activeFee)}
+                                            </p>
+                                        </div>
+                                    )}
                                     <p className="text-xs text-gray-500">Usually processed within 15 minutes and sometimes instant.</p>
                                 </div>
                                 <div>

@@ -27,6 +27,9 @@ export function useChatVoiceCall(
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
     const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
+    const pendingIceOutRef = useRef<RTCIceCandidateInit[]>([]);
+    const iceFlushTimerRef = useRef<number | null>(null);
+    const iceFlushInFlightRef = useRef(false);
     const processedCallIds = useRef<Set<number>>(new Set());
     const callerIdRef = useRef<number | null>(null);
     const callerNameRef = useRef<string>('');
@@ -42,6 +45,12 @@ export function useChatVoiceCall(
 
     const cleanup = useCallback(() => {
         stopCallRing();
+        if (iceFlushTimerRef.current !== null) {
+            window.clearTimeout(iceFlushTimerRef.current);
+            iceFlushTimerRef.current = null;
+        }
+        pendingIceOutRef.current = [];
+        iceFlushInFlightRef.current = false;
         pcRef.current?.close();
         pcRef.current = null;
         localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -72,6 +81,49 @@ export function useChatVoiceCall(
             });
         },
         [conversationId],
+    );
+
+    const flushOutgoingIce = useCallback(async () => {
+        iceFlushTimerRef.current = null;
+        if (pendingIceOutRef.current.length === 0 || iceFlushInFlightRef.current) {
+            if (pendingIceOutRef.current.length > 0 && !iceFlushInFlightRef.current) {
+                iceFlushTimerRef.current = window.setTimeout(() => {
+                    void flushOutgoingIce();
+                }, 200);
+            }
+            return;
+        }
+
+        iceFlushInFlightRef.current = true;
+        const batch = pendingIceOutRef.current.splice(0, pendingIceOutRef.current.length);
+        try {
+            await sendSignal(
+                'call_ice',
+                '',
+                batch.length === 1 ? { candidate: batch[0] } : { candidates: batch },
+            );
+        } catch {
+            // Drop this batch; peers keep polling for later candidates.
+        } finally {
+            iceFlushInFlightRef.current = false;
+            if (pendingIceOutRef.current.length > 0) {
+                iceFlushTimerRef.current = window.setTimeout(() => {
+                    void flushOutgoingIce();
+                }, 200);
+            }
+        }
+    }, [sendSignal]);
+
+    const queueIceCandidate = useCallback(
+        (candidate: RTCIceCandidateInit) => {
+            pendingIceOutRef.current.push(candidate);
+            if (iceFlushTimerRef.current === null) {
+                iceFlushTimerRef.current = window.setTimeout(() => {
+                    void flushOutgoingIce();
+                }, 400);
+            }
+        },
+        [flushOutgoingIce],
     );
 
     const endCall = useCallback(
@@ -131,11 +183,11 @@ export function useChatVoiceCall(
         };
         pc.onicecandidate = (event) => {
             if (event.candidate) {
-                sendSignal('call_ice', '', { candidate: event.candidate.toJSON() });
+                queueIceCandidate(event.candidate.toJSON());
             }
         };
         return pc;
-    }, [sendSignal]);
+    }, [queueIceCandidate]);
 
     const startCall = useCallback(
         async (kind: CallKind = 'voice') => {
@@ -242,21 +294,33 @@ export function useChatVoiceCall(
                 return;
             }
 
-            if (msg.type === 'call_ice' && msg.metadata?.candidate) {
-                const candidate = msg.metadata.candidate as RTCIceCandidateInit;
-                if (!pcRef.current) {
-                    if (pendingOfferRef.current) {
-                        pendingIceRef.current.push(candidate);
-                        if (pendingIceRef.current.length > 80) {
-                            pendingIceRef.current.shift();
+            if (msg.type === 'call_ice') {
+                const candidates: RTCIceCandidateInit[] = [];
+                if (msg.metadata?.candidate) {
+                    candidates.push(msg.metadata.candidate as RTCIceCandidateInit);
+                }
+                if (Array.isArray(msg.metadata?.candidates)) {
+                    for (const row of msg.metadata.candidates) {
+                        if (row && typeof row === 'object') {
+                            candidates.push(row as RTCIceCandidateInit);
                         }
                     }
-                    return;
                 }
-                try {
-                    await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-                } catch {
-                    // ignore stale ICE candidates
+                for (const candidate of candidates) {
+                    if (!pcRef.current) {
+                        if (pendingOfferRef.current) {
+                            pendingIceRef.current.push(candidate);
+                            if (pendingIceRef.current.length > 80) {
+                                pendingIceRef.current.shift();
+                            }
+                        }
+                        continue;
+                    }
+                    try {
+                        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+                    } catch {
+                        // ignore stale ICE candidates
+                    }
                 }
                 return;
             }

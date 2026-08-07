@@ -236,14 +236,26 @@ class ChatService
                 'metadata' => $metadata,
             ]);
 
-            $conversation->update(['last_message_at' => now()]);
-
             $isCallSignal = in_array($type, [
                 MessageType::CallOffer,
                 MessageType::CallAnswer,
                 MessageType::CallIce,
                 MessageType::CallEnd,
             ], true);
+
+            // ICE candidates are high-frequency; never bump the inbox or hit Reverb.
+            // Polling delivers them. Sync broadcast on ICE storms exhausts PHP-FPM
+            // and takes the whole site down (ERR_CONNECTION_ABORTED).
+            if ($type === MessageType::CallIce) {
+                return $message->setRelation('sender', $sender);
+            }
+
+            if (! $isCallSignal) {
+                $conversation->update(['last_message_at' => now()]);
+            } elseif (in_array($type, [MessageType::CallOffer, MessageType::CallEnd], true)) {
+                // Offer/end may surface in recent activity; answer/ice stay quiet.
+                $conversation->update(['last_message_at' => now()]);
+            }
 
             // New real messages bring a deleted/hidden chat back for both people.
             if (! $isCallSignal && $type !== MessageType::CallLog) {
@@ -253,7 +265,6 @@ class ChatService
             $recipient = $conversation->otherParticipant($sender);
 
             if (! $isCallSignal && $type !== MessageType::CallLog) {
-                $isCall = str_starts_with($type->value, 'call');
                 $notificationBody = match (true) {
                     $type === MessageType::Text => $body,
                     $type === MessageType::Image => 'Sent a photo',
@@ -282,17 +293,29 @@ class ChatService
             }
 
             if ($type === MessageType::CallOffer) {
-                AppNotificationService::send(
-                    $recipient,
-                    'call',
-                    'Incoming call',
-                    "{$sender->name} is calling you",
-                    [
-                        'conversation_id' => $conversation->id,
-                        'sender_id' => $sender->id,
-                        'sender_name' => $sender->name,
-                    ],
-                );
+                // Push after the HTTP response so offer signalling isn't blocked
+                // on FCM (can take several seconds per device token).
+                $recipientId = $recipient->id;
+                $senderId = $sender->id;
+                $senderName = $sender->name;
+                $conversationId = $conversation->id;
+                dispatch(function () use ($recipientId, $senderId, $senderName, $conversationId) {
+                    $recipient = User::query()->find($recipientId);
+                    if (! $recipient) {
+                        return;
+                    }
+                    AppNotificationService::send(
+                        $recipient,
+                        'call',
+                        'Incoming call',
+                        "{$senderName} is calling you",
+                        [
+                            'conversation_id' => $conversationId,
+                            'sender_id' => $senderId,
+                            'sender_name' => $senderName,
+                        ],
+                    );
+                })->afterResponse();
             }
 
             try {
@@ -582,6 +605,7 @@ class ChatService
                 });
             })
             ->orderBy('id')
+            ->limit(100)
             ->get();
     }
 
@@ -607,7 +631,25 @@ class ChatService
             ->with('sender:id,name')
             ->where('id', '>', $afterId)
             ->orderBy('id')
+            ->limit(80)
             ->get();
+    }
+
+    /**
+     * Own messages the peer has read — capped so poll stays cheap during calls.
+     *
+     * @return list<int>
+     */
+    public static function recentReadMessageIds(Conversation $conversation, User $viewer): array
+    {
+        return Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_id', $viewer->id)
+            ->whereNotNull('read_at')
+            ->orderByDesc('id')
+            ->limit(200)
+            ->pluck('id')
+            ->all();
     }
 
     public static function unreadMessageCount(User $user): int

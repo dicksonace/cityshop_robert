@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
+use App\Services\PasswordResetService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -112,6 +113,41 @@ class AuthController extends Controller
             'token' => $token,
             'token_type' => 'Bearer',
             'user' => new UserResource($user),
+        ]);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'login' => ['required', 'string', 'max:255'],
+        ]);
+
+        $result = PasswordResetService::sendCode(trim($validated['login']));
+
+        return response()->json([
+            'message' => $result['sent']
+                ? 'A reset code was sent to your email.'
+                : 'If that account exists, a reset code was sent to the email on file.',
+            'email_hint' => $result['email_hint'],
+        ]);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'login' => ['required', 'string', 'max:255'],
+            'code' => ['required', 'string', 'size:6'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ]);
+
+        PasswordResetService::resetWithCode(
+            trim($validated['login']),
+            $validated['code'],
+            $validated['password'],
+        );
+
+        return response()->json([
+            'message' => 'Password updated. You can log in with your new password.',
         ]);
     }
 

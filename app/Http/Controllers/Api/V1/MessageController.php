@@ -445,12 +445,7 @@ class MessageController extends Controller
             );
         }
 
-        $readMessageIds = Message::query()
-            ->where('conversation_id', $conversation->id)
-            ->where('sender_id', $request->user()->id)
-            ->whereNotNull('read_at')
-            ->pluck('id')
-            ->all();
+        $readMessageIds = ChatService::recentReadMessageIds($conversation, $request->user());
 
         return response()->json([
             'messages' => $messages,

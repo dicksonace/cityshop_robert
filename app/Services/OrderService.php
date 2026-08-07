@@ -1045,11 +1045,15 @@ class OrderService
         }
 
         $amount = (float) $item->seller_amount;
+        $shippingReleased = 0.0;
 
-        DB::transaction(function () use ($item, $reviewedBy, $amount) {
-            $wallet = Wallet::where('user_id', $item->seller_id)->firstOrFail();
+        DB::transaction(function () use ($item, $reviewedBy, $amount, &$shippingReleased) {
+            $wallet = Wallet::where('user_id', $item->seller_id)->lockForUpdate()->firstOrFail();
 
-            $wallet->decrement('pending_balance', min($amount, (float) $wallet->pending_balance));
+            $pendingDeduct = min($amount, (float) $wallet->pending_balance);
+            if ($pendingDeduct > 0) {
+                $wallet->decrement('pending_balance', $pendingDeduct);
+            }
             $wallet->increment('available_balance', $amount);
 
             WalletTransactionService::recordSaleReleased($item);
@@ -1060,11 +1064,15 @@ class OrderService
                 'funds_reviewed_by' => $reviewedBy,
                 'funds_released_at' => now(),
             ]);
+
+            // Same transaction: goods + delivery fee when this is the last line.
+            $shippingReleased = $this->maybeReleaseSellerShipping(
+                $item->order->fresh('items'),
+                lockWallet: false,
+            );
         });
 
-        $shipping = $this->maybeReleaseSellerShipping($item->order->fresh('items'));
-
-        return ['product' => $amount, 'shipping' => $shipping];
+        return ['product' => $amount, 'shipping' => $shippingReleased];
     }
 
     /**
@@ -1726,6 +1734,14 @@ class OrderService
             return;
         }
 
+        if (WalletTransactionService::shippingReleasedExists($order->id)) {
+            return;
+        }
+
+        if (WalletTransactionService::shippingRefundedExists($order->id)) {
+            return;
+        }
+
         $wallet = Wallet::firstOrCreate(
             ['user_id' => $order->seller_id],
             ['available_balance' => 0, 'pending_balance' => 0, 'total_earnings' => 0, 'withdrawn_amount' => 0]
@@ -1745,22 +1761,43 @@ class OrderService
      */
     public function releaseStuckSellerShipping(): int
     {
-        $orderIds = WalletTransaction::query()
-            ->where('type', WalletTransactionType::SalePending)
-            ->where('reference', 'like', 'SHIP-%')
-            ->where('reference', 'not like', 'SHIP-REL-%')
-            ->where('reference', 'not like', 'SHIP-REF-%')
-            ->where('reference', 'not like', 'SHIP-REV-%')
-            ->pluck('reference')
-            ->map(fn (string $ref) => (int) str_replace('SHIP-', '', $ref))
-            ->filter()
-            ->unique()
-            ->values();
+        $orderIds = collect();
+
+        // Ledger rows that still look "pending".
+        $orderIds = $orderIds->merge(
+            WalletTransaction::query()
+                ->where('type', WalletTransactionType::SalePending)
+                ->where('reference', 'like', 'SHIP-%')
+                ->where('reference', 'not like', 'SHIP-REL-%')
+                ->where('reference', 'not like', 'SHIP-REF-%')
+                ->where('reference', 'not like', 'SHIP-REV-%')
+                ->pluck('reference')
+                ->map(fn (string $ref) => (int) str_replace('SHIP-', '', $ref))
+        );
+
+        // Orders with a delivery fee whose product lines are all released but shipping never moved.
+        $orderIds = $orderIds->merge(
+            Order::query()
+                ->where('payment_channel', PaymentChannel::Marketplace)
+                ->where('shipping_cost', '>', 0)
+                ->whereHas('items', function ($q) {
+                    $q->where('status', '!=', OrderStatus::Cancelled)
+                        ->where('funds_release_status', FundsReleaseStatus::Released);
+                })
+                ->whereDoesntHave('items', function ($q) {
+                    $q->where('status', '!=', OrderStatus::Cancelled)
+                        ->where(function ($status) {
+                            $status->whereNull('funds_release_status')
+                                ->orWhere('funds_release_status', '!=', FundsReleaseStatus::Released);
+                        });
+                })
+                ->pluck('id')
+        );
 
         $fixed = 0;
 
-        foreach ($orderIds as $orderId) {
-            if (WalletTransactionService::shippingReleasedExists($orderId)) {
+        foreach ($orderIds->filter()->unique()->values() as $orderId) {
+            if (WalletTransactionService::shippingReleasedExists((int) $orderId)) {
                 continue;
             }
 
@@ -1783,7 +1820,7 @@ class OrderService
      *
      * @return float Amount moved to Available (0 if not released this call)
      */
-    private function maybeReleaseSellerShipping(Order $order): float
+    private function maybeReleaseSellerShipping(Order $order, bool $lockWallet = true): float
     {
         $order->loadMissing('items');
 
@@ -1805,17 +1842,13 @@ class OrderService
             return 0.0;
         }
 
-        return $this->releaseSellerShipping($order);
+        return $this->releaseSellerShipping($order, $lockWallet);
     }
 
-    private function releaseSellerShipping(Order $order): float
+    private function releaseSellerShipping(Order $order, bool $lockWallet = true): float
     {
-        $amount = (float) $order->shipping_cost;
+        $amount = round((float) $order->shipping_cost, 2);
         if ($amount <= 0 || ! $order->seller_id) {
-            return 0.0;
-        }
-
-        if (! WalletTransactionService::shippingPendingExists($order->id)) {
             return 0.0;
         }
 
@@ -1823,20 +1856,46 @@ class OrderService
             return 0.0;
         }
 
-        $wallet = Wallet::where('user_id', $order->seller_id)->first();
-        if (! $wallet) {
+        if (WalletTransactionService::shippingRefundedExists($order->id)) {
             return 0.0;
         }
 
-        $move = min($amount, (float) $wallet->pending_balance);
-        if ($move > 0) {
-            $wallet->decrement('pending_balance', $move);
-            $wallet->increment('available_balance', $move);
+        // Legacy / missed credit: still owe the seller the delivery fee.
+        $this->creditSellerShippingPending($order);
+
+        if (! WalletTransactionService::shippingPendingExists($order->id)) {
+            return 0.0;
         }
 
-        WalletTransactionService::recordShippingReleased($order, $amount);
+        $run = function () use ($order, $amount, $lockWallet) {
+            $query = Wallet::where('user_id', $order->seller_id);
+            $wallet = $lockWallet ? $query->lockForUpdate()->first() : $query->first();
+            if (! $wallet) {
+                return 0.0;
+            }
 
-        return $amount;
+            // Prefer moving the full delivery fee; top up pending if a prior soft debit left a hole.
+            $pending = (float) $wallet->pending_balance;
+            if ($pending + 0.001 < $amount) {
+                $shortfall = round($amount - $pending, 2);
+                $wallet->increment('pending_balance', $shortfall);
+                $pending = (float) $wallet->fresh()->pending_balance;
+            }
+
+            $move = min($amount, $pending);
+            if ($move + 0.001 < $amount) {
+                return 0.0;
+            }
+
+            $wallet->decrement('pending_balance', $amount);
+            $wallet->increment('available_balance', $amount);
+
+            WalletTransactionService::recordShippingReleased($order, $amount);
+
+            return $amount;
+        };
+
+        return $lockWallet ? (float) DB::transaction($run) : (float) $run();
     }
 
     /**

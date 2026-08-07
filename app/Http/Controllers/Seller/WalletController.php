@@ -65,6 +65,7 @@ class WalletController extends Controller
                 ->exists(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'paystackConfigured' => $this->paystack->isConfigured(),
+            'withdrawalFee' => PlatformSettings::withdrawalFeeSettings(),
         ]);
     }
 
@@ -225,24 +226,36 @@ class WalletController extends Controller
         $payoutMethod = SellerPayoutMethod::where('user_id', $request->user()->id)
             ->findOrFail($validated['payout_method_id']);
 
+        $payoutType = $payoutMethod->type ?: PayoutNetwork::type($payoutMethod->network);
+        $amount = (float) $validated['amount'];
+        $fee = PlatformSettings::feeForPayoutType($payoutType);
+        $totalDebit = round($amount + $fee, 2);
+
         $wallet = $request->user()->wallet;
 
-        if (! $wallet || $validated['amount'] > $wallet->available_balance) {
-            return back()->with('error', 'Insufficient available balance.');
+        if (! $wallet || $totalDebit > (float) $wallet->available_balance) {
+            return back()->with(
+                'error',
+                $fee > 0
+                    ? 'Insufficient available balance. Needs GH₵'.number_format($totalDebit, 2)
+                        .' (incl. GH₵'.number_format($fee, 2).' fee).'
+                    : 'Insufficient available balance.',
+            );
         }
 
         $withdrawal = Withdrawal::create([
             'user_id' => $request->user()->id,
             'payout_method_id' => $payoutMethod->id,
-            'amount' => $validated['amount'],
+            'amount' => $amount,
+            'fee' => $fee,
             'momo_number' => $payoutMethod->account_number,
             'account_name' => $payoutMethod->account_name,
             'network' => $payoutMethod->network,
-            'payout_channel' => $payoutMethod->type ?: PayoutNetwork::type($payoutMethod->network),
+            'payout_channel' => $payoutType,
             'status' => WithdrawalStatus::Pending,
         ]);
 
-        $wallet->decrement('available_balance', $validated['amount']);
+        $wallet->decrement('available_balance', $totalDebit);
         WalletTransactionService::recordWithdrawal($withdrawal);
 
         return back()->with('success', 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.');

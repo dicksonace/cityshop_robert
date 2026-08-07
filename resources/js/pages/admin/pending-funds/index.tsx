@@ -132,6 +132,8 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
             ) : (
                 <div className="space-y-4">
                     {items.data.map((item) => {
+                        const shipping = item.order?.shipping_cost ?? 0;
+                        const releaseTotal = item.seller_amount + (shipping > 0 ? shipping : 0);
                         const canApprove =
                             item.funds_release_status === 'pending' || item.funds_release_status === 'held';
                         const canReject = item.funds_release_status === 'pending';
@@ -143,11 +145,14 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
                                     <div>
                                         <p className="font-semibold text-gray-900">{item.product_name}</p>
                                         <p className="mt-0.5 text-sm text-gray-500">
-                                            Qty {item.quantity} · Seller earns {formatPrice(item.seller_amount)}
-                                            {item.order && item.order.shipping_cost > 0
-                                                ? ` · Shipping ${formatPrice(item.order.shipping_cost)} (to seller with release)`
-                                                : ''}
+                                            Qty {item.quantity} · Goods {formatPrice(item.seller_amount)}
+                                            {shipping > 0 ? ` · Delivery fee ${formatPrice(shipping)}` : ''}
                                         </p>
+                                        {shipping > 0 && (
+                                            <p className="mt-1 text-sm font-semibold text-emerald-700">
+                                                Release total {formatPrice(releaseTotal)} (goods + delivery fee to seller)
+                                            </p>
+                                        )}
                                         <p className="mt-1 text-xs font-medium text-gray-600">
                                             Order stage: {stageLabel}
                                         </p>
@@ -208,7 +213,7 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
                                             onClick={() => approve(item.id)}
                                         >
                                             <Check className="mr-1.5 h-4 w-4" />
-                                            Approve — release to Available
+                                            Approve — release {formatPrice(releaseTotal)} to Available
                                         </Button>
                                         {canReject && (
                                             <Button

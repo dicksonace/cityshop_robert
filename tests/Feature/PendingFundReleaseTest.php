@@ -277,6 +277,36 @@ class PendingFundReleaseTest extends TestCase
         $this->assertEquals(200.0, (float) $wallet->available_balance);
     }
 
+    public function test_admin_approve_still_releases_delivery_fee_when_shipping_ledger_was_missing(): void
+    {
+        ['seller' => $seller, 'admin' => $admin, 'item' => $item, 'order' => $order] = $this->makeItem(
+            OrderStatus::Processing,
+            FundsReleaseStatus::Pending,
+        );
+
+        $item->update(['seller_amount' => 100, 'commission_amount' => 0, 'unit_price' => 100]);
+        $order->update(['shipping_cost' => 40, 'subtotal' => 100, 'total' => 140]);
+
+        // Goods only in pending — delivery fee ledger never created (legacy / missed credit).
+        \App\Models\WalletTransaction::where('reference', 'SHIP-'.$order->id)->delete();
+        $wallet = Wallet::where('user_id', $seller->id)->first();
+        $wallet->update([
+            'pending_balance' => 100,
+            'total_earnings' => 100,
+            'available_balance' => 0,
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.pending-funds.approve', $item->id))
+            ->assertRedirect()
+            ->assertSessionHas('success', fn ($msg) => str_contains($msg, 'shipping'));
+
+        $wallet->refresh();
+        $this->assertEquals(0.0, (float) $wallet->pending_balance);
+        $this->assertEquals(140.0, (float) $wallet->available_balance);
+        $this->assertTrue(WalletTransactionService::shippingReleasedExists($order->id));
+    }
+
     public function test_seller_start_processing_marks_funds_pending(): void
     {
         ['item' => $item] = $this->makeItem(OrderStatus::Pending);

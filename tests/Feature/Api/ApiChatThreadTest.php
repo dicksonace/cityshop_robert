@@ -48,7 +48,7 @@ class ApiChatThreadTest extends TestCase
         $this->assertSame(['text', 'call_log', 'image'], $types->all());
     }
 
-    public function test_polling_leaves_out_call_signalling_too(): void
+    public function test_polling_includes_call_signalling_for_webrtc(): void
     {
         [$buyer, $seller, $conversation] = $this->conversation();
 
@@ -62,8 +62,9 @@ class ApiChatThreadTest extends TestCase
             ->assertOk()
             ->json('messages');
 
-        $this->assertCount(1, $messages);
-        $this->assertSame('Yes it is available', $messages[0]['body']);
+        $types = collect($messages)->pluck('type')->all();
+        $this->assertSame(['call_ice', 'text'], $types);
+        $this->assertSame('Yes it is available', collect($messages)->firstWhere('type', 'text')['body']);
     }
 
     public function test_the_preview_and_unread_tally_ignore_signalling(): void

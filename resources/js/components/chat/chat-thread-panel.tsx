@@ -214,11 +214,14 @@ export default function ChatThreadPanel() {
             }
         };
 
-        // Live Reverb carries new messages; keep a slow poll for presence + missed events.
-        const interval = setInterval(poll, realtimeLive ? 15000 : 2000);
+        // Live Reverb carries chat text; ICE is poll-only (broadcasting ICE
+        // used to exhaust PHP workers and take the whole site down).
+        const inCall = callState !== 'idle';
+        const interval = setInterval(poll, inCall ? 1000 : realtimeLive ? 15000 : 2000);
         return () => clearInterval(interval);
     }, [
         activeConversation,
+        callState,
         ingestMessages,
         realtimeLive,
         setActiveConversation,

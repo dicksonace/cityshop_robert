@@ -74,8 +74,11 @@ class WalletTransactionService
         static::record(
             userId: $withdrawal->user_id,
             type: WalletTransactionType::Withdrawal,
-            amount: -1 * (float) $withdrawal->amount,
-            description: "Withdrawal request to {$withdrawal->momo_number} ({$withdrawal->network})",
+            amount: -1 * $withdrawal->totalDebited(),
+            description: "Withdrawal request to {$withdrawal->momo_number} ({$withdrawal->network})"
+                .((float) ($withdrawal->fee ?? 0) > 0
+                    ? ' · fee GH₵'.number_format((float) $withdrawal->fee, 2)
+                    : ''),
             withdrawalId: $withdrawal->id,
             reference: "WD-{$withdrawal->id}",
         );
@@ -294,8 +297,11 @@ class WalletTransactionService
         static::record(
             userId: $withdrawal->user_id,
             type: WalletTransactionType::WithdrawalRefunded,
-            amount: (float) $withdrawal->amount,
-            description: 'Withdrawal rejected — funds returned to wallet',
+            amount: $withdrawal->totalDebited(),
+            description: 'Withdrawal rejected — funds returned to wallet'
+                .((float) ($withdrawal->fee ?? 0) > 0
+                    ? ' (incl. fee GH₵'.number_format((float) $withdrawal->fee, 2).')'
+                    : ''),
             withdrawalId: $withdrawal->id,
             reference: "WD-{$withdrawal->id}",
         );

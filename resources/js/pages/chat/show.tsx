@@ -201,9 +201,10 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
             }
         };
 
-        const interval = setInterval(poll, realtimeLive ? 15000 : 2000);
+        const inCall = callState !== 'idle';
+        const interval = setInterval(poll, inCall ? 1000 : realtimeLive ? 15000 : 2000);
         return () => clearInterval(interval);
-    }, [conversation.id, ingestIncoming, realtimeLive]);
+    }, [callState, conversation.id, ingestIncoming, realtimeLive]);
 
     const sendMessage = async (e: FormEvent) => {
         e.preventDefault();

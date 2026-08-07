@@ -32,6 +32,20 @@ interface BuyerWalletProps {
     paystackConfigured: boolean;
     paystackPublicKey: string;
     manualTopUpEnabled?: boolean;
+    withdrawalFee?: {
+        enabled: boolean;
+        amount: number;
+        applies_to: 'bank' | 'momo' | 'all' | 'none';
+    };
+}
+
+function feeForPayoutType(
+    settings: BuyerWalletProps['withdrawalFee'],
+    payoutType: 'momo' | 'bank',
+): number {
+    if (!settings?.enabled || settings.applies_to === 'none' || settings.amount <= 0) return 0;
+    if (settings.applies_to === 'all' || settings.applies_to === payoutType) return settings.amount;
+    return 0;
 }
 
 function formatDate(value?: string): string {
@@ -67,6 +81,7 @@ export default function BuyerWallet({
     hasPendingWithdrawal,
     paystackConfigured,
     manualTopUpEnabled,
+    withdrawalFee,
 }: BuyerWalletProps) {
     const { auth, flash } = usePage<SharedData>().props;
     const [refreshing, setRefreshing] = useState(false);
@@ -81,6 +96,9 @@ export default function BuyerWallet({
         network: 'mtn',
         payment_pin: '',
     });
+
+    const activeFee = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type);
+    const maxWithdraw = Math.max(0, wallet.available_balance - activeFee);
 
     const setPayoutType = (type: 'momo' | 'bank') => {
         withdrawForm.setData({
@@ -283,11 +301,16 @@ export default function BuyerWallet({
                                             <button
                                                 type="button"
                                                 className="mt-2 text-sm font-medium text-orange-600 hover:underline"
-                                                onClick={() => withdrawForm.setData('amount', String(wallet.available_balance))}
+                                                onClick={() => withdrawForm.setData('amount', String(maxWithdraw))}
                                             >
-                                                Withdraw all ({formatPrice(wallet.available_balance)})
+                                                Withdraw all ({formatPrice(maxWithdraw)})
                                             </button>
-                                            <p className="mt-2 text-xs text-gray-500">Minimum withdrawal: GH₵10</p>
+                                            <p className="mt-2 text-xs text-gray-500">
+                                                Minimum withdrawal: GH₵10
+                                                {activeFee > 0
+                                                    ? ` · ${withdrawForm.data.payout_type === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)} per transaction`
+                                                    : ''}
+                                            </p>
                                         </div>
                                     </div>
                                 )}
@@ -305,6 +328,14 @@ export default function BuyerWallet({
                                             <p className="mt-3 text-2xl font-bold text-orange-500">
                                                 {formatPrice(parseFloat(withdrawForm.data.amount) || 0)}
                                             </p>
+                                            {activeFee > 0 && (
+                                                <div className="mt-2 space-y-0.5 text-xs text-gray-600">
+                                                    <p>Withdrawal fee: {formatPrice(activeFee)}</p>
+                                                    <p className="font-semibold text-gray-800">
+                                                        Total deducted: {formatPrice((parseFloat(withdrawForm.data.amount) || 0) + activeFee)}
+                                                    </p>
+                                                </div>
+                                            )}
                                             <p className="mt-1 text-xs text-gray-500">Usually processed within 15 minutes and sometimes instant.</p>
                                         </div>
                                         <div>

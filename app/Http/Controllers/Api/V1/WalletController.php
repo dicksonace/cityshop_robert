@@ -172,6 +172,7 @@ class WalletController extends Controller
                     ->map(fn (string $label, string $id) => ['id' => $id, 'label' => $label])
                     ->values()
                     ->all(),
+                'withdrawal_fee' => PlatformSettings::withdrawalFeeSettings(),
             ],
         ]);
     }
@@ -210,18 +211,26 @@ class WalletController extends Controller
         PaymentPinService::assertValidForAction($user, $validated['payment_pin']);
 
         $amount = round((float) $validated['amount'], 2);
+        $fee = PlatformSettings::feeForPayoutType($validated['payout_type']);
+        $totalDebit = round($amount + $fee, 2);
 
-        return DB::transaction(function () use ($user, $validated, $amount) {
+        return DB::transaction(function () use ($user, $validated, $amount, $fee, $totalDebit) {
             $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first()
                 ?? WalletService::ensure($user);
 
-            if ($amount > (float) $wallet->available_balance) {
-                return response()->json(['message' => 'Insufficient available balance.'], 422);
+            if ($totalDebit > (float) $wallet->available_balance) {
+                $message = $fee > 0
+                    ? 'Insufficient available balance. This withdrawal needs GH₵'.number_format($totalDebit, 2)
+                        .' (GH₵'.number_format($amount, 2).' + GH₵'.number_format($fee, 2).' fee).'
+                    : 'Insufficient available balance.';
+
+                return response()->json(['message' => $message], 422);
             }
 
             $withdrawal = Withdrawal::create([
                 'user_id' => $user->id,
                 'amount' => $amount,
+                'fee' => $fee,
                 'momo_number' => $validated['momo_number'],
                 'account_name' => $validated['account_name'],
                 'network' => $validated['network'],
@@ -229,7 +238,7 @@ class WalletController extends Controller
                 'status' => WithdrawalStatus::Pending,
             ]);
 
-            $wallet->decrement('available_balance', $amount);
+            $wallet->decrement('available_balance', $totalDebit);
             WalletTransactionService::recordWithdrawal($withdrawal);
 
             return response()->json([
@@ -254,6 +263,8 @@ class WalletController extends Controller
         return [
             'id' => $withdrawal->id,
             'amount' => (float) $withdrawal->amount,
+            'fee' => (float) ($withdrawal->fee ?? 0),
+            'total_debited' => $withdrawal->totalDebited(),
             'momo_number' => $withdrawal->momo_number,
             'account_name' => $withdrawal->account_name,
             'network' => $withdrawal->network,

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\QrPaymentController;
 use App\Http\Controllers\Api\V1\StoreController;
 use App\Http\Controllers\Api\V1\DisputeController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
@@ -43,6 +44,8 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     });
 
     Route::get('/categories', [CategoryController::class, 'index']);
@@ -163,5 +166,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/wallet/manual-top-up', [WalletController::class, 'manualTopUp']);
         Route::post('/wallet/paystack/initialize', [WalletController::class, 'initializePaystackTopUp']);
         Route::post('/wallet/paystack/verify', [WalletController::class, 'verifyPaystackTopUp']);
+        Route::get('/wallet/qr/receive', [QrPaymentController::class, 'receive']);
+        Route::post('/wallet/qr/resolve', [QrPaymentController::class, 'resolve']);
+        Route::post('/wallet/qr/pay', [QrPaymentController::class, 'pay']);
     });
 });

@@ -12,6 +12,8 @@ import { formatPrice, Paginated, productImageUrl } from '@/types/marketplace';
 interface AdminWithdrawalRow {
     id: number;
     amount: number;
+    fee?: number;
+    total_debited?: number;
     momo_number: string;
     account_name: string;
     network: string;
@@ -44,6 +46,14 @@ interface AdminWithdrawalRow {
     };
 }
 
+function isBankPayout(w: AdminWithdrawalRow): boolean {
+    return w.payout_channel === 'bank';
+}
+
+function payoutPayToLabel(w: AdminWithdrawalRow): string {
+    return isBankPayout(w) ? 'Bank transfer' : 'Mobile money';
+}
+
 interface WithdrawalsIndexProps {
     withdrawals: Paginated<AdminWithdrawalRow>;
     status: string;
@@ -72,11 +82,30 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
     const [proofFile, setProofFile] = useState<File | null>(null);
     const [busyId, setBusyId] = useState<number | null>(null);
     const [detailId, setDetailId] = useState<number | null>(null);
+    const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
     const detail = useMemo(
         () => withdrawals.data.find((w) => w.id === detailId) ?? null,
         [detailId, withdrawals.data],
     );
+
+    const copyNumber = async (value: string, key: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopiedKey(key);
+            window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 1600);
+        } catch {
+            // Fallback for older browsers / insecure contexts
+            const input = document.createElement('textarea');
+            input.value = value;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            setCopiedKey(key);
+            window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 1600);
+        }
+    };
 
     const statusTabs = ['pending', 'processing', 'paid', 'rejected', 'all'];
     const roleTabs = [
@@ -190,6 +219,11 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
                                     <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <p className="text-lg font-bold">{formatPrice(w.amount)}</p>
+                                            {(w.fee ?? 0) > 0 && (
+                                                <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800">
+                                                    Fee {formatPrice(w.fee ?? 0)}
+                                                </span>
+                                            )}
                                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${statusColor(w.status)}`}>
                                                 {w.status}
                                             </span>
@@ -205,10 +239,28 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
                                             {w.user?.email}
                                             {w.user?.mobile ? ` · ${w.user.mobile}` : ''}
                                         </p>
-                                        <p className="mt-1 text-sm text-gray-600">
-                                            Pay to: {payoutNetworkLabel(w.network)} · {w.momo_number}
-                                            {w.account_name ? ` · ${w.account_name}` : ''}
-                                        </p>
+                                        <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Pay to</p>
+                                            <p className="mt-0.5 text-sm font-semibold text-gray-900">{payoutPayToLabel(w)}</p>
+                                            <p className="text-xs text-gray-500">{payoutNetworkLabel(w.network)}</p>
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <p className="min-w-0 flex-1 truncate font-mono text-lg font-bold tracking-wide text-gray-900">
+                                                    {w.momo_number}
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => copyNumber(w.momo_number, `list-${w.id}`)}
+                                                    className="shrink-0 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white hover:bg-slate-800"
+                                                >
+                                                    {copiedKey === `list-${w.id}` ? 'Copied' : 'Copy'}
+                                                </button>
+                                            </div>
+                                            {w.account_name && (
+                                                <p className="mt-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                                                    {w.account_name}
+                                                </p>
+                                            )}
+                                        </div>
 
                                         {isSeller && (
                                             <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/70 p-3 text-sm">
@@ -341,8 +393,13 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
                         <div className="space-y-4 p-5">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-sm text-gray-500">Amount</p>
+                                    <p className="text-sm text-gray-500">Amount to send</p>
                                     <p className="text-2xl font-bold text-emerald-600">{formatPrice(detail.amount)}</p>
+                                    {(detail.fee ?? 0) > 0 && (
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            Fee {formatPrice(detail.fee ?? 0)} · Debited {formatPrice(detail.total_debited ?? detail.amount + (detail.fee ?? 0))}
+                                        </p>
+                                    )}
                                 </div>
                                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusColor(detail.status)}`}>
                                     {detail.status === 'paid' ? '✓ Completed' : detail.status}
@@ -369,11 +426,27 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
                                 </p>
                             </div>
 
-                            <div className="rounded-xl border border-sky-100 bg-sky-50 p-4 text-sm">
-                                <p className="font-semibold text-sky-900">Mobile money</p>
-                                <p className="mt-1 text-sky-900">{payoutNetworkLabel(detail.network)}</p>
-                                <p className="text-sky-800">{detail.momo_number}</p>
-                                <p className="text-sky-800">{detail.account_name}</p>
+                            <div className="rounded-xl border border-gray-200 bg-white p-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Pay to</p>
+                                <p className="mt-1 text-lg font-bold text-gray-900">{payoutPayToLabel(detail)}</p>
+                                <p className="text-sm text-gray-500">{payoutNetworkLabel(detail.network)}</p>
+                                <div className="mt-3 flex items-center gap-3">
+                                    <p className="min-w-0 flex-1 break-all font-mono text-2xl font-bold tracking-wide text-gray-900">
+                                        {detail.momo_number}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => copyNumber(detail.momo_number, `detail-${detail.id}`)}
+                                        className="shrink-0 rounded-full bg-slate-900 px-4 py-2 text-sm font-bold uppercase tracking-wide text-white hover:bg-slate-800"
+                                    >
+                                        {copiedKey === `detail-${detail.id}` ? 'Copied' : 'Copy'}
+                                    </button>
+                                </div>
+                                {detail.account_name && (
+                                    <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                                        {detail.account_name}
+                                    </p>
+                                )}
                             </div>
 
                             {detail.admin_notes && (
