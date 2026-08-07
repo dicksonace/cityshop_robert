@@ -117,6 +117,31 @@ export async function uploadChatImage(
     return data.message;
 }
 
+export async function uploadChatFile(
+    conversationId: number,
+    file: File,
+    caption?: string,
+): Promise<ChatMessage> {
+    const form = new FormData();
+    form.append('file', file);
+    if (caption?.trim()) {
+        form.append('caption', caption.trim());
+    }
+
+    const res = await fetch(route('chat.messages.file', conversationId), {
+        method: 'POST',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...csrfHeaders(),
+        },
+        credentials: 'same-origin',
+        body: form,
+    });
+    const data = await parseJsonResponse<{ message: ChatMessage }>(res);
+    return data.message;
+}
+
 export async function sendChatMessage(
     conversationId: number,
     body: string,

@@ -3,6 +3,7 @@ import {
     ArrowLeft,
     CornerUpLeft,
     ImagePlus,
+    FilePlus,
     MapPin,
     MessageCircle,
     MoreVertical,
@@ -19,6 +20,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import OnlineIndicator from '@/components/shop/online-indicator';
 import ChatCallLogItem from '@/components/chat/chat-call-log-item';
+import ChatFileBubble from '@/components/chat/chat-file-bubble';
 import ChatSettingsSheet from '@/components/chat/chat-settings-sheet';
 import ChatTransferBubble from '@/components/chat/chat-transfer-bubble';
 import ChatVideoBubble from '@/components/chat/chat-video-bubble';
@@ -46,6 +48,7 @@ function isTimelineMessage(msg: ChatMessage): boolean {
         msg.type === 'voice' ||
         msg.type === 'product' ||
         msg.type === 'transfer' ||
+        msg.type === 'file' ||
         msg.type === 'call_log'
     );
 }
@@ -73,6 +76,7 @@ export default function ChatThreadPanel() {
     const [sending, setSending] = useState(false);
     const [sendingProduct, setSendingProduct] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [uploadingFile, setUploadingFile] = useState(false);
     const [other, setOther] = useState(activeConversation?.other);
     const [menuMessageId, setMenuMessageId] = useState<number | null>(null);
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
@@ -82,6 +86,7 @@ export default function ChatThreadPanel() {
     const messagesScrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const docFileInputRef = useRef<HTMLInputElement>(null);
     const lastIdRef = useRef(messages.at(-1)?.id ?? 0);
     const lastScrolledConversationId = useRef<number | null>(null);
     const pinnedToBottomRef = useRef(true);
@@ -155,7 +160,8 @@ export default function ChatThreadPanel() {
                         msg.type === 'video' ||
                         msg.type === 'voice' ||
                         msg.type === 'product' ||
-                        msg.type === 'transfer') &&
+                        msg.type === 'transfer' ||
+                        msg.type === 'file') &&
                     msg.sender_id !== auth.user?.id
                 ) {
                     receivedNew = true;
@@ -312,6 +318,31 @@ export default function ChatThreadPanel() {
         }
     };
 
+    const handleDocFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file || !activeConversation || uploadingFile) return;
+
+        if (file.size > 20 * 1024 * 1024) {
+            toast?.error('File must be 20MB or smaller');
+            return;
+        }
+
+        setUploadingFile(true);
+        try {
+            const message = await chatApi.uploadChatFile(activeConversation.id, file);
+            setMessages((prev) => [...prev, message]);
+            lastIdRef.current = Math.max(lastIdRef.current, message.id);
+            refreshConversations();
+            playChatSendSound();
+            toast?.success('File sent');
+        } catch (err) {
+            toast?.error(err instanceof Error ? err.message : 'Could not send file');
+        } finally {
+            setUploadingFile(false);
+        }
+    };
+
     const handleSendProduct = async () => {
         if (!activeConversation || !attachProduct || sendingProduct) return;
         setSendingProduct(true);
@@ -387,6 +418,9 @@ export default function ChatThreadPanel() {
         }
         if (msg.type === 'transfer') {
             return msg.body?.trim() || 'Money transfer';
+        }
+        if (msg.type === 'file') {
+            return msg.file_name || msg.body?.trim() || 'File';
         }
         return msg.body;
     };
@@ -644,6 +678,12 @@ export default function ChatThreadPanel() {
                                   null)
                                 : null;
                         const isTransfer = msg.type === 'transfer' && !msg.is_deleted;
+                        const fileUrl =
+                            msg.type === 'file' && !msg.is_deleted
+                                ? msg.file_url ||
+                                  (typeof msg.metadata?.file_url === 'string' ? msg.metadata.file_url : null)
+                                : null;
+                        const isFile = msg.type === 'file' && !msg.is_deleted && !!fileUrl;
 
                         return (
                             <div
@@ -654,14 +694,20 @@ export default function ChatThreadPanel() {
                                     <div
                                         className={cn(
                                             'overflow-hidden rounded-2xl text-sm',
-                                            isImage || isVideo ? 'p-1' : isProduct || isTransfer ? 'p-0' : 'px-3 py-2',
+                                            isImage || isVideo
+                                                ? 'p-1'
+                                                : isProduct || isTransfer || isFile
+                                                  ? 'p-0'
+                                                  : 'px-3 py-2',
                                             isTransfer
                                                 ? 'border border-green-100 bg-white text-gray-900 shadow-sm'
-                                                : isProduct
-                                                  ? 'border border-orange-100 bg-white text-gray-900 shadow-sm'
-                                                  : mine
-                                                    ? 'bg-orange-500 text-white'
-                                                    : 'bg-white text-gray-900 shadow-sm',
+                                                : isFile
+                                                  ? 'border border-blue-100 bg-white text-gray-900 shadow-sm'
+                                                  : isProduct
+                                                    ? 'border border-orange-100 bg-white text-gray-900 shadow-sm'
+                                                    : mine
+                                                      ? 'bg-orange-500 text-white'
+                                                      : 'bg-white text-gray-900 shadow-sm',
                                             msg.is_deleted && 'px-3 py-2 italic opacity-70',
                                         )}
                                     >
@@ -708,6 +754,12 @@ export default function ChatThreadPanel() {
 
                                         {msg.is_deleted ? (
                                             <p className="px-2 py-1">Message deleted</p>
+                                        ) : isFile && fileUrl ? (
+                                            <ChatFileBubble
+                                                url={fileUrl}
+                                                name={msg.file_name || msg.body}
+                                                size={msg.file_size}
+                                            />
                                         ) : isTransfer ? (
                                             transferCard ? (
                                                 <ChatTransferBubble
@@ -803,8 +855,12 @@ export default function ChatThreadPanel() {
                                         <div
                                             className={cn(
                                                 'flex items-center gap-1.5 text-[10px]',
-                                                isImage || isVideo || isProduct || isTransfer ? 'px-2 pb-1.5' : 'mt-0.5',
-                                                isProduct || isTransfer || !mine ? 'text-gray-400' : 'text-orange-100',
+                                                isImage || isVideo || isProduct || isTransfer || isFile
+                                                    ? 'px-2 pb-1.5'
+                                                    : 'mt-0.5',
+                                                isProduct || isTransfer || isFile || !mine
+                                                    ? 'text-gray-400'
+                                                    : 'text-orange-100',
                                             )}
                                         >
                                             <span>{formatTime(msg.created_at)}</span>
@@ -816,10 +872,10 @@ export default function ChatThreadPanel() {
                                                     className={cn(
                                                         'inline-flex items-center',
                                                         msg.read_at
-                                                            ? isProduct || isTransfer || !mine
+                                                            ? isProduct || isTransfer || isFile || !mine
                                                                 ? 'text-sky-500'
                                                                 : 'text-sky-100'
-                                                            : isProduct || isTransfer || !mine
+                                                            : isProduct || isTransfer || isFile || !mine
                                                               ? 'text-gray-400'
                                                               : 'text-orange-200',
                                                     )}
@@ -990,14 +1046,30 @@ export default function ChatThreadPanel() {
                         className="hidden"
                         onChange={handleImageSelect}
                     />
+                    <input
+                        ref={docFileInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.rtf,.odt,.ods"
+                        className="hidden"
+                        onChange={handleDocFileSelect}
+                    />
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingImage || sending}
+                        disabled={uploadingImage || uploadingFile || sending}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50 sm:h-9 sm:w-9"
                         title="Send photo"
                     >
                         <ImagePlus className="h-5 w-5 sm:h-4 sm:w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => docFileInputRef.current?.click()}
+                        disabled={uploadingImage || uploadingFile || sending}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50 sm:h-9 sm:w-9"
+                        title="Send file"
+                    >
+                        <FilePlus className="h-5 w-5 sm:h-4 sm:w-4" />
                     </button>
                     <input
                         ref={inputRef}
@@ -1007,19 +1079,21 @@ export default function ChatThreadPanel() {
                         placeholder={
                             uploadingImage
                                 ? 'Uploading photo...'
-                                : editingMessage
-                                  ? 'Edit your message...'
-                                  : replyingTo
-                                    ? 'Write a reply...'
-                                    : 'Type a message...'
+                                : uploadingFile
+                                  ? 'Uploading file...'
+                                  : editingMessage
+                                    ? 'Edit your message...'
+                                    : replyingTo
+                                      ? 'Write a reply...'
+                                      : 'Type a message...'
                         }
                         className="min-h-11 flex-1 rounded-full border border-gray-200 px-4 py-2.5 text-base focus:border-orange-300 focus:outline-none focus:ring-1 focus:ring-orange-300 sm:min-h-0 sm:py-2 sm:text-sm"
                         maxLength={2000}
-                        disabled={uploadingImage}
+                        disabled={uploadingImage || uploadingFile}
                     />
                     <button
                         type="submit"
-                        disabled={!body.trim() || sending || uploadingImage}
+                        disabled={!body.trim() || sending || uploadingImage || uploadingFile}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 sm:h-9 sm:w-9"
                     >
                         <Send className="h-5 w-5 sm:h-4 sm:w-4" />

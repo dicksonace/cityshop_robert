@@ -33,6 +33,7 @@ class ChatService
             MessageType::CallLog,
             MessageType::System,
             MessageType::Transfer,
+            MessageType::File,
         ];
     }
 
@@ -196,6 +197,8 @@ class ChatService
                     MessageType::Product => $replyTo->body
                         ?: ($replyTo->metadata['product']['name'] ?? 'Product'),
                     MessageType::Transfer => $replyTo->body ?: 'Money transfer',
+                    MessageType::File => $replyTo->body
+                        ?: ($replyTo->metadata['file_name'] ?? 'File'),
                     default => $replyTo->body ?? '',
                 };
 
@@ -258,6 +261,7 @@ class ChatService
                     $type === MessageType::Voice => 'Sent a voice message',
                     $type === MessageType::Product => 'Shared a product: '.$body,
                     $type === MessageType::Transfer => $body ?: 'Sent money',
+                    $type === MessageType::File => 'Sent a file'.($body !== '' ? ": {$body}" : ''),
                     default => 'New activity',
                 };
 
@@ -316,6 +320,7 @@ class ChatService
                 MessageType::Video,
                 MessageType::Voice,
                 MessageType::Product,
+                MessageType::File,
             ], true)
             && $message->read_at === null
             && empty($message->metadata['deleted_at']);
@@ -382,6 +387,15 @@ class ChatService
             ),
             'product' => $deleted ? null : ($metadata['product'] ?? null),
             'transfer' => $deleted ? null : ($metadata['transfer'] ?? null),
+            'file_url' => $deleted ? null : static::publicMediaUrl(
+                $metadata['file_url'] ?? null,
+                $metadata['file_path'] ?? null,
+            ),
+            'file_name' => $deleted ? null : ($metadata['file_name'] ?? null),
+            'file_size' => $deleted
+                ? null
+                : (isset($metadata['file_size']) ? (int) $metadata['file_size'] : null),
+            'file_mime' => $deleted ? null : ($metadata['file_mime'] ?? null),
             'duration_seconds' => $deleted
                 ? null
                 : (isset($metadata['duration_seconds']) ? (int) $metadata['duration_seconds'] : null),

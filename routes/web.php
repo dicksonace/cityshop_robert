@@ -135,6 +135,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/messages/{conversation}/image', [ChatMessageController::class, 'uploadImage'])->name('chat.messages.image');
     Route::post('/messages/{conversation}/video', [ChatMessageController::class, 'uploadVideo'])->name('chat.messages.video');
     Route::post('/messages/{conversation}/voice', [ChatMessageController::class, 'uploadVoice'])->name('chat.messages.voice');
+    Route::post('/messages/{conversation}/file', [ChatMessageController::class, 'uploadFile'])->name('chat.messages.file');
     Route::patch('/messages/{conversation}/messages/{message}', [ChatMessageController::class, 'update'])->name('chat.messages.update');
     Route::delete('/messages/{conversation}/messages/{message}', [ChatMessageController::class, 'destroy'])->name('chat.messages.destroy');
     Route::post('/messages/{conversation}/signal', [ChatMessageController::class, 'signal'])->name('chat.signal');

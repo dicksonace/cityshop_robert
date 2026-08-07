@@ -85,6 +85,10 @@ export interface ChatMessage {
         image_url?: string | null;
     } | null;
     transfer?: ChatTransfer | null;
+    file_url?: string | null;
+    file_name?: string | null;
+    file_size?: number | null;
+    file_mime?: string | null;
     duration_seconds?: number | null;
     call_log?: ChatCallLog | null;
     read_at?: string | null;

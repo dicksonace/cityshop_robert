@@ -126,6 +126,7 @@ class MessageController extends Controller
                     MessageType::Voice,
                     MessageType::Product,
                     MessageType::Transfer,
+                    MessageType::File,
                 ])
                 ->with('sender:id,name')
                 ->first();
@@ -384,6 +385,47 @@ class MessageController extends Controller
         ], 201);
     }
 
+    public function uploadFile(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'max:20480',
+                'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,rar,rtf,odt,ods',
+            ],
+            'caption' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $uploaded = $request->file('file');
+        $path = $uploaded->store('chat/'.$conversation->id.'/files', 'public');
+        $url = Storage::disk('public')->url($path);
+        $originalName = $uploaded->getClientOriginalName() ?: 'file';
+        $body = $validated['caption'] ?? $originalName;
+
+        $message = ChatService::sendMessage(
+            $conversation,
+            $request->user(),
+            $body,
+            MessageType::File,
+            [
+                'file_path' => $path,
+                'file_url' => $url,
+                'file_name' => $originalName,
+                'file_size' => $uploaded->getSize() ?: null,
+                'file_mime' => $uploaded->getMimeType() ?: null,
+            ],
+        );
+
+        $message->load('sender:id,name');
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+        ], 201);
+    }
+
     public function poll(Request $request, Conversation $conversation): JsonResponse
     {
         abort_unless($conversation->involves($request->user()), 403);
@@ -563,6 +605,7 @@ class MessageController extends Controller
                 'body' => match ($latest->type) {
                     MessageType::Product => 'Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')),
                     MessageType::Transfer => $latest->body ?: 'Money transfer',
+                    MessageType::File => $latest->body ?: ($latest->metadata['file_name'] ?? 'File'),
                     MessageType::Image => $latest->body ?: 'Photo',
                     MessageType::Video => $latest->body ?: 'Video',
                     MessageType::Voice => 'Voice message',
