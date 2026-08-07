@@ -4,12 +4,15 @@ export interface PersistedChatState {
     activeConversationId: number | null;
     view: 'list' | 'thread';
     isMinimized: boolean;
+    /** Keep the messenger open across full page reloads. */
+    isOpen: boolean;
 }
 
 const defaultState: PersistedChatState = {
     activeConversationId: null,
     view: 'list',
     isMinimized: false,
+    isOpen: false,
 };
 
 export function loadChatState(): PersistedChatState {
@@ -22,6 +25,7 @@ export function loadChatState(): PersistedChatState {
                 typeof parsed.activeConversationId === 'number' ? parsed.activeConversationId : null,
             view: parsed.view === 'thread' ? 'thread' : 'list',
             isMinimized: Boolean(parsed.isMinimized),
+            isOpen: Boolean(parsed.isOpen),
         };
     } catch {
         return defaultState;

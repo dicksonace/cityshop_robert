@@ -34,7 +34,7 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 export function ChatProvider({ children }: { children: ReactNode }) {
     const saved = loadChatState();
 
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(saved.isOpen && !saved.isMinimized);
     const [isMinimized, setIsMinimized] = useState(saved.isMinimized);
     const [view, setView] = useState<ChatView>(saved.view);
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -64,25 +64,46 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }, [refreshConversations]);
 
     useEffect(() => {
-        if (restored || !saved.activeConversationId) {
-            setRestored(true);
-            return;
-        }
+        if (restored) return;
 
-        loadConversation(saved.activeConversationId)
-            .catch(() => {
-                saveChatState({ activeConversationId: null, view: 'list', isMinimized: false });
-            })
-            .finally(() => setRestored(true));
-    }, [loadConversation, restored, saved.activeConversationId, saved.isMinimized]);
+        const restore = async () => {
+            try {
+                if (saved.isOpen || saved.isMinimized) {
+                    await refreshConversations();
+                }
+                if (saved.activeConversationId) {
+                    await loadConversation(saved.activeConversationId);
+                }
+            } catch {
+                saveChatState({
+                    activeConversationId: null,
+                    view: 'list',
+                    isMinimized: false,
+                    isOpen: false,
+                });
+            } finally {
+                setRestored(true);
+            }
+        };
+
+        void restore();
+    }, [
+        loadConversation,
+        refreshConversations,
+        restored,
+        saved.activeConversationId,
+        saved.isMinimized,
+        saved.isOpen,
+    ]);
 
     useEffect(() => {
         saveChatState({
             activeConversationId: activeConversation?.id ?? null,
             view,
             isMinimized,
+            isOpen,
         });
-    }, [activeConversation?.id, view, isMinimized]);
+    }, [activeConversation?.id, view, isMinimized, isOpen]);
 
     const openWidget = useCallback(async () => {
         setIsOpen(true);

@@ -74,9 +74,12 @@ export default function ChatThreadPanel() {
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
     const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesScrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const lastIdRef = useRef(messages.at(-1)?.id ?? 0);
+    const lastScrolledConversationId = useRef<number | null>(null);
+    const pinnedToBottomRef = useRef(true);
 
     const { callState, callKind, remoteAudioRef, localVideoRef, remoteVideoRef, startCall, acceptCall, endCall, handleCallMessage } =
         useChatVoiceCall(activeConversation?.id, auth.user?.id, {
@@ -100,9 +103,29 @@ export default function ChatThreadPanel() {
         lastIdRef.current = maxMessageId(messages);
     }, [activeConversation, messages]);
 
+    // Jump straight to the latest message — never animate top→bottom on open/refresh.
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, callState]);
+        const conversationId = activeConversation?.id ?? null;
+        if (conversationId !== lastScrolledConversationId.current) {
+            lastScrolledConversationId.current = conversationId;
+            pinnedToBottomRef.current = true;
+        }
+
+        if (!pinnedToBottomRef.current && callState === 'idle') return;
+
+        const container = messagesScrollRef.current;
+        if (!container) return;
+
+        // Instant snap (no smooth scroll) so reload doesn't "play" the history.
+        container.scrollTop = container.scrollHeight;
+    }, [messages, callState, activeConversation?.id]);
+
+    const onMessagesScroll = () => {
+        const container = messagesScrollRef.current;
+        if (!container) return;
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        pinnedToBottomRef.current = distanceFromBottom < 80;
+    };
 
     const ingestMessages = useCallback(
         async (incoming: ChatMessage[], { playSound }: { playSound: boolean }) => {
@@ -515,7 +538,12 @@ export default function ChatThreadPanel() {
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto bg-gray-50 px-3 py-3" onClick={() => setMenuMessageId(null)}>
+            <div
+                ref={messagesScrollRef}
+                className="flex-1 overflow-y-auto bg-gray-50 px-3 py-3"
+                onScroll={onMessagesScroll}
+                onClick={() => setMenuMessageId(null)}
+            >
                 {timelineMessages.length === 0 ? (
                     <div className="flex h-full flex-col items-center justify-center text-center text-gray-400">
                         <p className="text-xs">Say hi to {otherName}</p>
