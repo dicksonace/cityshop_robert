@@ -1,6 +1,7 @@
 import { router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
+    ArrowLeftRight,
     CornerUpLeft,
     ImagePlus,
     FilePlus,
@@ -23,6 +24,7 @@ import ChatCallLogItem from '@/components/chat/chat-call-log-item';
 import ChatFileBubble from '@/components/chat/chat-file-bubble';
 import ChatSettingsSheet from '@/components/chat/chat-settings-sheet';
 import ChatTransferBubble from '@/components/chat/chat-transfer-bubble';
+import ChatTransferSheet from '@/components/chat/chat-transfer-sheet';
 import ChatVideoBubble from '@/components/chat/chat-video-bubble';
 import { useChat } from '@/contexts/chat-context';
 import { useToastOptional } from '@/contexts/toast-context';
@@ -77,6 +79,7 @@ export default function ChatThreadPanel() {
     const [sendingProduct, setSendingProduct] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
     const [uploadingFile, setUploadingFile] = useState(false);
+    const [showTransfer, setShowTransfer] = useState(false);
     const [other, setOther] = useState(activeConversation?.other);
     const [menuMessageId, setMenuMessageId] = useState<number | null>(null);
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
@@ -1071,6 +1074,15 @@ export default function ChatThreadPanel() {
                     >
                         <FilePlus className="h-5 w-5 sm:h-4 sm:w-4" />
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowTransfer(true)}
+                        disabled={uploadingImage || uploadingFile || sending || !activeConversation}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-emerald-600 disabled:opacity-50 sm:h-9 sm:w-9"
+                        title="Transfer money"
+                    >
+                        <ArrowLeftRight className="h-5 w-5 sm:h-4 sm:w-4" />
+                    </button>
                     <input
                         ref={inputRef}
                         type="text"
@@ -1100,6 +1112,23 @@ export default function ChatThreadPanel() {
                     </button>
                 </form>
             </div>
+
+            <ChatTransferSheet
+                open={showTransfer}
+                conversationId={activeConversation?.id ?? null}
+                fallbackRecipientName={otherName}
+                fallbackRecipientAvatar={other?.avatar}
+                onOpenChange={setShowTransfer}
+                onSent={(message) => {
+                    setMessages((prev) => {
+                        if (prev.some((m) => m.id === message.id)) return prev;
+                        return [...prev, message];
+                    });
+                    lastIdRef.current = Math.max(lastIdRef.current, message.id);
+                    playChatSendSound();
+                    refreshConversations();
+                }}
+            />
         </div>
     );
 }

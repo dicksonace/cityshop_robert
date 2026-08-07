@@ -8,6 +8,8 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\Product;
 use App\Services\ChatService;
+use App\Services\PaymentPinService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -85,6 +87,86 @@ class MessageController extends Controller
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
         ]);
+    }
+
+    public function transferMeta(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $conversation->loadMissing(['buyer', 'seller']);
+        $recipient = $conversation->otherParticipant($request->user());
+        $wallet = WalletService::ensure($request->user());
+
+        return response()->json([
+            'available_balance' => (float) $wallet->available_balance,
+            'has_payment_pin' => PaymentPinService::hasPin($request->user()),
+            'recipient' => [
+                'id' => $recipient->id,
+                'name' => $recipient->name,
+                'mobile' => $recipient->mobile,
+                'avatar' => $recipient->avatar,
+            ],
+        ]);
+    }
+
+    public function sendTransfer(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:1', 'max:50000'],
+            'note' => ['nullable', 'string', 'max:120'],
+            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+        ]);
+
+        PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);
+
+        $conversation->loadMissing(['buyer', 'seller']);
+        $recipient = $conversation->otherParticipant($request->user());
+
+        try {
+            $transfer = WalletService::transfer(
+                $request->user(),
+                $recipient,
+                (float) $validated['amount'],
+                $validated['note'] ?? null,
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $amountLabel = 'GH₵'.number_format($transfer['amount'], 2);
+        $body = $transfer['note']
+            ? "Transferred {$amountLabel} — {$transfer['note']}"
+            : "Transferred {$amountLabel}";
+
+        $message = ChatService::sendMessage(
+            $conversation,
+            $request->user(),
+            $body,
+            MessageType::Transfer,
+            [
+                'transfer' => [
+                    'amount' => $transfer['amount'],
+                    'currency' => 'GHS',
+                    'note' => $transfer['note'],
+                    'reference' => $transfer['reference'],
+                    'from_user_id' => $request->user()->id,
+                    'to_user_id' => $recipient->id,
+                    'from_name' => $request->user()->name,
+                    'to_name' => $recipient->name,
+                ],
+            ],
+        );
+
+        $message->load('sender:id,name');
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+            'wallet' => [
+                'available_balance' => (float) (WalletService::ensure($request->user())->fresh()->available_balance),
+            ],
+        ], 201);
     }
 
     public function uploadImage(Request $request, Conversation $conversation): JsonResponse

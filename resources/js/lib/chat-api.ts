@@ -12,9 +12,11 @@ function jsonHeaders(): HeadersInit {
 async function parseJsonResponse<T>(res: Response): Promise<T> {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+        const errors = (data as { errors?: Record<string, string[]> }).errors;
+        const firstFieldError = errors ? Object.values(errors).flat().find(Boolean) : undefined;
         const message =
             (data as { message?: string }).message ??
-            (data as { errors?: Record<string, string[]> }).errors?.body?.[0] ??
+            firstFieldError ??
             `Request failed (${res.status})`;
         throw new Error(message);
     }
@@ -72,6 +74,43 @@ export async function sendChatProduct(conversationId: number, productId: number)
         headers: jsonHeaders(),
         credentials: 'same-origin',
         body: JSON.stringify({ product_id: productId }),
+    });
+    const data = await parseJsonResponse<{ message: ChatMessage }>(res);
+    return data.message;
+}
+
+export type ChatTransferMeta = {
+    available_balance: number;
+    has_payment_pin: boolean;
+    recipient: {
+        id: number;
+        name: string;
+        mobile?: string | null;
+        avatar?: string | null;
+    };
+};
+
+export async function fetchChatTransferMeta(conversationId: number): Promise<ChatTransferMeta> {
+    const res = await fetch(route('chat.messages.transfer.meta', conversationId), {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+    });
+    return parseJsonResponse(res);
+}
+
+export async function sendChatTransfer(
+    conversationId: number,
+    payload: { amount: number; note?: string; payment_pin: string },
+): Promise<ChatMessage> {
+    const res = await fetch(route('chat.messages.transfer', conversationId), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify({
+            amount: payload.amount,
+            payment_pin: payload.payment_pin,
+            ...(payload.note?.trim() ? { note: payload.note.trim() } : {}),
+        }),
     });
     const data = await parseJsonResponse<{ message: ChatMessage }>(res);
     return data.message;
