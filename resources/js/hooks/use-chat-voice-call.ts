@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import * as chatApi from '@/lib/chat-api';
+import { startIncomingRing, startOutgoingRing, stopCallRing, unlockChatSounds } from '@/lib/chat-sounds';
 import type { ChatMessage } from '@/types/chat';
 
 export type CallState = 'idle' | 'calling' | 'incoming' | 'active';
@@ -39,6 +40,7 @@ export function useChatVoiceCall(
     }, []);
 
     const cleanup = useCallback(() => {
+        stopCallRing();
         pcRef.current?.close();
         pcRef.current = null;
         localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -159,6 +161,8 @@ export function useChatVoiceCall(
                     sdp: offer,
                     call_kind: kind,
                 });
+                unlockChatSounds();
+                startOutgoingRing();
                 setCallState('calling');
             } catch {
                 cleanup();
@@ -175,6 +179,7 @@ export function useChatVoiceCall(
     const acceptCall = useCallback(async () => {
         if (!conversationId || !pendingOfferRef.current) return;
         try {
+            stopCallRing();
             const kind = callKindRef.current;
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
@@ -219,6 +224,8 @@ export function useChatVoiceCall(
                 callerIdRef.current = msg.sender_id;
                 callerNameRef.current = msg.sender?.name ?? 'Caller';
                 pendingOfferRef.current = msg.metadata?.sdp as RTCSessionDescriptionInit;
+                unlockChatSounds();
+                startIncomingRing();
                 setCallState('incoming');
                 return;
             }
@@ -226,6 +233,7 @@ export function useChatVoiceCall(
             if (!pcRef.current) return;
 
             if (msg.type === 'call_answer' && msg.metadata?.sdp) {
+                stopCallRing();
                 await pcRef.current.setRemoteDescription(
                     new RTCSessionDescription(msg.metadata.sdp as RTCSessionDescriptionInit),
                 );

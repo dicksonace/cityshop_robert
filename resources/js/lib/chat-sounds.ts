@@ -1,5 +1,7 @@
 let audioContext: AudioContext | null = null;
 let audioUnlocked = false;
+let ringAudio: HTMLAudioElement | null = null;
+let ringStopTimer: number | null = null;
 
 function getContext(): AudioContext | null {
     if (!audioUnlocked || typeof window === 'undefined') {
@@ -68,6 +70,79 @@ export function playChatReceiveSound(): void {
     } catch {
         // Audio not available
     }
+}
+
+function clearRingTimer(): void {
+    if (ringStopTimer !== null) {
+        window.clearInterval(ringStopTimer);
+        ringStopTimer = null;
+    }
+}
+
+/** Stop outgoing/incoming call ring. */
+export function stopCallRing(): void {
+    clearRingTimer();
+    if (ringAudio) {
+        try {
+            ringAudio.pause();
+            ringAudio.currentTime = 0;
+        } catch {
+            // ignore
+        }
+        ringAudio = null;
+    }
+}
+
+function startLoopingAudio(src: string, volume = 0.7): void {
+    stopCallRing();
+    unlockChatSounds();
+    try {
+        const audio = new Audio(src);
+        audio.loop = true;
+        audio.volume = volume;
+        ringAudio = audio;
+        void audio.play().catch(() => {
+            startOscillatorRing(src.includes('ringtone'));
+        });
+    } catch {
+        startOscillatorRing(src.includes('ringtone'));
+    }
+}
+
+/** Oscillator fallback when WAV cannot play. */
+function startOscillatorRing(incoming: boolean): void {
+    stopCallRing();
+    unlockChatSounds();
+    const beat = () => {
+        try {
+            const ctx = getContext();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            if (incoming) {
+                playTone(520, now, 0.28, 0.22);
+                playTone(660, now, 0.28, 0.18);
+                playTone(520, now + 0.4, 0.28, 0.22);
+                playTone(660, now + 0.4, 0.28, 0.18);
+            } else {
+                playTone(440, now, 0.45, 0.16);
+                playTone(480, now, 0.45, 0.14);
+            }
+        } catch {
+            // ignore
+        }
+    };
+    beat();
+    ringStopTimer = window.setInterval(beat, incoming ? 1400 : 2800);
+}
+
+/** Soft ringback while you are calling someone. */
+export function startOutgoingRing(): void {
+    startLoopingAudio('/sounds/call_ringback.wav', 0.55);
+}
+
+/** Louder ringtone when someone is calling you. */
+export function startIncomingRing(): void {
+    startLoopingAudio('/sounds/call_ringtone.wav', 0.8);
 }
 
 /** Unlock audio on first user interaction (browser autoplay policy) */
