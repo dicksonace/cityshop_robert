@@ -11,13 +11,14 @@ use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\SellerReport;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class SellerReportController extends Controller
 {
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $user = $request->user();
         abort_unless($user, 403);
@@ -32,12 +33,12 @@ class SellerReportController extends Controller
         $sellerId = (int) $validated['seller_id'];
 
         if ($sellerId === $user->id) {
-            return back()->with('error', 'You cannot report your own account.');
+            return $this->fail($request, 'You cannot report your own account.');
         }
 
         $seller = User::query()->whereKey($sellerId)->where('role', UserRole::Seller)->first();
         if (! $seller) {
-            return back()->with('error', 'Seller account not found.');
+            return $this->fail($request, 'Seller account not found.');
         }
 
         $profile = SellerProfile::query()
@@ -46,13 +47,13 @@ class SellerReportController extends Controller
             ->first();
 
         if (! $profile) {
-            return back()->with('error', 'This seller cannot be reported right now.');
+            return $this->fail($request, 'This seller cannot be reported right now.');
         }
 
         if (! empty($validated['product_id'])) {
             $product = Product::query()->find($validated['product_id']);
             if (! $product || $product->seller_id !== $sellerId) {
-                return back()->with('error', 'Invalid product for this report.');
+                return $this->fail($request, 'Invalid product for this report.');
             }
         }
 
@@ -63,7 +64,7 @@ class SellerReportController extends Controller
             ->exists();
 
         if ($alreadyOpen) {
-            return back()->with('error', 'You already have an open report for this seller. Our team is reviewing it.');
+            return $this->fail($request, 'You already have an open report for this seller. Our team is reviewing it.');
         }
 
         SellerReport::create([
@@ -75,6 +76,22 @@ class SellerReportController extends Controller
             'status' => SellerReportStatus::Open,
         ]);
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Report submitted. Our team will review this seller account.',
+            ], 201);
+        }
+
         return back()->with('success', 'Report submitted. Our team will review this seller account.');
+    }
+
+    private function fail(Request $request, string $message): RedirectResponse|JsonResponse
+    {
+        if ($request->wantsJson()) {
+            return response()->json(['message' => $message], 422);
+        }
+
+        return back()->with('error', $message);
     }
 }

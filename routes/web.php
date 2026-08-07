@@ -127,6 +127,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/messages', [ChatConversationController::class, 'index'])->name('chat.index');
     Route::post('/messages', [ChatConversationController::class, 'store'])->name('chat.store');
     Route::get('/messages/{conversation}', [ChatConversationController::class, 'show'])->name('chat.show');
+    Route::delete('/messages/{conversation}', [ChatConversationController::class, 'destroy'])->name('chat.destroy');
+    Route::get('/messages/{conversation}/search', [ChatConversationController::class, 'search'])->name('chat.search');
     Route::get('/messages/{conversation}/poll', [ChatConversationController::class, 'poll'])->name('chat.poll');
     Route::post('/messages/{conversation}/send', [ChatMessageController::class, 'store'])->name('chat.messages.store');
     Route::post('/messages/{conversation}/product', [ChatMessageController::class, 'sendProduct'])->name('chat.messages.product');

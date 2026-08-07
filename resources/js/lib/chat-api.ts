@@ -171,3 +171,36 @@ export async function pollConversation(conversationId: number, after: number): P
     });
     return parseJsonResponse(res);
 }
+
+export async function deleteConversation(conversationId: number): Promise<void> {
+    const res = await fetch(route('chat.destroy', conversationId), {
+        method: 'DELETE',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+    });
+    await parseJsonResponse(res);
+}
+
+export async function searchMessages(conversationId: number, q: string): Promise<ChatMessage[]> {
+    const res = await fetch(route('chat.search', { conversation: conversationId, q }), {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+    });
+    const data = await parseJsonResponse<{ messages: ChatMessage[] }>(res);
+    return data.messages ?? [];
+}
+
+export async function reportSeller(payload: {
+    seller_id: number;
+    reason: string;
+    details?: string;
+    product_id?: number;
+}): Promise<void> {
+    const res = await fetch(route('sellers.report'), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+    });
+    await parseJsonResponse(res);
+}

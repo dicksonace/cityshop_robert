@@ -107,6 +107,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/messages', [MessageController::class, 'index']);
         Route::post('/messages', [MessageController::class, 'store']);
         Route::get('/messages/{conversation}', [MessageController::class, 'show']);
+        Route::delete('/messages/{conversation}', [MessageController::class, 'destroyConversation']);
+        Route::get('/messages/{conversation}/search', [MessageController::class, 'search']);
         Route::post('/messages/{conversation}/send', [MessageController::class, 'send']);
         Route::post('/messages/{conversation}/product', [MessageController::class, 'sendProduct']);
         Route::post('/messages/{conversation}/transfer', [MessageController::class, 'sendTransfer']);
@@ -116,6 +118,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/messages/{conversation}/signal', [MessageController::class, 'signal']);
         Route::get('/messages/{conversation}/poll', [MessageController::class, 'poll']);
         Route::delete('/messages/{conversation}/messages/{message}', [MessageController::class, 'destroy']);
+
+        Route::post('/sellers/report', [\App\Http\Controllers\Api\V1\SellerReportController::class, 'store']);
 
         Route::get('/users/lookup', [UserLookupController::class, 'lookup']);
         Route::get('/blocks', [UserBlockController::class, 'index']);

@@ -19,6 +19,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import OnlineIndicator from '@/components/shop/online-indicator';
 import ChatCallLogItem from '@/components/chat/chat-call-log-item';
+import ChatSettingsSheet from '@/components/chat/chat-settings-sheet';
 import ChatVideoBubble from '@/components/chat/chat-video-bubble';
 import { useChat } from '@/contexts/chat-context';
 import { useToastOptional } from '@/contexts/toast-context';
@@ -74,6 +75,7 @@ export default function ChatThreadPanel() {
     const [menuMessageId, setMenuMessageId] = useState<number | null>(null);
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
     const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+    const [showSettings, setShowSettings] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesScrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -392,8 +394,24 @@ export default function ChatThreadPanel() {
     };
 
     return (
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="relative flex flex-1 flex-col overflow-hidden">
             <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+
+            {showSettings && activeConversation && (
+                <ChatSettingsSheet
+                    conversationId={activeConversation.id}
+                    peerName={otherName}
+                    sellerId={other?.id}
+                    productId={activeConversation.product?.id}
+                    canComplain={Boolean(storeSlug && other?.id && other.id !== auth.user?.id)}
+                    onClose={() => setShowSettings(false)}
+                    onDeleted={() => {
+                        setShowSettings(false);
+                        void showList();
+                        void refreshConversations();
+                    }}
+                />
+            )}
 
             <div className="flex items-center gap-2 border-b border-gray-100 bg-white px-3 py-2.5">
                 <button type="button" onClick={showList} className="rounded-lg p-1.5 hover:bg-gray-100">
@@ -456,6 +474,14 @@ export default function ChatThreadPanel() {
                             title="Video call"
                         >
                             <Video className="h-4 w-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowSettings(true)}
+                            className="rounded-lg p-1.5 text-gray-600 hover:bg-gray-100"
+                            title="Chat settings"
+                        >
+                            <MoreVertical className="h-4 w-4" />
                         </button>
                     </div>
                 ) : (

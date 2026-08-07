@@ -235,14 +235,19 @@ class ChatService
 
             $conversation->update(['last_message_at' => now()]);
 
-            $recipient = $conversation->otherParticipant($sender);
-
             $isCallSignal = in_array($type, [
                 MessageType::CallOffer,
                 MessageType::CallAnswer,
                 MessageType::CallIce,
                 MessageType::CallEnd,
             ], true);
+
+            // New real messages bring a deleted/hidden chat back for both people.
+            if (! $isCallSignal && $type !== MessageType::CallLog) {
+                $conversation->clearHiddenForAll();
+            }
+
+            $recipient = $conversation->otherParticipant($sender);
 
             if (! $isCallSignal && $type !== MessageType::CallLog) {
                 $isCall = str_starts_with($type->value, 'call');

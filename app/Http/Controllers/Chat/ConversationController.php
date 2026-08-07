@@ -28,6 +28,13 @@ class ConversationController extends Controller
             'latestVisibleMessage.sender:id,name',
         ])
             ->where(fn ($q) => $q->where('buyer_id', $userId)->orWhere('seller_id', $userId))
+            ->where(function ($q) use ($userId) {
+                $q->where(function ($buyer) use ($userId) {
+                    $buyer->where('buyer_id', $userId)->whereNull('buyer_hidden_at');
+                })->orWhere(function ($seller) use ($userId) {
+                    $seller->where('seller_id', $userId)->whereNull('seller_hidden_at');
+                });
+            })
             ->orderByDesc('last_message_at')
             ->orderByDesc('updated_at')
             ->get()
@@ -125,6 +132,39 @@ class ConversationController extends Controller
         }
 
         return redirect()->route('chat.show', $conversation);
+    }
+
+    public function destroy(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        $conversation->hideFor($request->user());
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Chat deleted from your inbox.',
+        ]);
+    }
+
+    public function search(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $q = trim((string) $request->query('q', ''));
+        if ($q === '') {
+            return response()->json(['messages' => []]);
+        }
+
+        $messages = $conversation->messages()
+            ->whereIn('type', ChatService::visibleTypes())
+            ->where('body', 'like', '%'.$q.'%')
+            ->with('sender:id,name')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get()
+            ->map(fn ($m) => ChatService::formatMessage($m, $request->user()))
+            ->values();
+
+        return response()->json(['messages' => $messages]);
     }
 
     public function poll(Request $request, Conversation $conversation)

@@ -15,12 +15,16 @@ class Conversation extends Model
         'seller_id',
         'product_id',
         'last_message_at',
+        'buyer_hidden_at',
+        'seller_hidden_at',
     ];
 
     protected function casts(): array
     {
         return [
             'last_message_at' => 'datetime',
+            'buyer_hidden_at' => 'datetime',
+            'seller_hidden_at' => 'datetime',
         ];
     }
 
@@ -66,5 +70,45 @@ class Conversation extends Model
     public function involves(User $user): bool
     {
         return $this->buyer_id === $user->id || $this->seller_id === $user->id;
+    }
+
+    public function isHiddenFor(User $user): bool
+    {
+        if ($this->buyer_id === $user->id) {
+            return $this->buyer_hidden_at !== null;
+        }
+        if ($this->seller_id === $user->id) {
+            return $this->seller_hidden_at !== null;
+        }
+
+        return false;
+    }
+
+    public function hideFor(User $user): void
+    {
+        if ($this->buyer_id === $user->id) {
+            $this->forceFill(['buyer_hidden_at' => now()])->save();
+        } elseif ($this->seller_id === $user->id) {
+            $this->forceFill(['seller_hidden_at' => now()])->save();
+        }
+    }
+
+    public function clearHiddenFor(User $user): void
+    {
+        if ($this->buyer_id === $user->id && $this->buyer_hidden_at) {
+            $this->forceFill(['buyer_hidden_at' => null])->save();
+        } elseif ($this->seller_id === $user->id && $this->seller_hidden_at) {
+            $this->forceFill(['seller_hidden_at' => null])->save();
+        }
+    }
+
+    public function clearHiddenForAll(): void
+    {
+        if ($this->buyer_hidden_at || $this->seller_hidden_at) {
+            $this->forceFill([
+                'buyer_hidden_at' => null,
+                'seller_hidden_at' => null,
+            ])->save();
+        }
     }
 }
