@@ -140,7 +140,7 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
 
             <p className="mb-4 text-sm text-gray-500">
                 Manual payouts only: 1) Press <strong>Start</strong> so the seller sees Processing. 2) Send MoMo yourself.
-                3) Mark complete with optional proof photo, or reject with a reason. Target turnaround: about 1 hour.
+                3) Mark complete with optional proof photo, or reject with a reason. Target turnaround: about 15 minutes.
             </p>
 
             {(flash?.success || flash?.error) && (
