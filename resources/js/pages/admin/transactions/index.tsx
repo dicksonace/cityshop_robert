@@ -92,15 +92,17 @@ export default function AdminTransactionsIndex({ transactions, search, type, typ
                 </button>
             </form>
 
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
-                <table className="min-w-full text-left text-sm">
+            <div className="overflow-x-auto overscroll-x-contain rounded-xl bg-white shadow-sm ring-1 ring-gray-100 [-webkit-overflow-scrolling:touch]">
+                <table className="w-full min-w-[720px] text-left text-sm">
                     <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                         <tr>
                             <th className="px-4 py-3">When</th>
                             <th className="px-4 py-3">User / phone</th>
                             <th className="px-4 py-3">Type</th>
                             <th className="px-4 py-3">Description</th>
-                            <th className="px-4 py-3 text-right">Amount (GHS)</th>
+                            <th className="sticky right-0 bg-gray-50 px-4 py-3 text-right shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
+                                Amount (GHS)
+                            </th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -112,7 +114,7 @@ export default function AdminTransactionsIndex({ transactions, search, type, typ
                             </tr>
                         ) : (
                             transactions.data.map((tx) => (
-                                <tr key={tx.id} className="hover:bg-orange-50/40">
+                                <tr key={tx.id} className="group hover:bg-orange-50/40">
                                     <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
                                         {tx.created_at
                                             ? new Date(tx.created_at).toLocaleString('en-GH')
@@ -135,7 +137,7 @@ export default function AdminTransactionsIndex({ transactions, search, type, typ
                                         )}
                                     </td>
                                     <td
-                                        className={`whitespace-nowrap px-4 py-3 text-right font-semibold ${
+                                        className={`sticky right-0 whitespace-nowrap bg-white px-4 py-3 text-right font-semibold shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)] group-hover:bg-orange-50/40 ${
                                             tx.amount < 0 ? 'text-red-600' : 'text-emerald-600'
                                         }`}
                                     >
