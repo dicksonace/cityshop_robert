@@ -20,6 +20,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import OnlineIndicator from '@/components/shop/online-indicator';
 import ChatCallLogItem from '@/components/chat/chat-call-log-item';
 import ChatSettingsSheet from '@/components/chat/chat-settings-sheet';
+import ChatTransferBubble from '@/components/chat/chat-transfer-bubble';
 import ChatVideoBubble from '@/components/chat/chat-video-bubble';
 import { useChat } from '@/contexts/chat-context';
 import { useToastOptional } from '@/contexts/toast-context';
@@ -44,6 +45,7 @@ function isTimelineMessage(msg: ChatMessage): boolean {
         msg.type === 'video' ||
         msg.type === 'voice' ||
         msg.type === 'product' ||
+        msg.type === 'transfer' ||
         msg.type === 'call_log'
     );
 }
@@ -152,7 +154,8 @@ export default function ChatThreadPanel() {
                         msg.type === 'image' ||
                         msg.type === 'video' ||
                         msg.type === 'voice' ||
-                        msg.type === 'product') &&
+                        msg.type === 'product' ||
+                        msg.type === 'transfer') &&
                     msg.sender_id !== auth.user?.id
                 ) {
                     receivedNew = true;
@@ -381,6 +384,9 @@ export default function ChatThreadPanel() {
         if (msg.type === 'voice') return 'Voice message';
         if (msg.type === 'product') {
             return msg.product?.name || msg.body?.trim() || 'Product';
+        }
+        if (msg.type === 'transfer') {
+            return msg.body?.trim() || 'Money transfer';
         }
         return msg.body;
     };
@@ -631,6 +637,13 @@ export default function ChatThreadPanel() {
                         // Always treat product-type rows as product bubbles so sellers
                         // never "miss" a share when metadata is thin.
                         const isProduct = msg.type === 'product' && !msg.is_deleted;
+                        const transferCard =
+                            msg.type === 'transfer' && !msg.is_deleted
+                                ? (msg.transfer ??
+                                  (msg.metadata?.transfer as ChatMessage['transfer'] | undefined) ??
+                                  null)
+                                : null;
+                        const isTransfer = msg.type === 'transfer' && !msg.is_deleted;
 
                         return (
                             <div
@@ -641,12 +654,14 @@ export default function ChatThreadPanel() {
                                     <div
                                         className={cn(
                                             'overflow-hidden rounded-2xl text-sm',
-                                            isImage || isVideo ? 'p-1' : isProduct ? 'p-0' : 'px-3 py-2',
-                                            isProduct
-                                                ? 'border border-orange-100 bg-white text-gray-900 shadow-sm'
-                                                : mine
-                                                  ? 'bg-orange-500 text-white'
-                                                  : 'bg-white text-gray-900 shadow-sm',
+                                            isImage || isVideo ? 'p-1' : isProduct || isTransfer ? 'p-0' : 'px-3 py-2',
+                                            isTransfer
+                                                ? 'border border-green-100 bg-white text-gray-900 shadow-sm'
+                                                : isProduct
+                                                  ? 'border border-orange-100 bg-white text-gray-900 shadow-sm'
+                                                  : mine
+                                                    ? 'bg-orange-500 text-white'
+                                                    : 'bg-white text-gray-900 shadow-sm',
                                             msg.is_deleted && 'px-3 py-2 italic opacity-70',
                                         )}
                                     >
@@ -693,6 +708,21 @@ export default function ChatThreadPanel() {
 
                                         {msg.is_deleted ? (
                                             <p className="px-2 py-1">Message deleted</p>
+                                        ) : isTransfer ? (
+                                            transferCard ? (
+                                                <ChatTransferBubble
+                                                    transfer={transferCard}
+                                                    mine={mine}
+                                                    createdAt={msg.created_at}
+                                                />
+                                            ) : (
+                                                <div className="min-w-[14rem] p-3">
+                                                    <p className="text-sm font-semibold text-gray-900">
+                                                        {msg.body || 'Money transfer'}
+                                                    </p>
+                                                    <p className="mt-1 text-xs font-bold text-orange-600">View receipt</p>
+                                                </div>
+                                            )
                                         ) : isProduct ? (
                                             productCard?.slug ? (
                                                 <button
@@ -773,8 +803,8 @@ export default function ChatThreadPanel() {
                                         <div
                                             className={cn(
                                                 'flex items-center gap-1.5 text-[10px]',
-                                                isImage || isVideo || isProduct ? 'px-2 pb-1.5' : 'mt-0.5',
-                                                isProduct || !mine ? 'text-gray-400' : 'text-orange-100',
+                                                isImage || isVideo || isProduct || isTransfer ? 'px-2 pb-1.5' : 'mt-0.5',
+                                                isProduct || isTransfer || !mine ? 'text-gray-400' : 'text-orange-100',
                                             )}
                                         >
                                             <span>{formatTime(msg.created_at)}</span>
@@ -786,10 +816,10 @@ export default function ChatThreadPanel() {
                                                     className={cn(
                                                         'inline-flex items-center',
                                                         msg.read_at
-                                                            ? isProduct || !mine
+                                                            ? isProduct || isTransfer || !mine
                                                                 ? 'text-sky-500'
                                                                 : 'text-sky-100'
-                                                            : isProduct || !mine
+                                                            : isProduct || isTransfer || !mine
                                                               ? 'text-gray-400'
                                                               : 'text-orange-200',
                                                     )}

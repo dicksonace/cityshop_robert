@@ -57,6 +57,17 @@ export interface ChatReplyTo {
     } | null;
 }
 
+export interface ChatTransfer {
+    amount: number | string;
+    currency?: string;
+    note?: string | null;
+    reference?: string | null;
+    from_user_id?: number;
+    to_user_id?: number;
+    from_name?: string | null;
+    to_name?: string | null;
+}
+
 export interface ChatMessage {
     id: number;
     sender_id: number;
@@ -73,6 +84,7 @@ export interface ChatMessage {
         price?: number;
         image_url?: string | null;
     } | null;
+    transfer?: ChatTransfer | null;
     duration_seconds?: number | null;
     call_log?: ChatCallLog | null;
     read_at?: string | null;

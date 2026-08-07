@@ -60,11 +60,13 @@ export default function ChatListPanel() {
                               ? 'Voice message'
                               : c.latest_message?.type === 'product'
                                 ? c.latest_message.body || 'Product'
-                                : c.latest_message?.type === 'call_log' && c.latest_message.call_log
-                                  ? getCallLogListPreview(c.latest_message.call_log, auth.user?.id ?? 0)
-                                  : c.latest_message?.type?.startsWith('call')
-                                    ? 'Voice call'
-                                    : '';
+                                : c.latest_message?.type === 'transfer'
+                                  ? c.latest_message.body || 'Money transfer'
+                                  : c.latest_message?.type === 'call_log' && c.latest_message.call_log
+                                    ? getCallLogListPreview(c.latest_message.call_log, auth.user?.id ?? 0)
+                                    : c.latest_message?.type?.startsWith('call')
+                                      ? 'Voice call'
+                                      : '';
 
                 return (
                     <button
