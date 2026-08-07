@@ -26,6 +26,7 @@ export function useChatVoiceCall(
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
+    const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
     const processedCallIds = useRef<Set<number>>(new Set());
     const callerIdRef = useRef<number | null>(null);
     const callerNameRef = useRef<string>('');
@@ -55,6 +56,7 @@ export function useChatVoiceCall(
             remoteVideoRef.current.srcObject = null;
         }
         pendingOfferRef.current = null;
+        pendingIceRef.current = [];
         callStartedAtRef.current = null;
         callKindRef.current = 'voice';
         setCallKind('voice');
@@ -195,6 +197,14 @@ export function useChatVoiceCall(
             stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
             await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+            for (const candidate of pendingIceRef.current) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch {
+                    // ignore stale ICE candidates
+                }
+            }
+            pendingIceRef.current = [];
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             await sendSignal('call_answer', '', { sdp: answer, call_kind: kind });
@@ -225,9 +235,29 @@ export function useChatVoiceCall(
                 callerIdRef.current = msg.sender_id;
                 callerNameRef.current = msg.sender?.name ?? 'Caller';
                 pendingOfferRef.current = msg.metadata?.sdp as RTCSessionDescriptionInit;
+                pendingIceRef.current = [];
                 unlockChatSounds();
                 startIncomingRing();
                 setCallState('incoming');
+                return;
+            }
+
+            if (msg.type === 'call_ice' && msg.metadata?.candidate) {
+                const candidate = msg.metadata.candidate as RTCIceCandidateInit;
+                if (!pcRef.current) {
+                    if (pendingOfferRef.current) {
+                        pendingIceRef.current.push(candidate);
+                        if (pendingIceRef.current.length > 80) {
+                            pendingIceRef.current.shift();
+                        }
+                    }
+                    return;
+                }
+                try {
+                    await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch {
+                    // ignore stale ICE candidates
+                }
                 return;
             }
 
@@ -238,16 +268,16 @@ export function useChatVoiceCall(
                 await pcRef.current.setRemoteDescription(
                     new RTCSessionDescription(msg.metadata.sdp as RTCSessionDescriptionInit),
                 );
+                for (const candidate of pendingIceRef.current) {
+                    try {
+                        await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+                    } catch {
+                        // ignore stale ICE candidates
+                    }
+                }
+                pendingIceRef.current = [];
                 callStartedAtRef.current = Date.now();
                 setCallState('active');
-            }
-
-            if (msg.type === 'call_ice' && msg.metadata?.candidate) {
-                try {
-                    await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.metadata.candidate as RTCIceCandidateInit));
-                } catch {
-                    // ignore stale ICE candidates
-                }
             }
         },
         [cleanup, currentUserId],
