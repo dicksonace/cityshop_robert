@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ManualTopUpPrompt from '@/components/wallet/manual-top-up-prompt';
+import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import { WalletTransactionReceiptButton } from '@/components/wallet/wallet-receipt-modal';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
@@ -224,19 +225,10 @@ export default function BuyerWallet({
                                             />
                                         ) : (
                                             <div>
-                                                <Label>Bank</Label>
-                                                <select
+                                                <GhanaBankPicker
                                                     value={withdrawForm.data.network}
-                                                    onChange={(e) => withdrawForm.setData('network', e.target.value)}
-                                                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
-                                                    required
-                                                >
-                                                    {GHANA_BANKS.map((bank) => (
-                                                        <option key={bank.id} value={bank.id}>
-                                                            {bank.label}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                    onChange={(network) => withdrawForm.setData('network', network)}
+                                                />
                                                 <InputError message={withdrawForm.errors.network} />
                                             </div>
                                         )}

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
+import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import SellerLayout from '@/layouts/seller-layout';
 import { GHANA_BANKS, isGhanaBank, payoutNetworkLabel } from '@/lib/ghana-banks';
@@ -387,19 +388,10 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                                 />
                             ) : (
                                 <div>
-                                    <Label>Bank</Label>
-                                    <select
+                                    <GhanaBankPicker
                                         value={methodForm.data.network}
-                                        onChange={(e) => methodForm.setData('network', e.target.value)}
-                                        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
-                                        required
-                                    >
-                                        {GHANA_BANKS.map((bank) => (
-                                            <option key={bank.id} value={bank.id}>
-                                                {bank.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onChange={(network) => methodForm.setData('network', network)}
+                                    />
                                     <InputError message={methodForm.errors.network} />
                                 </div>
                             )}
