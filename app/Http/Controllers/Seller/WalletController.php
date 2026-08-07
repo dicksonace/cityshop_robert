@@ -12,6 +12,8 @@ use App\Services\PlatformSettings;
 use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
+use App\Support\GhanaBanks;
+use App\Support\PayoutNetwork;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -154,8 +156,15 @@ class WalletController extends Controller
         }
 
         $validated = $request->validate([
-            'network' => ['required', 'in:mtn,telecel,airteltigo'],
-            'account_number' => ['required', 'string', 'max:20'],
+            'payout_type' => ['required', 'in:momo,bank'],
+            'network' => [
+                'required',
+                'string',
+                $request->input('payout_type') === 'bank'
+                    ? GhanaBanks::validationRule()
+                    : 'in:mtn,telecel,airteltigo',
+            ],
+            'account_number' => ['required', 'string', 'max:30'],
             'account_name' => ['required', 'string', 'max:255'],
             'is_default' => ['boolean'],
         ]);
@@ -176,7 +185,7 @@ class WalletController extends Controller
 
         SellerPayoutMethod::create([
             'user_id' => $request->user()->id,
-            'type' => 'momo',
+            'type' => $validated['payout_type'],
             'network' => $validated['network'],
             'account_number' => $validated['account_number'],
             'account_name' => $validated['account_name'],
@@ -229,13 +238,14 @@ class WalletController extends Controller
             'momo_number' => $payoutMethod->account_number,
             'account_name' => $payoutMethod->account_name,
             'network' => $payoutMethod->network,
+            'payout_channel' => $payoutMethod->type ?: PayoutNetwork::type($payoutMethod->network),
             'status' => WithdrawalStatus::Pending,
         ]);
 
         $wallet->decrement('available_balance', $validated['amount']);
         WalletTransactionService::recordWithdrawal($withdrawal);
 
-        return back()->with('success', 'Withdrawal request submitted. Processing typically takes 15 minutes.');
+        return back()->with('success', 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.');
     }
 
     public function addFunds(Request $request): RedirectResponse

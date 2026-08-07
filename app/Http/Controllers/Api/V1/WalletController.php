@@ -15,6 +15,8 @@ use App\Services\PaymentPinService;
 use App\Services\PlatformSettings;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
+use App\Support\GhanaBanks;
+use App\Support\PayoutNetwork;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -166,6 +168,10 @@ class WalletController extends Controller
                 ),
                 'default_momo_number' => $user->mobile,
                 'default_account_name' => $user->name,
+                'banks' => collect(GhanaBanks::OPTIONS)
+                    ->map(fn (string $label, string $id) => ['id' => $id, 'label' => $label])
+                    ->values()
+                    ->all(),
             ],
         ]);
     }
@@ -179,11 +185,25 @@ class WalletController extends Controller
         $user = $request->user();
         abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
 
+        $payoutType = $request->input('payout_type');
+        // Infer bank when the client sends a bank code without payout_type.
+        if (! in_array($payoutType, ['momo', 'bank'], true)) {
+            $payoutType = GhanaBanks::isBank($request->input('network')) ? 'bank' : 'momo';
+            $request->merge(['payout_type' => $payoutType]);
+        }
+
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:'.self::MINIMUM_WITHDRAWAL],
-            'momo_number' => ['required', 'string', 'max:20'],
+            'payout_type' => ['required', 'in:momo,bank'],
+            'momo_number' => ['required', 'string', 'max:30'],
             'account_name' => ['required', 'string', 'max:255'],
-            'network' => ['required', 'in:mtn,telecel,airteltigo'],
+            'network' => [
+                'required',
+                'string',
+                $payoutType === 'bank'
+                    ? GhanaBanks::validationRule()
+                    : 'in:mtn,telecel,airteltigo',
+            ],
             'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
         ]);
 
@@ -205,6 +225,7 @@ class WalletController extends Controller
                 'momo_number' => $validated['momo_number'],
                 'account_name' => $validated['account_name'],
                 'network' => $validated['network'],
+                'payout_channel' => $validated['payout_type'],
                 'status' => WithdrawalStatus::Pending,
             ]);
 
@@ -212,7 +233,7 @@ class WalletController extends Controller
             WalletTransactionService::recordWithdrawal($withdrawal);
 
             return response()->json([
-                'message' => 'Withdrawal request submitted. Payouts are usually sent within 15 minutes.',
+                'message' => 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.',
                 'data' => $this->withdrawalPayload($withdrawal),
                 'wallet' => [
                     'available_balance' => (float) $wallet->fresh()->available_balance,
@@ -227,18 +248,17 @@ class WalletController extends Controller
      */
     private function withdrawalPayload(Withdrawal $withdrawal): array
     {
+        $payoutType = $withdrawal->payout_channel
+            ?: PayoutNetwork::type($withdrawal->network);
+
         return [
             'id' => $withdrawal->id,
             'amount' => (float) $withdrawal->amount,
             'momo_number' => $withdrawal->momo_number,
             'account_name' => $withdrawal->account_name,
             'network' => $withdrawal->network,
-            'network_label' => match ($withdrawal->network) {
-                'mtn' => 'MTN Mobile Money',
-                'telecel' => 'Telecel Cash',
-                'airteltigo' => 'AirtelTigo Money',
-                default => ucfirst((string) $withdrawal->network),
-            },
+            'network_label' => PayoutNetwork::label($withdrawal->network),
+            'payout_type' => $payoutType,
             'status' => $withdrawal->status?->value,
             // The web deliberately shows pending requests as "Processing".
             'status_label' => match ($withdrawal->status) {

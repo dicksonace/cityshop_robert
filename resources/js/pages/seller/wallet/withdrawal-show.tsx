@@ -2,7 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Download } from 'lucide-react';
 
 import SellerLayout from '@/layouts/seller-layout';
-import { momoNetworkLabel } from '@/lib/momo-networks';
+import { payoutNetworkLabel } from '@/lib/ghana-banks';
 import {
     formatFinanceDate,
     transactionTypeBadgeClass,
@@ -46,7 +46,7 @@ export default function SellerWithdrawalShow({ wallet, withdrawal, ledger }: Pro
                     </span>
                     <p className="mt-3 text-3xl font-bold">{formatPrice(withdrawal.amount)}</p>
                     <p className="mt-2 text-sm text-white/80">
-                        {momoNetworkLabel(withdrawal.network)} · {withdrawal.momo_number}
+                        {payoutNetworkLabel(withdrawal.network)} · {withdrawal.momo_number}
                     </p>
                     <p className="text-xs text-white/50">{withdrawal.account_name}</p>
                 </div>

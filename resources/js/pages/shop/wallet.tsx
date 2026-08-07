@@ -11,8 +11,9 @@ import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import { WalletTransactionReceiptButton } from '@/components/wallet/wallet-receipt-modal';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import ShopLayout from '@/layouts/shop-layout';
-import { momoNetworkLabel } from '@/lib/momo-networks';
+import { GHANA_BANKS, payoutNetworkLabel } from '@/lib/ghana-banks';
 import { SharedData } from '@/types';
+import { cn } from '@/lib/utils';
 import {
     formatPrice,
     formatWalletTransactionType,
@@ -73,11 +74,22 @@ export default function BuyerWallet({
     const addFundsForm = useForm({ amount: '', method: 'momo' });
     const withdrawForm = useForm({
         amount: '',
+        payout_type: 'momo' as 'momo' | 'bank',
         momo_number: auth.user?.mobile ?? '',
         account_name: auth.user?.name ?? '',
         network: 'mtn',
         payment_pin: '',
     });
+
+    const setPayoutType = (type: 'momo' | 'bank') => {
+        withdrawForm.setData({
+            ...withdrawForm.data,
+            payout_type: type,
+            network: type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn',
+            // Don't carry a MoMo phone into the bank account field (or the reverse).
+            momo_number: type === 'momo' ? (auth.user?.mobile ?? '') : '',
+        });
+    };
 
     const refreshBalance = () => {
         setRefreshing(true);
@@ -126,7 +138,7 @@ export default function BuyerWallet({
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">My Wallet</h1>
-                        <p className="text-sm text-gray-500">Add funds, pay for orders, withdraw to MoMo, and view refunds.</p>
+                        <p className="text-sm text-gray-500">Add funds, pay for orders, withdraw to MoMo or bank, and view refunds.</p>
                     </div>
                 </div>
 
@@ -160,16 +172,16 @@ export default function BuyerWallet({
                             Refresh
                         </Button>
                     </div>
-                    <p className="mt-2 text-xs text-white/60">Use your balance at checkout or withdraw to MoMo. Refunds are credited here.</p>
+                    <p className="mt-2 text-xs text-white/60">Use your balance at checkout or withdraw to MoMo or bank. Refunds are credited here.</p>
                 </div>
 
                 <div id="withdraw" className="mb-6 scroll-mt-24">
                     <WithdrawalHighlight
-                        title="Withdraw to MoMo"
+                        title="Withdraw funds"
                         subtitle={
                             wallet.available_balance >= 10
-                                ? `You can withdraw up to ${formatPrice(wallet.available_balance)}. Pick your network first — MTN MoMo is most common.`
-                                : 'Pick your mobile money network first, then enter your MoMo details. Minimum withdrawal is GH₵10.'
+                                ? `You can withdraw up to ${formatPrice(wallet.available_balance)}. Choose MoMo or bank, then enter your details.`
+                                : 'Choose MoMo or a Ghana bank, then enter your payout details. Minimum withdrawal is GH₵10.'
                         }
                     >
                         {hasPendingWithdrawal ? (
@@ -180,20 +192,63 @@ export default function BuyerWallet({
                         <form onSubmit={submitWithdraw} className="space-y-5">
                             {withdrawStep === 'details' && (
                                     <div className="space-y-4">
-                                        <MomoNetworkPicker
-                                            value={withdrawForm.data.network}
-                                            onChange={(network) => withdrawForm.setData('network', network)}
-                                            hint="Step 1 — choose MTN MoMo, Telecel, or AirtelTigo."
-                                        />
                                         <div>
-                                            <Label>MoMo number</Label>
+                                            <Label className="text-base font-semibold">1. Payout method</Label>
+                                            <div className="mt-2 grid grid-cols-2 gap-2">
+                                                {([
+                                                    { id: 'momo' as const, label: 'Mobile Money' },
+                                                    { id: 'bank' as const, label: 'Bank account' },
+                                                ]).map((option) => (
+                                                    <button
+                                                        key={option.id}
+                                                        type="button"
+                                                        onClick={() => setPayoutType(option.id)}
+                                                        className={cn(
+                                                            'rounded-xl border-2 px-3 py-3 text-sm font-semibold transition',
+                                                            withdrawForm.data.payout_type === option.id
+                                                                ? 'border-orange-500 bg-orange-50 text-orange-800'
+                                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                                                        )}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <InputError message={withdrawForm.errors.payout_type} />
+                                        </div>
+                                        {withdrawForm.data.payout_type === 'momo' ? (
+                                            <MomoNetworkPicker
+                                                value={withdrawForm.data.network}
+                                                onChange={(network) => withdrawForm.setData('network', network)}
+                                                hint="Choose MTN MoMo, Telecel, or AirtelTigo."
+                                            />
+                                        ) : (
+                                            <div>
+                                                <Label>Bank</Label>
+                                                <select
+                                                    value={withdrawForm.data.network}
+                                                    onChange={(e) => withdrawForm.setData('network', e.target.value)}
+                                                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                                                    required
+                                                >
+                                                    {GHANA_BANKS.map((bank) => (
+                                                        <option key={bank.id} value={bank.id}>
+                                                            {bank.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <InputError message={withdrawForm.errors.network} />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <Label>{withdrawForm.data.payout_type === 'bank' ? 'Account number' : 'MoMo number'}</Label>
                                             <Input
                                                 value={withdrawForm.data.momo_number}
                                                 onChange={(e) => withdrawForm.setData('momo_number', e.target.value)}
                                                 required
                                                 className="mt-1"
-                                                placeholder="0XX XXX XXXX"
-                                                inputMode="tel"
+                                                placeholder={withdrawForm.data.payout_type === 'bank' ? 'Bank account number' : '0XX XXX XXXX'}
+                                                inputMode={withdrawForm.data.payout_type === 'bank' ? 'numeric' : 'tel'}
                                             />
                                             <InputError message={withdrawForm.errors.momo_number} />
                                         </div>
@@ -204,7 +259,7 @@ export default function BuyerWallet({
                                                 onChange={(e) => withdrawForm.setData('account_name', e.target.value)}
                                                 required
                                                 className="mt-1"
-                                                placeholder="Name on MoMo account"
+                                                placeholder={withdrawForm.data.payout_type === 'bank' ? 'Name on bank account' : 'Name on MoMo account'}
                                             />
                                             <InputError message={withdrawForm.errors.account_name} />
                                         </div>
@@ -215,7 +270,7 @@ export default function BuyerWallet({
                                     <div className="space-y-4">
                                         <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm">
                                             <p className="text-gray-500">Payout to</p>
-                                            <p className="font-semibold text-gray-900">{momoNetworkLabel(withdrawForm.data.network)}</p>
+                                            <p className="font-semibold text-gray-900">{payoutNetworkLabel(withdrawForm.data.network)}</p>
                                             <p className="text-gray-600">
                                                 {withdrawForm.data.momo_number} · {withdrawForm.data.account_name}
                                             </p>
@@ -248,15 +303,17 @@ export default function BuyerWallet({
                                 {withdrawStep === 'review' && (
                                     <div className="space-y-4">
                                         <div className="rounded-xl border-2 border-orange-200 bg-orange-50/60 p-4">
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Review MoMo payout</p>
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">
+                                                Review {withdrawForm.data.payout_type === 'bank' ? 'bank' : 'MoMo'} payout
+                                            </p>
                                             <p className="mt-2 text-sm text-gray-600">
-                                                {momoNetworkLabel(withdrawForm.data.network)} · {withdrawForm.data.momo_number}
+                                                {payoutNetworkLabel(withdrawForm.data.network)} · {withdrawForm.data.momo_number}
                                             </p>
                                             <p className="text-sm text-gray-500">{withdrawForm.data.account_name}</p>
                                             <p className="mt-3 text-2xl font-bold text-orange-500">
                                                 {formatPrice(parseFloat(withdrawForm.data.amount) || 0)}
                                             </p>
-                                            <p className="mt-1 text-xs text-gray-500">Usually paid within 15 minutes after admin approval.</p>
+                                            <p className="mt-1 text-xs text-gray-500">Usually processed within 15 minutes and sometimes instant.</p>
                                         </div>
                                         <div>
                                             <label className="mb-1 block text-sm font-medium text-gray-700">Payment PIN</label>
@@ -311,7 +368,7 @@ export default function BuyerWallet({
                                             </>
                                         )}
                                         {withdrawStep === 'amount' && 'Review withdrawal'}
-                                        {withdrawStep === 'review' && 'Request withdrawal to MoMo'}
+                                        {withdrawStep === 'review' && 'Request withdrawal'}
                                     </Button>
                                 </div>
                             </form>
@@ -362,7 +419,7 @@ export default function BuyerWallet({
 
                     <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
                         <h3 className="font-semibold text-gray-900">Withdrawal requests</h3>
-                        <p className="mt-1 text-sm text-gray-500">Track MoMo payouts like sellers do.</p>
+                        <p className="mt-1 text-sm text-gray-500">Track MoMo and bank payouts.</p>
                         {withdrawals.data.length === 0 ? (
                             <p className="mt-4 text-sm text-gray-500">No withdrawal requests yet.</p>
                         ) : (
@@ -374,7 +431,7 @@ export default function BuyerWallet({
                                                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusColor[w.status] ?? 'bg-gray-100 text-gray-700'}`}>
                                                     {statusLabel[w.status] ?? w.status}
                                                 </span>
-                                                <span className="text-xs text-gray-400">{momoNetworkLabel(w.network)}</span>
+                                                <span className="text-xs text-gray-400">{payoutNetworkLabel(w.network)}</span>
                                             </div>
                                             <p className="mt-1 text-sm text-gray-700">{w.momo_number}</p>
                                             <p className="text-xs text-gray-400">{formatDate(w.created_at)}</p>

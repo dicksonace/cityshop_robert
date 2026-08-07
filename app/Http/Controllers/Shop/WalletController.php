@@ -12,6 +12,7 @@ use App\Services\PlatformSettings;
 use App\Services\PaymentPinService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
+use App\Support\GhanaBanks;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -159,9 +160,16 @@ class WalletController extends Controller
 
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:10'],
-            'momo_number' => ['required', 'string', 'max:20'],
+            'payout_type' => ['required', 'in:momo,bank'],
+            'momo_number' => ['required', 'string', 'max:30'],
             'account_name' => ['required', 'string', 'max:255'],
-            'network' => ['required', 'in:mtn,telecel,airteltigo'],
+            'network' => [
+                'required',
+                'string',
+                $request->input('payout_type') === 'bank'
+                    ? GhanaBanks::validationRule()
+                    : 'in:mtn,telecel,airteltigo',
+            ],
             'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
         ]);
 
@@ -183,13 +191,14 @@ class WalletController extends Controller
                 'momo_number' => $validated['momo_number'],
                 'account_name' => $validated['account_name'],
                 'network' => $validated['network'],
+                'payout_channel' => $validated['payout_type'],
                 'status' => WithdrawalStatus::Pending,
             ]);
 
             $wallet->decrement('available_balance', $amount);
             WalletTransactionService::recordWithdrawal($withdrawal);
 
-            return back()->with('success', 'Withdrawal request submitted. Processing typically takes 15 minutes.');
+            return back()->with('success', 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.');
         });
     }
 }

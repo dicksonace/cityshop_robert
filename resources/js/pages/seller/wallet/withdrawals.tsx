@@ -2,7 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft, ChevronRight, Download } from 'lucide-react';
 
 import SellerLayout from '@/layouts/seller-layout';
-import { momoNetworkLabel } from '@/lib/momo-networks';
+import { payoutNetworkLabel } from '@/lib/ghana-banks';
 import {
     formatFinanceDate,
     PaginationLinks,
@@ -76,7 +76,7 @@ export default function SellerWithdrawals({ wallet, withdrawals }: Props) {
                                         </div>
                                         <div className="min-w-0">
                                             <p className="font-medium text-gray-900">
-                                                {momoNetworkLabel(w.network)} · {w.momo_number}
+                                                {payoutNetworkLabel(w.network)} · {w.momo_number}
                                             </p>
                                             <p className="truncate text-sm text-gray-500">{w.account_name}</p>
                                             {w.proof_path && (

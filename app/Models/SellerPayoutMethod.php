@@ -39,11 +39,6 @@ class SellerPayoutMethod extends Model
 
     public function networkLabel(): string
     {
-        return match ($this->network) {
-            'mtn' => 'MTN Mobile Money',
-            'telecel' => 'Telecel Cash',
-            'airteltigo' => 'AirtelTigo Money',
-            default => ucfirst($this->network),
-        };
+        return \App\Support\PayoutNetwork::label($this->network);
     }
 }

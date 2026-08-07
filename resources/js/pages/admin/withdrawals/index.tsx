@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AdminLayout from '@/layouts/admin-layout';
-import { momoNetworkLabel } from '@/lib/momo-networks';
+import { payoutNetworkLabel } from '@/lib/ghana-banks';
 import { formatPrice, Paginated, productImageUrl } from '@/types/marketplace';
 
 interface AdminWithdrawalRow {
@@ -206,7 +206,7 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
                                             {w.user?.mobile ? ` · ${w.user.mobile}` : ''}
                                         </p>
                                         <p className="mt-1 text-sm text-gray-600">
-                                            Pay to: {momoNetworkLabel(w.network)} · {w.momo_number}
+                                            Pay to: {payoutNetworkLabel(w.network)} · {w.momo_number}
                                             {w.account_name ? ` · ${w.account_name}` : ''}
                                         </p>
 
@@ -371,7 +371,7 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
 
                             <div className="rounded-xl border border-sky-100 bg-sky-50 p-4 text-sm">
                                 <p className="font-semibold text-sky-900">Mobile money</p>
-                                <p className="mt-1 text-sky-900">{momoNetworkLabel(detail.network)}</p>
+                                <p className="mt-1 text-sky-900">{payoutNetworkLabel(detail.network)}</p>
                                 <p className="text-sky-800">{detail.momo_number}</p>
                                 <p className="text-sky-800">{detail.account_name}</p>
                             </div>

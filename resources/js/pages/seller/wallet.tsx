@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import SellerLayout from '@/layouts/seller-layout';
-import { momoNetworkLabel, momoNetworkMeta } from '@/lib/momo-networks';
+import { GHANA_BANKS, isGhanaBank, payoutNetworkLabel } from '@/lib/ghana-banks';
+import { momoNetworkMeta } from '@/lib/momo-networks';
 import { cn } from '@/lib/utils';
 import {
     formatPrice,
@@ -22,6 +23,7 @@ import {
 
 interface PayoutMethod {
     id: number;
+    type?: string;
     network: string;
     account_number: string;
     account_name: string;
@@ -47,11 +49,21 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
     const [refreshing, setRefreshing] = useState(false);
 
     const methodForm = useForm({
+        payout_type: 'momo' as 'momo' | 'bank',
         network: 'mtn',
         account_number: '',
         account_name: '',
         is_default: true,
     });
+
+    const setMethodPayoutType = (type: 'momo' | 'bank') => {
+        methodForm.setData({
+            ...methodForm.data,
+            payout_type: type,
+            network: type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn',
+            account_number: '',
+        });
+    };
 
     const withdrawForm = useForm({
         payout_method_id: payoutMethods.find((m) => m.is_default)?.id?.toString() ?? payoutMethods[0]?.id?.toString() ?? '',
@@ -74,6 +86,13 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
         methodForm.post(route('seller.wallet.payout-methods.store'), {
             onSuccess: () => {
                 methodForm.reset();
+                methodForm.setData({
+                    payout_type: 'momo',
+                    network: 'mtn',
+                    account_number: '',
+                    account_name: '',
+                    is_default: true,
+                });
                 setShowAddMethod(false);
             },
         });
@@ -153,10 +172,11 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
 
             <div id="withdraw" className="scroll-mt-24">
             <WithdrawalHighlight
+                title="Withdraw funds"
                 subtitle={
                     wallet.available_balance >= 10
-                        ? `You can withdraw up to ${formatPrice(wallet.available_balance)} to your MoMo wallet. Pick your network first — MTN MoMo is most common.`
-                        : 'Add a MoMo payout method below. Minimum withdrawal is GH₵10.'
+                        ? `You can withdraw up to ${formatPrice(wallet.available_balance)} to MoMo or bank. Add a payout method first if you haven’t.`
+                        : 'Add a MoMo or bank payout method below. Minimum withdrawal is GH₵10.'
                 }
                 className="mb-6"
             >
@@ -168,7 +188,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                 {payoutMethods.length === 0 ? (
                     <div className="space-y-4">
                         <p className="text-sm text-gray-600">
-                            Save your <strong>MoMo network and number</strong> first, then you can request a withdrawal.
+                            Save your <strong>MoMo or bank account</strong> first, then you can request a withdrawal.
                         </p>
                         <Button
                             type="button"
@@ -176,17 +196,18 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                             onClick={() => setShowAddMethod(true)}
                         >
                             <Plus className="mr-2 h-4 w-4" />
-                            Add MoMo payout method
+                            Add payout method
                         </Button>
                     </div>
                 ) : (
                     <form onSubmit={submitWithdraw} className="space-y-5">
                         {withdrawStep === 'method' && (
                             <div className="space-y-3">
-                                <Label className="text-base font-semibold">1. Choose MoMo account</Label>
+                                <Label className="text-base font-semibold">1. Choose payout account</Label>
                                 {payoutMethods.map((method) => {
                                     const meta = momoNetworkMeta(method.network);
                                     const selected = withdrawForm.data.payout_method_id === String(method.id);
+                                    const isBank = method.type === 'bank' || isGhanaBank(method.network);
 
                                     return (
                                         <label
@@ -209,7 +230,10 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <p className="font-semibold text-gray-900">{momoNetworkLabel(method.network)}</p>
+                                                    <p className="font-semibold text-gray-900">{payoutNetworkLabel(method.network)}</p>
+                                                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-600">
+                                                        {isBank ? 'Bank' : 'MoMo'}
+                                                    </span>
                                                     {method.is_default && (
                                                         <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase text-orange-700">
                                                             Default
@@ -230,7 +254,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                             <div className="space-y-4">
                                 <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm">
                                     <p className="text-gray-500">Payout to</p>
-                                    <p className="font-semibold text-gray-900">{momoNetworkLabel(selectedMethod.network)}</p>
+                                    <p className="font-semibold text-gray-900">{payoutNetworkLabel(selectedMethod.network)}</p>
                                     <p className="text-gray-600">{selectedMethod.account_number} · {selectedMethod.account_name}</p>
                                 </div>
                                 <div>
@@ -261,12 +285,12 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                         {withdrawStep === 'review' && selectedMethod && (
                             <div className="space-y-4">
                                 <div className="rounded-xl border-2 border-orange-200 bg-white p-4 text-sm space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Review MoMo payout</p>
-                                    <p><span className="text-gray-500">Network:</span> <strong>{momoNetworkLabel(selectedMethod.network)}</strong></p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Review payout</p>
+                                    <p><span className="text-gray-500">Destination:</span> <strong>{payoutNetworkLabel(selectedMethod.network)}</strong></p>
                                     <p><span className="text-gray-500">Number:</span> {selectedMethod.account_number}</p>
                                     <p><span className="text-gray-500">Name:</span> {selectedMethod.account_name}</p>
                                     <p className="text-2xl font-bold text-orange-500">{formatPrice(parseFloat(withdrawForm.data.amount) || 0)}</p>
-                                    <p className="text-xs text-gray-500">Admin reviews your request and pays you manually via MoMo.</p>
+                                    <p className="text-xs text-gray-500">Usually processed within 15 minutes and sometimes instant.</p>
                                 </div>
                                 <div>
                                     <label className="mb-1 block text-sm font-medium text-gray-700">Payment PIN</label>
@@ -321,8 +345,8 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h3 className="font-semibold text-gray-900">MoMo payout methods</h3>
-                            <p className="mt-1 text-sm text-gray-500">Save the network and number where you receive withdrawals.</p>
+                            <h3 className="font-semibold text-gray-900">Payout methods</h3>
+                            <p className="mt-1 text-sm text-gray-500">Save MoMo or bank accounts where you receive withdrawals.</p>
                         </div>
                         <Button type="button" variant="outline" size="sm" onClick={() => setShowAddMethod(!showAddMethod)}>
                             <Plus className="mr-1 h-4 w-4" /> Add
@@ -331,14 +355,63 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
 
                     {showAddMethod && (
                         <form onSubmit={saveMethod} className="mt-4 space-y-4 rounded-xl border-2 border-dashed border-orange-200 bg-orange-50/40 p-4">
-                            <MomoNetworkPicker
-                                value={methodForm.data.network}
-                                onChange={(network) => methodForm.setData('network', network)}
-                                hint="Step 1 — pick your MoMo network. MTN MoMo is selected by default."
-                            />
                             <div>
-                                <Label>Mobile number</Label>
-                                <Input value={methodForm.data.account_number} onChange={(e) => methodForm.setData('account_number', e.target.value)} required className="mt-1 bg-white" placeholder="0XX XXX XXXX" />
+                                <Label className="font-semibold">Payout type</Label>
+                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                    {([
+                                        { id: 'momo' as const, label: 'Mobile Money' },
+                                        { id: 'bank' as const, label: 'Bank account' },
+                                    ]).map((option) => (
+                                        <button
+                                            key={option.id}
+                                            type="button"
+                                            onClick={() => setMethodPayoutType(option.id)}
+                                            className={cn(
+                                                'rounded-xl border-2 px-3 py-3 text-sm font-semibold transition',
+                                                methodForm.data.payout_type === option.id
+                                                    ? 'border-orange-500 bg-orange-50 text-orange-800'
+                                                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                                            )}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <InputError message={methodForm.errors.payout_type} />
+                            </div>
+                            {methodForm.data.payout_type === 'momo' ? (
+                                <MomoNetworkPicker
+                                    value={methodForm.data.network}
+                                    onChange={(network) => methodForm.setData('network', network)}
+                                    hint="Pick your MoMo network. MTN MoMo is selected by default."
+                                />
+                            ) : (
+                                <div>
+                                    <Label>Bank</Label>
+                                    <select
+                                        value={methodForm.data.network}
+                                        onChange={(e) => methodForm.setData('network', e.target.value)}
+                                        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                                        required
+                                    >
+                                        {GHANA_BANKS.map((bank) => (
+                                            <option key={bank.id} value={bank.id}>
+                                                {bank.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <InputError message={methodForm.errors.network} />
+                                </div>
+                            )}
+                            <div>
+                                <Label>{methodForm.data.payout_type === 'bank' ? 'Account number' : 'Mobile number'}</Label>
+                                <Input
+                                    value={methodForm.data.account_number}
+                                    onChange={(e) => methodForm.setData('account_number', e.target.value)}
+                                    required
+                                    className="mt-1 bg-white"
+                                    placeholder={methodForm.data.payout_type === 'bank' ? 'Bank account number' : '0XX XXX XXXX'}
+                                />
                                 <InputError message={methodForm.errors.account_number} />
                             </div>
                             <div>
@@ -347,7 +420,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                                 <InputError message={methodForm.errors.account_name} />
                             </div>
                             <Button type="submit" disabled={methodForm.processing} className="w-full bg-orange-500 hover:bg-orange-600">
-                                Save MoMo payout method
+                                Save payout method
                             </Button>
                         </form>
                     )}
@@ -355,17 +428,18 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                     <ul className="mt-4 space-y-2">
                         {payoutMethods.map((method) => {
                             const meta = momoNetworkMeta(method.network);
+                            const isBank = method.type === 'bank' || isGhanaBank(method.network);
 
                             return (
                                 <li key={method.id} className="flex items-center justify-between rounded-xl border border-gray-100 p-3">
                                     <div className="min-w-0">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', meta?.badgeClass ?? 'bg-gray-100 text-gray-700')}>
-                                                {meta?.shortLabel ?? method.network}
+                                                {meta?.shortLabel ?? (isBank ? 'Bank' : method.network)}
                                             </span>
                                             {method.is_default && <span className="text-xs font-medium text-orange-500">Default</span>}
                                         </div>
-                                        <p className="mt-1 font-medium text-gray-900">{momoNetworkLabel(method.network)}</p>
+                                        <p className="mt-1 font-medium text-gray-900">{payoutNetworkLabel(method.network)}</p>
                                         <p className="text-sm text-gray-500">{method.account_number} · {method.account_name}</p>
                                     </div>
                                     <Button
@@ -381,7 +455,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                             );
                         })}
                         {payoutMethods.length === 0 && !showAddMethod && (
-                            <p className="text-sm text-gray-500">Add your MoMo network and number to withdraw funds.</p>
+                            <p className="text-sm text-gray-500">Add a MoMo or bank account to withdraw funds.</p>
                         )}
                     </ul>
                 </div>
@@ -389,9 +463,9 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-1">
                     <h3 className="font-semibold text-gray-900">Quick tips</h3>
                     <ul className="mt-4 space-y-3 text-sm text-gray-600">
-                        <li className="rounded-lg bg-gray-50 p-3"><strong className="text-gray-900">MTN MoMo</strong> is the most used network in Ghana.</li>
-                        <li className="rounded-lg bg-gray-50 p-3">Use the name registered on your MoMo account.</li>
-                        <li className="rounded-lg bg-gray-50 p-3">Withdrawals are reviewed and paid within 15 minutes.</li>
+                        <li className="rounded-lg bg-gray-50 p-3"><strong className="text-gray-900">MoMo or bank</strong> — choose whichever account you want paid into.</li>
+                        <li className="rounded-lg bg-gray-50 p-3">Use the name registered on the MoMo or bank account.</li>
+                        <li className="rounded-lg bg-gray-50 p-3">Usually processed within 15 minutes and sometimes instant.</li>
                     </ul>
                 </div>
             </div>
@@ -428,7 +502,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                                             <span className="text-xs text-gray-400">{formatDate(w.created_at)}</span>
                                         </div>
                                         <p className="mt-1 text-sm text-gray-700">
-                                            {momoNetworkLabel(w.network)} · {w.momo_number}
+                                            {payoutNetworkLabel(w.network)} · {w.momo_number}
                                         </p>
                                         {w.proof_path && (
                                             <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-orange-600">

@@ -7,6 +7,7 @@ use App\Enums\WithdrawalStatus;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
+use App\Services\PaymentPinService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -21,6 +22,7 @@ class BuyerWalletWithdrawTest extends TestCase
             'name' => 'Kofi Buyer',
             'mobile' => '0244111222',
         ]);
+        PaymentPinService::set($buyer, '2468');
 
         Wallet::create([
             'user_id' => $buyer->id,
@@ -33,9 +35,11 @@ class BuyerWalletWithdrawTest extends TestCase
         $this->actingAs($buyer)
             ->post(route('wallet.withdraw'), [
                 'amount' => 50,
+                'payout_type' => 'momo',
                 'momo_number' => '0244111222',
                 'account_name' => 'Kofi Buyer',
                 'network' => 'mtn',
+                'payment_pin' => '2468',
             ])
             ->assertRedirect()
             ->assertSessionHas('success');
@@ -45,10 +49,49 @@ class BuyerWalletWithdrawTest extends TestCase
             'amount' => 50,
             'momo_number' => '0244111222',
             'network' => 'mtn',
+            'payout_channel' => 'momo',
             'status' => WithdrawalStatus::Pending->value,
         ]);
 
         $this->assertEquals(100.0, (float) Wallet::where('user_id', $buyer->id)->value('available_balance'));
+    }
+
+    public function test_buyer_can_request_bank_withdrawal(): void
+    {
+        $buyer = User::factory()->create([
+            'role' => UserRole::Buyer,
+            'name' => 'Ama Buyer',
+            'mobile' => '0244111333',
+        ]);
+        PaymentPinService::set($buyer, '2468');
+
+        Wallet::create([
+            'user_id' => $buyer->id,
+            'available_balance' => 200,
+            'pending_balance' => 0,
+            'total_earnings' => 0,
+            'withdrawn_amount' => 0,
+        ]);
+
+        $this->actingAs($buyer)
+            ->post(route('wallet.withdraw'), [
+                'amount' => 75,
+                'payout_type' => 'bank',
+                'momo_number' => '0123456789',
+                'account_name' => 'Ama Buyer',
+                'network' => 'ecobank',
+                'payment_pin' => '2468',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('withdrawals', [
+            'user_id' => $buyer->id,
+            'network' => 'ecobank',
+            'payout_channel' => 'bank',
+            'momo_number' => '0123456789',
+            'status' => WithdrawalStatus::Pending->value,
+        ]);
     }
 
     public function test_buyer_wallet_page_includes_withdrawal_section(): void

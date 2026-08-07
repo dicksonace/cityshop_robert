@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\PaymentPinService;
 use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -37,6 +38,7 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('summary.has_pending', false)
             ->assertJsonPath('summary.default_momo_number', $buyer->mobile)
             ->assertJsonPath('summary.default_account_name', $buyer->name)
+            ->assertJsonPath('summary.banks.0.id', 'absa')
             ->assertJsonCount(0, 'data');
     }
 
@@ -46,21 +48,21 @@ class ApiWithdrawalTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $response = $this->postJson('/api/v1/wallet/withdraw', [
+        $response = $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
             'amount' => 120,
-            'momo_number' => '0539790093',
-            'account_name' => 'Kofi Amoah',
             'network' => 'mtn',
-        ])->assertCreated();
+        ]))->assertCreated();
 
         $response->assertJsonPath('data.amount', 120)
             ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.status_label', 'Processing')
             ->assertJsonPath('data.network_label', 'MTN Mobile Money')
+            ->assertJsonPath('data.payout_type', 'momo')
             ->assertJsonPath('wallet.available_balance', 380);
 
         $withdrawal = Withdrawal::where('user_id', $buyer->id)->sole();
         $this->assertSame('0539790093', $withdrawal->momo_number);
+        $this->assertSame('momo', $withdrawal->payout_channel);
         $this->assertSame(WithdrawalStatus::Pending, $withdrawal->status);
         $this->assertSame(380.0, (float) $buyer->wallet->fresh()->available_balance);
 
@@ -70,28 +72,49 @@ class ApiWithdrawalTest extends TestCase
         $this->assertSame("WD-{$withdrawal->id}", $entry->reference);
     }
 
+    public function test_bank_withdrawal_is_accepted(): void
+    {
+        $buyer = $this->buyerWithBalance(500);
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
+            'amount' => 80,
+            'payout_type' => 'bank',
+            'network' => 'gcb',
+            'momo_number' => '1234567890',
+            'account_name' => 'Kofi Amoah',
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.payout_type', 'bank')
+            ->assertJsonPath('data.network_label', 'GCB')
+            ->assertJsonPath('data.momo_number', '1234567890');
+
+        $this->assertDatabaseHas('withdrawals', [
+            'user_id' => $buyer->id,
+            'network' => 'gcb',
+            'payout_channel' => 'bank',
+            'momo_number' => '1234567890',
+        ]);
+    }
+
     public function test_the_minimum_is_ten_cedis(): void
     {
         Sanctum::actingAs($this->buyerWithBalance(500));
 
-        $this->postJson('/api/v1/wallet/withdraw', [
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
             'amount' => 9.99,
-            'momo_number' => '0539790093',
-            'account_name' => 'Kofi Amoah',
-            'network' => 'mtn',
-        ])->assertStatus(422)->assertJsonValidationErrors('amount');
+        ]))->assertStatus(422)->assertJsonValidationErrors('amount');
     }
 
     public function test_an_unknown_network_is_rejected(): void
     {
         Sanctum::actingAs($this->buyerWithBalance(500));
 
-        $this->postJson('/api/v1/wallet/withdraw', [
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
             'amount' => 50,
-            'momo_number' => '0539790093',
-            'account_name' => 'Kofi Amoah',
             'network' => 'vodafone',
-        ])->assertStatus(422)->assertJsonValidationErrors('network');
+        ]))->assertStatus(422)->assertJsonValidationErrors('network');
     }
 
     public function test_a_buyer_cannot_withdraw_more_than_the_available_balance(): void
@@ -100,12 +123,9 @@ class ApiWithdrawalTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $this->postJson('/api/v1/wallet/withdraw', [
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
             'amount' => 60,
-            'momo_number' => '0539790093',
-            'account_name' => 'Kofi Amoah',
-            'network' => 'mtn',
-        ])
+        ]))
             ->assertStatus(422)
             ->assertJsonPath('message', 'Insufficient available balance.');
 
@@ -119,12 +139,9 @@ class ApiWithdrawalTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $this->postJson('/api/v1/wallet/withdraw', [
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
             'amount' => 500,
-            'momo_number' => '0539790093',
-            'account_name' => 'Kofi Amoah',
-            'network' => 'mtn',
-        ])->assertStatus(422)->assertJsonPath('message', 'Insufficient available balance.');
+        ]))->assertStatus(422)->assertJsonPath('message', 'Insufficient available balance.');
     }
 
     public function test_another_withdrawal_is_allowed_while_one_is_processing(): void
@@ -142,12 +159,9 @@ class ApiWithdrawalTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $this->postJson('/api/v1/wallet/withdraw', [
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
             'amount' => 50,
-            'momo_number' => '0539790093',
-            'account_name' => 'Kofi Amoah',
-            'network' => 'mtn',
-        ])
+        ]))
             ->assertCreated()
             ->assertJsonPath('data.amount', 50);
 
@@ -174,12 +188,9 @@ class ApiWithdrawalTest extends TestCase
 
         Sanctum::actingAs($buyer);
 
-        $this->postJson('/api/v1/wallet/withdraw', [
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
             'amount' => 50,
-            'momo_number' => '0539790093',
-            'account_name' => 'Kofi Amoah',
-            'network' => 'mtn',
-        ])->assertCreated();
+        ]))->assertCreated();
     }
 
     public function test_history_is_newest_first_and_private_to_the_buyer(): void
@@ -226,10 +237,27 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('data.1.network_label', 'Telecel Cash');
     }
 
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function withdrawPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'amount' => 50,
+            'payout_type' => 'momo',
+            'momo_number' => '0539790093',
+            'account_name' => 'Kofi Amoah',
+            'network' => 'mtn',
+            'payment_pin' => '2468',
+        ], $overrides);
+    }
+
     private function buyerWithBalance(float $available, float $pending = 0): User
     {
         $buyer = User::factory()->create(['role' => UserRole::Buyer]);
         WalletService::ensure($buyer);
+        PaymentPinService::set($buyer, '2468');
 
         Wallet::where('user_id', $buyer->id)->update([
             'available_balance' => $available,
