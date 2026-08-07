@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ManualTopUpPrompt from '@/components/wallet/manual-top-up-prompt';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
+import { WalletTransactionReceiptButton } from '@/components/wallet/wallet-receipt-modal';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import ShopLayout from '@/layouts/shop-layout';
 import { momoNetworkLabel } from '@/lib/momo-networks';
@@ -422,6 +423,7 @@ export default function BuyerWallet({
                                                     <p className="font-semibold text-gray-900">{formatPrice(tx.balance_after ?? 0)}</p>
                                                 </div>
                                             </div>
+                                            <WalletTransactionReceiptButton tx={tx} />
                                         </div>
                                     );
                                 })}

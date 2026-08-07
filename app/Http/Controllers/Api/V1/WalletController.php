@@ -92,6 +92,49 @@ class WalletController extends Controller
     }
 
     /**
+     * Look up one ledger row by transfer/payment reference (chat receipts).
+     */
+    public function transactionByReference(Request $request, string $reference): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        $reference = trim($reference);
+        abort_if($reference === '', 404);
+
+        $wallet = WalletService::ensure($user);
+        $tx = WalletTransaction::where('user_id', $user->id)
+            ->where('reference', $reference)
+            ->latest('id')
+            ->first();
+
+        if (! $tx) {
+            return response()->json(['message' => 'Transaction not found.'], 404);
+        }
+
+        WalletTransactionService::attachRunningBalances(
+            $user->id,
+            collect([$tx]),
+            (float) $wallet->available_balance,
+            (float) $wallet->pending_balance,
+        );
+
+        return response()->json([
+            'transaction' => [
+                'id' => $tx->id,
+                'type' => $tx->type->value,
+                'type_label' => $tx->type->label(),
+                'amount' => (float) $tx->amount,
+                'description' => $tx->description,
+                'reference' => $tx->reference,
+                'created_at' => $tx->created_at?->toIso8601String(),
+                'balance_before' => $tx->getAttribute('balance_before'),
+                'balance_after' => $tx->getAttribute('balance_after'),
+            ],
+        ]);
+    }
+
+    /**
      * Everything the app needs to draw the withdraw screen: how much can leave
      * the wallet, whether a request is already in flight, and past payouts.
      */

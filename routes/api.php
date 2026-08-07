@@ -156,6 +156,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/wallet', [WalletController::class, 'show']);
         Route::get('/wallet/transactions', [WalletController::class, 'transactions']);
+        Route::get('/wallet/transactions/by-reference/{reference}', [WalletController::class, 'transactionByReference']);
         Route::get('/wallet/withdrawals', [WalletController::class, 'withdrawals']);
         Route::post('/wallet/withdraw', [WalletController::class, 'withdraw']);
         Route::get('/wallet/manual-funding', [WalletController::class, 'manualFunding']);
