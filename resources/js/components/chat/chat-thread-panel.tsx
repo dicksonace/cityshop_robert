@@ -492,7 +492,7 @@ export default function ChatThreadPanel() {
                                 callState === 'active'
                                     ? 'completed'
                                     : callState === 'calling'
-                                      ? 'missed'
+                                      ? 'cancelled'
                                       : 'declined',
                             )
                         }

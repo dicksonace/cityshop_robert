@@ -75,16 +75,17 @@ export function useChatVoiceCall(
     const endCall = useCallback(
         async (reason?: EndCallReason) => {
             if (callState !== 'idle' && conversationId && currentUserId) {
+                // Caller hang-up while ringing = cancelled ("Call ended"), not missed.
                 const status: 'completed' | 'missed' | 'declined' | 'cancelled' = reason
-                    ? reason === 'completed'
-                        ? 'completed'
+                    ? reason === 'missed'
+                        ? 'cancelled'
                         : reason
                     : callState === 'active'
                       ? 'completed'
                       : callState === 'incoming'
                         ? 'declined'
                         : callState === 'calling'
-                          ? 'missed'
+                          ? 'cancelled'
                           : 'cancelled';
                 const durationSeconds =
                     callState === 'active' && callStartedAtRef.current

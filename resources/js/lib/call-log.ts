@@ -42,10 +42,13 @@ export function getCallLogLabel(
                 ? { label: 'Call declined', sublabel: `${otherName} declined`, tone: 'default' }
                 : { label: `Declined ${kindLabel}`, sublabel: `From ${log.caller_name}`, tone: 'default' };
         case 'cancelled':
-        default:
-            return isCaller
-                ? { label: 'Cancelled call', sublabel: `Called ${otherName}`, tone: 'default' }
+        default: {
+            // Person who hung up while ringing sees "Call ended"; the other party sees missed.
+            const iEnded = log.ended_by_id === viewerId || isCaller;
+            return iEnded
+                ? { label: 'Call ended', sublabel: `Called ${otherName}`, tone: 'default' }
                 : { label: `Missed ${kindLabel}`, sublabel: `From ${log.caller_name}`, tone: 'missed' };
+        }
     }
 }
 
@@ -59,6 +62,6 @@ export function getCallLogListPreview(log: ChatCallLog, viewerId: number): strin
         case 'declined':
             return isCaller ? 'Call declined' : 'Declined call';
         default:
-            return isCaller ? 'Cancelled call' : 'Missed call';
+            return log.ended_by_id === viewerId || isCaller ? 'Call ended' : 'Missed call';
     }
 }
