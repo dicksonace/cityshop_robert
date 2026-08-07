@@ -34,7 +34,7 @@ export default function ChatTransferBubble({ transfer, mine, createdAt, classNam
     const toName = (transfer.to_name || '').trim();
     const note = (transfer.note || '').trim();
     const ref = (transfer.reference || '').trim();
-    const headline = mine ? 'You transferred' : fromName ? `${fromName} transferred` : 'Transfer received';
+    const headline = mine ? 'You transferred' : 'Transferred to you';
 
     return (
         <>

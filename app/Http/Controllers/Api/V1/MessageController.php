@@ -604,7 +604,7 @@ class MessageController extends Controller
             'latest_message' => $latest ? [
                 'body' => match ($latest->type) {
                     MessageType::Product => 'Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')),
-                    MessageType::Transfer => $latest->body ?: 'Money transfer',
+                    MessageType::Transfer => ChatService::transferPreviewForMessage($latest, $user),
                     MessageType::File => $latest->body ?: ($latest->metadata['file_name'] ?? 'File'),
                     MessageType::Image => $latest->body ?: 'Photo',
                     MessageType::Video => $latest->body ?: 'Video',

@@ -251,9 +251,11 @@ class ConversationController extends Controller
                 ] : null,
             ],
             'latest_message' => $latest ? [
-                'body' => $latest->type === MessageType::Product
-                    ? ('Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')))
-                    : $latest->body,
+                'body' => match ($latest->type) {
+                    MessageType::Product => 'Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')),
+                    MessageType::Transfer => ChatService::transferPreviewForMessage($latest, $user),
+                    default => $latest->body,
+                },
                 'type' => $latest->type->value,
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'sender_id' => $latest->sender_id,

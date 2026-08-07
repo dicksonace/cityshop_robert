@@ -260,7 +260,10 @@ class ChatService
                     $type === MessageType::Video => 'Sent a video',
                     $type === MessageType::Voice => 'Sent a voice message',
                     $type === MessageType::Product => 'Shared a product: '.$body,
-                    $type === MessageType::Transfer => $body ?: 'Sent money',
+                    $type === MessageType::Transfer => static::transferPreviewForViewer(
+                        $body ?: 'Money transfer',
+                        isSender: false,
+                    ),
                     $type === MessageType::File => 'Sent a file'.($body !== '' ? ": {$body}" : ''),
                     default => 'New activity',
                 };
@@ -412,6 +415,44 @@ class ChatService
                 'name' => $message->sender->name,
             ],
         ];
+    }
+
+    /**
+     * Chat-list / notification copy for wallet transfers.
+     * Sender keeps "Transferred GH₵…"; receiver sees "Transferred to you GH₵…".
+     */
+    public static function transferPreviewForViewer(?string $body, bool $isSender): string
+    {
+        $text = trim((string) $body);
+        if ($text === '') {
+            return $isSender ? 'Transferred' : 'Transferred to you';
+        }
+
+        if ($isSender) {
+            return $text;
+        }
+
+        if (str_starts_with($text, 'Transferred to you')) {
+            return $text;
+        }
+
+        if (str_starts_with($text, 'Transferred ')) {
+            return 'Transferred to you '.substr($text, strlen('Transferred '));
+        }
+
+        if (strcasecmp($text, 'Transferred') === 0 || strcasecmp($text, 'Money transfer') === 0 || strcasecmp($text, 'Sent money') === 0) {
+            return 'Transferred to you';
+        }
+
+        return 'Transferred to you — '.$text;
+    }
+
+    public static function transferPreviewForMessage(Message $message, User $viewer): string
+    {
+        return static::transferPreviewForViewer(
+            $message->body ?: 'Money transfer',
+            isSender: (int) $message->sender_id === (int) $viewer->id,
+        );
     }
 
     /**
