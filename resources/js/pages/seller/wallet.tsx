@@ -162,7 +162,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
             >
                 {hasPendingWithdrawal ? (
                     <p className="mb-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                        You have a withdrawal in processing (usually within 1 hour). You can still request another with your remaining balance.
+                        You have a withdrawal in processing (usually within 15 minutes). You can still request another with your remaining balance.
                     </p>
                 ) : null}
                 {payoutMethods.length === 0 ? (
@@ -391,7 +391,7 @@ export default function SellerWallet({ wallet, transactions, withdrawals, payout
                     <ul className="mt-4 space-y-3 text-sm text-gray-600">
                         <li className="rounded-lg bg-gray-50 p-3"><strong className="text-gray-900">MTN MoMo</strong> is the most used network in Ghana.</li>
                         <li className="rounded-lg bg-gray-50 p-3">Use the name registered on your MoMo account.</li>
-                        <li className="rounded-lg bg-gray-50 p-3">Withdrawals are reviewed and paid within 1 hour.</li>
+                        <li className="rounded-lg bg-gray-50 p-3">Withdrawals are reviewed and paid within 15 minutes.</li>
                     </ul>
                 </div>
             </div>

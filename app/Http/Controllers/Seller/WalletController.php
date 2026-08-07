@@ -235,7 +235,7 @@ class WalletController extends Controller
         $wallet->decrement('available_balance', $validated['amount']);
         WalletTransactionService::recordWithdrawal($withdrawal);
 
-        return back()->with('success', 'Withdrawal request submitted. Processing typically takes 1 hour.');
+        return back()->with('success', 'Withdrawal request submitted. Processing typically takes 15 minutes.');
     }
 
     public function addFunds(Request $request): RedirectResponse

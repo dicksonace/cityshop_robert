@@ -174,7 +174,7 @@ export default function BuyerWallet({
                     >
                         {hasPendingWithdrawal ? (
                             <p className="mb-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                                You have a withdrawal in processing (usually within 1 hour). You can still request another with your remaining balance.
+                                You have a withdrawal in processing (usually within 15 minutes). You can still request another with your remaining balance.
                             </p>
                         ) : null}
                         <form onSubmit={submitWithdraw} className="space-y-5">
@@ -256,7 +256,7 @@ export default function BuyerWallet({
                                             <p className="mt-3 text-2xl font-bold text-orange-500">
                                                 {formatPrice(parseFloat(withdrawForm.data.amount) || 0)}
                                             </p>
-                                            <p className="mt-1 text-xs text-gray-500">Usually paid within 1 hour after admin approval.</p>
+                                            <p className="mt-1 text-xs text-gray-500">Usually paid within 15 minutes after admin approval.</p>
                                         </div>
                                         <div>
                                             <label className="mb-1 block text-sm font-medium text-gray-700">Payment PIN</label>

@@ -212,7 +212,7 @@ class WalletController extends Controller
             WalletTransactionService::recordWithdrawal($withdrawal);
 
             return response()->json([
-                'message' => 'Withdrawal request submitted. Payouts are usually sent within 1 hour.',
+                'message' => 'Withdrawal request submitted. Payouts are usually sent within 15 minutes.',
                 'data' => $this->withdrawalPayload($withdrawal),
                 'wallet' => [
                     'available_balance' => (float) $wallet->fresh()->available_balance,
