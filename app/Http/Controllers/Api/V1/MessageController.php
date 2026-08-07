@@ -515,6 +515,7 @@ class MessageController extends Controller
                 'region' => $other->region,
                 'mobile' => $other->mobile,
                 'store_name' => $other->sellerProfile?->displayName(),
+                'store_slug' => $other->sellerProfile?->slug,
             ],
             'latest_message' => $latest ? [
                 'body' => match ($latest->type) {

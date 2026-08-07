@@ -10,6 +10,7 @@ import {
     Phone,
     PhoneOff,
     Send,
+    Store,
     Trash2,
     Video,
     X,
@@ -97,6 +98,13 @@ export default function ChatThreadPanel() {
     const otherName =
         other?.seller_profile?.business_name ?? other?.seller_profile?.store_name ?? other?.name ?? 'Chat';
     const location = [other?.city, other?.region].filter(Boolean).join(', ');
+    const storeSlug = other?.seller_profile?.slug?.trim() || '';
+
+    const openStore = () => {
+        if (!storeSlug) return;
+        closeWidget();
+        router.visit(route('store.show', storeSlug));
+    };
 
     useEffect(() => {
         setOther(activeConversation?.other);
@@ -399,7 +407,18 @@ export default function ChatThreadPanel() {
                     )}
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-900">{otherName}</p>
+                    {storeSlug ? (
+                        <button
+                            type="button"
+                            onClick={openStore}
+                            className="block w-full truncate text-left text-sm font-semibold text-gray-900 hover:text-orange-600"
+                            title="View store"
+                        >
+                            {otherName}
+                        </button>
+                    ) : (
+                        <p className="truncate text-sm font-semibold text-gray-900">{otherName}</p>
+                    )}
                     <div className="flex items-center gap-1.5">
                         {other && <OnlineIndicator online={other.online} size="sm" />}
                         {location && (
@@ -412,6 +431,16 @@ export default function ChatThreadPanel() {
                 </div>
                 {callState === 'idle' ? (
                     <div className="flex items-center gap-0.5">
+                        {storeSlug && (
+                            <button
+                                type="button"
+                                onClick={openStore}
+                                className="rounded-lg p-1.5 text-orange-600 hover:bg-orange-50"
+                                title="View store"
+                            >
+                                <Store className="h-4 w-4" />
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={() => handleStartCall('voice')}

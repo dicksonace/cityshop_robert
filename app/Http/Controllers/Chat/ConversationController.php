@@ -170,6 +170,7 @@ class ConversationController extends Controller
                 'seller_profile' => $other->sellerProfile ? [
                     'business_name' => $other->sellerProfile->business_name,
                     'store_name' => $other->sellerProfile->store_name,
+                    'slug' => $other->sellerProfile->slug,
                     'business_address' => $other->sellerProfile->business_address,
                 ] : null,
             ],
