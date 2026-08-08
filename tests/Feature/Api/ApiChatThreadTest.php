@@ -67,6 +67,42 @@ class ApiChatThreadTest extends TestCase
         $this->assertSame('Yes it is available', collect($messages)->firstWhere('type', 'text')['body']);
     }
 
+    public function test_polling_surfaces_a_live_offer_even_with_after_zero(): void
+    {
+        [$buyer, $seller, $conversation] = $this->conversation();
+
+        $this->message($conversation, $seller, MessageType::CallOffer, 'Voice call', [
+            'sdp' => ['type' => 'offer', 'sdp' => 'v=0'],
+            'call_kind' => 'voice',
+        ]);
+
+        Sanctum::actingAs($buyer);
+
+        $types = collect($this->getJson("/api/v1/messages/{$conversation->id}/poll?after=0")
+            ->assertOk()
+            ->json('messages'))
+            ->pluck('type')
+            ->all();
+
+        $this->assertContains('call_offer', $types);
+    }
+
+    public function test_conversation_show_includes_pending_call_signals(): void
+    {
+        [$buyer, $seller, $conversation] = $this->conversation();
+
+        $this->message($conversation, $seller, MessageType::CallOffer, 'Voice call', [
+            'sdp' => ['type' => 'offer', 'sdp' => 'v=0'],
+            'call_kind' => 'voice',
+        ]);
+
+        Sanctum::actingAs($buyer);
+
+        $this->getJson("/api/v1/messages/{$conversation->id}")
+            ->assertOk()
+            ->assertJsonPath('pending_call_signals.0.type', 'call_offer');
+    }
+
     public function test_the_preview_and_unread_tally_ignore_signalling(): void
     {
         [$buyer, $seller, $conversation] = $this->conversation();

@@ -68,6 +68,8 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
     const localStreamRef = useRef<MediaStream | null>(null);
     const remoteAudioRef = useRef<HTMLAudioElement>(null);
     const processedCallIds = useRef<Set<number>>(new Set());
+    const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
+    const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
 
     const otherName = other.seller_profile?.business_name ?? other.seller_profile?.store_name ?? other.name;
     const location = [other.city, other.region].filter(Boolean).join(', ');
@@ -117,6 +119,8 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
         if (callState !== 'idle') {
             await sendSignal('call_end');
         }
+        pendingOfferRef.current = null;
+        pendingIceRef.current = [];
         pcRef.current?.close();
         pcRef.current = null;
         localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -135,33 +139,40 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
         }
 
         if (msg.type === 'call_offer' && msg.sender_id !== auth.user.id) {
+            pendingOfferRef.current = (msg.metadata?.sdp as RTCSessionDescriptionInit) ?? null;
+            pendingIceRef.current = [];
             setCallState('incoming');
+            return;
+        }
+
+        if (msg.type === 'call_ice') {
+            const candidate = msg.metadata?.candidate as RTCIceCandidateInit | undefined;
+            if (!candidate) return;
+            if (!pcRef.current) {
+                if (pendingOfferRef.current) {
+                    pendingIceRef.current.push(candidate);
+                }
+                return;
+            }
+            try {
+                await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch {
+                // ignore stale candidates
+            }
             return;
         }
 
         if (!pcRef.current) return;
 
-        if (msg.type === 'call_offer' && msg.metadata?.sdp) {
-            await pcRef.current.setRemoteDescription(new RTCSessionDescription(msg.metadata.sdp as RTCSessionDescriptionInit));
-            const answer = await pcRef.current.createAnswer();
-            await pcRef.current.setLocalDescription(answer);
-            await sendSignal('call_answer', '', { sdp: answer });
-            setCallState('active');
-        }
+        if (msg.type === 'call_answer' && msg.sender_id === auth.user.id) return;
 
         if (msg.type === 'call_answer' && msg.metadata?.sdp) {
-            await pcRef.current.setRemoteDescription(new RTCSessionDescription(msg.metadata.sdp as RTCSessionDescriptionInit));
+            await pcRef.current.setRemoteDescription(
+                new RTCSessionDescription(msg.metadata.sdp as RTCSessionDescriptionInit),
+            );
             setCallState('active');
         }
-
-        if (msg.type === 'call_ice' && msg.metadata?.candidate) {
-            try {
-                await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.metadata.candidate as RTCIceCandidateInit));
-            } catch {
-                // ignore stale candidates
-            }
-        }
-    }, [auth.user.id, endCall, sendSignal]);
+    }, [auth.user.id, endCall]);
 
     const ingestIncoming = useCallback(
         async (incoming: ChatMessage[]) => {
@@ -202,7 +213,8 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
         };
 
         const inCall = callState !== 'idle';
-        const interval = setInterval(poll, inCall ? 1000 : realtimeLive ? 15000 : 2000);
+        void poll();
+        const interval = setInterval(poll, inCall ? 1000 : 2000);
         return () => clearInterval(interval);
     }, [callState, conversation.id, ingestIncoming, realtimeLive]);
 
@@ -257,23 +269,45 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
     };
 
     const acceptCall = async () => {
+        const offer = pendingOfferRef.current;
+        if (!offer) {
+            alert('That call is no longer available. Ask them to call again.');
+            setCallState('idle');
+            return;
+        }
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             localStreamRef.current = stream;
             const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
             pcRef.current = pc;
-            stream.getTracks().forEach((track) => pc.addTrack(track, stream));
             pc.ontrack = (e) => {
                 if (remoteAudioRef.current) remoteAudioRef.current.srcObject = e.streams[0];
             };
             pc.onicecandidate = (e) => {
                 if (e.candidate) {
-                    sendSignal('call_ice', '', { candidate: e.candidate.toJSON() });
+                    void sendSignal('call_ice', '', { candidate: e.candidate.toJSON() });
                 }
             };
+            // Offer before tracks — same m-line order as the mobile client.
+            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+            stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+            for (const candidate of pendingIceRef.current) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch {
+                    // ignore
+                }
+            }
+            pendingIceRef.current = [];
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            await sendSignal('call_answer', '', { sdp: answer });
+            pendingOfferRef.current = null;
             setCallState('active');
         } catch {
-            alert('Could not access microphone.');
+            alert('Could not join the call. Ask them to call again.');
+            pendingOfferRef.current = null;
+            setCallState('idle');
         }
     };
 

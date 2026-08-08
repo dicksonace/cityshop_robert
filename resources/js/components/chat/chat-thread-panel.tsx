@@ -216,9 +216,11 @@ export default function ChatThreadPanel() {
         };
 
         // Live Reverb carries chat text; ICE is poll-only (broadcasting ICE
-        // used to exhaust PHP workers and take the whole site down).
+        // used to exhaust PHP workers and take the whole site down). Never back
+        // off to 15s — a "live" flag used to mean key present, not delivering.
         const inCall = callState !== 'idle';
-        const interval = setInterval(poll, inCall ? 1000 : realtimeLive ? 15000 : 2000);
+        void poll();
+        const interval = setInterval(poll, inCall ? 1000 : 2000);
         return () => clearInterval(interval);
     }, [
         activeConversation,

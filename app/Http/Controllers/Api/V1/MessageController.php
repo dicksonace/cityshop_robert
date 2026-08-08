@@ -99,9 +99,16 @@ class MessageController extends Controller
             'product.images',
         ]);
 
+        $pendingSignals = ChatService::pollCallSignals($conversation, 0)
+            ->map(fn (Message $m) => ChatService::formatMessage($m, $request->user()))
+            ->values();
+
         return response()->json([
             'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
             'messages' => $this->threadFor($conversation, $request->user()),
+            // SDP offers are not in the visible thread — surface them on open so
+            // the callee can ring immediately after tapping the call push.
+            'pending_call_signals' => $pendingSignals,
         ]);
     }
 

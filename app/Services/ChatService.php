@@ -631,26 +631,63 @@ class ChatService
      * WebRTC signalling rows are excluded from visibleTypes (and from unread),
      * so poll must fetch them separately when Reverb is down or lagging.
      *
+     * When afterId is 0 (fresh chat open / empty thread) we still return the
+     * last few minutes of signalling — otherwise a ringing offer is invisible
+     * until some later visible message advances the cursor.
+     *
      * @return Collection<int, Message>
      */
     public static function pollCallSignals(Conversation $conversation, int $afterId = 0)
     {
-        if ($afterId <= 0) {
-            return collect();
-        }
+        $types = [
+            MessageType::CallOffer,
+            MessageType::CallAnswer,
+            MessageType::CallIce,
+            MessageType::CallEnd,
+        ];
 
-        return $conversation->messages()
-            ->whereIn('type', [
-                MessageType::CallOffer,
-                MessageType::CallAnswer,
-                MessageType::CallIce,
-                MessageType::CallEnd,
-            ])
+        $fresh = $conversation->messages()
+            ->whereIn('type', $types)
             ->with('sender:id,name')
-            ->where('id', '>', $afterId)
+            ->when(
+                $afterId > 0,
+                fn ($q) => $q->where('id', '>', $afterId),
+                fn ($q) => $q->where('created_at', '>=', now()->subMinutes(3)),
+            )
             ->orderBy('id')
             ->limit(80)
             ->get();
+
+        // Re-surface an unanswered offer from the ring window even if the
+        // client's cursor already jumped past it (push open / missed WS event).
+        $liveOffer = $conversation->messages()
+            ->where('type', MessageType::CallOffer)
+            ->where('created_at', '>=', now()->subSeconds(120))
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $liveOffer) {
+            return $fresh;
+        }
+
+        $settled = $conversation->messages()
+            ->whereIn('type', [MessageType::CallEnd, MessageType::CallAnswer])
+            ->where('id', '>', $liveOffer->id)
+            ->exists();
+
+        if ($settled || $fresh->contains(fn (Message $m) => (int) $m->id === (int) $liveOffer->id)) {
+            return $fresh;
+        }
+
+        $tail = $conversation->messages()
+            ->whereIn('type', $types)
+            ->with('sender:id,name')
+            ->where('id', '>=', $liveOffer->id)
+            ->orderBy('id')
+            ->limit(80)
+            ->get();
+
+        return $fresh->concat($tail)->unique('id')->sortBy('id')->values();
     }
 
     /**
