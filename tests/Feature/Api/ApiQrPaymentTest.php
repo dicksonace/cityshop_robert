@@ -37,27 +37,29 @@ class ApiQrPaymentTest extends TestCase
         ]);
 
         Sanctum::actingAs($payee);
-        $receive = $this->getJson('/api/v1/wallet/qr/receive?amount=25')
+        $receive = $this->getJson('/api/v1/wallet/qr/receive?amount=25&reason='.urlencode('Market stall fee'))
             ->assertOk()
             ->json('data');
 
         $this->assertNotEmpty($receive['payload']);
         $this->assertSame(25.0, (float) $receive['amount']);
+        $this->assertSame('Market stall fee', $receive['reason']);
 
         Sanctum::actingAs($payer);
         $this->postJson('/api/v1/wallet/qr/resolve', ['payload' => $receive['payload']])
             ->assertOk()
             ->assertJsonPath('data.user.id', $payee->id)
-            ->assertJsonPath('data.amount', 25);
+            ->assertJsonPath('data.amount', 25)
+            ->assertJsonPath('data.reason', 'Market stall fee');
 
         $this->postJson('/api/v1/wallet/qr/pay', [
             'payload' => $receive['payload'],
             'amount' => 25,
             'payment_pin' => '2468',
-            'note' => 'Market stall',
         ])
             ->assertCreated()
             ->assertJsonPath('data.amount', 25)
+            ->assertJsonPath('data.note', 'Market stall fee')
             ->assertJsonPath('wallet.available_balance', 175);
 
         $this->assertSame(25.0, (float) Wallet::where('user_id', $payee->id)->value('available_balance'));

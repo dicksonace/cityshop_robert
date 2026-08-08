@@ -15,14 +15,24 @@ class QrPaymentService
     /**
      * Build a signed receive payload for the user's My QR screen.
      *
-     * @return array{payload: string, user: array<string, mixed>, amount: float|null, expires_at: string}
+     * @return array{payload: string, user: array<string, mixed>, amount: float|null, reason: string|null, expires_at: string}
      */
-    public static function receiveCode(User $user, ?float $amount = null): array
+    public static function receiveCode(User $user, ?float $amount = null, ?string $reason = null): array
     {
         $amount = $amount !== null ? round($amount, 2) : null;
         if ($amount !== null && ($amount < 1 || $amount > 50000)) {
             throw ValidationException::withMessages([
                 'amount' => ['Amount must be between GH₵1 and GH₵50,000.'],
+            ]);
+        }
+
+        $reason = is_string($reason) ? trim($reason) : null;
+        if ($reason === '') {
+            $reason = null;
+        }
+        if ($reason !== null && mb_strlen($reason) > 80) {
+            throw ValidationException::withMessages([
+                'reason' => ['Reason must be 80 characters or less.'],
             ]);
         }
 
@@ -36,6 +46,10 @@ class QrPaymentService
         if ($amount !== null) {
             $body['a'] = $amount;
         }
+        // `r` = request reason. `n` is already the display name.
+        if ($reason !== null) {
+            $body['r'] = $reason;
+        }
 
         $encoded = self::base64UrlEncode(json_encode($body, JSON_UNESCAPED_UNICODE));
         $sig = self::sign($encoded);
@@ -45,6 +59,7 @@ class QrPaymentService
             'payload' => $payload,
             'user' => self::publicUser($user),
             'amount' => $amount,
+            'reason' => $reason,
             'expires_at' => $expiresAt->toIso8601String(),
         ];
     }
@@ -112,10 +127,15 @@ class QrPaymentService
         }
 
         $amount = isset($data['a']) ? round((float) $data['a'], 2) : null;
+        $reason = isset($data['r']) && is_string($data['r']) ? trim($data['r']) : null;
+        if ($reason === '') {
+            $reason = null;
+        }
 
         return [
             'user' => self::publicUser($user),
             'amount' => $amount,
+            'reason' => $reason,
             'expires_at' => ! empty($data['e'])
                 ? \Illuminate\Support\Carbon::createFromTimestamp((int) $data['e'])->toIso8601String()
                 : null,
@@ -136,7 +156,12 @@ class QrPaymentService
             ]);
         }
 
-        $transfer = WalletService::transfer($payer, $recipient, $amount, $note ?: 'QR payment');
+        $transferNote = trim((string) ($note ?: ($resolved['reason'] ?? '')));
+        if ($transferNote === '') {
+            $transferNote = 'QR payment';
+        }
+
+        $transfer = WalletService::transfer($payer, $recipient, $amount, $transferNote);
 
         $conversationId = null;
         try {

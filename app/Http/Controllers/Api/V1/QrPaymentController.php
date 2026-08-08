@@ -15,14 +15,19 @@ class QrPaymentController extends Controller
     {
         $validated = $request->validate([
             'amount' => ['nullable', 'numeric', 'min:1', 'max:50000'],
+            'reason' => ['nullable', 'string', 'max:80'],
         ]);
 
         $amount = array_key_exists('amount', $validated) && $validated['amount'] !== null
             ? (float) $validated['amount']
             : null;
 
+        $reason = array_key_exists('reason', $validated) && is_string($validated['reason'] ?? null)
+            ? trim((string) $validated['reason'])
+            : null;
+
         return response()->json([
-            'data' => QrPaymentService::receiveCode($request->user(), $amount),
+            'data' => QrPaymentService::receiveCode($request->user(), $amount, $reason),
         ]);
     }
 
