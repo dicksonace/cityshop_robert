@@ -8,6 +8,7 @@ use App\Enums\WalletTransactionType;
 use App\Enums\WithdrawalStatus;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 
@@ -355,6 +356,101 @@ class WalletTransactionService
             WalletTransactionType::OrderRefund => 'Order Refund',
             WalletTransactionType::SaleReversed => 'Sale Reversed',
         };
+    }
+
+    /**
+     * For transfer rows, look up the other party's mobile once per page so statements
+     * can show "Transfer to Name Tel 0248…" even on older ledger lines.
+     *
+     * @param  \Illuminate\Support\Collection<int, WalletTransaction>  $page
+     */
+    public static function attachCounterpartyMobiles($page): void
+    {
+        $refs = $page
+            ->filter(fn (WalletTransaction $tx) => in_array($tx->type, [
+                WalletTransactionType::TransferIn,
+                WalletTransactionType::TransferOut,
+            ], true) && is_string($tx->reference) && trim($tx->reference) !== '')
+            ->map(fn (WalletTransaction $tx) => trim((string) $tx->reference))
+            ->unique()
+            ->values();
+
+        if ($refs->isEmpty()) {
+            return;
+        }
+
+        $peers = WalletTransaction::query()
+            ->whereIn('reference', $refs->all())
+            ->whereIn('type', [
+                WalletTransactionType::TransferIn->value,
+                WalletTransactionType::TransferOut->value,
+            ])
+            ->get(['user_id', 'reference', 'type']);
+
+        $userIds = $peers->pluck('user_id')->unique()->values();
+        $mobiles = User::query()
+            ->whereIn('id', $userIds->all())
+            ->pluck('mobile', 'id');
+
+        foreach ($page as $tx) {
+            if (! in_array($tx->type, [
+                WalletTransactionType::TransferIn,
+                WalletTransactionType::TransferOut,
+            ], true)) {
+                continue;
+            }
+
+            $ref = trim((string) ($tx->reference ?? ''));
+            if ($ref === '') {
+                continue;
+            }
+
+            $peer = $peers->first(function (WalletTransaction $other) use ($tx, $ref) {
+                return trim((string) $other->reference) === $ref
+                    && (int) $other->user_id !== (int) $tx->user_id;
+            });
+
+            if (! $peer) {
+                continue;
+            }
+
+            $mobile = trim((string) ($mobiles[(int) $peer->user_id] ?? ''));
+            if ($mobile !== '') {
+                $tx->setAttribute('counterparty_mobile', $mobile);
+            }
+        }
+    }
+
+    /** Statement / history line with Tel inserted when the stored description lacks it. */
+    public static function displayDescription(WalletTransaction $tx): string
+    {
+        $description = (string) ($tx->description ?? '');
+        if ($description === '') {
+            return $description;
+        }
+
+        if (! in_array($tx->type, [
+            WalletTransactionType::TransferIn,
+            WalletTransactionType::TransferOut,
+        ], true)) {
+            return $description;
+        }
+
+        if (str_contains($description, ' Tel ')) {
+            return $description;
+        }
+
+        $mobile = trim((string) ($tx->getAttribute('counterparty_mobile') ?? ''));
+        if ($mobile === '') {
+            return $description;
+        }
+
+        // Insert before an em-dash note suffix when present.
+        if (preg_match('/^(Transfer (?:to|from) .+?)( — .+)?$/u', $description, $m)) {
+            return $m[1].' Tel '.$mobile.($m[2] ?? '');
+        }
+
+        return $description.' Tel '.$mobile;
     }
 
     /**

@@ -71,6 +71,7 @@ class WalletController extends Controller
             (float) $wallet->available_balance,
             (float) $wallet->pending_balance,
         );
+        WalletTransactionService::attachCounterpartyMobiles($transactions->getCollection());
 
         return response()->json([
             'data' => $transactions->getCollection()->map(fn (WalletTransaction $tx) => [
@@ -78,7 +79,7 @@ class WalletController extends Controller
                 'type' => $tx->type->value,
                 'type_label' => $tx->type->label(),
                 'amount' => (float) $tx->amount,
-                'description' => $tx->description,
+                'description' => WalletTransactionService::displayDescription($tx),
                 'reference' => $tx->reference,
                 'created_at' => $tx->created_at?->toIso8601String(),
                 'balance_before' => $tx->getAttribute('balance_before'),
@@ -120,6 +121,7 @@ class WalletController extends Controller
             (float) $wallet->available_balance,
             (float) $wallet->pending_balance,
         );
+        WalletTransactionService::attachCounterpartyMobiles(collect([$tx]));
 
         return response()->json([
             'transaction' => [
@@ -127,7 +129,7 @@ class WalletController extends Controller
                 'type' => $tx->type->value,
                 'type_label' => $tx->type->label(),
                 'amount' => (float) $tx->amount,
-                'description' => $tx->description,
+                'description' => WalletTransactionService::displayDescription($tx),
                 'reference' => $tx->reference,
                 'created_at' => $tx->created_at?->toIso8601String(),
                 'balance_before' => $tx->getAttribute('balance_before'),

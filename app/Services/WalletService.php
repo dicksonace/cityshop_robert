@@ -180,7 +180,7 @@ class WalletService
                 userId: $from->id,
                 type: WalletTransactionType::TransferOut,
                 amount: -1 * $amount,
-                description: "Transfer to {$to->name}{$noteSuffix}",
+                description: 'Transfer to '.self::partyLabel($to).$noteSuffix,
                 reference: $reference,
             );
 
@@ -188,7 +188,7 @@ class WalletService
                 userId: $to->id,
                 type: WalletTransactionType::TransferIn,
                 amount: $amount,
-                description: "Transfer from {$from->name}{$noteSuffix}",
+                description: 'Transfer from '.self::partyLabel($from).$noteSuffix,
                 reference: $reference,
             );
 
@@ -199,5 +199,21 @@ class WalletService
                 'currency' => 'GHS',
             ];
         });
+    }
+
+    /** Name plus Tel line for ledger / statement details, e.g. "Robert Asare Tel 0248620718". */
+    public static function partyLabel(User $user): string
+    {
+        $name = trim((string) $user->name);
+        if ($name === '') {
+            $name = 'CityShop user';
+        }
+
+        $mobile = trim((string) ($user->mobile ?? ''));
+        if ($mobile === '') {
+            return $name;
+        }
+
+        return "{$name} Tel {$mobile}";
     }
 }
