@@ -274,7 +274,7 @@ class WalletController extends Controller
 
         $amount = (float) $validated['amount'];
         $reference = 'STOP-'.strtoupper(uniqid());
-        $email = $request->user()->email ?: ('seller'.$request->user()->id.'@cityunlock.net');
+        $email = $request->user()->billingEmail();
 
         try {
             $data = $this->paystack->initializeTransaction(

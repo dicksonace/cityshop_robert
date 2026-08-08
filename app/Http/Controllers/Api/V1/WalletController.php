@@ -333,7 +333,7 @@ class WalletController extends Controller
 
         try {
             $data = $this->paystack->initializeTransaction(
-                $user->email,
+                $user->billingEmail(),
                 $amount,
                 $reference,
                 [

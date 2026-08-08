@@ -417,7 +417,7 @@ class CheckoutController extends Controller
 
         try {
             $data = $this->paystack->initializeTransaction(
-                $request->user()->email,
+                $request->user()->billingEmail(),
                 $amount,
                 $reference,
                 [
@@ -448,7 +448,7 @@ class CheckoutController extends Controller
                 'access_code' => $data['access_code'],
                 'reference' => $paystackReference,
                 'callback_url' => $callbackUrl,
-                'email' => $request->user()->email,
+                'email' => $request->user()->billingEmail(),
                 'amount' => $amount,
                 'currency' => 'GHS',
             ]);
@@ -519,7 +519,7 @@ class CheckoutController extends Controller
 
         try {
             $data = $this->paystack->initializeTransaction(
-                $request->user()->email,
+                $request->user()->billingEmail(),
                 $amount,
                 $reference,
                 [
@@ -538,7 +538,7 @@ class CheckoutController extends Controller
                 'access_code' => $data['access_code'],
                 'reference' => $paystackReference,
                 'callback_url' => $callbackUrl,
-                'email' => $request->user()->email,
+                'email' => $request->user()->billingEmail(),
                 'amount' => $amount,
                 'currency' => 'GHS',
             ]);

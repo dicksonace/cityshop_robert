@@ -38,6 +38,26 @@ class ApiAuthTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'ama@example.com']);
     }
 
+    public function test_buyer_can_register_without_email(): void
+    {
+        $response = $this->postJson('/api/v1/auth/register', [
+            'name' => 'No Email Buyer',
+            'mobile' => '0530000099',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'device_name' => 'phpunit',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('user.mobile', '0530000099')
+            ->assertJsonPath('user.email', null);
+
+        $this->assertDatabaseHas('users', [
+            'mobile' => '0530000099',
+            'email' => null,
+        ]);
+    }
+
     public function test_buyer_can_login_and_access_me(): void
     {
         $user = User::factory()->create([

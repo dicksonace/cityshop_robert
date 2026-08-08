@@ -76,6 +76,12 @@ class PaymentPinService
 
     public static function sendResetCode(User $user): void
     {
+        if (! filled($user->email)) {
+            throw ValidationException::withMessages([
+                'email' => ['Add an email on your account before resetting your payment PIN.'],
+            ]);
+        }
+
         $key = 'payment-pin-reset-send:'.$user->id;
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $seconds = RateLimiter::availableIn($key);

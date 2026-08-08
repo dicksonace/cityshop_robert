@@ -24,15 +24,17 @@ class AuthController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'mobile' => ['required', 'string', 'max:20', 'unique:users,mobile'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
 
+        $email = filled($validated['email'] ?? null) ? $validated['email'] : null;
+
         $user = User::create([
             'name' => $validated['name'],
             'mobile' => $validated['mobile'],
-            'email' => $validated['email'],
+            'email' => $email,
             'password' => $validated['password'],
             'role' => UserRole::Buyer,
         ]);

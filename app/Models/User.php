@@ -160,4 +160,19 @@ class User extends Authenticatable
 
         return null;
     }
+
+    /**
+     * Email for Paystack / payment gateways. Falls back to a synthetic
+     * address from mobile when the shopper skipped email at signup.
+     */
+    public function billingEmail(): string
+    {
+        if (filled($this->email)) {
+            return strtolower((string) $this->email);
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $this->mobile) ?: ('user'.$this->id);
+
+        return $digits.'@pay.cityshop.local';
+    }
 }

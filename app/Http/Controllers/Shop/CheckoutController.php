@@ -381,7 +381,7 @@ class CheckoutController extends Controller
 
         try {
             $data = $this->paystack->initializeTransaction(
-                $request->user()->email,
+                $request->user()->billingEmail(),
                 $amount,
                 $reference,
                 [
@@ -400,7 +400,7 @@ class CheckoutController extends Controller
                 'access_code' => $data['access_code'] ?? null,
                 'reference' => $paystackReference,
                 'public_key' => config('services.paystack.public_key'),
-                'email' => $request->user()->email,
+                'email' => $request->user()->billingEmail(),
                 'amount' => $amountPesewas,
             ]);
         } catch (\RuntimeException $e) {
@@ -541,7 +541,7 @@ class CheckoutController extends Controller
 
         try {
             $data = $this->paystack->initializeTransaction(
-                $request->user()->email,
+                $request->user()->billingEmail(),
                 $amount,
                 $reference,
                 [
@@ -563,7 +563,7 @@ class CheckoutController extends Controller
                 'authorization_url' => $data['authorization_url'],
                 'access_code' => $data['access_code'],
                 'reference' => $paystackReference,
-                'email' => $request->user()->email,
+                'email' => $request->user()->billingEmail(),
                 'amount' => $amount,
             ]);
         } catch (\RuntimeException $e) {

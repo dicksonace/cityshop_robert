@@ -84,7 +84,7 @@ class WalletController extends Controller
 
         try {
             $data = $this->paystack->initializeTransaction(
-                $request->user()->email,
+                $request->user()->billingEmail(),
                 $amount,
                 $reference,
                 [
