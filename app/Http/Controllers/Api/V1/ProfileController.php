@@ -15,23 +15,11 @@ class ProfileController extends Controller
 {
     public function update(Request $request): JsonResponse
     {
-        $user = $request->user();
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$user->id],
-            'mobile' => ['nullable', 'string', 'max:20'],
-            'region' => ['nullable', 'string', 'max:100'],
-            'city' => ['nullable', 'string', 'max:100'],
-        ]);
-
-        $user->fill($validated);
-        $user->save();
-
+        // Name / email / mobile stay locked on the app so a stolen session
+        // cannot quietly rewrite account identity. Avatar + password stay editable.
         return response()->json([
-            'message' => 'Profile updated.',
-            'user' => new UserResource($user->fresh()),
-        ]);
+            'message' => 'Name, email, and mobile cannot be changed in the app. Contact CityShop support if you need an update.',
+        ], 403);
     }
 
     public function updateAvatar(Request $request): JsonResponse

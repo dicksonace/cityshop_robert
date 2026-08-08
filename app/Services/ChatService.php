@@ -264,7 +264,10 @@ class ChatService
 
             $recipient = $conversation->otherParticipant($sender);
 
-            if (! $isCallSignal && $type !== MessageType::CallLog) {
+            // QR payments fire their own wallet bell notice — skip duplicate "New message".
+            $skipBell = ($metadata['transfer']['via'] ?? null) === 'qr';
+
+            if (! $isCallSignal && $type !== MessageType::CallLog && ! $skipBell) {
                 $notificationBody = match (true) {
                     $type === MessageType::Text => $body,
                     $type === MessageType::Image => 'Sent a photo',
@@ -279,17 +282,32 @@ class ChatService
                     default => 'New activity',
                 };
 
-                AppNotificationService::send(
-                    $recipient,
-                    'message',
-                    'New message',
-                    $notificationBody,
-                    [
-                        'conversation_id' => $conversation->id,
-                        'sender_id' => $sender->id,
-                        'sender_name' => $sender->name,
-                    ],
-                );
+                if ($type === MessageType::Transfer) {
+                    AppNotificationService::send(
+                        $recipient,
+                        'payment',
+                        'Money received',
+                        $notificationBody,
+                        [
+                            'conversation_id' => $conversation->id,
+                            'sender_id' => $sender->id,
+                            'sender_name' => $sender->name,
+                            'reference' => $metadata['transfer']['reference'] ?? null,
+                        ],
+                    );
+                } else {
+                    AppNotificationService::send(
+                        $recipient,
+                        'message',
+                        'New message',
+                        $notificationBody,
+                        [
+                            'conversation_id' => $conversation->id,
+                            'sender_id' => $sender->id,
+                            'sender_name' => $sender->name,
+                        ],
+                    );
+                }
             }
 
             if ($type === MessageType::CallOffer) {

@@ -208,6 +208,48 @@ class AppNotificationService
         ]);
     }
 
+    /**
+     * Scan-to-pay / My QR wallet transfer — always hits the notifications bell.
+     *
+     * @param  array{reference: string, amount: float, note: ?string}  $transfer
+     */
+    public static function notifyQrPayment(
+        User $payer,
+        User $payee,
+        array $transfer,
+        ?int $conversationId = null,
+    ): void {
+        $amountLabel = 'GH₵'.number_format((float) $transfer['amount'], 2);
+        $note = $transfer['note'] ?? null;
+        $reference = $transfer['reference'] ?? null;
+
+        $payeeBody = $note
+            ? "{$payer->name} paid you {$amountLabel} via QR — {$note}"
+            : "{$payer->name} paid you {$amountLabel} via QR";
+
+        static::send($payee, 'payment', 'QR payment received', $payeeBody, [
+            'reference' => $reference,
+            'amount' => (float) $transfer['amount'],
+            'from_user_id' => $payer->id,
+            'from_name' => $payer->name,
+            'via' => 'qr',
+            'conversation_id' => $conversationId,
+        ]);
+
+        $payerBody = $note
+            ? "You paid {$payee->name} {$amountLabel} via QR — {$note}"
+            : "You paid {$payee->name} {$amountLabel} via QR";
+
+        static::send($payer, 'payment', 'QR payment sent', $payerBody, [
+            'reference' => $reference,
+            'amount' => (float) $transfer['amount'],
+            'to_user_id' => $payee->id,
+            'to_name' => $payee->name,
+            'via' => 'qr',
+            'conversation_id' => $conversationId,
+        ]);
+    }
+
     public static function sellerNewOrderTitle(
         Order $order,
         bool $pendingOrder = false,

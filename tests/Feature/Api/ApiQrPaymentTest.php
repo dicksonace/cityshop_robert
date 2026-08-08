@@ -61,6 +61,32 @@ class ApiQrPaymentTest extends TestCase
             ->assertJsonPath('wallet.available_balance', 175);
 
         $this->assertSame(25.0, (float) Wallet::where('user_id', $payee->id)->value('available_balance'));
+
+        $this->assertDatabaseHas('messages', [
+            'type' => 'transfer',
+            'sender_id' => $payer->id,
+        ]);
+        $this->assertTrue(
+            \App\Models\Conversation::query()
+                ->where(function ($q) use ($payer, $payee) {
+                    $q->where('buyer_id', $payer->id)->where('seller_id', $payee->id);
+                })
+                ->orWhere(function ($q) use ($payer, $payee) {
+                    $q->where('buyer_id', $payee->id)->where('seller_id', $payer->id);
+                })
+                ->exists()
+        );
+
+        $this->assertDatabaseHas('app_notifications', [
+            'user_id' => $payee->id,
+            'type' => 'payment',
+            'title' => 'QR payment received',
+        ]);
+        $this->assertDatabaseHas('app_notifications', [
+            'user_id' => $payer->id,
+            'type' => 'payment',
+            'title' => 'QR payment sent',
+        ]);
     }
 
     public function test_invalid_payload_is_rejected(): void

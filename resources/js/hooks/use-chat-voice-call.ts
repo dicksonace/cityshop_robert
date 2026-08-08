@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import * as chatApi from '@/lib/chat-api';
 import { startIncomingRing, startOutgoingRing, stopCallRing, unlockChatSounds } from '@/lib/chat-sounds';
@@ -11,6 +11,16 @@ export type EndCallReason = 'declined' | 'completed' | 'missed' | 'cancelled';
 interface UseChatVoiceCallOptions {
     callerName?: string;
     onCallLog?: (message: ChatMessage) => void;
+    onCallError?: (message: string) => void;
+}
+
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+];
+
+/** Deterministic audio-then-video order so both peers build matching m-lines. */
+function orderedTracks(stream: MediaStream): MediaStreamTrack[] {
+    return [...stream.getAudioTracks(), ...stream.getVideoTracks()];
 }
 
 export function useChatVoiceCall(
@@ -35,6 +45,7 @@ export function useChatVoiceCall(
     const callerNameRef = useRef<string>('');
     const callStartedAtRef = useRef<number | null>(null);
     const callKindRef = useRef<CallKind>('voice');
+    const iceServersRef = useRef<RTCIceServer[] | null>(null);
 
     const attachLocalVideo = useCallback((stream: MediaStream) => {
         if (localVideoRef.current) {
@@ -168,8 +179,41 @@ export function useChatVoiceCall(
         [callState, cleanup, conversationId, currentUserId, options, sendSignal],
     );
 
-    const createPeerConnection = useCallback(() => {
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    // Hard-bounded: this sits on the call-start path, so a slow response must
+    // never hold up ringing or answering.
+    const resolveIceServers = useCallback(async (): Promise<RTCIceServer[]> => {
+        if (iceServersRef.current) return iceServersRef.current;
+        try {
+            const servers = await Promise.race([
+                chatApi.fetchIceServers(),
+                new Promise<RTCIceServer[]>((resolve) =>
+                    window.setTimeout(() => resolve([]), 3000),
+                ),
+            ]);
+            if (servers.length > 0) {
+                iceServersRef.current = servers;
+                return servers;
+            }
+        } catch {
+            // fall through to public STUN
+        }
+        return FALLBACK_ICE_SERVERS;
+    }, []);
+
+    // Warm the cache while the thread loads so the call path never waits.
+    useEffect(() => {
+        if (conversationId) void resolveIceServers();
+    }, [conversationId, resolveIceServers]);
+
+    const createPeerConnection = useCallback(async () => {
+        const pc = new RTCPeerConnection({ iceServers: await resolveIceServers() });
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState !== 'failed') return;
+            options.onCallError?.(
+                'Call dropped — your networks could not connect. Try a different network.',
+            );
+            void endCall('completed');
+        };
         pc.ontrack = (event) => {
             const stream = event.streams[0];
             if (!stream) return;
@@ -187,7 +231,7 @@ export function useChatVoiceCall(
             }
         };
         return pc;
-    }, [queueIceCandidate]);
+    }, [endCall, options, queueIceCandidate, resolveIceServers]);
 
     const startCall = useCallback(
         async (kind: CallKind = 'voice') => {
@@ -206,9 +250,9 @@ export function useChatVoiceCall(
                 if (kind === 'video') {
                     attachLocalVideo(stream);
                 }
-                const pc = createPeerConnection();
+                const pc = await createPeerConnection();
                 pcRef.current = pc;
-                stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+                orderedTracks(stream).forEach((track) => pc.addTrack(track, stream));
 
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
@@ -244,11 +288,16 @@ export function useChatVoiceCall(
             if (kind === 'video') {
                 attachLocalVideo(stream);
             }
-            const pc = createPeerConnection();
+            const pc = await createPeerConnection();
             pcRef.current = pc;
-            stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
+            // Apply the offer BEFORE adding our own tracks. Adding tracks first
+            // creates transceivers in our local order, and any mismatch with the
+            // caller's m-lines makes setRemoteDescription reject the SDP — the
+            // cause of "Call signal was invalid. Ask them to call again."
             await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+            orderedTracks(stream).forEach((track) => pc.addTrack(track, stream));
+
             for (const candidate of pendingIceRef.current) {
                 try {
                     await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -265,7 +314,7 @@ export function useChatVoiceCall(
             setCallState('active');
         } catch {
             cleanup();
-            throw new Error('Could not access camera/microphone.');
+            throw new Error('Could not join the call. Ask them to call again.');
         }
     }, [attachLocalVideo, cleanup, conversationId, createPeerConnection, sendSignal]);
 
@@ -327,7 +376,12 @@ export function useChatVoiceCall(
 
             if (!pcRef.current) return;
 
+            // Our own answer echoes back through polling; applying it would blow
+            // up because this peer is already in the `stable` state.
+            if (msg.type === 'call_answer' && msg.sender_id === currentUserId) return;
+
             if (msg.type === 'call_answer' && msg.metadata?.sdp) {
+                if (pcRef.current.signalingState !== 'have-local-offer') return;
                 stopCallRing();
                 await pcRef.current.setRemoteDescription(
                     new RTCSessionDescription(msg.metadata.sdp as RTCSessionDescriptionInit),

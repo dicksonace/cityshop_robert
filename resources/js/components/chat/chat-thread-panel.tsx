@@ -105,6 +105,7 @@ export default function ChatThreadPanel() {
                 lastIdRef.current = Math.max(lastIdRef.current, msg.id);
                 refreshConversations();
             },
+            onCallError: (message) => toast?.error(message),
         });
 
     const otherName =

@@ -195,11 +195,38 @@ class MessageController extends Controller
     {
         abort_unless($conversation->involves($request->user()), 403);
 
-        $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:1', 'max:50000'],
-            'note' => ['nullable', 'string', 'max:120'],
-            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
-        ]);
+        $available = (float) \App\Services\WalletService::ensure($request->user())->available_balance;
+
+        $validated = $request->validate(
+            [
+                'amount' => [
+                    'required',
+                    'numeric',
+                    'min:1',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($available): void {
+                        $amount = (float) $value;
+                        if ($amount > $available + 0.0001) {
+                            $fail(
+                                'Insufficient balance. You have GH₵'.number_format($available, 2)
+                                .' available.'
+                            );
+
+                            return;
+                        }
+                        if ($amount > 50000) {
+                            $fail('Maximum transfer is GH₵50,000.00 per send.');
+                        }
+                    },
+                ],
+                'note' => ['nullable', 'string', 'max:120'],
+                'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+            ],
+            [
+                'amount.min' => 'Minimum transfer is GH₵1.00.',
+                'payment_pin.required' => 'Enter your 4-digit payment PIN.',
+                'payment_pin.regex' => 'Payment PIN must be 4 digits.',
+            ],
+        );
 
         PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);
 

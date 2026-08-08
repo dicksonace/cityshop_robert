@@ -90,17 +90,41 @@ export default function ChatTransferSheet({
         return Number.isFinite(n) ? n : null;
     })();
 
+    const amountError = (() => {
+        if (parsedAmount === null || amount.trim() === '') return null;
+        if (parsedAmount < 1) return 'Minimum transfer is GH₵1.00.';
+        if (balance !== null && parsedAmount > balance + 0.0001) {
+            return `Insufficient balance. You have ${formatPrice(balance)} available.`;
+        }
+        if (parsedAmount > 50000) return 'Maximum transfer is GH₵50,000.00 per send.';
+        return null;
+    })();
+
+    const pinError =
+        pin.length > 0 && pin.length < 4 ? 'Payment PIN must be 4 digits.' : null;
+
     const canSend =
         !loadingMeta &&
         !sending &&
         hasPin &&
         parsedAmount !== null &&
         parsedAmount >= 1 &&
+        amountError === null &&
         pin.length === 4;
 
     const submit = async (e: FormEvent) => {
         e.preventDefault();
-        if (!conversationId || !canSend || parsedAmount === null) return;
+        if (!conversationId || parsedAmount === null) return;
+
+        if (amountError) {
+            toast?.error(amountError);
+            return;
+        }
+        if (pin.length !== 4) {
+            toast?.error('Enter your 4-digit payment PIN.');
+            return;
+        }
+        if (!canSend) return;
 
         setSending(true);
         try {
@@ -184,7 +208,14 @@ export default function ChatTransferSheet({
                                             <label className="text-xs font-medium text-gray-500">
                                                 Amount (GHS)
                                             </label>
-                                            <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-gray-200 px-3 focus-within:border-orange-300 focus-within:ring-1 focus-within:ring-orange-300">
+                                            <div
+                                                className={cn(
+                                                    'mt-1.5 flex items-center gap-2 rounded-xl border px-3 focus-within:ring-1',
+                                                    amountError
+                                                        ? 'border-red-300 focus-within:border-red-400 focus-within:ring-red-200'
+                                                        : 'border-gray-200 focus-within:border-orange-300 focus-within:ring-orange-300',
+                                                )}
+                                            >
                                                 <span className="text-lg font-semibold text-gray-900">GH₵</span>
                                                 <Input
                                                     value={amount}
@@ -203,10 +234,14 @@ export default function ChatTransferSheet({
                                                     autoFocus
                                                 />
                                             </div>
-                                            {recipientMobile && balance !== null && (
-                                                <p className="mt-1.5 text-xs text-gray-400">
-                                                    Available {formatPrice(balance)}
-                                                </p>
+                                            {amountError ? (
+                                                <p className="mt-1.5 text-xs font-medium text-red-600">{amountError}</p>
+                                            ) : (
+                                                balance !== null && (
+                                                    <p className="mt-1.5 text-xs text-gray-400">
+                                                        Available {formatPrice(balance)}
+                                                    </p>
+                                                )
                                             )}
                                         </div>
 
@@ -247,9 +282,17 @@ export default function ChatTransferSheet({
                                                 className={cn(
                                                     'mt-1.5 tracking-[0.35em]',
                                                     pin.length > 0 && 'font-semibold',
+                                                    pinError && 'border-red-300 focus-visible:ring-red-200',
                                                 )}
                                                 maxLength={4}
                                             />
+                                            {pinError ? (
+                                                <p className="mt-1.5 text-xs font-medium text-red-600">{pinError}</p>
+                                            ) : (
+                                                <p className="mt-1.5 text-xs text-gray-400">
+                                                    Enter your 4-digit CityShop payment PIN to confirm.
+                                                </p>
+                                            )}
                                         </div>
                                     </>
                                 )}

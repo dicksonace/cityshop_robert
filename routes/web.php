@@ -143,6 +143,11 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/messages/{conversation}/messages/{message}', [ChatMessageController::class, 'destroy'])->name('chat.messages.destroy');
     Route::post('/messages/{conversation}/signal', [ChatMessageController::class, 'signal'])->name('chat.signal');
 
+    Route::get('/calls/ice-servers', fn () => response()->json([
+        'ice_servers' => \App\Support\IceServers::forClient(),
+        'has_relay' => \App\Support\IceServers::hasRelay(),
+    ]))->name('chat.ice-servers');
+
     Route::get('/notifications', [ChatNotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [ChatNotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::post('/notifications/{notification}/read', [ChatNotificationController::class, 'markRead'])->name('notifications.read');

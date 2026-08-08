@@ -75,8 +75,14 @@ Route::prefix('v1')->group(function () {
                 'port' => (int) config('broadcasting.connections.reverb.options.port', 443),
                 'scheme' => config('broadcasting.connections.reverb.options.scheme', 'https'),
                 'auth_endpoint' => url('/api/v1/broadcasting/auth'),
+                'ice_servers' => \App\Support\IceServers::forClient(),
             ]);
         });
+
+        Route::get('/calls/ice-servers', fn () => response()->json([
+            'ice_servers' => \App\Support\IceServers::forClient(),
+            'has_relay' => \App\Support\IceServers::hasRelay(),
+        ]));
 
         Route::prefix('auth')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);

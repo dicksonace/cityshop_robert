@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\MessageType;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
@@ -137,9 +138,50 @@ class QrPaymentService
 
         $transfer = WalletService::transfer($payer, $recipient, $amount, $note ?: 'QR payment');
 
+        $conversationId = null;
+        try {
+            $conversation = ChatService::findOrCreateConversation($payer, $recipient);
+            $amountLabel = 'GH₵'.number_format($transfer['amount'], 2);
+            $body = $transfer['note']
+                ? "Transferred {$amountLabel} — {$transfer['note']}"
+                : "Transferred {$amountLabel}";
+
+            ChatService::sendMessage(
+                $conversation,
+                $payer,
+                $body,
+                MessageType::Transfer,
+                [
+                    'transfer' => [
+                        'amount' => $transfer['amount'],
+                        'currency' => 'GHS',
+                        'note' => $transfer['note'],
+                        'reference' => $transfer['reference'],
+                        'from_user_id' => $payer->id,
+                        'to_user_id' => $recipient->id,
+                        'from_name' => $payer->name,
+                        'to_name' => $recipient->name,
+                        'via' => 'qr',
+                    ],
+                ],
+            );
+            $conversationId = $conversation->id;
+        } catch (\Throwable $e) {
+            // Wallet already moved; chat bubble is best-effort (e.g. blocked users).
+            report($e);
+        }
+
+        // Always hit the notifications bell (even if chat was blocked).
+        try {
+            AppNotificationService::notifyQrPayment($payer, $recipient, $transfer, $conversationId);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return [
             ...$transfer,
             'recipient' => self::publicUser($recipient),
+            'conversation_id' => $conversationId,
         ];
     }
 

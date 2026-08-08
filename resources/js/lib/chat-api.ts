@@ -116,6 +116,15 @@ export async function sendChatTransfer(
     return data.message;
 }
 
+export async function fetchIceServers(): Promise<RTCIceServer[]> {
+    const res = await fetch(route('chat.ice-servers'), {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+    });
+    const data = await parseJsonResponse<{ ice_servers?: RTCIceServer[] }>(res);
+    return data.ice_servers ?? [];
+}
+
 export async function sendCallSignal(
     conversationId: number,
     type: string,

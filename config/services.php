@@ -64,4 +64,14 @@ return [
         'server_key' => env('FCM_SERVER_KEY'),
     ],
 
+    'webrtc' => [
+        // STUN alone cannot traverse the carrier-grade NAT used by most Ghanaian
+        // mobile networks, so a TURN relay is required for calls between two
+        // phones on mobile data.
+        'stun_urls' => env('WEBRTC_STUN_URLS', 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302'),
+        'turn_urls' => env('WEBRTC_TURN_URLS'),
+        'turn_username' => env('WEBRTC_TURN_USERNAME'),
+        'turn_password' => env('WEBRTC_TURN_PASSWORD'),
+    ],
+
 ];
