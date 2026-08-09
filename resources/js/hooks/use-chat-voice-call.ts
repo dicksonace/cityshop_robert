@@ -23,6 +23,57 @@ function orderedTracks(stream: MediaStream): MediaStreamTrack[] {
     return [...stream.getAudioTracks(), ...stream.getVideoTracks()];
 }
 
+function cleanSdpPayload(init: RTCSessionDescriptionInit | null | undefined): { type: RTCSdpType; sdp: string } | null {
+    if (!init) return null;
+    const type = String(init.type ?? '').trim().toLowerCase();
+    let sdp = typeof init.sdp === 'string' ? init.sdp : '';
+    if (sdp.includes('\\n') && !sdp.includes('\n')) {
+        sdp = sdp.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
+    }
+    sdp = sdp.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    if (!sdp || (type !== 'offer' && type !== 'answer' && type !== 'pranswer')) return null;
+    if (!sdp.includes('v=0') || !/^m=(audio|video)\s/m.test(sdp)) return null;
+    return { type: type as RTCSdpType, sdp };
+}
+
+function mLineKinds(sdp: string): Array<'audio' | 'video'> {
+    const kinds: Array<'audio' | 'video'> = [];
+    for (const line of sdp.split('\n')) {
+        if (line.startsWith('m=audio')) kinds.push('audio');
+        if (line.startsWith('m=video')) kinds.push('video');
+    }
+    return kinds;
+}
+
+async function attachLocalTracksForAnswer(pc: RTCPeerConnection, stream: MediaStream, offerSdp: string) {
+    const audios = stream.getAudioTracks();
+    const videos = stream.getVideoTracks();
+    const kinds = mLineKinds(offerSdp);
+    let audioIdx = 0;
+    let videoIdx = 0;
+
+    for (let i = 0; i < pc.getTransceivers().length; i++) {
+        const t = pc.getTransceivers()[i];
+        const kind =
+            t.receiver.track?.kind === 'audio' || t.receiver.track?.kind === 'video'
+                ? t.receiver.track.kind
+                : kinds[i];
+        const track =
+            kind === 'audio' && audioIdx < audios.length
+                ? audios[audioIdx++]
+                : kind === 'video' && videoIdx < videos.length
+                  ? videos[videoIdx++]
+                  : null;
+        if (!track) continue;
+        try {
+            await t.sender.replaceTrack(track);
+            t.direction = 'sendrecv';
+        } catch {
+            // Never addTrack on the answer path — extra m-lines break createAnswer.
+        }
+    }
+}
+
 export function useChatVoiceCall(
     conversationId: number | undefined,
     currentUserId: number | undefined,
@@ -256,8 +307,12 @@ export function useChatVoiceCall(
 
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
+                const payload = cleanSdpPayload(offer);
+                if (!payload) {
+                    throw new Error('Could not build call offer.');
+                }
                 await sendSignal('call_offer', kind === 'video' ? 'Video call' : 'Voice call', {
-                    sdp: offer,
+                    sdp: payload,
                     call_kind: kind,
                 });
                 unlockChatSounds();
@@ -279,18 +334,18 @@ export function useChatVoiceCall(
         if (!conversationId || !pendingOfferRef.current) return;
         try {
             stopCallRing();
-            const offerInit = pendingOfferRef.current;
-            const offerSdp = typeof offerInit.sdp === 'string' ? offerInit.sdp : '';
-            const needsVideo = /^m=video\s/m.test(offerSdp) || callKindRef.current === 'video';
+            const offerInit = cleanSdpPayload(pendingOfferRef.current);
+            if (!offerInit) {
+                throw new Error('That call is no longer available. Ask them to call again.');
+            }
+            const needsVideo = /^m=video\s/m.test(offerInit.sdp) || callKindRef.current === 'video';
             const kind = needsVideo ? 'video' : 'voice';
             callKindRef.current = kind;
             setCallKind(kind);
 
             const pc = await createPeerConnection();
             pcRef.current = pc;
-            await pc.setRemoteDescription(
-                new RTCSessionDescription({ type: 'offer', sdp: offerSdp }),
-            );
+            await pc.setRemoteDescription(new RTCSessionDescription(offerInit));
 
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
@@ -301,22 +356,7 @@ export function useChatVoiceCall(
                 attachLocalVideo(stream);
             }
 
-            const transceivers = pc.getTransceivers();
-            for (const track of orderedTracks(stream)) {
-                const slot = transceivers.find(
-                    (t) => !t.sender.track && t.receiver.track?.kind === track.kind,
-                );
-                if (slot) {
-                    await slot.sender.replaceTrack(track);
-                    try {
-                        slot.direction = 'sendrecv';
-                    } catch {
-                        // ignore
-                    }
-                } else {
-                    pc.addTrack(track, stream);
-                }
-            }
+            await attachLocalTracksForAnswer(pc, stream, offerInit.sdp);
 
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
@@ -330,8 +370,12 @@ export function useChatVoiceCall(
             }
             pendingIceRef.current = [];
 
+            const answerPayload = cleanSdpPayload(answer);
+            if (!answerPayload) {
+                throw new Error('Could not build call answer.');
+            }
             await sendSignal('call_answer', '', {
-                sdp: { type: 'answer', sdp: answer.sdp },
+                sdp: answerPayload,
                 call_kind: kind,
             });
             pendingOfferRef.current = null;
@@ -355,19 +399,16 @@ export function useChatVoiceCall(
             }
 
             if (msg.type === 'call_offer' && msg.sender_id !== currentUserId) {
-                const sdp = msg.metadata?.sdp as RTCSessionDescriptionInit | undefined;
-                const sdpText = typeof sdp?.sdp === 'string' ? sdp.sdp : '';
+                const cleaned = cleanSdpPayload(msg.metadata?.sdp as RTCSessionDescriptionInit | undefined);
                 const kind =
-                    /^m=video\s/m.test(sdpText) || msg.metadata?.call_kind === 'video'
+                    (cleaned && /^m=video\s/m.test(cleaned.sdp)) || msg.metadata?.call_kind === 'video'
                         ? 'video'
                         : 'voice';
                 callKindRef.current = kind;
                 setCallKind(kind);
                 callerIdRef.current = msg.sender_id;
                 callerNameRef.current = msg.sender?.name ?? 'Caller';
-                pendingOfferRef.current = sdp
-                    ? { type: 'offer', sdp: sdpText || sdp.sdp }
-                    : null;
+                pendingOfferRef.current = cleaned;
                 pendingIceRef.current = [];
                 unlockChatSounds();
                 startIncomingRing();
@@ -414,10 +455,10 @@ export function useChatVoiceCall(
 
             if (msg.type === 'call_answer' && msg.metadata?.sdp) {
                 if (pcRef.current.signalingState !== 'have-local-offer') return;
+                const answer = cleanSdpPayload(msg.metadata.sdp as RTCSessionDescriptionInit);
+                if (!answer) return;
                 stopCallRing();
-                await pcRef.current.setRemoteDescription(
-                    new RTCSessionDescription(msg.metadata.sdp as RTCSessionDescriptionInit),
-                );
+                await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
                 for (const candidate of pendingIceRef.current) {
                     try {
                         await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
