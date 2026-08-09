@@ -32,7 +32,7 @@ export default function SellerWithdrawals({ wallet, withdrawals }: Props) {
                     </Link>
                     <h2 className="mt-2 text-xl font-bold text-gray-900">Withdrawal history</h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Date, amount, destination, and status for every MoMo payout request.
+                        Date, amount, destination, and status for every MoMo and bank payout request.
                     </p>
                 </div>
                 <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 text-right shadow-sm">
