@@ -8,11 +8,13 @@
             font-family: dejavusans, sans-serif;
             font-size: 9pt;
             color: #111111;
-            line-height: 1.35;
+            line-height: 1.4;
         }
-        table { border-collapse: collapse; width: 100%; }
-        .muted { color: #555555; font-size: 7.5pt; }
-        .brand { font-size: 16pt; font-weight: bold; line-height: 1.1; }
+        table { border-collapse: collapse; }
+        .w-full { width: 100%; }
+        .fixed { table-layout: fixed; }
+        .muted { color: #666666; font-size: 7.5pt; }
+        .brand { font-size: 18pt; font-weight: bold; line-height: 1.1; }
         .brand span { color: #ea580c; }
         .right { text-align: right; }
         .center { text-align: center; }
@@ -22,72 +24,83 @@
             height: 3pt;
             background: #ea580c;
             border: 0;
-            margin: 6pt 0 8pt 0;
+            margin: 8pt 0 10pt 0;
         }
         .box {
-            border: 0.6pt solid #cccccc;
-            padding: 6pt 7pt;
+            border: 0.6pt solid #d4d4d4;
+            padding: 7pt 8pt;
             background-color: #fafafa;
-            margin-bottom: 6pt;
         }
         .label {
             font-size: 7pt;
             font-weight: bold;
             text-transform: uppercase;
-            color: #666666;
-            letter-spacing: 0.3pt;
-            margin-bottom: 3pt;
+            color: #737373;
+            letter-spacing: 0.4pt;
+            margin-bottom: 4pt;
         }
-        .field { margin-bottom: 2pt; font-size: 8.5pt; }
-        .field .k { color: #666666; font-size: 7.5pt; }
+        .field { margin: 0 0 2.5pt 0; font-size: 8.5pt; }
+        .field .k { color: #737373; font-size: 7.5pt; }
+        .meta {
+            margin: 0 0 10pt 0;
+            font-size: 8pt;
+            color: #404040;
+        }
+        .meta strong { color: #111111; }
         .items th {
             font-size: 7.5pt;
-            color: #666666;
-            text-align: left;
-            padding: 4pt 3pt;
-            border-bottom: 0.7pt solid #dddddd;
+            color: #737373;
+            text-transform: uppercase;
+            letter-spacing: 0.3pt;
+            padding: 5pt 4pt;
+            border-bottom: 0.8pt solid #d4d4d4;
+            background: #f5f5f5;
         }
         .items td {
-            padding: 5pt 3pt;
-            border-bottom: 0.4pt solid #eeeeee;
+            padding: 7pt 4pt;
+            border-bottom: 0.5pt solid #e5e5e5;
             font-size: 8.5pt;
             vertical-align: middle;
+            overflow: hidden;
         }
         .thumb {
-            width: 28pt;
-            height: 28pt;
+            width: 26pt;
+            height: 26pt;
             object-fit: contain;
             border: 0.4pt solid #e5e5e5;
         }
+        .item-name { font-weight: bold; font-size: 8.5pt; }
         .totals {
-            width: 45%;
+            width: 48%;
             margin-left: auto;
-            margin-top: 8pt;
+            margin-top: 10pt;
         }
-        .totals td { padding: 2pt 0; font-size: 8.5pt; }
+        .totals td { padding: 3pt 0; font-size: 8.5pt; }
         .totals .grand td {
             font-size: 11pt;
             font-weight: bold;
-            padding-top: 5pt;
-            border-top: 0.7pt solid #dddddd;
+            padding-top: 6pt;
+            border-top: 0.8pt solid #d4d4d4;
         }
         .totals .grand .amount { color: #ea580c; }
         .footer {
-            margin-top: 14pt;
+            margin-top: 16pt;
             text-align: center;
-            color: #999999;
+            color: #a3a3a3;
             font-size: 7.5pt;
         }
+        .spacer { height: 8pt; }
     </style>
 </head>
 <body>
-    <table>
+    {{-- Header --}}
+    <table class="w-full">
         <tr>
-            <td class="top" style="width: 55%;">
+            <td class="top" style="width: 58%;">
                 <div class="brand">City<span>Shop</span></div>
                 <div class="muted">cityunlock.net</div>
             </td>
-            <td class="top right" style="width: 45%;">
+            <td class="top right" style="width: 42%;">
                 <div style="font-size: 11pt; font-weight: bold;">{{ $invoice->invoice_number }}</div>
                 <div class="muted">{{ $typeLabel }}</div>
                 <div class="muted">{{ $issuedLabel }}</div>
@@ -97,92 +110,90 @@
 
     <div class="accent"></div>
 
-    @foreach ($sellerContacts as $index => $contact)
-        <div class="box">
-            <div class="label">{{ count($sellerContacts) > 1 ? 'Store '.($index + 1) : 'Seller' }}</div>
-            <div class="field"><span class="k">Store name:</span> <strong>{{ $contact['store_name'] }}</strong></div>
-            <div class="field"><span class="k">Address:</span> {{ $contact['address'] ?: '—' }}</div>
-            @if (!empty($contact['digital_address']))
-                <div class="field"><span class="k">Digital address:</span> {{ $contact['digital_address'] }}</div>
-            @endif
-            @if (!empty($contact['location']))
-                <div class="field"><span class="k">Location:</span> {{ $contact['location'] }}</div>
-            @endif
-            <div class="field"><span class="k">Phone:</span> {{ $contact['phone'] ?: '—' }}</div>
-        </div>
-    @endforeach
+    {{-- Seller + Ship-to side by side --}}
+    <table class="w-full fixed">
+        <tr>
+            <td class="top" style="width: 49%; padding-right: 4pt;">
+                @forelse ($sellerContacts as $index => $contact)
+                    <div class="box" @if ($index > 0) style="margin-top: 6pt;" @endif>
+                        <div class="label">{{ count($sellerContacts) > 1 ? 'Store '.($index + 1) : 'Seller' }}</div>
+                        <div class="field"><strong>{{ $contact['store_name'] }}</strong></div>
+                        <div class="field"><span class="k">Address:</span> {{ $contact['address'] ?: '—' }}</div>
+                        @if (!empty($contact['digital_address']))
+                            <div class="field"><span class="k">Digital address:</span> {{ $contact['digital_address'] }}</div>
+                        @endif
+                        @if (!empty($contact['location']))
+                            <div class="field"><span class="k">Location:</span> {{ $contact['location'] }}</div>
+                        @endif
+                        <div class="field"><span class="k">Phone:</span> {{ $contact['phone'] ?: '—' }}</div>
+                    </div>
+                @empty
+                    <div class="box">
+                        <div class="label">Seller</div>
+                        <div class="field muted">—</div>
+                    </div>
+                @endforelse
+            </td>
+            <td class="top" style="width: 2%;"></td>
+            <td class="top" style="width: 49%; padding-left: 4pt;">
+                <div class="box">
+                    <div class="label">Ship to (buyer)</div>
+                    <div class="field"><strong>{{ $buyerShipTo['name'] }}</strong></div>
+                    <div class="field"><span class="k">Phone:</span> {{ $buyerShipTo['phone'] ?: '—' }}</div>
+                    <div class="field"><span class="k">Digital address:</span> {{ $buyerShipTo['digital_address'] ?: '—' }}</div>
+                    <div class="field"><span class="k">Location:</span> {{ $buyerShipTo['location'] ?: '—' }}</div>
+                    @if (!empty($buyerShipTo['delivery_notes']))
+                        <div class="field"><span class="k">Delivery notes:</span> {{ $buyerShipTo['delivery_notes'] }}</div>
+                    @endif
+                </div>
+            </td>
+        </tr>
+    </table>
 
-    <div class="box">
-        <div class="label">Ship to (buyer)</div>
-        <div class="field"><strong>{{ $buyerShipTo['name'] }}</strong></div>
-        <div class="field"><span class="k">Phone:</span> {{ $buyerShipTo['phone'] ?: '—' }}</div>
-        <div class="field"><span class="k">Digital address:</span> {{ $buyerShipTo['digital_address'] ?: '—' }}</div>
-        <div class="field"><span class="k">Location:</span> {{ $buyerShipTo['location'] ?: '—' }}</div>
-        @if (!empty($buyerShipTo['delivery_notes']))
-            <div class="field"><span class="k">Delivery notes:</span> {{ $buyerShipTo['delivery_notes'] }}</div>
-        @endif
-    </div>
+    <div class="spacer"></div>
 
-    <div class="box">
-        <div class="label">Delivery &amp; shipping fees</div>
-        <div class="field"><span class="k">Delivery fees:</span> <strong>GH₵{{ number_format((float) $deliveryFees, 2) }}</strong></div>
-        <div class="field">
-            <span class="k">Shipping fees:</span>
-            <strong>
-                @if ((float) $shippingFees > 0 && abs((float) $shippingFees - (float) $deliveryFees) < 0.001)
-                    Same as delivery
-                @else
-                    GH₵{{ number_format((float) $shippingFees, 2) }}
-                @endif
-            </strong>
-        </div>
-        <div class="muted" style="margin-top: 2pt;">Included once in the invoice total below.</div>
-    </div>
-
-    <div style="margin-bottom: 8pt; font-size: 8pt;">
+    <div class="meta">
         @if ($invoice->checkout)
-            <div><strong>Checkout:</strong> {{ $invoice->checkout->checkout_number }}</div>
+            <strong>Checkout:</strong> {{ $invoice->checkout->checkout_number }}
+            &nbsp;&nbsp;
         @endif
         @if ($invoice->order)
-            <div><strong>Order:</strong> {{ $invoice->order->order_number }}</div>
+            <strong>Order:</strong> {{ $invoice->order->order_number }}
+            &nbsp;&nbsp;
         @endif
-        <div>
-            <strong>Payment:</strong>
-            {{ ucfirst(str_replace('_', ' ', (string) $invoice->payment_status)) }}
-            @if ($invoice->payment_method)
-                · {{ str_replace('_', ' ', $invoice->payment_method) }}
-            @endif
-        </div>
+        <strong>Payment:</strong>
+        {{ ucfirst(str_replace('_', ' ', (string) $invoice->payment_status)) }}
+        @if ($invoice->payment_method)
+            · {{ str_replace('_', ' ', $invoice->payment_method) }}
+        @endif
     </div>
 
-    <table class="items">
+    {{-- Line items: fixed columns, no nested tables --}}
+    <table class="items w-full fixed">
         <thead>
             <tr>
-                <th style="width: 52%;">Item</th>
-                <th class="center" style="width: 12%;">Qty</th>
-                <th class="right" style="width: 18%;">Unit</th>
-                <th class="right" style="width: 18%;">Total</th>
+                <th style="width: 10%;" class="center">Img</th>
+                <th style="width: 42%;" class="left">Item</th>
+                <th style="width: 10%;" class="center">Qty</th>
+                <th style="width: 19%;" class="right">Unit</th>
+                <th style="width: 19%;" class="right">Total</th>
             </tr>
         </thead>
         <tbody>
             @foreach ($lineItems as $line)
                 <tr>
+                    <td class="center mid">
+                        @if (!empty($line['pdf_image']))
+                            <img class="thumb" src="{{ $line['pdf_image'] }}" alt=""/>
+                        @else
+                            <span class="muted">—</span>
+                        @endif
+                    </td>
                     <td class="mid">
-                        <table>
-                            <tr>
-                                <td class="mid" style="width: 34pt;">
-                                    @if (!empty($line['pdf_image']))
-                                        <img class="thumb" src="{{ $line['pdf_image'] }}" alt=""/>
-                                    @endif
-                                </td>
-                                <td class="mid">
-                                    <div style="font-weight: bold;">{{ $line['product_name'] ?? 'Item' }}</div>
-                                    @if (!empty($line['seller']))
-                                        <div class="muted">{{ $line['seller'] }}</div>
-                                    @endif
-                                </td>
-                            </tr>
-                        </table>
+                        <div class="item-name">{{ $line['product_name'] ?? 'Item' }}</div>
+                        @if (!empty($line['seller']))
+                            <div class="muted">{{ $line['seller'] }}</div>
+                        @endif
                     </td>
                     <td class="center mid">{{ $line['quantity'] ?? 1 }}</td>
                     <td class="right mid">

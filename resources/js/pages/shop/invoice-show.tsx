@@ -146,76 +146,78 @@ export default function InvoiceShow({
                         </div>
                     </div>
 
-                    {contacts.length > 0 && (
-                        <div className="mt-4 space-y-3">
-                            {contacts.map((contact, index) => (
-                                <div
-                                    key={`${contact.store_name}-${index}`}
-                                    className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm"
-                                >
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        {contacts.length > 1 ? `Store ${index + 1}` : 'Seller'}
-                                    </p>
-                                    <dl className="mt-1.5 grid gap-1 sm:grid-cols-2">
-                                        <div>
-                                            <dt className="text-xs text-gray-500">Store name</dt>
-                                            <dd className="font-medium text-gray-900">{contact.store_name}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="text-xs text-gray-500">Phone</dt>
-                                            <dd className="text-gray-900">{contact.phone || '—'}</dd>
-                                        </div>
-                                        <div className="sm:col-span-2">
-                                            <dt className="text-xs text-gray-500">Address</dt>
-                                            <dd className="text-gray-900">{contact.address || '—'}</dd>
-                                        </div>
-                                        {contact.digital_address && (
-                                            <div className="sm:col-span-2">
-                                                <dt className="text-xs text-gray-500">Digital address</dt>
-                                                <dd className="text-gray-900">{contact.digital_address}</dd>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {contacts.length > 0 && (
+                            <div className="space-y-3">
+                                {contacts.map((contact, index) => (
+                                    <div
+                                        key={`${contact.store_name}-${index}`}
+                                        className="h-full rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm"
+                                    >
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            {contacts.length > 1 ? `Store ${index + 1}` : 'Seller'}
+                                        </p>
+                                        <dl className="mt-1.5 space-y-1">
+                                            <div>
+                                                <dt className="text-xs text-gray-500">Store name</dt>
+                                                <dd className="font-medium text-gray-900">{contact.store_name}</dd>
                                             </div>
-                                        )}
-                                        {contact.location && (
-                                            <div className="sm:col-span-2">
-                                                <dt className="text-xs text-gray-500">Location</dt>
-                                                <dd className="text-gray-900">{contact.location}</dd>
+                                            <div>
+                                                <dt className="text-xs text-gray-500">Phone</dt>
+                                                <dd className="text-gray-900">{contact.phone || '—'}</dd>
                                             </div>
-                                        )}
-                                    </dl>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {buyerShipTo && (
-                        <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ship to (buyer)</p>
-                            <dl className="mt-1.5 grid gap-1 sm:grid-cols-2">
-                                <div>
-                                    <dt className="text-xs text-gray-500">Name</dt>
-                                    <dd className="font-medium text-gray-900">{buyerShipTo.name}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-xs text-gray-500">Phone</dt>
-                                    <dd className="text-gray-900">{buyerShipTo.phone || '—'}</dd>
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <dt className="text-xs text-gray-500">Digital address</dt>
-                                    <dd className="text-gray-900">{buyerShipTo.digital_address || '—'}</dd>
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <dt className="text-xs text-gray-500">Location</dt>
-                                    <dd className="text-gray-900">{buyerShipTo.location || '—'}</dd>
-                                </div>
-                                {buyerShipTo.delivery_notes && (
-                                    <div className="sm:col-span-2">
-                                        <dt className="text-xs text-gray-500">Delivery notes</dt>
-                                        <dd className="text-gray-900">{buyerShipTo.delivery_notes}</dd>
+                                            <div>
+                                                <dt className="text-xs text-gray-500">Address</dt>
+                                                <dd className="text-gray-900">{contact.address || '—'}</dd>
+                                            </div>
+                                            {contact.digital_address && (
+                                                <div>
+                                                    <dt className="text-xs text-gray-500">Digital address</dt>
+                                                    <dd className="text-gray-900">{contact.digital_address}</dd>
+                                                </div>
+                                            )}
+                                            {contact.location && (
+                                                <div>
+                                                    <dt className="text-xs text-gray-500">Location</dt>
+                                                    <dd className="text-gray-900">{contact.location}</dd>
+                                                </div>
+                                            )}
+                                        </dl>
                                     </div>
-                                )}
-                            </dl>
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        )}
+
+                        {buyerShipTo && (
+                            <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-sm">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ship to (buyer)</p>
+                                <dl className="mt-1.5 space-y-1">
+                                    <div>
+                                        <dt className="text-xs text-gray-500">Name</dt>
+                                        <dd className="font-medium text-gray-900">{buyerShipTo.name}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs text-gray-500">Phone</dt>
+                                        <dd className="text-gray-900">{buyerShipTo.phone || '—'}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs text-gray-500">Digital address</dt>
+                                        <dd className="text-gray-900">{buyerShipTo.digital_address || '—'}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs text-gray-500">Location</dt>
+                                        <dd className="text-gray-900">{buyerShipTo.location || '—'}</dd>
+                                    </div>
+                                    {buyerShipTo.delivery_notes && (
+                                        <div>
+                                            <dt className="text-xs text-gray-500">Delivery notes</dt>
+                                            <dd className="text-gray-900">{buyerShipTo.delivery_notes}</dd>
+                                        </div>
+                                    )}
+                                </dl>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="mt-3 rounded-lg border border-orange-100 bg-orange-50/50 p-3 text-sm">
                         <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">Delivery &amp; shipping fees</p>
@@ -252,69 +254,79 @@ export default function InvoiceShow({
                         </p>
                     </div>
 
-                    <table className="mt-5 w-full text-sm">
-                        <thead>
-                            <tr className="border-b text-left text-gray-500">
-                                <th className="pb-2 font-medium">Item</th>
-                                <th className="pb-2 text-center font-medium">Qty</th>
-                                <th className="pb-2 text-right font-medium">Unit</th>
-                                <th className="pb-2 text-right font-medium">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {invoice.line_items.map((line, i) => {
-                                const src = lineImageSrc(line.image);
+                    <div className="mt-5 overflow-x-auto">
+                        <table className="w-full min-w-[520px] table-fixed border-collapse text-sm">
+                            <colgroup>
+                                <col className="w-[48%]" />
+                                <col className="w-[12%]" />
+                                <col className="w-[20%]" />
+                                <col className="w-[20%]" />
+                            </colgroup>
+                            <thead>
+                                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                                    <th className="px-2 py-2.5 font-semibold">Item</th>
+                                    <th className="px-2 py-2.5 text-center font-semibold">Qty</th>
+                                    <th className="px-2 py-2.5 text-right font-semibold">Unit</th>
+                                    <th className="px-2 py-2.5 text-right font-semibold">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {invoice.line_items.map((line, i) => {
+                                    const src = lineImageSrc(line.image);
 
-                                return (
-                                    <tr key={i}>
-                                        <td className="py-2.5 pr-2">
-                                            <div className="flex items-center gap-2.5">
-                                                {src ? (
-                                                    <img
-                                                        src={src}
-                                                        alt=""
-                                                        className="h-12 w-12 shrink-0 rounded border border-gray-200 object-contain"
-                                                    />
-                                                ) : (
-                                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400">
-                                                        —
+                                    return (
+                                        <tr key={i}>
+                                            <td className="px-2 py-3 align-middle">
+                                                <div className="flex items-center gap-2.5">
+                                                    {src ? (
+                                                        <img
+                                                            src={src}
+                                                            alt=""
+                                                            className="h-11 w-11 shrink-0 rounded border border-gray-200 object-contain"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400">
+                                                            —
+                                                        </div>
+                                                    )}
+                                                    <div className="min-w-0">
+                                                        <p className="font-medium leading-snug text-gray-900">{line.product_name}</p>
+                                                        {line.seller && <p className="text-xs text-gray-400">{line.seller}</p>}
                                                     </div>
-                                                )}
-                                                <div className="min-w-0">
-                                                    <p className="font-medium text-gray-900">{line.product_name}</p>
-                                                    {line.seller && <p className="text-xs text-gray-400">{line.seller}</p>}
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-2.5 text-center">{line.quantity ?? 1}</td>
-                                        <td className="py-2.5 text-right">
-                                            {line.unit_price != null ? formatPrice(line.unit_price) : '—'}
-                                        </td>
-                                        <td className="py-2.5 text-right font-medium">
-                                            {line.total != null ? formatPrice(line.total) : '—'}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                            </td>
+                                            <td className="px-2 py-3 text-center align-middle tabular-nums">{line.quantity ?? 1}</td>
+                                            <td className="px-2 py-3 text-right align-middle tabular-nums">
+                                                {line.unit_price != null ? formatPrice(line.unit_price) : '—'}
+                                            </td>
+                                            <td className="px-2 py-3 text-right align-middle font-semibold tabular-nums">
+                                                {line.total != null ? formatPrice(line.total) : '—'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
 
-                    <div className="mt-4 ml-auto max-w-xs space-y-1.5 border-t pt-3 text-sm">
-                        <div className="flex justify-between text-gray-600">
+                    <div className="mt-4 ml-auto w-full max-w-xs space-y-1.5 border-t border-gray-200 pt-3 text-sm">
+                        <div className="flex justify-between gap-4 text-gray-600">
                             <span>Subtotal</span>
-                            <span>{formatPrice(invoice.subtotal)}</span>
+                            <span className="tabular-nums">{formatPrice(invoice.subtotal)}</span>
                         </div>
-                        <div className="flex justify-between text-gray-600">
+                        <div className="flex justify-between gap-4 text-gray-600">
                             <span>Delivery fees</span>
-                            <span>{formatPrice(delivery)}</span>
+                            <span className="tabular-nums">{formatPrice(delivery)}</span>
                         </div>
-                        <div className="flex justify-between text-gray-600">
+                        <div className="flex justify-between gap-4 text-gray-600">
                             <span>Shipping fees</span>
-                            <span>{sameDeliveryAndShipping ? 'Same as delivery' : formatPrice(shipping)}</span>
+                            <span className="tabular-nums">
+                                {sameDeliveryAndShipping ? 'Same as delivery' : formatPrice(shipping)}
+                            </span>
                         </div>
-                        <div className="flex justify-between text-base font-bold text-gray-900">
+                        <div className="flex justify-between gap-4 border-t border-gray-100 pt-2 text-base font-bold text-gray-900">
                             <span>Total</span>
-                            <span className="text-orange-500">{formatPrice(invoice.total)}</span>
+                            <span className="tabular-nums text-orange-500">{formatPrice(invoice.total)}</span>
                         </div>
                     </div>
 

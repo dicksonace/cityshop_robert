@@ -222,16 +222,17 @@ class BuyerInvoicePrintService
             'mode' => 'utf-8',
             'format' => 'A4',
             'orientation' => 'P',
-            'margin_left' => 10,
-            'margin_right' => 10,
-            'margin_top' => 10,
-            'margin_bottom' => 10,
+            'margin_left' => 12,
+            'margin_right' => 12,
+            'margin_top' => 12,
+            'margin_bottom' => 12,
             'margin_header' => 0,
             'margin_footer' => 0,
             'default_font' => 'dejavusans',
             'default_font_size' => 9,
             'tempDir' => $tempDir,
-            'shrink_tables_to_fit' => 1,
+            // Keep column widths — shrinking tables was scrambling Qty/Unit/Total.
+            'shrink_tables_to_fit' => 0,
         ]);
 
         $mpdf->SetTitle('Invoice '.$data['invoice']->invoice_number);
