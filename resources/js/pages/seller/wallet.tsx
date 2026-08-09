@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
+import WalletBalanceCard from '@/components/seller/wallet-balance-card';
 import SellerLayout from '@/layouts/seller-layout';
 import { GHANA_BANKS, isGhanaBank, payoutNetworkLabel } from '@/lib/ghana-banks';
 import { momoNetworkMeta } from '@/lib/momo-networks';
@@ -37,6 +38,8 @@ interface WalletProps {
     withdrawals: Paginated<Withdrawal>;
     payoutMethods: PayoutMethod[];
     hasPendingWithdrawal: boolean;
+    paystackConfigured?: boolean;
+    manualTopUpEnabled?: boolean;
     withdrawalFee?: {
         enabled: boolean;
         amount: number;
@@ -64,6 +67,8 @@ export default function SellerWallet({
     withdrawals,
     payoutMethods,
     hasPendingWithdrawal,
+    paystackConfigured = false,
+    manualTopUpEnabled = false,
     withdrawalFee,
 }: WalletProps) {
     const [withdrawStep, setWithdrawStep] = useState<'method' | 'amount' | 'review'>('method');
@@ -161,36 +166,31 @@ export default function SellerWallet({
         <SellerLayout title="Finance" active="wallet">
             <Head title="Finance" />
 
-            <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-gray-900">Balances</h2>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={refreshBalance}
-                    disabled={refreshing}
-                >
-                    <RefreshCw className={`mr-1.5 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    Refresh
-                </Button>
+            <div className="mb-6">
+                <WalletBalanceCard
+                    balance={wallet.available_balance}
+                    pendingBalance={wallet.pending_balance}
+                    withdrawHref="#withdraw"
+                    historyHref="#history"
+                    onRefresh={refreshBalance}
+                    refreshing={refreshing}
+                    paystackConfigured={paystackConfigured}
+                    manualTopUpEnabled={manualTopUpEnabled}
+                />
             </div>
 
-            <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mb-6 grid gap-4 sm:grid-cols-3">
                 {[
-                    { label: 'Available', value: wallet.available_balance, desc: 'Withdrawable', highlight: true },
-                    { label: 'Pending', value: wallet.pending_balance, desc: 'Clearing' },
                     { label: 'Lifetime earnings', value: wallet.total_earnings, desc: 'All time' },
                     { label: 'Withdrawn', value: wallet.withdrawn_amount, desc: 'Paid out' },
+                    { label: 'Pending', value: wallet.pending_balance, desc: 'Clearing' },
                 ].map((card) => (
                     <div
                         key={card.label}
-                        className={cn(
-                            'rounded-2xl border bg-white p-5 shadow-sm',
-                            card.highlight ? 'border-orange-200 bg-gradient-to-br from-orange-50 to-white ring-1 ring-orange-100' : 'border-gray-100',
-                        )}
+                        className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
                     >
                         <p className="text-sm text-gray-500">{card.label}</p>
-                        <p className={cn('mt-1 text-2xl font-bold', card.highlight ? 'text-orange-600' : 'text-gray-900')}>{formatPrice(card.value)}</p>
+                        <p className="mt-1 text-2xl font-bold text-gray-900">{formatPrice(card.value)}</p>
                         <p className="text-xs text-gray-400">{card.desc}</p>
                     </div>
                 ))}

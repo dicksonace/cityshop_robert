@@ -157,7 +157,7 @@ export default function BuyerWallet({
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">My Wallet</h1>
-                        <p className="text-sm text-gray-500">Add funds, pay for orders, withdraw to MoMo or bank, and view refunds.</p>
+                        <p className="text-sm text-gray-500">Recharge, pay for orders, withdraw to MoMo or bank, and view refunds.</p>
                     </div>
                 </div>
 
@@ -173,11 +173,16 @@ export default function BuyerWallet({
                     </div>
                 )}
 
-                <div className="mb-8 rounded-2xl bg-gradient-to-r from-slate-900 via-blue-900 to-orange-900 p-6 text-white shadow-lg">
+                <div className="mb-8 overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 p-6 text-white shadow-lg">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            <p className="text-sm text-white/70">Available balance</p>
-                            <p className="mt-1 text-4xl font-bold">{formatPrice(wallet.available_balance)}</p>
+                            <p className="text-sm font-medium text-orange-100">Available balance</p>
+                            <p className="mt-1 text-4xl font-black tracking-tight">{formatPrice(wallet.available_balance)}</p>
+                            {wallet.pending_balance > 0 && (
+                                <p className="mt-2 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+                                    Pending {formatPrice(wallet.pending_balance)}
+                                </p>
+                            )}
                         </div>
                         <Button
                             type="button"
@@ -191,7 +196,28 @@ export default function BuyerWallet({
                             Refresh
                         </Button>
                     </div>
-                    <p className="mt-2 text-xs text-white/60">Use your balance at checkout or withdraw to MoMo or bank. Refunds are credited here.</p>
+                    <div className="mt-5 flex h-12 overflow-hidden rounded-full bg-white shadow-md">
+                        <a
+                            href="#withdraw"
+                            className="flex flex-1 items-center justify-center text-sm font-extrabold text-slate-900 transition hover:bg-slate-50"
+                        >
+                            Withdrawal
+                        </a>
+                        <a
+                            href="#recharge"
+                            className={cn(
+                                'flex flex-1 items-center justify-center rounded-full text-sm font-extrabold text-white transition',
+                                paystackConfigured || manualTopUpEnabled
+                                    ? 'bg-orange-500 hover:bg-orange-600'
+                                    : 'pointer-events-none bg-slate-400',
+                            )}
+                        >
+                            Recharge
+                        </a>
+                    </div>
+                    <p className="mt-3 text-xs text-orange-50/90">
+                        Use your balance at checkout or withdraw to MoMo or bank. Refunds are credited here.
+                    </p>
                 </div>
 
                 <div id="withdraw" className="mb-6 scroll-mt-24">
@@ -399,8 +425,8 @@ export default function BuyerWallet({
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-2">
-                    <form onSubmit={submitAddFunds} className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-                        <h3 className="font-semibold text-gray-900">Add Funds</h3>
+                    <form id="recharge" onSubmit={submitAddFunds} className="scroll-mt-24 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                        <h3 className="font-semibold text-gray-900">Recharge</h3>
                         <p className="mt-1 text-sm text-gray-500">Top up via Paystack (MoMo or card).</p>
                         <div className="mt-4 space-y-3">
                             <div>
@@ -427,12 +453,12 @@ export default function BuyerWallet({
                                     <option value="card">Card</option>
                                 </select>
                             </div>
-                            <Button type="submit" disabled={addFundsForm.processing || !paystackConfigured} className="w-full bg-green-600 hover:bg-green-700">
+                            <Button type="submit" disabled={addFundsForm.processing || !paystackConfigured} className="w-full bg-orange-500 hover:bg-orange-600">
                                 {addFundsForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                {paystackConfigured ? 'Pay to Add Funds' : 'Top-up unavailable'}
+                                {paystackConfigured ? 'Recharge' : 'Recharge unavailable'}
                             </Button>
                             {!paystackConfigured && (
-                                <p className="text-xs text-amber-600">Online top-up requires Paystack to be configured.</p>
+                                <p className="text-xs text-amber-600">Online recharge requires Paystack to be configured.</p>
                             )}
                             {manualTopUpEnabled && (
                                 <ManualTopUpPrompt href={route('wallet.manual-top-up')} />
