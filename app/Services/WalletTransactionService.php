@@ -359,8 +359,8 @@ class WalletTransactionService
     }
 
     /**
-     * For transfer rows, look up the other party's mobile once per page so statements
-     * can show "Transfer to Name Tel 0248…" even on older ledger lines.
+     * For transfer rows, look up the other party's profile once per page so the
+     * wallet history can show their photo / Tel even on older ledger lines.
      *
      * @param  \Illuminate\Support\Collection<int, WalletTransaction>  $page
      */
@@ -388,9 +388,11 @@ class WalletTransactionService
             ->get(['user_id', 'reference', 'type']);
 
         $userIds = $peers->pluck('user_id')->unique()->values();
-        $mobiles = User::query()
+        $users = User::query()
             ->whereIn('id', $userIds->all())
-            ->pluck('mobile', 'id');
+            ->with('sellerProfile:id,user_id,shop_photo')
+            ->get(['id', 'name', 'mobile', 'avatar', 'role'])
+            ->keyBy('id');
 
         foreach ($page as $tx) {
             if (! in_array($tx->type, [
@@ -414,11 +416,31 @@ class WalletTransactionService
                 continue;
             }
 
-            $mobile = trim((string) ($mobiles[(int) $peer->user_id] ?? ''));
+            $user = $users->get((int) $peer->user_id);
+            if (! $user) {
+                continue;
+            }
+
+            $mobile = trim((string) ($user->mobile ?? ''));
             if ($mobile !== '') {
                 $tx->setAttribute('counterparty_mobile', $mobile);
             }
+
+            $tx->setAttribute('counterparty', [
+                'id' => $user->id,
+                'name' => $user->name,
+                'mobile' => $mobile !== '' ? $mobile : null,
+                'avatar' => $user->publicAvatarUrl(),
+            ]);
         }
+    }
+
+    /** Compact counterparty payload for API clients (transfers only). */
+    public static function counterpartyPayload(WalletTransaction $tx): ?array
+    {
+        $party = $tx->getAttribute('counterparty');
+
+        return is_array($party) ? $party : null;
     }
 
     /** Statement / history line with Tel inserted when the stored description lacks it. */

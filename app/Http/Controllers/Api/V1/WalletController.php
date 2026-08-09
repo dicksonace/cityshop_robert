@@ -84,6 +84,7 @@ class WalletController extends Controller
                 'created_at' => $tx->created_at?->toIso8601String(),
                 'balance_before' => $tx->getAttribute('balance_before'),
                 'balance_after' => $tx->getAttribute('balance_after'),
+                'counterparty' => WalletTransactionService::counterpartyPayload($tx),
             ])->values(),
             'meta' => [
                 'current_page' => $transactions->currentPage(),
@@ -134,6 +135,7 @@ class WalletController extends Controller
                 'created_at' => $tx->created_at?->toIso8601String(),
                 'balance_before' => $tx->getAttribute('balance_before'),
                 'balance_after' => $tx->getAttribute('balance_after'),
+                'counterparty' => WalletTransactionService::counterpartyPayload($tx),
             ],
         ]);
     }
