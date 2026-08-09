@@ -1,12 +1,11 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Check, LoaderCircle, RefreshCw, Wallet as WalletIcon } from 'lucide-react';
+import { Check, LoaderCircle, RefreshCw, Smartphone, Upload, Wallet as WalletIcon, X } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import ManualTopUpPrompt from '@/components/wallet/manual-top-up-prompt';
 import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import { WalletTransactionReceiptButton } from '@/components/wallet/wallet-receipt-modal';
@@ -86,6 +85,8 @@ export default function BuyerWallet({
     const { auth, flash } = usePage<SharedData>().props;
     const [refreshing, setRefreshing] = useState(false);
     const [withdrawStep, setWithdrawStep] = useState<'details' | 'amount' | 'review'>('details');
+    const [rechargeOpen, setRechargeOpen] = useState(false);
+    const [rechargeStep, setRechargeStep] = useState<'choose' | 'paystack'>('choose');
 
     const addFundsForm = useForm({ amount: '', method: 'momo' });
     const withdrawForm = useForm({
@@ -97,8 +98,22 @@ export default function BuyerWallet({
         payment_pin: '',
     });
 
+    const canRecharge = paystackConfigured || !!manualTopUpEnabled;
     const activeFee = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type);
     const maxWithdraw = Math.max(0, wallet.available_balance - activeFee);
+
+    const openRecharge = () => {
+        setRechargeStep('choose');
+        addFundsForm.reset();
+        addFundsForm.clearErrors();
+        setRechargeOpen(true);
+    };
+
+    const closeRecharge = () => {
+        setRechargeOpen(false);
+        setRechargeStep('choose');
+        addFundsForm.reset();
+    };
 
     const setPayoutType = (type: 'momo' | 'bank') => {
         withdrawForm.setData({
@@ -120,7 +135,9 @@ export default function BuyerWallet({
 
     const submitAddFunds: FormEventHandler = (e) => {
         e.preventDefault();
-        addFundsForm.post(route('wallet.add-funds'), { onSuccess: () => addFundsForm.reset() });
+        addFundsForm.post(route('wallet.add-funds'), {
+            onSuccess: () => closeRecharge(),
+        });
     };
 
     const submitWithdraw: FormEventHandler = (e) => {
@@ -203,22 +220,140 @@ export default function BuyerWallet({
                         >
                             Withdrawal
                         </a>
-                        <a
-                            href="#recharge"
+                        <button
+                            type="button"
+                            onClick={canRecharge ? openRecharge : undefined}
+                            disabled={!canRecharge}
                             className={cn(
                                 'flex flex-1 items-center justify-center rounded-full text-sm font-extrabold text-white transition',
-                                paystackConfigured || manualTopUpEnabled
+                                canRecharge
                                     ? 'bg-orange-500 hover:bg-orange-600'
-                                    : 'pointer-events-none bg-slate-400',
+                                    : 'cursor-not-allowed bg-slate-400',
                             )}
                         >
                             Recharge
-                        </a>
+                        </button>
                     </div>
                     <p className="mt-3 text-xs text-orange-50/90">
                         Use your balance at checkout or withdraw to MoMo or bank. Refunds are credited here.
                     </p>
                 </div>
+
+                {rechargeOpen && (
+                    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 pt-14 sm:items-start sm:pt-20">
+                        <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl sm:p-5">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                    <h3 className="text-base font-bold text-gray-900">
+                                        {rechargeStep === 'choose' ? 'Recharge' : 'Paystack recharge'}
+                                    </h3>
+                                    {rechargeStep === 'choose' && (
+                                        <p className="mt-0.5 text-xs leading-snug text-gray-500">
+                                            Choose Auto Paystack or manual MoMo / bank proof.
+                                        </p>
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={closeRecharge}
+                                    className="shrink-0 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                    aria-label="Close"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+
+                            {rechargeStep === 'choose' ? (
+                                <div className="mt-4 space-y-2.5">
+                                    {paystackConfigured && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setRechargeStep('paystack')}
+                                            className="flex w-full items-center gap-3 rounded-xl border border-orange-200 bg-orange-50/60 px-3.5 py-3 text-left transition hover:border-orange-300 hover:bg-orange-50"
+                                        >
+                                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white">
+                                                <Smartphone className="h-5 w-5" />
+                                            </span>
+                                            <span className="min-w-0">
+                                                <span className="block text-sm font-semibold text-gray-900">Auto Paystack</span>
+                                                <span className="block text-xs text-gray-500">Instant MoMo or card</span>
+                                            </span>
+                                        </button>
+                                    )}
+
+                                    {manualTopUpEnabled && (
+                                        <Link
+                                            href={route('wallet.manual-top-up')}
+                                            onClick={closeRecharge}
+                                            className="flex w-full items-center gap-3 rounded-xl border border-sky-100 bg-white px-3.5 py-3 text-left transition hover:border-sky-200 hover:bg-sky-50"
+                                        >
+                                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white">
+                                                <Upload className="h-5 w-5" />
+                                            </span>
+                                            <span className="min-w-0">
+                                                <span className="block text-sm font-semibold text-gray-900">Manual</span>
+                                                <span className="block text-xs text-gray-500">MoMo / bank + upload proof</span>
+                                            </span>
+                                        </Link>
+                                    )}
+                                </div>
+                            ) : (
+                                <form onSubmit={submitAddFunds} className="mt-4 space-y-3">
+                                    <div>
+                                        <Label htmlFor="buyer-recharge-amount">Amount (GH₵)</Label>
+                                        <Input
+                                            id="buyer-recharge-amount"
+                                            type="number"
+                                            min="5"
+                                            step="0.01"
+                                            value={addFundsForm.data.amount}
+                                            onChange={(e) => addFundsForm.setData('amount', e.target.value)}
+                                            className="mt-1"
+                                            placeholder="e.g. 100"
+                                            autoFocus
+                                        />
+                                        <InputError message={addFundsForm.errors.amount} />
+                                    </div>
+                                    <div>
+                                        <Label>Pay with</Label>
+                                        <div className="mt-1.5 flex gap-2">
+                                            {(['momo', 'card'] as const).map((method) => (
+                                                <button
+                                                    key={method}
+                                                    type="button"
+                                                    onClick={() => addFundsForm.setData('method', method)}
+                                                    className={cn(
+                                                        'flex-1 rounded-lg px-3 py-2 text-sm font-medium ring-1',
+                                                        addFundsForm.data.method === method
+                                                            ? 'bg-orange-500 text-white ring-orange-500'
+                                                            : 'bg-white text-gray-700 ring-gray-200',
+                                                    )}
+                                                >
+                                                    {method === 'momo' ? 'Mobile Money' : 'Card'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <InputError message={addFundsForm.errors.method} />
+                                    </div>
+                                    <div className="flex gap-2 pt-0.5">
+                                        <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setRechargeStep('choose')}>
+                                            Back
+                                        </Button>
+                                        <Button
+                                            type="submit"
+                                            size="sm"
+                                            disabled={addFundsForm.processing}
+                                            className="flex-1 bg-orange-500 hover:bg-orange-600"
+                                        >
+                                            {addFundsForm.processing && <LoaderCircle className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                                            Recharge
+                                        </Button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <div id="withdraw" className="mb-6 scroll-mt-24">
                     <WithdrawalHighlight
@@ -424,73 +559,30 @@ export default function BuyerWallet({
                     </WithdrawalHighlight>
                 </div>
 
-                <div className="grid gap-6 lg:grid-cols-2">
-                    <form id="recharge" onSubmit={submitAddFunds} className="scroll-mt-24 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-                        <h3 className="font-semibold text-gray-900">Recharge</h3>
-                        <p className="mt-1 text-sm text-gray-500">Top up via Paystack (MoMo or card).</p>
-                        <div className="mt-4 space-y-3">
-                            <div>
-                                <Label>Amount (GH₵)</Label>
-                                <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="5"
-                                    value={addFundsForm.data.amount}
-                                    onChange={(e) => addFundsForm.setData('amount', e.target.value)}
-                                    required
-                                    className="mt-1"
-                                />
-                                <InputError message={addFundsForm.errors.amount} />
-                            </div>
-                            <div>
-                                <Label>Payment method</Label>
-                                <select
-                                    value={addFundsForm.data.method}
-                                    onChange={(e) => addFundsForm.setData('method', e.target.value)}
-                                    className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-                                >
-                                    <option value="momo">Mobile Money</option>
-                                    <option value="card">Card</option>
-                                </select>
-                            </div>
-                            <Button type="submit" disabled={addFundsForm.processing || !paystackConfigured} className="w-full bg-orange-500 hover:bg-orange-600">
-                                {addFundsForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                {paystackConfigured ? 'Recharge' : 'Recharge unavailable'}
-                            </Button>
-                            {!paystackConfigured && (
-                                <p className="text-xs text-amber-600">Online recharge requires Paystack to be configured.</p>
-                            )}
-                            {manualTopUpEnabled && (
-                                <ManualTopUpPrompt href={route('wallet.manual-top-up')} />
-                            )}
-                        </div>
-                    </form>
-
-                    <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-                        <h3 className="font-semibold text-gray-900">Withdrawal requests</h3>
-                        <p className="mt-1 text-sm text-gray-500">Track MoMo and bank payouts.</p>
-                        {withdrawals.data.length === 0 ? (
-                            <p className="mt-4 text-sm text-gray-500">No withdrawal requests yet.</p>
-                        ) : (
-                            <div className="mt-4 divide-y">
-                                {withdrawals.data.map((w) => (
-                                    <div key={w.id} className="flex items-start justify-between gap-3 py-3">
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusColor[w.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                                                    {statusLabel[w.status] ?? w.status}
-                                                </span>
-                                                <span className="text-xs text-gray-400">{payoutNetworkLabel(w.network)}</span>
-                                            </div>
-                                            <p className="mt-1 text-sm text-gray-700">{w.momo_number}</p>
-                                            <p className="text-xs text-gray-400">{formatDate(w.created_at)}</p>
+                <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                    <h3 className="font-semibold text-gray-900">Withdrawal requests</h3>
+                    <p className="mt-1 text-sm text-gray-500">Track MoMo and bank payouts.</p>
+                    {withdrawals.data.length === 0 ? (
+                        <p className="mt-4 text-sm text-gray-500">No withdrawal requests yet.</p>
+                    ) : (
+                        <div className="mt-4 divide-y">
+                            {withdrawals.data.map((w) => (
+                                <div key={w.id} className="flex items-start justify-between gap-3 py-3">
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusColor[w.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                                                {statusLabel[w.status] ?? w.status}
+                                            </span>
+                                            <span className="text-xs text-gray-400">{payoutNetworkLabel(w.network)}</span>
                                         </div>
-                                        <p className="shrink-0 font-semibold text-orange-600">{formatPrice(w.amount)}</p>
+                                        <p className="mt-1 text-sm text-gray-700">{w.momo_number}</p>
+                                        <p className="text-xs text-gray-400">{formatDate(w.created_at)}</p>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                                    <p className="shrink-0 font-semibold text-orange-600">{formatPrice(w.amount)}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-8 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
