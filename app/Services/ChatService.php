@@ -77,6 +77,9 @@ class ChatService
             ->first();
 
         if ($existing) {
+            $existing->clearHiddenFor($buyer);
+            $existing->clearHiddenFor($seller);
+
             return $existing;
         }
 

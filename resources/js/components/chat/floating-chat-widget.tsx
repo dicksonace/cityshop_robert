@@ -54,22 +54,24 @@ export default function FloatingChatWidget() {
         <div
             className={cn(
                 'fixed z-[100] flex flex-col',
-                // Desktop launcher / panel stays bottom-right.
-                'sm:right-4 sm:bottom-4 sm:items-end sm:gap-3 sm:p-0',
-                // Buyers use the bottom tab for Message — hide empty wrapper on mobile so it cannot block taps.
-                isBuyer && !isOpen && 'hidden sm:flex',
-                isOpen
-                    ? cn(
-                          // Mobile: full-width proper chat (not a floating card).
-                          'inset-x-0 top-0 sm:inset-auto',
-                          // Buyers keep bottom tabs visible (Wallet / Shop / …).
-                          isBuyer
-                              ? 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] sm:bottom-auto'
-                              : 'bottom-0 sm:bottom-auto',
-                      )
-                    : 'right-0 p-3',
-                !isOpen && isBuyer && 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] pb-3 sm:bottom-4',
-                !isOpen && !isBuyer && 'bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]',
+                // Closed launcher
+                !isOpen && [
+                    'right-3',
+                    isBuyer
+                        ? // Buyers use bottom tabs on mobile — hide launcher there; show on desktop.
+                          'hidden bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] sm:flex sm:bottom-4 sm:right-4'
+                        : 'bottom-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:bottom-4 sm:right-4',
+                ],
+                // Open panel
+                isOpen && [
+                    // Mobile: edge-to-edge chat sheet
+                    'inset-x-0 top-0',
+                    isBuyer
+                        ? 'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))]'
+                        : 'bottom-0',
+                    // Desktop: anchored floating messenger (no conflicting inset/bottom utilities)
+                    'sm:inset-x-auto sm:top-auto sm:right-4 sm:bottom-4 sm:h-auto sm:w-auto sm:items-end',
+                ],
             )}
         >
             {isOpen && (
@@ -79,8 +81,8 @@ export default function FloatingChatWidget() {
                         'animate-in fade-in duration-200',
                         // Mobile: fill available width + height (edge to edge).
                         'h-full max-h-full border-0 shadow-none sm:animate-in sm:slide-in-from-bottom-4',
-                        // Desktop: floating messenger card.
-                        'sm:h-[min(520px,calc(100vh-7rem))] sm:max-h-none sm:w-[min(100vw-2rem,380px)] sm:rounded-2xl sm:border sm:shadow-2xl',
+                        // Desktop: floating messenger card — explicit size so it never collapses.
+                        'sm:h-[min(560px,calc(100vh-6rem))] sm:max-h-[calc(100vh-6rem)] sm:w-[min(100vw-2rem,400px)] sm:rounded-2xl sm:border sm:shadow-2xl',
                     )}
                 >
                     <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] text-white sm:pt-2.5">
@@ -119,7 +121,7 @@ export default function FloatingChatWidget() {
             {!isOpen && (
                 <button
                     type="button"
-                    onClick={openWidget}
+                    onClick={() => void openWidget()}
                     className={cn(
                         'relative flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30 transition-transform hover:scale-105 active:scale-95 sm:h-14 sm:w-14',
                         isBuyer && 'hidden sm:flex',

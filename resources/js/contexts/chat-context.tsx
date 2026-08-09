@@ -121,6 +121,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             } else {
                 setView('list');
             }
+        } catch {
+            setView('list');
+            setActiveConversation(null);
+            setMessages([]);
         } finally {
             setLoading(false);
         }
@@ -174,6 +178,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 setMessages(data.messages);
                 setAttachProduct(data.attach_product ?? null);
                 await refreshConversations();
+            } catch (err) {
+                setView('list');
+                setActiveConversation(null);
+                setMessages([]);
+                setAttachProduct(null);
+                try {
+                    await refreshConversations();
+                } catch {
+                    // ignore secondary failure
+                }
+                throw err;
             } finally {
                 setLoading(false);
             }
