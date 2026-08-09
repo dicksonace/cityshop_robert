@@ -279,24 +279,47 @@ export function useChatVoiceCall(
         if (!conversationId || !pendingOfferRef.current) return;
         try {
             stopCallRing();
-            const kind = callKindRef.current;
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
-                video: kind === 'video',
-            });
-            localStreamRef.current = stream;
-            if (kind === 'video') {
-                attachLocalVideo(stream);
-            }
+            const offerInit = pendingOfferRef.current;
+            const offerSdp = typeof offerInit.sdp === 'string' ? offerInit.sdp : '';
+            const needsVideo = /^m=video\s/m.test(offerSdp) || callKindRef.current === 'video';
+            const kind = needsVideo ? 'video' : 'voice';
+            callKindRef.current = kind;
+            setCallKind(kind);
+
             const pc = await createPeerConnection();
             pcRef.current = pc;
+            await pc.setRemoteDescription(
+                new RTCSessionDescription({ type: 'offer', sdp: offerSdp }),
+            );
 
-            // Apply the offer BEFORE adding our own tracks. Adding tracks first
-            // creates transceivers in our local order, and any mismatch with the
-            // caller's m-lines makes setRemoteDescription reject the SDP — the
-            // cause of "Call signal was invalid. Ask them to call again."
-            await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
-            orderedTracks(stream).forEach((track) => pc.addTrack(track, stream));
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: needsVideo,
+            });
+            localStreamRef.current = stream;
+            if (needsVideo) {
+                attachLocalVideo(stream);
+            }
+
+            const transceivers = pc.getTransceivers();
+            for (const track of orderedTracks(stream)) {
+                const slot = transceivers.find(
+                    (t) => !t.sender.track && t.receiver.track?.kind === track.kind,
+                );
+                if (slot) {
+                    await slot.sender.replaceTrack(track);
+                    try {
+                        slot.direction = 'sendrecv';
+                    } catch {
+                        // ignore
+                    }
+                } else {
+                    pc.addTrack(track, stream);
+                }
+            }
+
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
 
             for (const candidate of pendingIceRef.current) {
                 try {
@@ -306,9 +329,11 @@ export function useChatVoiceCall(
                 }
             }
             pendingIceRef.current = [];
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            await sendSignal('call_answer', '', { sdp: answer, call_kind: kind });
+
+            await sendSignal('call_answer', '', {
+                sdp: { type: 'answer', sdp: answer.sdp },
+                call_kind: kind,
+            });
             pendingOfferRef.current = null;
             callStartedAtRef.current = Date.now();
             setCallState('active');
@@ -330,12 +355,19 @@ export function useChatVoiceCall(
             }
 
             if (msg.type === 'call_offer' && msg.sender_id !== currentUserId) {
-                const kind = msg.metadata?.call_kind === 'video' ? 'video' : 'voice';
+                const sdp = msg.metadata?.sdp as RTCSessionDescriptionInit | undefined;
+                const sdpText = typeof sdp?.sdp === 'string' ? sdp.sdp : '';
+                const kind =
+                    /^m=video\s/m.test(sdpText) || msg.metadata?.call_kind === 'video'
+                        ? 'video'
+                        : 'voice';
                 callKindRef.current = kind;
                 setCallKind(kind);
                 callerIdRef.current = msg.sender_id;
                 callerNameRef.current = msg.sender?.name ?? 'Caller';
-                pendingOfferRef.current = msg.metadata?.sdp as RTCSessionDescriptionInit;
+                pendingOfferRef.current = sdp
+                    ? { type: 'offer', sdp: sdpText || sdp.sdp }
+                    : null;
                 pendingIceRef.current = [];
                 unlockChatSounds();
                 startIncomingRing();
