@@ -11,6 +11,8 @@ class PlatformSettings
 
     public const WITHDRAWAL_FEE_KEY = 'withdrawal_fee';
 
+    public const AUTO_PAYSTACK_WITHDRAW_KEY = 'auto_paystack_withdraw';
+
     public static function get(string $key, mixed $default = null): mixed
     {
         return Cache::remember("platform_setting.{$key}", 3600, function () use ($key, $default) {
@@ -84,7 +86,48 @@ class PlatformSettings
         ]);
     }
 
-    /** Fee charged for a withdrawal to this payout channel (momo|bank). */
+    /**
+     * Paystack auto-payout (no admin approval). When enabled, withdrawals use a percent fee.
+     *
+     * @return array{enabled: bool, fee_percent: float}
+     */
+    public static function autoPaystackWithdrawSettings(): array
+    {
+        $raw = static::get(self::AUTO_PAYSTACK_WITHDRAW_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return [
+                'enabled' => false,
+                'fee_percent' => 2.0,
+            ];
+        }
+
+        return [
+            'enabled' => (bool) ($decoded['enabled'] ?? false),
+            'fee_percent' => max(0, min(25, round((float) ($decoded['fee_percent'] ?? 2), 2))),
+        ];
+    }
+
+    /**
+     * @param  array{enabled?: bool, fee_percent?: float|int|string}  $data
+     */
+    public static function saveAutoPaystackWithdrawSettings(array $data): void
+    {
+        static::set(self::AUTO_PAYSTACK_WITHDRAW_KEY, [
+            'enabled' => (bool) ($data['enabled'] ?? false),
+            'fee_percent' => max(0, min(25, round((float) ($data['fee_percent'] ?? 2), 2))),
+        ]);
+    }
+
+    public static function autoPaystackWithdrawEnabled(): bool
+    {
+        return static::autoPaystackWithdrawSettings()['enabled'];
+    }
+
+    /** Fee charged for a withdrawal to this payout channel (momo|bank). Flat-fee mode only. */
     public static function feeForPayoutType(?string $payoutType): float
     {
         $settings = static::withdrawalFeeSettings();
@@ -100,6 +143,55 @@ class PlatformSettings
         }
 
         return 0.0;
+    }
+
+    /** Fee for a withdrawal amount — percent when auto Paystack is on, else flat channel fee. */
+    public static function feeForWithdrawal(float $amount, ?string $payoutType): float
+    {
+        $auto = static::autoPaystackWithdrawSettings();
+        if ($auto['enabled'] && $auto['fee_percent'] > 0) {
+            return max(0, round($amount * ($auto['fee_percent'] / 100), 2));
+        }
+
+        return static::feeForPayoutType($payoutType);
+    }
+
+    /**
+     * Client-facing fee summary for wallet / withdraw screens.
+     *
+     * @return array{
+     *   mode: string,
+     *   enabled: bool,
+     *   amount: float,
+     *   percent: float,
+     *   applies_to: string,
+     *   auto_paystack: bool
+     * }
+     */
+    public static function withdrawalFeePayload(): array
+    {
+        $auto = static::autoPaystackWithdrawSettings();
+        if ($auto['enabled']) {
+            return [
+                'mode' => 'percent',
+                'enabled' => $auto['fee_percent'] > 0,
+                'amount' => 0.0,
+                'percent' => $auto['fee_percent'],
+                'applies_to' => 'all',
+                'auto_paystack' => true,
+            ];
+        }
+
+        $flat = static::withdrawalFeeSettings();
+
+        return [
+            'mode' => 'flat',
+            'enabled' => $flat['enabled'],
+            'amount' => $flat['amount'],
+            'percent' => 0.0,
+            'applies_to' => $flat['applies_to'],
+            'auto_paystack' => false,
+        ];
     }
 
     /**

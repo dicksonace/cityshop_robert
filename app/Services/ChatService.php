@@ -7,6 +7,7 @@ use App\Events\ChatMessageSent;
 use App\Events\UserPresenceChanged;
 use App\Models\AppNotification;
 use App\Models\Conversation;
+use App\Models\ConversationParticipant;
 use App\Models\Message;
 use App\Models\Product;
 use App\Models\User;
@@ -88,7 +89,99 @@ class ChatService
         return Conversation::create([
             'buyer_id' => $buyer->id,
             'seller_id' => $seller->id,
+            'is_group' => false,
         ]);
+    }
+
+    /**
+     * Create a group chat. Buyers and sellers can both create groups.
+     *
+     * @param  list<int>  $memberIds
+     */
+    public static function createGroup(User $creator, string $name, array $memberIds): Conversation
+    {
+        $name = trim($name);
+        if ($name === '') {
+            abort(422, 'Enter a group name.');
+        }
+
+        $ids = collect($memberIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0 && $id !== $creator->id)
+            ->unique()
+            ->values();
+
+        if ($ids->count() < 1) {
+            abort(422, 'Add at least one other member.');
+        }
+
+        if ($ids->count() > 49) {
+            abort(422, 'Groups can have at most 50 members.');
+        }
+
+        $members = User::query()->whereIn('id', $ids)->get();
+        if ($members->count() !== $ids->count()) {
+            abort(422, 'One or more members could not be found.');
+        }
+
+        foreach ($members as $member) {
+            if (UserBlockService::isBlockedEitherWay($creator, $member)) {
+                abort(403, 'You cannot add '.$member->name.' because messaging is blocked.');
+            }
+        }
+
+        return DB::transaction(function () use ($creator, $name, $members) {
+            // Keep buyer/seller columns filled for legacy NOT NULL FKs; membership is in participants.
+            $conversation = Conversation::create([
+                'buyer_id' => $creator->id,
+                'seller_id' => $creator->id,
+                'is_group' => true,
+                'name' => $name,
+                'created_by' => $creator->id,
+                'last_message_at' => now(),
+            ]);
+
+            $participantIds = $members->pluck('id')->push($creator->id)->unique()->all();
+            foreach ($participantIds as $userId) {
+                ConversationParticipant::create([
+                    'conversation_id' => $conversation->id,
+                    'user_id' => $userId,
+                ]);
+            }
+
+            static::sendMessage(
+                $conversation,
+                $creator,
+                $creator->name.' created the group "'.$name.'"',
+                MessageType::System,
+                ['system' => 'group_created'],
+            );
+
+            return $conversation->fresh(['participants', 'latestVisibleMessage']);
+        });
+    }
+
+    /** Visible conversations for a user (direct + groups they belong to). */
+    public static function visibleConversationsQuery(int $userId)
+    {
+        return Conversation::query()->where(function ($q) use ($userId) {
+            $q->where(function ($direct) use ($userId) {
+                $direct->where('is_group', false)
+                    ->where(fn ($pair) => $pair->where('buyer_id', $userId)->orWhere('seller_id', $userId))
+                    ->where(function ($visible) use ($userId) {
+                        $visible->where(function ($buyer) use ($userId) {
+                            $buyer->where('buyer_id', $userId)->whereNull('buyer_hidden_at');
+                        })->orWhere(function ($seller) use ($userId) {
+                            $seller->where('seller_id', $userId)->whereNull('seller_hidden_at');
+                        });
+                    });
+            })->orWhere(function ($group) use ($userId) {
+                $group->where('is_group', true)
+                    ->whereHas('participantRows', function ($p) use ($userId) {
+                        $p->where('user_id', $userId)->whereNull('hidden_at');
+                    });
+            });
+        });
     }
 
     /**
@@ -183,10 +276,15 @@ class ChatService
         ?Message $replyTo = null,
     ): Message {
         return DB::transaction(function () use ($conversation, $sender, $body, $type, $metadata, $replyTo) {
-            $conversation->loadMissing(['buyer', 'seller']);
-            $other = $conversation->otherParticipant($sender);
-            if (UserBlockService::isBlockedEitherWay($sender, $other)) {
-                abort(403, 'Messaging is blocked between these accounts.');
+            $conversation->loadMissing(['buyer', 'seller', 'participants']);
+
+            if (! $conversation->is_group) {
+                $other = $conversation->otherParticipant($sender);
+                if (UserBlockService::isBlockedEitherWay($sender, $other)) {
+                    abort(403, 'Messaging is blocked between these accounts.');
+                }
+            } else {
+                abort_unless($conversation->involves($sender), 403);
             }
 
             if ($replyTo) {
@@ -265,12 +363,12 @@ class ChatService
                 $conversation->clearHiddenForAll();
             }
 
-            $recipient = $conversation->otherParticipant($sender);
+            $recipients = $conversation->otherParticipants($sender);
 
             // QR payments fire their own wallet bell notice — skip duplicate "New message".
             $skipBell = ($metadata['transfer']['via'] ?? null) === 'qr';
 
-            if (! $isCallSignal && $type !== MessageType::CallLog && ! $skipBell) {
+            if (! $isCallSignal && $type !== MessageType::CallLog && ! $skipBell && $type !== MessageType::System) {
                 $notificationBody = match (true) {
                     $type === MessageType::Text => $body,
                     $type === MessageType::Image => 'Sent a photo',
@@ -285,58 +383,68 @@ class ChatService
                     default => 'New activity',
                 };
 
-                if ($type === MessageType::Transfer) {
-                    AppNotificationService::send(
-                        $recipient,
-                        'payment',
-                        'Money received',
-                        $notificationBody,
-                        [
-                            'conversation_id' => $conversation->id,
-                            'sender_id' => $sender->id,
-                            'sender_name' => $sender->name,
-                            'reference' => $metadata['transfer']['reference'] ?? null,
-                        ],
-                    );
-                } else {
-                    AppNotificationService::send(
-                        $recipient,
-                        'message',
-                        'New message',
-                        $notificationBody,
-                        [
-                            'conversation_id' => $conversation->id,
-                            'sender_id' => $sender->id,
-                            'sender_name' => $sender->name,
-                        ],
-                    );
+                $title = $conversation->is_group
+                    ? (($conversation->name ?: 'Group').': '.$sender->name)
+                    : ($type === MessageType::Transfer ? 'Money received' : 'New message');
+
+                foreach ($recipients as $recipient) {
+                    if ($type === MessageType::Transfer && ! $conversation->is_group) {
+                        AppNotificationService::send(
+                            $recipient,
+                            'payment',
+                            'Money received',
+                            $notificationBody,
+                            [
+                                'conversation_id' => $conversation->id,
+                                'sender_id' => $sender->id,
+                                'sender_name' => $sender->name,
+                                'reference' => $metadata['transfer']['reference'] ?? null,
+                            ],
+                        );
+                    } else {
+                        AppNotificationService::send(
+                            $recipient,
+                            'message',
+                            $title,
+                            $notificationBody,
+                            [
+                                'conversation_id' => $conversation->id,
+                                'sender_id' => $sender->id,
+                                'sender_name' => $sender->name,
+                                'is_group' => $conversation->is_group,
+                            ],
+                        );
+                    }
                 }
             }
 
-            if ($type === MessageType::CallOffer) {
+            if ($type === MessageType::CallOffer && ! $conversation->is_group) {
                 // Push after the HTTP response so offer signalling isn't blocked
                 // on FCM (can take several seconds per device token).
-                $recipientId = $recipient->id;
-                $senderId = $sender->id;
-                $senderName = $sender->name;
-                $conversationId = $conversation->id;
-                dispatch(function () use ($recipientId, $senderId, $senderName, $conversationId) {
-                    $recipient = User::query()->find($recipientId);
-                    if (! $recipient) {
-                        return;
-                    }
-                    AppNotificationService::send(
-                        $recipient,
-                        'call',
-                        'Incoming call',
-                        "{$senderName} is calling you",
-                        [
-                            'conversation_id' => $conversationId,
-                            'sender_id' => $senderId,
-                            'sender_name' => $senderName,
-                        ],
-                    );
-                })->afterResponse();
+                $recipient = $recipients->first();
+                if ($recipient) {
+                    $recipientId = $recipient->id;
+                    $senderId = $sender->id;
+                    $senderName = $sender->name;
+                    $conversationId = $conversation->id;
+                    dispatch(function () use ($recipientId, $senderId, $senderName, $conversationId) {
+                        $recipient = User::query()->find($recipientId);
+                        if (! $recipient) {
+                            return;
+                        }
+                        AppNotificationService::send(
+                            $recipient,
+                            'call',
+                            'Incoming call',
+                            "{$senderName} is calling you",
+                            [
+                                'conversation_id' => $conversationId,
+                                'sender_id' => $senderId,
+                                'sender_name' => $senderName,
+                            ],
+                        );
+                    })->afterResponse();
+                }
             }
 
             try {
@@ -713,7 +821,15 @@ class ChatService
     public static function unreadMessageCount(User $user): int
     {
         return Message::whereHas('conversation', function ($q) use ($user) {
-            $q->where('buyer_id', $user->id)->orWhere('seller_id', $user->id);
+            $q->where(function ($visible) use ($user) {
+                $visible->where(function ($direct) use ($user) {
+                    $direct->where('is_group', false)
+                        ->where(fn ($pair) => $pair->where('buyer_id', $user->id)->orWhere('seller_id', $user->id));
+                })->orWhere(function ($group) use ($user) {
+                    $group->where('is_group', true)
+                        ->whereHas('participantRows', fn ($p) => $p->where('user_id', $user->id));
+                });
+            });
         })
             ->whereIn('type', static::visibleTypes())
             ->where('sender_id', '!=', $user->id)

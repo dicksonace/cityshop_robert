@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\UserLookupController;
+use App\Http\Controllers\Api\V1\SellerFollowController;
 use App\Http\Controllers\Api\V1\UserBlockController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\WishlistController;
@@ -107,6 +108,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/wishlist/toggle', [WishlistController::class, 'toggle']);
         Route::delete('/wishlist/{wishlist}', [WishlistController::class, 'destroy']);
 
+        Route::get('/following', [SellerFollowController::class, 'following']);
+        Route::get('/followers', [SellerFollowController::class, 'followers']);
+        Route::get('/following/status', [SellerFollowController::class, 'status']);
+        Route::post('/following/toggle', [SellerFollowController::class, 'toggle']);
+
         Route::get('/addresses', [AddressController::class, 'index']);
         Route::post('/addresses', [AddressController::class, 'store']);
         Route::patch('/addresses/{address}', [AddressController::class, 'update']);
@@ -115,6 +121,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/messages', [MessageController::class, 'index']);
         Route::post('/messages', [MessageController::class, 'store']);
+        Route::post('/messages/groups', [MessageController::class, 'storeGroup']);
         Route::get('/messages/{conversation}', [MessageController::class, 'show']);
         Route::delete('/messages/{conversation}', [MessageController::class, 'destroyConversation']);
         Route::get('/messages/{conversation}/search', [MessageController::class, 'search']);
@@ -170,6 +177,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/wallet/withdraw', [WalletController::class, 'withdraw']);
         Route::get('/wallet/manual-funding', [WalletController::class, 'manualFunding']);
         Route::post('/wallet/manual-top-up', [WalletController::class, 'manualTopUp']);
+        Route::get('/wallet/manual-top-up/{topUp}', [WalletController::class, 'showManualTopUp']);
+        Route::post('/wallet/manual-top-up/{topUp}/cancel', [WalletController::class, 'cancelManualTopUp']);
         Route::post('/wallet/paystack/initialize', [WalletController::class, 'initializePaystackTopUp']);
         Route::post('/wallet/paystack/verify', [WalletController::class, 'verifyPaystackTopUp']);
         Route::get('/wallet/qr/receive', [QrPaymentController::class, 'receive']);

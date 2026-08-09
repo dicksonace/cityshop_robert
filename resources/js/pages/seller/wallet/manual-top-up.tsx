@@ -14,13 +14,21 @@ interface Props {
     };
     requests: TopUpHistoryItem[];
     walletRoute: string;
+    statusRouteName?: string;
+    cancelRouteName?: string;
 }
 
 export default function SellerManualTopUp(props: Props) {
     return (
         <SellerLayout title="Manual top-up" active="wallet">
             <Head title="Manual top-up" />
-            <ManualTopUpForm {...props} submitRoute={route('seller.wallet.manual-top-up.store')} showFlash />
+            <ManualTopUpForm
+                {...props}
+                submitRoute={route('seller.wallet.manual-top-up.store')}
+                statusRouteName={props.statusRouteName ?? 'seller.wallet.manual-top-up.show'}
+                cancelRouteName={props.cancelRouteName ?? 'seller.wallet.manual-top-up.cancel'}
+                showFlash
+            />
         </SellerLayout>
     );
 }

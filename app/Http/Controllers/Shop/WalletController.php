@@ -15,7 +15,6 @@ use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -62,7 +61,7 @@ class WalletController extends Controller
             'paystackConfigured' => $this->paystack->isConfigured(),
             'paystackPublicKey' => config('services.paystack.public_key'),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
-            'withdrawalFee' => PlatformSettings::withdrawalFeeSettings(),
+            'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
         ]);
     }
 
@@ -155,7 +154,7 @@ class WalletController extends Controller
         }
     }
 
-    public function withdraw(Request $request): RedirectResponse
+    public function withdraw(Request $request, \App\Services\WithdrawalRequestService $withdrawals): RedirectResponse
     {
         abort_unless($request->user()->isBuyer(), 403);
 
@@ -176,39 +175,18 @@ class WalletController extends Controller
 
         PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);
 
-        $amount = (float) $validated['amount'];
-        $fee = PlatformSettings::feeForPayoutType($validated['payout_type']);
-        $totalDebit = round($amount + $fee, 2);
-
-        return DB::transaction(function () use ($request, $validated, $amount, $fee, $totalDebit) {
-            $wallet = Wallet::where('user_id', $request->user()->id)->lockForUpdate()->first()
-                ?? WalletService::ensure($request->user());
-
-            if ($totalDebit > (float) $wallet->available_balance) {
-                return back()->with(
-                    'error',
-                    $fee > 0
-                        ? 'Insufficient available balance. Needs GH₵'.number_format($totalDebit, 2)
-                            .' (incl. GH₵'.number_format($fee, 2).' fee).'
-                        : 'Insufficient available balance.',
-                );
-            }
-
-            $withdrawal = Withdrawal::create([
-                'user_id' => $request->user()->id,
-                'amount' => $amount,
-                'fee' => $fee,
+        try {
+            $result = $withdrawals->submit($request->user(), [
+                'amount' => (float) $validated['amount'],
+                'payout_type' => $validated['payout_type'],
                 'momo_number' => $validated['momo_number'],
                 'account_name' => $validated['account_name'],
                 'network' => $validated['network'],
-                'payout_channel' => $validated['payout_type'],
-                'status' => WithdrawalStatus::Pending,
             ]);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
-            $wallet->decrement('available_balance', $totalDebit);
-            WalletTransactionService::recordWithdrawal($withdrawal);
-
-            return back()->with('success', 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.');
-        });
+        return back()->with('success', $result['message']);
     }
 }

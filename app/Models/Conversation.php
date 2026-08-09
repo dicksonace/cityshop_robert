@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Services\ChatService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class Conversation extends Model
 {
@@ -14,6 +16,9 @@ class Conversation extends Model
         'buyer_id',
         'seller_id',
         'product_id',
+        'is_group',
+        'name',
+        'created_by',
         'last_message_at',
         'buyer_hidden_at',
         'seller_hidden_at',
@@ -22,6 +27,7 @@ class Conversation extends Model
     protected function casts(): array
     {
         return [
+            'is_group' => 'boolean',
             'last_message_at' => 'datetime',
             'buyer_hidden_at' => 'datetime',
             'seller_hidden_at' => 'datetime',
@@ -38,6 +44,11 @@ class Conversation extends Model
         return $this->belongsTo(User::class, 'seller_id');
     }
 
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
@@ -46,6 +57,18 @@ class Conversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
+    }
+
+    public function participantRows(): HasMany
+    {
+        return $this->hasMany(ConversationParticipant::class);
+    }
+
+    public function participants(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'conversation_participants')
+            ->withPivot(['hidden_at'])
+            ->withTimestamps();
     }
 
     public function latestMessage(): HasOne
@@ -64,16 +87,49 @@ class Conversation extends Model
 
     public function otherParticipant(User $user): User
     {
+        if ($this->is_group) {
+            $other = $this->otherParticipants($user)->first();
+            if ($other) {
+                return $other;
+            }
+
+            return $user;
+        }
+
         return $this->buyer_id === $user->id ? $this->seller : $this->buyer;
+    }
+
+    /** @return Collection<int, User> */
+    public function otherParticipants(User $user): Collection
+    {
+        if ($this->is_group) {
+            $this->loadMissing('participants');
+
+            return $this->participants->where('id', '!=', $user->id)->values();
+        }
+
+        $other = $this->otherParticipant($user);
+
+        return collect([$other])->filter();
     }
 
     public function involves(User $user): bool
     {
+        if ($this->is_group) {
+            return $this->participantRows()->where('user_id', $user->id)->exists();
+        }
+
         return $this->buyer_id === $user->id || $this->seller_id === $user->id;
     }
 
     public function isHiddenFor(User $user): bool
     {
+        if ($this->is_group) {
+            $row = $this->participantRows()->where('user_id', $user->id)->first();
+
+            return $row?->hidden_at !== null;
+        }
+
         if ($this->buyer_id === $user->id) {
             return $this->buyer_hidden_at !== null;
         }
@@ -86,6 +142,12 @@ class Conversation extends Model
 
     public function hideFor(User $user): void
     {
+        if ($this->is_group) {
+            $this->participantRows()->where('user_id', $user->id)->update(['hidden_at' => now()]);
+
+            return;
+        }
+
         if ($this->buyer_id === $user->id) {
             $this->forceFill(['buyer_hidden_at' => now()])->save();
         } elseif ($this->seller_id === $user->id) {
@@ -95,6 +157,12 @@ class Conversation extends Model
 
     public function clearHiddenFor(User $user): void
     {
+        if ($this->is_group) {
+            $this->participantRows()->where('user_id', $user->id)->whereNotNull('hidden_at')->update(['hidden_at' => null]);
+
+            return;
+        }
+
         if ($this->buyer_id === $user->id && $this->buyer_hidden_at) {
             $this->forceFill(['buyer_hidden_at' => null])->save();
         } elseif ($this->seller_id === $user->id && $this->seller_hidden_at) {
@@ -104,6 +172,12 @@ class Conversation extends Model
 
     public function clearHiddenForAll(): void
     {
+        if ($this->is_group) {
+            $this->participantRows()->whereNotNull('hidden_at')->update(['hidden_at' => null]);
+
+            return;
+        }
+
         if ($this->buyer_hidden_at || $this->seller_hidden_at) {
             $this->forceFill([
                 'buyer_hidden_at' => null,

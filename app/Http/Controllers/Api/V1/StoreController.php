@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Review;
 use App\Models\SellerProfile;
 use App\Services\ProductDiscoveryService;
+use App\Services\SellerFollowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -70,6 +71,11 @@ class StoreController extends Controller
         }
 
         $user = $store->user;
+        $viewer = $request->user();
+        $followerCount = SellerFollowService::followerCount((int) $store->user_id);
+        $isFollowing = $viewer
+            ? SellerFollowService::isFollowing($viewer, (int) $store->user_id)
+            : false;
 
         return response()->json([
             'data' => [
@@ -87,6 +93,8 @@ class StoreController extends Controller
                 'total_sales' => $store->total_sales !== null ? (int) $store->total_sales : null,
                 'product_count' => $productCount,
                 'review_count' => $reviewCount,
+                'follower_count' => $followerCount,
+                'is_following' => $isFollowing,
                 'city' => $user?->city,
                 'region' => $user?->region,
                 'email' => $user?->email,

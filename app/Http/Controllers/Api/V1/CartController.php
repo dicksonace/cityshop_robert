@@ -42,6 +42,8 @@ class CartController extends Controller
 
         $items = CartItem::with(['product.images', 'product.seller.sellerProfile', 'product.category'])
             ->where('user_id', $request->user()->id)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
             ->get();
 
         return response()->json([
@@ -108,6 +110,7 @@ class CartController extends Controller
                 }
 
                 $cartItem->quantity = min($max, $cartItem->quantity + $quantity);
+                $cartItem->touch();
                 $cartItem->save();
             });
         } catch (\RuntimeException $e) {

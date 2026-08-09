@@ -43,15 +43,24 @@ interface WalletProps {
     withdrawalFee?: {
         enabled: boolean;
         amount: number;
+        percent?: number;
+        mode?: 'flat' | 'percent';
         applies_to: 'bank' | 'momo' | 'all' | 'none';
+        auto_paystack?: boolean;
     };
 }
 
 function feeForPayoutType(
     settings: WalletProps['withdrawalFee'],
     payoutType: 'momo' | 'bank',
+    amount = 0,
 ): number {
-    if (!settings?.enabled || settings.applies_to === 'none' || settings.amount <= 0) return 0;
+    if (!settings?.enabled) return 0;
+    if (settings.mode === 'percent') {
+        const percent = settings.percent ?? 0;
+        return percent > 0 ? Math.round(amount * (percent / 100) * 100) / 100 : 0;
+    }
+    if (settings.applies_to === 'none' || settings.amount <= 0) return 0;
     if (settings.applies_to === 'all' || settings.applies_to === payoutType) return settings.amount;
     return 0;
 }
@@ -101,8 +110,16 @@ export default function SellerWallet({
     const selectedMethod = payoutMethods.find((m) => m.id === Number(withdrawForm.data.payout_method_id));
     const selectedPayoutType: 'momo' | 'bank' =
         selectedMethod?.type === 'bank' || GHANA_BANKS.some((b) => b.id === selectedMethod?.network) ? 'bank' : 'momo';
-    const activeFee = feeForPayoutType(withdrawalFee, selectedPayoutType);
-    const maxWithdraw = Math.max(0, (wallet?.available_balance ?? 0) - activeFee);
+    const withdrawAmount = Number(withdrawForm.data.amount) || 0;
+    const activeFee = feeForPayoutType(withdrawalFee, selectedPayoutType, withdrawAmount);
+    const maxWithdraw = (() => {
+        const bal = wallet?.available_balance ?? 0;
+        if (withdrawalFee?.mode === 'percent' && (withdrawalFee.percent ?? 0) > 0) {
+            return Math.max(0, Math.floor((bal / (1 + (withdrawalFee.percent ?? 0) / 100)) * 100) / 100);
+        }
+        const flat = feeForPayoutType(withdrawalFee, selectedPayoutType, 0);
+        return Math.max(0, bal - flat);
+    })();
 
     const refreshBalance = () => {
         setRefreshing(true);
@@ -306,7 +323,9 @@ export default function SellerWallet({
                                     <p className="mt-2 text-xs text-gray-500">
                                         Minimum withdrawal: GH₵10
                                         {activeFee > 0
-                                            ? ` · ${selectedPayoutType === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)} per transaction`
+                                            ? withdrawalFee?.mode === 'percent'
+                                                ? ` · ${withdrawalFee.percent ?? 0}% fee`
+                                                : ` · ${selectedPayoutType === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)} per transaction`
                                             : ''}
                                     </p>
                                 </div>

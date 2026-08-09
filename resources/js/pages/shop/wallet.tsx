@@ -35,15 +35,24 @@ interface BuyerWalletProps {
     withdrawalFee?: {
         enabled: boolean;
         amount: number;
+        percent?: number;
+        mode?: 'flat' | 'percent';
         applies_to: 'bank' | 'momo' | 'all' | 'none';
+        auto_paystack?: boolean;
     };
 }
 
 function feeForPayoutType(
     settings: BuyerWalletProps['withdrawalFee'],
     payoutType: 'momo' | 'bank',
+    amount = 0,
 ): number {
-    if (!settings?.enabled || settings.applies_to === 'none' || settings.amount <= 0) return 0;
+    if (!settings?.enabled) return 0;
+    if (settings.mode === 'percent') {
+        const percent = settings.percent ?? 0;
+        return percent > 0 ? Math.round(amount * (percent / 100) * 100) / 100 : 0;
+    }
+    if (settings.applies_to === 'none' || settings.amount <= 0) return 0;
     if (settings.applies_to === 'all' || settings.applies_to === payoutType) return settings.amount;
     return 0;
 }
@@ -98,8 +107,16 @@ export default function BuyerWallet({
     });
 
     const canRecharge = paystackConfigured || !!manualTopUpEnabled;
-    const activeFee = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type);
-    const maxWithdraw = Math.max(0, wallet.available_balance - activeFee);
+    const withdrawAmount = Number(withdrawForm.data.amount) || 0;
+    const activeFee = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type, withdrawAmount);
+    const maxWithdraw = (() => {
+        const bal = wallet.available_balance;
+        if (withdrawalFee?.mode === 'percent' && (withdrawalFee.percent ?? 0) > 0) {
+            return Math.max(0, Math.floor((bal / (1 + (withdrawalFee.percent ?? 0) / 100)) * 100) / 100);
+        }
+        const flat = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type, 0);
+        return Math.max(0, bal - flat);
+    })();
 
     const setPayoutType = (type: 'momo' | 'bank') => {
         withdrawForm.setData({
@@ -342,7 +359,9 @@ export default function BuyerWallet({
                                             <p className="mt-2 text-xs text-gray-500">
                                                 Minimum withdrawal: GH₵10
                                                 {activeFee > 0
-                                                    ? ` · ${withdrawForm.data.payout_type === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)} per transaction`
+                                                    ? withdrawalFee?.mode === 'percent'
+                                                        ? ` · ${withdrawalFee.percent ?? 0}% fee`
+                                                        : ` · ${withdrawForm.data.payout_type === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)} per transaction`
                                                     : ''}
                                             </p>
                                         </div>

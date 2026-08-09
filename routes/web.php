@@ -30,6 +30,7 @@ use App\Http\Controllers\Seller\AccountController as SellerAccountController;
 use App\Http\Controllers\Seller\CouponController as SellerCouponController;
 use App\Http\Controllers\Seller\DashboardController as SellerDashboardController;
 use App\Http\Controllers\Seller\DisputeController as SellerDisputeController;
+use App\Http\Controllers\Seller\FollowerController as SellerFollowerController;
 use App\Http\Controllers\Seller\OrderController as SellerOrderController;
 use App\Http\Controllers\Seller\PaymentMethodController as SellerPaymentMethodController;
 use App\Http\Controllers\Seller\ProductController as SellerProductController;
@@ -124,9 +125,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/wallet/withdraw', [BuyerWalletController::class, 'withdraw'])->name('wallet.withdraw');
     Route::get('/wallet/manual-top-up', [WalletManualTopUpController::class, 'show'])->name('wallet.manual-top-up');
     Route::post('/wallet/manual-top-up', [WalletManualTopUpController::class, 'store'])->name('wallet.manual-top-up.store');
+    Route::get('/wallet/manual-top-up/{topUp}', [WalletManualTopUpController::class, 'showRequest'])->name('wallet.manual-top-up.show');
+    Route::post('/wallet/manual-top-up/{topUp}/cancel', [WalletManualTopUpController::class, 'cancel'])->name('wallet.manual-top-up.cancel');
 
     Route::get('/messages', [ChatConversationController::class, 'index'])->name('chat.index');
     Route::post('/messages', [ChatConversationController::class, 'store'])->name('chat.store');
+    Route::post('/messages/groups', [ChatConversationController::class, 'storeGroup'])->name('chat.groups.store');
     Route::get('/messages/{conversation}', [ChatConversationController::class, 'show'])->name('chat.show');
     Route::delete('/messages/{conversation}', [ChatConversationController::class, 'destroy'])->name('chat.destroy');
     Route::get('/messages/{conversation}/search', [ChatConversationController::class, 'search'])->name('chat.search');
@@ -189,6 +193,7 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
 
             Route::get('/reviews', [SellerReviewController::class, 'index'])->name('reviews.index');
             Route::post('/reviews/{review}/reply', [SellerReviewController::class, 'reply'])->name('reviews.reply');
+            Route::get('/followers', [SellerFollowerController::class, 'index'])->name('followers.index');
 
             Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
             Route::get('/orders/stage/{stage}', [SellerOrderController::class, 'stage'])->name('orders.stage');
@@ -212,6 +217,8 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::delete('/wallet/payout-methods/{payoutMethod}', [SellerWalletController::class, 'destroyPayoutMethod'])->name('wallet.payout-methods.destroy');
             Route::get('/wallet/manual-top-up', [WalletManualTopUpController::class, 'show'])->name('wallet.manual-top-up');
             Route::post('/wallet/manual-top-up', [WalletManualTopUpController::class, 'store'])->name('wallet.manual-top-up.store');
+            Route::get('/wallet/manual-top-up/{topUp}', [WalletManualTopUpController::class, 'showRequest'])->name('wallet.manual-top-up.show');
+            Route::post('/wallet/manual-top-up/{topUp}/cancel', [WalletManualTopUpController::class, 'cancel'])->name('wallet.manual-top-up.cancel');
 
             Route::get('/payment-methods', [SellerPaymentMethodController::class, 'index'])->name('payment-methods.index');
             Route::post('/payment-methods/settings', [SellerPaymentMethodController::class, 'updateSettings'])->name('payment-methods.settings');
@@ -276,6 +283,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/manual-top-ups', [AdminManualTopUpController::class, 'index'])->name('manual-top-ups.index');
     Route::post('/manual-top-ups/{topUp}/approve', [AdminManualTopUpController::class, 'approve'])->name('manual-top-ups.approve');
     Route::post('/manual-top-ups/{topUp}/reject', [AdminManualTopUpController::class, 'reject'])->name('manual-top-ups.reject');
+    Route::patch('/manual-top-ups/{topUp}/amount', [AdminManualTopUpController::class, 'updateAmount'])->name('manual-top-ups.amount');
 
     Route::get('/pending-funds', [AdminPendingFundController::class, 'index'])->name('pending-funds.index');
     Route::post('/pending-funds/{orderItem}/approve', [AdminPendingFundController::class, 'approve'])->name('pending-funds.approve');

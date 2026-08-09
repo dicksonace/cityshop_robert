@@ -38,6 +38,7 @@ class SellerDashboardService
             'withdrawn_amount' => $wallet?->withdrawn_amount ?? 0,
             'product_views' => (int) Product::where('seller_id', $sellerId)->sum('views'),
             'average_rating' => round((float) Product::where('seller_id', $sellerId)->where('review_count', '>', 0)->avg('rating'), 1),
+            'followers' => SellerFollowService::followerCount($sellerId),
         ];
     }
 

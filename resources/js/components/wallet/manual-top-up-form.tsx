@@ -1,5 +1,5 @@
-import { Link, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, LoaderCircle } from 'lucide-react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
+import { ArrowLeft, Eye, LoaderCircle, X } from 'lucide-react';
 import { FormEventHandler, useMemo, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -35,6 +35,8 @@ export type TopUpHistoryItem = {
     id: number;
     amount: number;
     payment_reference: string;
+    network?: string | null;
+    user_note?: string | null;
     status: string;
     admin_notes: string | null;
     proof_url: string | null;
@@ -51,6 +53,8 @@ interface Props {
     requests: TopUpHistoryItem[];
     walletRoute: string;
     submitRoute: string;
+    statusRouteName?: string;
+    cancelRouteName?: string;
     /** Seller layout has no flash banner — show inline. Shop layout already shows flash at top. */
     showFlash?: boolean;
 }
@@ -66,7 +70,15 @@ function formatDate(value?: string | null): string {
     });
 }
 
-export default function ManualTopUpForm({ settings, requests, walletRoute, submitRoute, showFlash = false }: Props) {
+export default function ManualTopUpForm({
+    settings,
+    requests,
+    walletRoute,
+    submitRoute,
+    statusRouteName,
+    cancelRouteName,
+    showFlash = false,
+}: Props) {
     const { flash } = usePage<SharedData>().props;
     const [infoOpen, setInfoOpen] = useState(false);
     const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
@@ -118,6 +130,16 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
         pending: 'bg-amber-100 text-amber-800',
         approved: 'bg-emerald-100 text-emerald-800',
         rejected: 'bg-red-100 text-red-800',
+        cancelled: 'bg-gray-100 text-gray-600',
+    };
+
+    const [detail, setDetail] = useState<TopUpHistoryItem | null>(null);
+    const [busyId, setBusyId] = useState<number | null>(null);
+
+    const cancelRequest = (id: number) => {
+        if (!cancelRouteName || !confirm('Cancel this deposit request?')) return;
+        setBusyId(id);
+        router.post(route(cancelRouteName, id), {}, { onFinish: () => setBusyId(null) });
     };
 
     return (
@@ -295,13 +317,13 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
 
             {requests.length > 0 && (
                 <div>
-                    <h2 className="mb-3 text-sm font-semibold text-gray-900">Your recent requests</h2>
+                    <h2 className="mb-3 text-sm font-semibold text-gray-900">Recent Deposit</h2>
                     <div className="space-y-2">
                         {requests.map((item) => (
                             <div key={item.id} className="rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm shadow-sm">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <span className="font-semibold text-gray-900">{formatPrice(item.amount)}</span>
-                                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[item.status] ?? 'bg-gray-100'}`}>
+                                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor[item.status] ?? 'bg-gray-100'}`}>
                                         {item.status}
                                     </span>
                                 </div>
@@ -309,12 +331,66 @@ export default function ManualTopUpForm({ settings, requests, walletRoute, submi
                                     {item.payment_reference ? `Ref: ${item.payment_reference} · ` : ''}
                                     {formatDate(item.created_at)}
                                 </p>
-                                {item.admin_notes && <p className="mt-1 text-gray-700">Admin: {item.admin_notes}</p>}
+                                {item.admin_notes && item.status !== 'cancelled' && (
+                                    <p className="mt-1 text-gray-700">Admin: {item.admin_notes}</p>
+                                )}
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {statusRouteName ? (
+                                        <Button asChild size="sm" variant="outline" className="h-8">
+                                            <Link href={route(statusRouteName, item.id)}>
+                                                <Eye className="mr-1 h-3.5 w-3.5" />
+                                                View full details
+                                            </Link>
+                                        </Button>
+                                    ) : (
+                                        <Button size="sm" variant="outline" className="h-8" type="button" onClick={() => setDetail(item)}>
+                                            <Eye className="mr-1 h-3.5 w-3.5" />
+                                            View full details
+                                        </Button>
+                                    )}
+                                    {item.status === 'pending' && cancelRouteName && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 border-red-200 text-red-700 hover:bg-red-50"
+                                            disabled={busyId === item.id}
+                                            onClick={() => cancelRequest(item.id)}
+                                        >
+                                            <X className="mr-1 h-3.5 w-3.5" />
+                                            Cancel request
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
+
+            <Dialog open={!!detail} onOpenChange={(open) => !open && setDetail(null)}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Deposit details</DialogTitle>
+                        <DialogDescription>#{detail?.id}</DialogDescription>
+                    </DialogHeader>
+                    {detail && (
+                        <dl className="space-y-2 text-sm">
+                            <div className="flex justify-between"><dt className="text-gray-500">Amount</dt><dd className="font-semibold">{formatPrice(detail.amount)}</dd></div>
+                            <div className="flex justify-between"><dt className="text-gray-500">Status</dt><dd className="capitalize">{detail.status}</dd></div>
+                            <div className="flex justify-between"><dt className="text-gray-500">Date</dt><dd>{formatDate(detail.created_at)}</dd></div>
+                            {detail.payment_reference && (
+                                <div className="flex justify-between"><dt className="text-gray-500">Reference</dt><dd>{detail.payment_reference}</dd></div>
+                            )}
+                            {detail.proof_url && (
+                                <a href={detail.proof_url} target="_blank" rel="noreferrer" className="mt-2 block">
+                                    <img src={detail.proof_url} alt="Proof" className="max-h-40 rounded-lg border object-contain" />
+                                </a>
+                            )}
+                        </dl>
+                    )}
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
                 <DialogContent className="max-w-md">

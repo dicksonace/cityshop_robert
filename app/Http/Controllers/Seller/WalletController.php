@@ -65,7 +65,7 @@ class WalletController extends Controller
                 ->exists(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'paystackConfigured' => $this->paystack->isConfigured(),
-            'withdrawalFee' => PlatformSettings::withdrawalFeeSettings(),
+            'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
         ]);
     }
 
@@ -213,7 +213,7 @@ class WalletController extends Controller
         return back()->with('success', 'Payout method removed.');
     }
 
-    public function withdraw(Request $request): RedirectResponse
+    public function withdraw(Request $request, \App\Services\WithdrawalRequestService $withdrawals): RedirectResponse
     {
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:10'],
@@ -227,38 +227,21 @@ class WalletController extends Controller
             ->findOrFail($validated['payout_method_id']);
 
         $payoutType = $payoutMethod->type ?: PayoutNetwork::type($payoutMethod->network);
-        $amount = (float) $validated['amount'];
-        $fee = PlatformSettings::feeForPayoutType($payoutType);
-        $totalDebit = round($amount + $fee, 2);
 
-        $wallet = $request->user()->wallet;
-
-        if (! $wallet || $totalDebit > (float) $wallet->available_balance) {
-            return back()->with(
-                'error',
-                $fee > 0
-                    ? 'Insufficient available balance. Needs GH₵'.number_format($totalDebit, 2)
-                        .' (incl. GH₵'.number_format($fee, 2).' fee).'
-                    : 'Insufficient available balance.',
-            );
+        try {
+            $result = $withdrawals->submit($request->user(), [
+                'amount' => (float) $validated['amount'],
+                'payout_type' => $payoutType === 'bank' ? 'bank' : 'momo',
+                'momo_number' => $payoutMethod->account_number,
+                'account_name' => $payoutMethod->account_name,
+                'network' => $payoutMethod->network,
+                'payout_method_id' => $payoutMethod->id,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
         }
 
-        $withdrawal = Withdrawal::create([
-            'user_id' => $request->user()->id,
-            'payout_method_id' => $payoutMethod->id,
-            'amount' => $amount,
-            'fee' => $fee,
-            'momo_number' => $payoutMethod->account_number,
-            'account_name' => $payoutMethod->account_name,
-            'network' => $payoutMethod->network,
-            'payout_channel' => $payoutType,
-            'status' => WithdrawalStatus::Pending,
-        ]);
-
-        $wallet->decrement('available_balance', $totalDebit);
-        WalletTransactionService::recordWithdrawal($withdrawal);
-
-        return back()->with('success', 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.');
+        return back()->with('success', $result['message']);
     }
 
     public function addFunds(Request $request): RedirectResponse

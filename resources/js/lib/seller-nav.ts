@@ -21,6 +21,7 @@ export type SellerNavKey =
     | 'payment-methods'
     | 'promotions'
     | 'reviews'
+    | 'followers'
     | 'messages'
     | 'notifications'
     | 'wallet'
@@ -36,6 +37,7 @@ const sectionMap: Record<SellerNavKey, string> = {
     'payment-methods': 'finance',
     promotions: 'marketing',
     reviews: 'customers',
+    followers: 'customers',
     messages: 'communication',
     notifications: 'communication',
     wallet: 'finance',
@@ -113,7 +115,10 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
             label: 'Customers',
             icon: Star,
             defaultOpen: section === 'customers',
-            items: [{ key: 'reviews', label: 'Product Reviews', href: route('seller.reviews.index') }],
+            items: [
+                { key: 'reviews', label: 'Product Reviews', href: route('seller.reviews.index') },
+                { key: 'followers', label: 'Followers', href: route('seller.followers.index') },
+            ],
         },
         {
             key: 'communication',

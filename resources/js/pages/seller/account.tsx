@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ChevronRight, KeyRound, LogOut, Store, User } from 'lucide-react';
+import { ChevronRight, KeyRound, LogOut, Store, User, Users } from 'lucide-react';
 
 import ProfileAvatarUpload from '@/components/profile-avatar-upload';
 import SellerLayout from '@/layouts/seller-layout';
@@ -16,6 +16,7 @@ type Props = {
 const links = [
     { label: 'Profile settings', href: route('profile.edit'), icon: User, hint: 'Name & email' },
     { label: 'Customize store', href: route('seller.store-appearance.index'), icon: Store, hint: 'Store logo & appearance' },
+    { label: 'Followers', href: route('seller.followers.index'), icon: Users, hint: 'People following your store' },
     { label: 'Change password', href: route('password.edit'), icon: KeyRound, hint: 'Account security' },
 ];
 

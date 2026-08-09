@@ -6,6 +6,7 @@ use App\Enums\WithdrawalStatus;
 use App\Models\SellerPayoutMethod;
 use App\Models\User;
 use App\Models\Withdrawal;
+use App\Support\GhanaBanks;
 use Illuminate\Support\Facades\DB;
 
 class WithdrawalPayoutService
@@ -13,9 +14,19 @@ class WithdrawalPayoutService
     public function __construct(private PaystackService $paystack) {}
 
     /**
+     * Auto path — no admin user. Leaves request pending if Paystack is not ready.
+     *
      * @return array{otp_required: bool, transfer_code: string|null, message: string}
      */
-    public function process(Withdrawal $withdrawal, User $admin): array
+    public function processAuto(Withdrawal $withdrawal): array
+    {
+        return $this->process($withdrawal, null);
+    }
+
+    /**
+     * @return array{otp_required: bool, transfer_code: string|null, message: string}
+     */
+    public function process(Withdrawal $withdrawal, ?User $admin): array
     {
         if ($withdrawal->status !== WithdrawalStatus::Pending) {
             throw new \RuntimeException('Only pending withdrawals can be processed.');
@@ -50,7 +61,8 @@ class WithdrawalPayoutService
                 'paystack_reference' => $reference,
                 'paystack_transfer_code' => $transfer['transfer_code'] ?? null,
                 'paystack_status' => $transferStatus,
-                'processed_by' => $admin->id,
+                'payout_channel' => 'paystack',
+                'processed_by' => $admin?->id,
             ]);
 
             if ($transferStatus === 'success') {
@@ -67,7 +79,9 @@ class WithdrawalPayoutService
                 return [
                     'otp_required' => true,
                     'transfer_code' => $transfer['transfer_code'] ?? null,
-                    'message' => 'Paystack OTP required. Enter the code sent to your business phone to complete this payout.',
+                    'message' => $admin
+                        ? 'Paystack OTP required. Enter the code sent to your business phone to complete this payout.'
+                        : 'Payout started. Waiting for Paystack confirmation.',
                 ];
             }
 
@@ -183,7 +197,7 @@ class WithdrawalPayoutService
             return;
         }
 
-        if ($status === 'failed') {
+        if ($status === 'failed' || $status === 'reversed') {
             $reason = (string) ($data['complete_message'] ?? $data['reason'] ?? 'Paystack transfer failed.');
             $this->markAsFailed($withdrawal, $reason);
         }
@@ -205,11 +219,19 @@ class WithdrawalPayoutService
             }
         }
 
-        $recipient = $this->paystack->createMobileMoneyRecipient(
-            $withdrawal->account_name,
-            $withdrawal->momo_number,
-            $withdrawal->network,
-        );
+        $isBank = ($withdrawal->payout_channel === 'bank') || GhanaBanks::isBank($withdrawal->network);
+
+        $recipient = $isBank
+            ? $this->paystack->createBankRecipient(
+                $withdrawal->account_name,
+                $withdrawal->momo_number,
+                (string) $withdrawal->network,
+            )
+            : $this->paystack->createMobileMoneyRecipient(
+                $withdrawal->account_name,
+                $withdrawal->momo_number,
+                $withdrawal->network,
+            );
 
         $recipientCode = (string) $recipient['recipient_code'];
 

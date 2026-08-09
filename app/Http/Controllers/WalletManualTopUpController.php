@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Enums\WalletTopUpStatus;
 use App\Models\WalletTopUpRequest;
 use App\Services\PlatformSettings;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -26,29 +27,20 @@ class WalletManualTopUpController extends Controller
                 ->with('error', 'Manual top-up is not available right now. Use online payment or contact support.');
         }
 
-        $requests = WalletTopUpRequest::where('user_id', $user->id)
-            ->latest()
-            ->limit(20)
-            ->get()
-            ->map(fn (WalletTopUpRequest $item) => [
-                'id' => $item->id,
-                'amount' => (float) $item->amount,
-                'payment_reference' => $item->payment_reference,
-                'status' => $item->status->value,
-                'admin_notes' => $item->admin_notes,
-                'proof_url' => $item->proof_path ? Storage::disk('public')->url($item->proof_path) : null,
-                'created_at' => $item->created_at?->toIso8601String(),
-                'reviewed_at' => $item->reviewed_at?->toIso8601String(),
-            ]);
-
         $page = $user->isSeller()
             ? 'seller/wallet/manual-top-up'
             : 'shop/wallet/manual-top-up';
 
         return Inertia::render($page, [
             'settings' => $settings,
-            'requests' => $requests,
+            'requests' => $this->mapRequests($user->id),
             'walletRoute' => $user->isSeller() ? route('seller.wallet') : route('wallet.index'),
+            'statusRouteName' => $user->isSeller()
+                ? 'seller.wallet.manual-top-up.show'
+                : 'wallet.manual-top-up.show',
+            'cancelRouteName' => $user->isSeller()
+                ? 'seller.wallet.manual-top-up.cancel'
+                : 'wallet.manual-top-up.cancel',
         ]);
     }
 
@@ -82,7 +74,7 @@ class WalletManualTopUpController extends Controller
 
         $proofPath = $request->file('proof')->store('wallet-top-up-proofs', 'public');
 
-        WalletTopUpRequest::create([
+        $topUp = WalletTopUpRequest::create([
             'user_id' => $user->id,
             'amount' => $validated['amount'],
             'payment_reference' => trim((string) ($validated['payment_reference'] ?? '')),
@@ -95,10 +87,72 @@ class WalletManualTopUpController extends Controller
         ]);
 
         $redirect = $user->isSeller()
+            ? redirect()->route('seller.wallet.manual-top-up.show', $topUp)
+            : redirect()->route('wallet.manual-top-up.show', $topUp);
+
+        return $redirect->with('success', 'Payment proof submitted. We will credit your wallet after verification.');
+    }
+
+    public function showRequest(Request $request, WalletTopUpRequest $topUp): Response|RedirectResponse|JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user && (int) $topUp->user_id === (int) $user->id, 403);
+
+        if ($request->wantsJson() || $request->boolean('json')) {
+            return response()->json(['data' => $this->mapRequest($topUp)]);
+        }
+
+        $page = $user->isSeller()
+            ? 'seller/wallet/manual-top-up-status'
+            : 'shop/wallet/manual-top-up-status';
+
+        return Inertia::render($page, [
+            'request' => $this->mapRequest($topUp),
+            'walletRoute' => $user->isSeller() ? route('seller.wallet') : route('wallet.index'),
+            'historyRoute' => $user->isSeller()
+                ? route('seller.wallet.manual-top-up')
+                : route('wallet.manual-top-up'),
+            'cancelRoute' => $user->isSeller()
+                ? route('seller.wallet.manual-top-up.cancel', $topUp)
+                : route('wallet.manual-top-up.cancel', $topUp),
+            'pollUrl' => $user->isSeller()
+                ? route('seller.wallet.manual-top-up.show', ['topUp' => $topUp->id, 'json' => 1])
+                : route('wallet.manual-top-up.show', ['topUp' => $topUp->id, 'json' => 1]),
+        ]);
+    }
+
+    public function cancel(Request $request, WalletTopUpRequest $topUp): RedirectResponse|JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user && (int) $topUp->user_id === (int) $user->id, 403);
+
+        if ($topUp->status !== WalletTopUpStatus::Pending) {
+            $message = 'Only pending deposits can be cancelled.';
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return back()->with('error', $message);
+        }
+
+        $topUp->update([
+            'status' => WalletTopUpStatus::Cancelled,
+            'admin_notes' => 'Cancelled by user.',
+            'reviewed_at' => now(),
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Deposit request cancelled.',
+                'data' => $this->mapRequest($topUp->fresh()),
+            ]);
+        }
+
+        $redirect = $user->isSeller()
             ? redirect()->route('seller.wallet.manual-top-up')
             : redirect()->route('wallet.manual-top-up');
 
-        return $redirect->with('success', 'Payment proof submitted. We will credit your wallet after admin verification.');
+        return $redirect->with('success', 'Deposit request cancelled.');
     }
 
     private function backToWallet(UserRole $role): RedirectResponse
@@ -108,5 +162,37 @@ class WalletManualTopUpController extends Controller
         }
 
         return redirect()->route('wallet.index');
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function mapRequests(int $userId): array
+    {
+        return WalletTopUpRequest::where('user_id', $userId)
+            ->latest()
+            ->limit(20)
+            ->get()
+            ->map(fn (WalletTopUpRequest $item) => $this->mapRequest($item))
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapRequest(WalletTopUpRequest $item): array
+    {
+        return [
+            'id' => $item->id,
+            'amount' => (float) $item->amount,
+            'payment_reference' => $item->payment_reference,
+            'network' => $item->network,
+            'user_note' => $item->user_note,
+            'status' => $item->status->value,
+            'admin_notes' => $item->admin_notes,
+            'proof_url' => $item->proof_path ? Storage::disk('public')->url($item->proof_path) : null,
+            'created_at' => $item->created_at?->toIso8601String(),
+            'reviewed_at' => $item->reviewed_at?->toIso8601String(),
+        ];
     }
 }

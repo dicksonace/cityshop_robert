@@ -15,6 +15,7 @@ class WithdrawalFeeSettingsController extends Controller
     {
         return Inertia::render('admin/withdrawal-fees/settings', [
             'settings' => PlatformSettings::withdrawalFeeSettings(),
+            'autoPaystack' => PlatformSettings::autoPaystackWithdrawSettings(),
         ]);
     }
 
@@ -24,6 +25,8 @@ class WithdrawalFeeSettingsController extends Controller
             'enabled' => ['required', 'boolean'],
             'amount' => ['required', 'numeric', 'min:0', 'max:500'],
             'applies_to' => ['required', 'in:bank,momo,all,none'],
+            'auto_paystack_enabled' => ['required', 'boolean'],
+            'auto_paystack_fee_percent' => ['required', 'numeric', 'min:0', 'max:25'],
         ]);
 
         PlatformSettings::saveWithdrawalFeeSettings([
@@ -32,6 +35,11 @@ class WithdrawalFeeSettingsController extends Controller
             'applies_to' => $validated['applies_to'],
         ]);
 
-        return back()->with('success', 'Withdrawal fee settings saved.');
+        PlatformSettings::saveAutoPaystackWithdrawSettings([
+            'enabled' => (bool) $validated['auto_paystack_enabled'],
+            'fee_percent' => (float) $validated['auto_paystack_fee_percent'],
+        ]);
+
+        return back()->with('success', 'Withdrawal settings saved.');
     }
 }

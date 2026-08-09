@@ -18,30 +18,47 @@ class MessageController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $userId = $request->user()->id;
-
-        $conversations = Conversation::with([
-            'buyer:id,name,avatar,city,region,last_seen_at',
-            'seller:id,name,avatar,city,region,last_seen_at',
-            'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
-            'product:id,name,slug,price,discount_price',
-            'product.images',
-            'latestVisibleMessage.sender:id,name',
-        ])
-            ->where(fn ($q) => $q->where('buyer_id', $userId)->orWhere('seller_id', $userId))
-            ->where(function ($q) use ($userId) {
-                $q->where(function ($buyer) use ($userId) {
-                    $buyer->where('buyer_id', $userId)->whereNull('buyer_hidden_at');
-                })->orWhere(function ($seller) use ($userId) {
-                    $seller->where('seller_id', $userId)->whereNull('seller_hidden_at');
-                });
-            })
+        $conversations = ChatService::visibleConversationsQuery($request->user()->id)
+            ->with([
+                'buyer:id,name,avatar,city,region,last_seen_at',
+                'seller:id,name,avatar,city,region,last_seen_at',
+                'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
+                'participants:id,name,avatar,last_seen_at',
+                'product:id,name,slug,price,discount_price',
+                'product.images',
+                'latestVisibleMessage.sender:id,name',
+            ])
             ->orderByDesc('last_message_at')
             ->orderByDesc('updated_at')
             ->get()
             ->map(fn (Conversation $c) => $this->formatConversation($c, $request->user()));
 
         return response()->json(['data' => $conversations]);
+    }
+
+    public function storeGroup(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [\App\Enums\UserRole::Buyer, \App\Enums\UserRole::Seller], true), 403);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:80'],
+            'member_ids' => ['required', 'array', 'min:1', 'max:49'],
+            'member_ids.*' => ['integer', 'exists:users,id'],
+        ]);
+
+        $conversation = ChatService::createGroup($user, $validated['name'], $validated['member_ids']);
+        $conversation->load([
+            'buyer:id,name,avatar,city,region,last_seen_at',
+            'seller:id,name,avatar,city,region,last_seen_at',
+            'participants:id,name,avatar,last_seen_at',
+            'latestVisibleMessage.sender:id,name',
+        ]);
+
+        return response()->json([
+            'conversation' => $this->formatConversation($conversation, $user, detailed: true),
+            'messages' => $this->threadFor($conversation, $user),
+        ], 201);
     }
 
     public function store(Request $request): JsonResponse
@@ -168,10 +185,12 @@ class MessageController extends Controller
         ]);
 
         $product = Product::findOrFail($validated['product_id']);
-        $sellerId = $conversation->seller_id;
 
-        if ((int) $product->seller_id !== (int) $sellerId) {
-            return response()->json(['message' => 'That product does not belong to this seller.'], 422);
+        if (! $conversation->is_group) {
+            $sellerId = $conversation->seller_id;
+            if ((int) $product->seller_id !== (int) $sellerId) {
+                return response()->json(['message' => 'That product does not belong to this seller.'], 422);
+            }
         }
 
         $message = ChatService::shareProductCard($conversation, $request->user(), $product, force: true);
@@ -201,6 +220,9 @@ class MessageController extends Controller
     public function sendTransfer(Request $request, Conversation $conversation): JsonResponse
     {
         abort_unless($conversation->involves($request->user()), 403);
+        if ($conversation->is_group) {
+            return response()->json(['message' => 'Wallet transfers are only available in 1:1 chats.'], 422);
+        }
 
         $available = (float) \App\Services\WalletService::ensure($request->user())->available_balance;
 
@@ -540,6 +562,9 @@ class MessageController extends Controller
     public function signal(Request $request, Conversation $conversation): JsonResponse
     {
         abort_unless($conversation->involves($request->user()), 403);
+        if ($conversation->is_group) {
+            return response()->json(['message' => 'Voice calls are only available in 1:1 chats.'], 422);
+        }
 
         $validated = $request->validate([
             'type' => ['required', 'in:call_offer,call_answer,call_ice,call_end'],
@@ -594,15 +619,73 @@ class MessageController extends Controller
 
     private function formatConversation(Conversation $conversation, User $user, bool $detailed = false): array
     {
-        $other = $conversation->otherParticipant($user);
-        $other->loadMissing('sellerProfile');
-
         $latest = $conversation->latestVisibleMessage;
         $unread = $conversation->messages()
             ->whereIn('type', ChatService::visibleTypes())
             ->where('sender_id', '!=', $user->id)
             ->whereNull('read_at')
             ->count();
+
+        if ($conversation->is_group) {
+            $conversation->loadMissing('participants:id,name,avatar,last_seen_at');
+            $members = $conversation->participants;
+            $memberCount = $members->count();
+
+            return [
+                'id' => $conversation->id,
+                'is_group' => true,
+                'name' => $conversation->name,
+                'created_by' => $conversation->created_by,
+                'buyer_id' => $conversation->buyer_id,
+                'seller_id' => null,
+                'can_complain' => false,
+                'blocked' => false,
+                'i_blocked' => false,
+                'product' => null,
+                'member_count' => $memberCount,
+                'participants' => $members->map(fn (User $member) => [
+                    'id' => $member->id,
+                    'name' => $member->name,
+                    'avatar' => $this->publicMediaUrl($member->displayAvatarPath()),
+                    'online' => ChatService::isOnline($member),
+                ])->values(),
+                'other' => [
+                    'id' => null,
+                    'name' => $conversation->name ?: 'Group',
+                    'avatar' => null,
+                    'online' => false,
+                    'city' => null,
+                    'region' => null,
+                    'mobile' => null,
+                    'store_name' => null,
+                    'store_slug' => null,
+                    'is_seller' => false,
+                    'is_group' => true,
+                    'member_count' => $memberCount,
+                ],
+                'latest_message' => $latest ? [
+                    'body' => match ($latest->type) {
+                        MessageType::Product => 'Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')),
+                        MessageType::Transfer => ChatService::transferPreviewForMessage($latest, $user),
+                        MessageType::File => $latest->body ?: ($latest->metadata['file_name'] ?? 'File'),
+                        MessageType::Image => $latest->body ?: 'Photo',
+                        MessageType::Video => $latest->body ?: 'Video',
+                        MessageType::Voice => 'Voice message',
+                        MessageType::System => $latest->body ?: 'Group update',
+                        default => $latest->body,
+                    },
+                    'type' => $latest->type->value,
+                    'created_at' => $latest->created_at?->toIso8601String(),
+                    'sender_id' => $latest->sender_id,
+                ] : null,
+                'unread_count' => $unread,
+                'last_message_at' => ($latest?->created_at ?? $conversation->last_message_at)?->toIso8601String(),
+            ];
+        }
+
+        $other = $conversation->otherParticipant($user);
+        $other->loadMissing('sellerProfile');
+
         $product = ChatService::sharedProductForConversation($conversation);
         $iBlocked = \App\Services\UserBlockService::iBlocked($user, $other);
         $blockedEitherWay = \App\Services\UserBlockService::isBlockedEitherWay($user, $other);
@@ -611,6 +694,8 @@ class MessageController extends Controller
 
         return [
             'id' => $conversation->id,
+            'is_group' => false,
+            'name' => null,
             'buyer_id' => $conversation->buyer_id,
             'seller_id' => $conversation->seller_id,
             'can_complain' => $canComplain,

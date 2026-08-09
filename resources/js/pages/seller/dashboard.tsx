@@ -8,6 +8,7 @@ import {
     RefreshCw,
     ShoppingCart,
     Star,
+    Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -48,6 +49,7 @@ interface DashboardProps {
         withdrawn_amount: number;
         product_views: number;
         average_rating: number;
+        followers: number;
     };
     revenueChart: { date: string; revenue: number; orders: number }[];
     storeHealth: { score: number; stars: number; tips: string[] };
@@ -120,6 +122,7 @@ export default function SellerDashboard({
         },
         { label: 'Orders', value: stats.total_orders, sub: `${stats.pending_orders} new`, icon: ShoppingCart, color: 'text-orange-600', bg: 'bg-orange-50', ring: 'border-orange-100', href: route('seller.orders.index') },
         { label: 'Live products', value: stats.live_products, sub: `${stats.out_of_stock} out of stock`, icon: Package, color: 'text-sky-600', bg: 'bg-sky-50', ring: 'border-sky-100', href: route('seller.products.index', { status: 'approved' }) },
+        { label: 'Followers', value: stats.followers ?? 0, sub: 'People following your store', icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'border-emerald-100', href: route('seller.followers.index') },
         { label: 'Store views', value: stats.product_views, sub: stats.average_rating ? `${stats.average_rating}★ avg rating` : 'No ratings yet', icon: Eye, color: 'text-violet-600', bg: 'bg-violet-50', ring: 'border-violet-100', href: route('seller.store-appearance.index') },
     ];
 

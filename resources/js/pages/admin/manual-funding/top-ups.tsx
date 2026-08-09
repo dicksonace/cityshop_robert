@@ -1,8 +1,9 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { Check, X } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Eye, Pencil, Search, X } from 'lucide-react';
+import { FormEvent, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Paginated } from '@/types/marketplace';
 import { SharedData } from '@/types';
@@ -32,7 +33,9 @@ interface TopUpRequest {
 interface Props {
     requests: Paginated<TopUpRequest>;
     status: string;
-    counts: { pending: number; approved: number; rejected: number };
+    search?: string;
+    pendingTotal?: number;
+    counts: { pending: number; approved: number; rejected: number; cancelled?: number };
 }
 
 function formatDate(value?: string | null): string {
@@ -46,22 +49,70 @@ function formatDate(value?: string | null): string {
     });
 }
 
-export default function ManualTopUps({ requests, status, counts }: Props) {
+function initial(name?: string | null): string {
+    return (name?.trim()?.[0] ?? '?').toUpperCase();
+}
+
+export default function ManualTopUps({ requests, status, search = '', pendingTotal = 0, counts }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [busyId, setBusyId] = useState<number | null>(null);
     const [rejectId, setRejectId] = useState<number | null>(null);
+    const [detail, setDetail] = useState<TopUpRequest | null>(null);
     const [notes, setNotes] = useState('');
+    const [query, setQuery] = useState(search);
+    const [editAmount, setEditAmount] = useState('');
 
     const setFilter = (next: string) => {
-        router.get(route('admin.manual-top-ups.index'), { status: next === 'pending' ? undefined : next }, { preserveState: true });
+        router.get(
+            route('admin.manual-top-ups.index'),
+            { status: next === 'pending' ? undefined : next, q: query || undefined },
+            { preserveState: true },
+        );
     };
 
-    const approve = (id: number) => {
+    const runSearch = (e: FormEvent) => {
+        e.preventDefault();
+        router.get(
+            route('admin.manual-top-ups.index'),
+            { status: status === 'pending' ? undefined : status, q: query || undefined },
+            { preserveState: true },
+        );
+    };
+
+    const openDetail = (item: TopUpRequest) => {
+        setDetail(item);
+        setEditAmount(String(item.amount));
+        setNotes(item.admin_notes ?? '');
+    };
+
+    const saveAmount = () => {
+        if (!detail) return;
+        setBusyId(detail.id);
+        router.patch(
+            route('admin.manual-top-ups.amount', detail.id),
+            { amount: editAmount },
+            {
+                onFinish: () => setBusyId(null),
+                onSuccess: () => setDetail((d) => (d ? { ...d, amount: Number(editAmount) } : d)),
+            },
+        );
+    };
+
+    const approve = (id: number, amount?: string) => {
         setBusyId(id);
         router.post(
             route('admin.manual-top-ups.approve', id),
-            { admin_notes: notes || undefined },
-            { onFinish: () => { setBusyId(null); setNotes(''); } },
+            {
+                admin_notes: notes || undefined,
+                amount: amount || undefined,
+            },
+            {
+                onFinish: () => {
+                    setBusyId(null);
+                    setNotes('');
+                    setDetail(null);
+                },
+            },
         );
     };
 
@@ -76,21 +127,43 @@ export default function ManualTopUps({ requests, status, counts }: Props) {
                     setBusyId(null);
                     setRejectId(null);
                     setNotes('');
+                    setDetail(null);
                 },
             },
         );
     };
 
+    const filters = useMemo(
+        () =>
+            [
+                ['pending', `Pending (${counts.pending})`],
+                ['approved', `Approved (${counts.approved})`],
+                ['rejected', `Rejected (${counts.rejected})`],
+                ['cancelled', `Cancelled (${counts.cancelled ?? 0})`],
+                ['all', 'All'],
+            ] as const,
+        [counts],
+    );
+
     return (
         <AdminLayout title="Manual Top-ups" active="manual-top-ups">
-            <Head title="Manual Top-ups" />
+            <Head title="Recent Deposits" />
 
             <div className="mb-4">
-                <h1 className="text-lg font-bold text-gray-900">Manual top-up requests</h1>
+                <h1 className="text-lg font-bold text-gray-900">Recent Deposit</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    Users send money to your MoMo/bank account, then submit proof. Approve to credit their wallet.
+                    Review manual MoMo/bank proofs. Approve credits the wallet. Pending deposits stay off the user
+                    transaction list until credited.
                 </p>
             </div>
+
+            {status === 'pending' && (
+                <div className="mb-4 rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Pending Approval</p>
+                    <p className="mt-1 text-sm text-amber-800">Total Pending Amount</p>
+                    <p className="text-2xl font-bold text-amber-950">{formatPrice(pendingTotal)}</p>
+                </div>
+            )}
 
             {flash.success && (
                 <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -103,15 +176,20 @@ export default function ManualTopUps({ requests, status, counts }: Props) {
                 </div>
             )}
 
+            <form onSubmit={runSearch} className="mb-4 space-y-2">
+                <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search by name, email, or phone..."
+                />
+                <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700 sm:w-auto">
+                    <Search className="mr-2 h-4 w-4" />
+                    Search
+                </Button>
+            </form>
+
             <div className="mb-4 flex flex-wrap gap-2">
-                {(
-                    [
-                        ['pending', `Pending (${counts.pending})`],
-                        ['approved', `Approved (${counts.approved})`],
-                        ['rejected', `Rejected (${counts.rejected})`],
-                        ['all', 'All'],
-                    ] as const
-                ).map(([key, label]) => (
+                {filters.map(([key, label]) => (
                     <button
                         key={key}
                         type="button"
@@ -131,69 +209,52 @@ export default function ManualTopUps({ requests, status, counts }: Props) {
                 <div className="space-y-4">
                     {requests.data.map((item) => (
                         <div key={item.id} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                    <p className="text-lg font-bold text-gray-900">{formatPrice(item.amount)}</p>
-                                    <p className="text-sm text-gray-600">
-                                        {item.user?.name} · {item.user?.role} · {item.user?.email}
-                                    </p>
-                                    <p className="mt-1 text-xs text-gray-500">Submitted {formatDate(item.created_at)}</p>
-                                </div>
+                            <div className="flex items-start justify-between gap-3">
+                                <p className="font-bold text-gray-900">#{item.id}</p>
                                 <span
-                                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
                                         item.status === 'pending'
                                             ? 'bg-amber-100 text-amber-800'
                                             : item.status === 'approved'
                                               ? 'bg-emerald-100 text-emerald-800'
-                                              : 'bg-red-100 text-red-800'
+                                              : item.status === 'cancelled'
+                                                ? 'bg-gray-100 text-gray-600'
+                                                : 'bg-red-100 text-red-800'
                                     }`}
                                 >
-                                    {item.status}
+                                    {item.status === 'pending' ? 'Pending' : item.status}
                                 </span>
                             </div>
 
-                            <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-                                <div>
-                                    <dt className="text-gray-500">Payment reference</dt>
-                                    <dd className="font-medium text-gray-900">{item.payment_reference || '—'}</dd>
+                            <div className="mt-3 flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-100 text-sm font-bold text-sky-800">
+                                    {initial(item.user?.name)}
                                 </div>
-                                <div>
-                                    <dt className="text-gray-500">Sender</dt>
-                                    <dd className="font-medium text-gray-900">
-                                        {item.sender_name}
-                                        {item.sender_number ? ` · ${item.sender_number}` : ''}
-                                        {item.network ? ` · ${item.network}` : ''}
-                                    </dd>
+                                <div className="min-w-0">
+                                    <p className="truncate font-semibold text-gray-900">{item.user?.name}</p>
+                                    <p className="truncate text-xs text-gray-500">{item.user?.email}</p>
+                                    <p className="text-xs text-gray-500">{item.user?.mobile || '—'}</p>
                                 </div>
-                                {item.user_note && (
-                                    <div className="sm:col-span-2">
-                                        <dt className="text-gray-500">User note</dt>
-                                        <dd className="text-gray-800">{item.user_note}</dd>
-                                    </div>
-                                )}
-                                {item.admin_notes && (
-                                    <div className="sm:col-span-2">
-                                        <dt className="text-gray-500">Admin notes</dt>
-                                        <dd className="text-gray-800">{item.admin_notes}</dd>
-                                    </div>
-                                )}
-                            </dl>
+                            </div>
 
-                            {item.proof_url && (
-                                <div className="mt-4">
-                                    <p className="mb-1 text-xs font-medium text-gray-500">Payment proof</p>
-                                    <a href={item.proof_url} target="_blank" rel="noreferrer" className="inline-block">
-                                        <img
-                                            src={item.proof_url}
-                                            alt="Payment proof"
-                                            className="max-h-48 rounded-lg border border-gray-200 object-contain"
-                                        />
-                                    </a>
+                            <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
+                                <div>
+                                    <p className="text-xl font-bold text-emerald-600">{formatPrice(item.amount)}</p>
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                                            Manual
+                                        </span>
+                                        <span className="text-xs text-gray-500">{formatDate(item.created_at)}</span>
+                                    </div>
                                 </div>
-                            )}
+                            </div>
 
                             {item.status === 'pending' && (
                                 <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+                                    <Button type="button" size="sm" className="bg-violet-600 hover:bg-violet-700" onClick={() => openDetail(item)}>
+                                        <Eye className="mr-1 h-4 w-4" />
+                                        View
+                                    </Button>
                                     <Button
                                         type="button"
                                         size="sm"
@@ -202,21 +263,28 @@ export default function ManualTopUps({ requests, status, counts }: Props) {
                                         onClick={() => approve(item.id)}
                                     >
                                         <Check className="mr-1 h-4 w-4" />
-                                        Approve & credit
+                                        Approve
                                     </Button>
                                     <Button
                                         type="button"
                                         size="sm"
-                                        variant="outline"
-                                        className="border-red-200 text-red-700"
+                                        className="bg-red-600 px-2 hover:bg-red-700"
                                         disabled={busyId === item.id}
                                         onClick={() => {
                                             setRejectId(item.id);
                                             setNotes('');
                                         }}
                                     >
-                                        <X className="mr-1 h-4 w-4" />
-                                        Reject
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
+
+                            {item.status !== 'pending' && (
+                                <div className="mt-4 border-t border-gray-100 pt-4">
+                                    <Button type="button" size="sm" variant="outline" onClick={() => openDetail(item)}>
+                                        <Eye className="mr-1 h-4 w-4" />
+                                        View full details
                                     </Button>
                                 </div>
                             )}
@@ -225,8 +293,103 @@ export default function ManualTopUps({ requests, status, counts }: Props) {
                 </div>
             )}
 
+            {detail && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+                    <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">Deposit Details</h3>
+                                <p className="text-sm text-gray-500">#{detail.id}</p>
+                            </div>
+                            <button type="button" className="rounded-lg p-1 text-gray-500 hover:bg-gray-100" onClick={() => setDetail(null)}>
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between gap-3">
+                            <p className="text-2xl font-bold text-gray-900">{formatPrice(Number(editAmount) || detail.amount)}</p>
+                            {detail.status === 'pending' && (
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        step="0.01"
+                                        value={editAmount}
+                                        onChange={(e) => setEditAmount(e.target.value)}
+                                        className="h-9 w-28"
+                                    />
+                                    <Button type="button" size="sm" variant="outline" disabled={busyId === detail.id} onClick={saveAmount}>
+                                        <Pencil className="mr-1 h-3.5 w-3.5" />
+                                        Edit
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+
+                        <dl className="mt-4 space-y-2 text-sm">
+                            <div className="flex justify-between gap-3"><dt className="text-gray-500">Name</dt><dd className="font-medium">{detail.user?.name}</dd></div>
+                            <div className="flex justify-between gap-3"><dt className="text-gray-500">Email</dt><dd className="font-medium">{detail.user?.email}</dd></div>
+                            <div className="flex justify-between gap-3"><dt className="text-gray-500">Phone</dt><dd className="font-medium">{detail.user?.mobile || '—'}</dd></div>
+                            <div className="flex justify-between gap-3"><dt className="text-gray-500">Method</dt><dd className="font-medium uppercase">Manual</dd></div>
+                            <div className="flex justify-between gap-3"><dt className="text-gray-500">Network</dt><dd className="font-medium uppercase">{detail.network || '—'}</dd></div>
+                            <div className="flex justify-between gap-3"><dt className="text-gray-500">Status</dt><dd className="capitalize font-medium">{detail.status}</dd></div>
+                            <div className="flex justify-between gap-3"><dt className="text-gray-500">Created</dt><dd>{formatDate(detail.created_at)}</dd></div>
+                            {detail.payment_reference && (
+                                <div className="flex justify-between gap-3"><dt className="text-gray-500">Reference</dt><dd className="font-medium">{detail.payment_reference}</dd></div>
+                            )}
+                            {detail.user_note && (
+                                <div><dt className="text-gray-500">User note</dt><dd className="mt-1 text-gray-800">{detail.user_note}</dd></div>
+                            )}
+                        </dl>
+
+                        <div className="mt-5">
+                            <p className="text-sm font-semibold text-gray-900">Transaction Timeline</p>
+                            <div className="mt-2 border-l-2 border-violet-200 pl-3 text-sm text-gray-600">
+                                <p>Deposit created · {formatDate(detail.created_at)}</p>
+                                {detail.reviewed_at && <p className="mt-2">Reviewed · {formatDate(detail.reviewed_at)}</p>}
+                            </div>
+                        </div>
+
+                        {detail.proof_url && (
+                            <div className="mt-5">
+                                <p className="mb-2 text-sm font-semibold text-gray-900">Payment Proof</p>
+                                <a href={detail.proof_url} target="_blank" rel="noreferrer">
+                                    <img src={detail.proof_url} alt="Payment proof" className="max-h-56 rounded-lg border object-contain" />
+                                </a>
+                            </div>
+                        )}
+
+                        {detail.status === 'pending' && (
+                            <div className="mt-5 flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+                                <Button
+                                    type="button"
+                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                    disabled={busyId === detail.id}
+                                    onClick={() => approve(detail.id, editAmount)}
+                                >
+                                    <Check className="mr-1 h-4 w-4" />
+                                    Approve
+                                </Button>
+                                <Button
+                                    type="button"
+                                    className="bg-red-600 hover:bg-red-700"
+                                    disabled={busyId === detail.id}
+                                    onClick={() => {
+                                        setRejectId(detail.id);
+                                        setNotes('');
+                                    }}
+                                >
+                                    <X className="mr-1 h-4 w-4" />
+                                    Reject
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {rejectId !== null && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
                     <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
                         <h3 className="font-semibold text-gray-900">Reject top-up</h3>
                         <p className="mt-1 text-sm text-gray-500">Tell the user why (shown on their request).</p>

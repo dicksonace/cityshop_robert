@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Minus, Plus, Trash2 } from 'lucide-react';
+import { Minus, Plus, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
@@ -107,7 +107,7 @@ export default function Cart({ items, subtotal }: CartProps) {
                                                 onClick={() => router.delete(route('cart.destroy', item.id))}
                                                 className="ml-auto text-red-500 hover:text-red-600"
                                             >
-                                                <Trash2 className="h-4 w-4" />
+                                                <X className="h-4 w-4" />
                                             </button>
                                         </div>
                                         {atMax && stockMax > 0 && (

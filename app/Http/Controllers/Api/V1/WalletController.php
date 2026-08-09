@@ -176,7 +176,7 @@ class WalletController extends Controller
                     ->map(fn (string $label, string $id) => ['id' => $id, 'label' => $label])
                     ->values()
                     ->all(),
-                'withdrawal_fee' => PlatformSettings::withdrawalFeeSettings(),
+                'withdrawal_fee' => PlatformSettings::withdrawalFeePayload(),
             ],
         ]);
     }
@@ -185,7 +185,7 @@ class WalletController extends Controller
      * Mirrors the web buyer withdrawal: the amount leaves the available balance
      * straight away and only comes back if an admin rejects the request.
      */
-    public function withdraw(Request $request): JsonResponse
+    public function withdraw(Request $request, \App\Services\WithdrawalRequestService $withdrawals): JsonResponse
     {
         $user = $request->user();
         abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
@@ -214,46 +214,26 @@ class WalletController extends Controller
 
         PaymentPinService::assertValidForAction($user, $validated['payment_pin']);
 
-        $amount = round((float) $validated['amount'], 2);
-        $fee = PlatformSettings::feeForPayoutType($validated['payout_type']);
-        $totalDebit = round($amount + $fee, 2);
-
-        return DB::transaction(function () use ($user, $validated, $amount, $fee, $totalDebit) {
-            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first()
-                ?? WalletService::ensure($user);
-
-            if ($totalDebit > (float) $wallet->available_balance) {
-                $message = $fee > 0
-                    ? 'Insufficient available balance. This withdrawal needs GH₵'.number_format($totalDebit, 2)
-                        .' (GH₵'.number_format($amount, 2).' + GH₵'.number_format($fee, 2).' fee).'
-                    : 'Insufficient available balance.';
-
-                return response()->json(['message' => $message], 422);
-            }
-
-            $withdrawal = Withdrawal::create([
-                'user_id' => $user->id,
-                'amount' => $amount,
-                'fee' => $fee,
+        try {
+            $result = $withdrawals->submit($user, [
+                'amount' => (float) $validated['amount'],
+                'payout_type' => $validated['payout_type'],
                 'momo_number' => $validated['momo_number'],
                 'account_name' => $validated['account_name'],
                 'network' => $validated['network'],
-                'payout_channel' => $validated['payout_type'],
-                'status' => WithdrawalStatus::Pending,
             ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
 
-            $wallet->decrement('available_balance', $totalDebit);
-            WalletTransactionService::recordWithdrawal($withdrawal);
-
-            return response()->json([
-                'message' => 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.',
-                'data' => $this->withdrawalPayload($withdrawal),
-                'wallet' => [
-                    'available_balance' => (float) $wallet->fresh()->available_balance,
-                    'pending_balance' => (float) $wallet->pending_balance,
-                ],
-            ], 201);
-        });
+        return response()->json([
+            'message' => $result['message'],
+            'data' => $this->withdrawalPayload($result['withdrawal']),
+            'wallet' => [
+                'available_balance' => (float) $result['wallet']->available_balance,
+                'pending_balance' => (float) $result['wallet']->pending_balance,
+            ],
+        ], 201);
     }
 
     /**
@@ -302,16 +282,35 @@ class WalletController extends Controller
                 ->latest()
                 ->limit(20)
                 ->get()
-                ->map(fn (WalletTopUpRequest $item) => [
-                    'id' => $item->id,
-                    'amount' => (float) $item->amount,
-                    'payment_reference' => $item->payment_reference,
-                    'status' => $item->status->value,
-                    'admin_notes' => $item->admin_notes,
-                    'created_at' => $item->created_at?->toIso8601String(),
-                    'reviewed_at' => $item->reviewed_at?->toIso8601String(),
-                ])
+                ->map(fn (WalletTopUpRequest $item) => $this->manualTopUpPayload($item))
                 ->values(),
+        ]);
+    }
+
+    public function showManualTopUp(Request $request, WalletTopUpRequest $topUp): JsonResponse
+    {
+        abort_unless((int) $topUp->user_id === (int) $request->user()->id, 403);
+
+        return response()->json(['data' => $this->manualTopUpPayload($topUp)]);
+    }
+
+    public function cancelManualTopUp(Request $request, WalletTopUpRequest $topUp): JsonResponse
+    {
+        abort_unless((int) $topUp->user_id === (int) $request->user()->id, 403);
+
+        if ($topUp->status !== WalletTopUpStatus::Pending) {
+            return response()->json(['message' => 'Only pending deposits can be cancelled.'], 422);
+        }
+
+        $topUp->update([
+            'status' => WalletTopUpStatus::Cancelled,
+            'admin_notes' => 'Cancelled by user.',
+            'reviewed_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Deposit request cancelled.',
+            'data' => $this->manualTopUpPayload($topUp->fresh()),
         ]);
     }
 
@@ -460,13 +459,26 @@ class WalletController extends Controller
 
         return response()->json([
             'message' => 'Payment proof submitted for verification.',
-            'data' => [
-                'id' => $topUp->id,
-                'amount' => (float) $topUp->amount,
-                'payment_reference' => $topUp->payment_reference,
-                'network' => $topUp->network,
-                'status' => $topUp->status->value,
-            ],
+            'data' => $this->manualTopUpPayload($topUp),
         ], 201);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function manualTopUpPayload(WalletTopUpRequest $item): array
+    {
+        return [
+            'id' => $item->id,
+            'amount' => (float) $item->amount,
+            'payment_reference' => $item->payment_reference,
+            'network' => $item->network,
+            'user_note' => $item->user_note,
+            'status' => $item->status->value,
+            'admin_notes' => $item->admin_notes,
+            'proof_url' => $item->proof_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($item->proof_path) : null,
+            'created_at' => $item->created_at?->toIso8601String(),
+            'reviewed_at' => $item->reviewed_at?->toIso8601String(),
+        ];
     }
 }

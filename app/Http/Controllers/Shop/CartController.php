@@ -48,6 +48,8 @@ class CartController extends Controller
 
         $items = CartItem::with(['product.images', 'product.seller.sellerProfile'])
             ->where('user_id', $request->user()->id)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
             ->get();
 
         $subtotal = $items->sum(fn ($item) => $item->subtotal());
@@ -115,6 +117,7 @@ class CartController extends Controller
                 }
 
                 $cartItem->quantity = min($max, $cartItem->quantity + $quantity);
+                $cartItem->touch();
                 $cartItem->save();
             });
         } catch (\RuntimeException $e) {

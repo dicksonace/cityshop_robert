@@ -9,6 +9,7 @@ use App\Models\Review;
 use App\Services\ProductAnalyticsService;
 use App\Services\ProductDiscoveryService;
 use App\Services\ReviewService;
+use App\Services\SellerFollowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -142,9 +143,23 @@ class ProductController extends Controller
 
         $related = $relatedQuery->limit(4)->get();
 
+        $isFollowingSeller = false;
+        $followerCount = 0;
+        if ($product->seller_id) {
+            $followerCount = SellerFollowService::followerCount((int) $product->seller_id);
+            if ($request->user()) {
+                $isFollowingSeller = SellerFollowService::isFollowing(
+                    $request->user(),
+                    (int) $product->seller_id,
+                );
+            }
+        }
+
         return response()->json([
             'data' => new ProductResource($product),
             'related' => ProductResource::collection($related),
+            'is_following_seller' => $isFollowingSeller,
+            'seller_follower_count' => $followerCount,
             'reviews' => [
                 'data' => $reviews->getCollection()->map(fn (Review $review) => [
                     'id' => $review->id,

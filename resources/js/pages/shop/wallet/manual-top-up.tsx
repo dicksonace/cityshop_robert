@@ -14,6 +14,8 @@ interface Props {
     };
     requests: TopUpHistoryItem[];
     walletRoute: string;
+    statusRouteName?: string;
+    cancelRouteName?: string;
 }
 
 export default function BuyerManualTopUp(props: Props) {
@@ -21,7 +23,12 @@ export default function BuyerManualTopUp(props: Props) {
         <ShopLayout>
             <Head title="Manual top-up" />
             <div className="px-4 py-8">
-                <ManualTopUpForm {...props} submitRoute={route('wallet.manual-top-up.store')} />
+                <ManualTopUpForm
+                    {...props}
+                    submitRoute={route('wallet.manual-top-up.store')}
+                    statusRouteName={props.statusRouteName ?? 'wallet.manual-top-up.show'}
+                    cancelRouteName={props.cancelRouteName ?? 'wallet.manual-top-up.cancel'}
+                />
             </div>
         </ShopLayout>
     );
