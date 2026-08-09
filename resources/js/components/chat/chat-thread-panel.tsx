@@ -111,7 +111,15 @@ export default function ChatThreadPanel() {
     const otherName =
         other?.seller_profile?.business_name ?? other?.seller_profile?.store_name ?? other?.name ?? 'Chat';
     const location = [other?.city, other?.region].filter(Boolean).join(', ');
-    const storeSlug = other?.seller_profile?.slug?.trim() || '';
+    const storeSlug = other?.seller_profile?.slug?.trim() || other?.store_slug?.trim() || '';
+    const canComplain = Boolean(
+        activeConversation?.can_complain ||
+            (activeConversation?.buyer_id != null &&
+                activeConversation.buyer_id === auth.user?.id &&
+                activeConversation.seller_id != null &&
+                activeConversation.seller_id !== auth.user?.id),
+    );
+    const complaintSellerId = activeConversation?.seller_id ?? (canComplain ? other?.id : null);
 
     const openStore = () => {
         if (!storeSlug) return;
@@ -450,9 +458,9 @@ export default function ChatThreadPanel() {
                 <ChatSettingsSheet
                     conversationId={activeConversation.id}
                     peerName={otherName}
-                    sellerId={other?.id}
+                    sellerId={complaintSellerId}
                     productId={activeConversation.product?.id}
-                    canComplain={Boolean(storeSlug && other?.id && other.id !== auth.user?.id)}
+                    canComplain={canComplain && Boolean(complaintSellerId)}
                     onClose={() => setShowSettings(false)}
                     onDeleted={() => {
                         setShowSettings(false);

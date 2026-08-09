@@ -606,9 +606,14 @@ class MessageController extends Controller
         $product = ChatService::sharedProductForConversation($conversation);
         $iBlocked = \App\Services\UserBlockService::iBlocked($user, $other);
         $blockedEitherWay = \App\Services\UserBlockService::isBlockedEitherWay($user, $other);
+        $canComplain = $conversation->buyer_id === $user->id
+            && $conversation->seller_id !== $user->id;
 
         return [
             'id' => $conversation->id,
+            'buyer_id' => $conversation->buyer_id,
+            'seller_id' => $conversation->seller_id,
+            'can_complain' => $canComplain,
             'blocked' => $blockedEitherWay,
             'i_blocked' => $iBlocked,
             'product' => $product ? [
@@ -628,7 +633,7 @@ class MessageController extends Controller
                 'mobile' => $other->mobile,
                 'store_name' => $other->sellerProfile?->displayName(),
                 'store_slug' => $other->sellerProfile?->slug,
-                'is_seller' => $other->sellerProfile !== null,
+                'is_seller' => $other->sellerProfile !== null || $other->isSeller(),
             ],
             'latest_message' => $latest ? [
                 'body' => match ($latest->type) {

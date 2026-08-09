@@ -226,9 +226,14 @@ class ConversationController extends Controller
 
         $product = ChatService::sharedProductForConversation($conversation);
         $productPayload = $product ? ChatService::productCardPayload($product) : null;
+        $canComplain = $conversation->buyer_id === $user->id
+            && $conversation->seller_id !== $user->id;
 
         $data = [
             'id' => $conversation->id,
+            'buyer_id' => $conversation->buyer_id,
+            'seller_id' => $conversation->seller_id,
+            'can_complain' => $canComplain,
             'product' => $productPayload,
             'other' => [
                 'id' => $other->id,
@@ -238,6 +243,8 @@ class ConversationController extends Controller
                 'last_seen_at' => $other->last_seen_at?->toIso8601String(),
                 'city' => $other->city,
                 'region' => $other->region,
+                'is_seller' => $other->sellerProfile !== null || $other->isSeller(),
+                'store_slug' => $other->sellerProfile?->slug,
                 'seller_profile' => $other->sellerProfile ? [
                     'business_name' => $other->sellerProfile->business_name,
                     'store_name' => $other->sellerProfile->store_name,

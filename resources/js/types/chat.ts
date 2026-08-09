@@ -14,6 +14,8 @@ export interface ChatConversationOther {
     last_seen_at?: string | null;
     city?: string | null;
     region?: string | null;
+    is_seller?: boolean;
+    store_slug?: string | null;
     seller_profile?: {
         business_name?: string | null;
         store_name?: string | null;
@@ -24,6 +26,9 @@ export interface ChatConversationOther {
 
 export interface ChatConversation {
     id: number;
+    buyer_id?: number;
+    seller_id?: number;
+    can_complain?: boolean;
     product?: {
         id: number;
         name: string;
