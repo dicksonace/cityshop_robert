@@ -161,6 +161,171 @@ class ChatService
         });
     }
 
+    /**
+     * Add members to an existing group.
+     *
+     * @param  list<int>  $memberIds
+     */
+    public static function addGroupMembers(Conversation $conversation, User $actor, array $memberIds): Conversation
+    {
+        abort_unless($conversation->is_group, 422, 'Only group chats can add members.');
+        abort_unless($conversation->involves($actor), 403);
+
+        $ids = collect($memberIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0 && $id !== $actor->id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            abort(422, 'Choose at least one person to add.');
+        }
+
+        $existingIds = $conversation->participantRows()->pluck('user_id')->all();
+        $newIds = $ids->reject(fn (int $id) => in_array($id, $existingIds, true))->values();
+
+        if ($newIds->isEmpty()) {
+            abort(422, 'Those people are already in the group.');
+        }
+
+        if (count($existingIds) + $newIds->count() > 50) {
+            abort(422, 'Groups can have at most 50 members.');
+        }
+
+        $members = User::query()->whereIn('id', $newIds)->get();
+        if ($members->count() !== $newIds->count()) {
+            abort(422, 'One or more members could not be found.');
+        }
+
+        foreach ($members as $member) {
+            if (UserBlockService::isBlockedEitherWay($actor, $member)) {
+                abort(403, 'You cannot add '.$member->name.' because messaging is blocked.');
+            }
+        }
+
+        return DB::transaction(function () use ($conversation, $actor, $members) {
+            foreach ($members as $member) {
+                ConversationParticipant::create([
+                    'conversation_id' => $conversation->id,
+                    'user_id' => $member->id,
+                ]);
+            }
+
+            $names = $members->pluck('name')->implode(', ');
+            static::sendMessage(
+                $conversation,
+                $actor,
+                $actor->name.' added '.$names,
+                MessageType::System,
+                ['system' => 'members_added', 'member_ids' => $members->pluck('id')->all()],
+            );
+
+            return $conversation->fresh(['participants', 'latestVisibleMessage']);
+        });
+    }
+
+    /** Leave a group (remove own membership). */
+    public static function leaveGroup(Conversation $conversation, User $user): void
+    {
+        abort_unless($conversation->is_group, 422, 'Only group chats can be left.');
+        abort_unless($conversation->involves($user), 403);
+
+        DB::transaction(function () use ($conversation, $user) {
+            $remaining = $conversation->participantRows()->where('user_id', '!=', $user->id)->count();
+
+            ConversationParticipant::query()
+                ->where('conversation_id', $conversation->id)
+                ->where('user_id', $user->id)
+                ->delete();
+
+            if ($remaining > 0) {
+                static::sendMessage(
+                    $conversation,
+                    $user,
+                    $user->name.' left the group',
+                    MessageType::System,
+                    ['system' => 'member_left', 'user_id' => $user->id],
+                );
+            }
+        });
+    }
+
+    /** Remove another member (any current member can remove others except themselves via leave). */
+    public static function removeGroupMember(Conversation $conversation, User $actor, User $target): Conversation
+    {
+        abort_unless($conversation->is_group, 422, 'Only group chats have members to remove.');
+        abort_unless($conversation->involves($actor), 403);
+
+        if ($actor->id === $target->id) {
+            static::leaveGroup($conversation, $actor);
+
+            return $conversation->fresh(['participants', 'latestVisibleMessage']) ?? $conversation;
+        }
+
+        abort_unless($conversation->involves($target), 422, 'That person is not in this group.');
+
+        return DB::transaction(function () use ($conversation, $actor, $target) {
+            ConversationParticipant::query()
+                ->where('conversation_id', $conversation->id)
+                ->where('user_id', $target->id)
+                ->delete();
+
+            static::sendMessage(
+                $conversation,
+                $actor,
+                $actor->name.' removed '.$target->name,
+                MessageType::System,
+                ['system' => 'member_removed', 'user_id' => $target->id],
+            );
+
+            return $conversation->fresh(['participants', 'latestVisibleMessage']);
+        });
+    }
+
+    public static function updateGroupAvatar(Conversation $conversation, User $actor, string $path): Conversation
+    {
+        abort_unless($conversation->is_group, 422, 'Only group chats have a group photo.');
+        abort_unless($conversation->involves($actor), 403);
+
+        $old = $conversation->avatar;
+        $conversation->forceFill(['avatar' => $path])->save();
+
+        if ($old && $old !== $path) {
+            Storage::disk('public')->delete($old);
+        }
+
+        static::sendMessage(
+            $conversation,
+            $actor,
+            $actor->name.' updated the group photo',
+            MessageType::System,
+            ['system' => 'avatar_updated'],
+        );
+
+        return $conversation->fresh(['participants', 'latestVisibleMessage']);
+    }
+
+    public static function clearGroupAvatar(Conversation $conversation, User $actor): Conversation
+    {
+        abort_unless($conversation->is_group, 422, 'Only group chats have a group photo.');
+        abort_unless($conversation->involves($actor), 403);
+
+        if ($conversation->avatar) {
+            Storage::disk('public')->delete($conversation->avatar);
+            $conversation->forceFill(['avatar' => null])->save();
+
+            static::sendMessage(
+                $conversation,
+                $actor,
+                $actor->name.' removed the group photo',
+                MessageType::System,
+                ['system' => 'avatar_removed'],
+            );
+        }
+
+        return $conversation->fresh(['participants', 'latestVisibleMessage']);
+    }
+
     /** Visible conversations for a user (direct + groups they belong to). */
     public static function visibleConversationsQuery(int $userId)
     {

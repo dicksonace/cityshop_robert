@@ -61,6 +61,111 @@ class MessageController extends Controller
         ], 201);
     }
 
+    public function addMembers(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($conversation->is_group, 422);
+
+        $validated = $request->validate([
+            'member_ids' => ['required', 'array', 'min:1', 'max:49'],
+            'member_ids.*' => ['integer', 'exists:users,id'],
+        ]);
+
+        $conversation = ChatService::addGroupMembers($conversation, $request->user(), $validated['member_ids']);
+        $conversation->load([
+            'participants:id,name,avatar,mobile,last_seen_at',
+            'latestVisibleMessage.sender:id,name',
+        ]);
+
+        return response()->json([
+            'message' => 'Members added.',
+            'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
+            'messages' => $this->threadFor($conversation, $request->user()),
+        ]);
+    }
+
+    public function leaveGroup(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($conversation->is_group, 422);
+
+        ChatService::leaveGroup($conversation, $request->user());
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'You left the group.',
+        ]);
+    }
+
+    public function removeMember(Request $request, Conversation $conversation, User $user): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($conversation->is_group, 422);
+
+        if ($request->user()->id === $user->id) {
+            ChatService::leaveGroup($conversation, $request->user());
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'You left the group.',
+            ]);
+        }
+
+        $conversation = ChatService::removeGroupMember($conversation, $request->user(), $user);
+        $conversation->load([
+            'participants:id,name,avatar,mobile,last_seen_at',
+            'latestVisibleMessage.sender:id,name',
+        ]);
+
+        return response()->json([
+            'message' => 'Member removed.',
+            'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
+        ]);
+    }
+
+    public function updateGroupAvatar(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($conversation->is_group, 422);
+
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            'avatar.required' => 'Please choose a group photo.',
+            'avatar.image' => 'Group photo must be an image.',
+            'avatar.max' => 'Group photo must be 5MB or smaller.',
+        ]);
+
+        $path = $request->file('avatar')->store('group-avatars', 'public');
+        $conversation = ChatService::updateGroupAvatar($conversation, $request->user(), $path);
+        $conversation->load([
+            'participants:id,name,avatar,mobile,last_seen_at',
+            'latestVisibleMessage.sender:id,name',
+        ]);
+
+        return response()->json([
+            'message' => 'Group photo updated.',
+            'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
+        ]);
+    }
+
+    public function destroyGroupAvatar(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($conversation->is_group, 422);
+
+        $conversation = ChatService::clearGroupAvatar($conversation, $request->user());
+        $conversation->load([
+            'participants:id,name,avatar,mobile,last_seen_at',
+            'latestVisibleMessage.sender:id,name',
+        ]);
+
+        return response()->json([
+            'message' => 'Group photo removed.',
+            'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -112,6 +217,7 @@ class MessageController extends Controller
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
+            'participants:id,name,avatar,mobile,last_seen_at',
             'product:id,name,slug,price,discount_price',
             'product.images',
         ]);
@@ -627,14 +733,16 @@ class MessageController extends Controller
             ->count();
 
         if ($conversation->is_group) {
-            $conversation->loadMissing('participants:id,name,avatar,last_seen_at');
+            $conversation->loadMissing('participants:id,name,avatar,mobile,last_seen_at');
             $members = $conversation->participants;
             $memberCount = $members->count();
+            $groupAvatar = $this->publicMediaUrl($conversation->avatar);
 
             return [
                 'id' => $conversation->id,
                 'is_group' => true,
                 'name' => $conversation->name,
+                'avatar' => $groupAvatar,
                 'created_by' => $conversation->created_by,
                 'buyer_id' => $conversation->buyer_id,
                 'seller_id' => null,
@@ -646,13 +754,15 @@ class MessageController extends Controller
                 'participants' => $members->map(fn (User $member) => [
                     'id' => $member->id,
                     'name' => $member->name,
+                    'mobile' => $member->mobile,
                     'avatar' => $this->publicMediaUrl($member->displayAvatarPath()),
                     'online' => ChatService::isOnline($member),
+                    'is_creator' => (int) $conversation->created_by === (int) $member->id,
                 ])->values(),
                 'other' => [
                     'id' => null,
                     'name' => $conversation->name ?: 'Group',
-                    'avatar' => null,
+                    'avatar' => $groupAvatar,
                     'online' => false,
                     'city' => null,
                     'region' => null,

@@ -18,6 +18,7 @@ class Conversation extends Model
         'product_id',
         'is_group',
         'name',
+        'avatar',
         'created_by',
         'last_message_at',
         'buyer_hidden_at',

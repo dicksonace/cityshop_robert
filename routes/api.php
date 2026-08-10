@@ -124,6 +124,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/messages/groups', [MessageController::class, 'storeGroup']);
         Route::get('/messages/{conversation}', [MessageController::class, 'show']);
         Route::delete('/messages/{conversation}', [MessageController::class, 'destroyConversation']);
+        Route::post('/messages/{conversation}/members', [MessageController::class, 'addMembers']);
+        Route::post('/messages/{conversation}/leave', [MessageController::class, 'leaveGroup']);
+        Route::delete('/messages/{conversation}/members/{user}', [MessageController::class, 'removeMember']);
+        Route::post('/messages/{conversation}/avatar', [MessageController::class, 'updateGroupAvatar']);
+        Route::delete('/messages/{conversation}/avatar', [MessageController::class, 'destroyGroupAvatar']);
         Route::get('/messages/{conversation}/search', [MessageController::class, 'search']);
         Route::post('/messages/{conversation}/send', [MessageController::class, 'send']);
         Route::post('/messages/{conversation}/product', [MessageController::class, 'sendProduct']);
