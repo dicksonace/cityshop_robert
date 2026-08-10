@@ -196,7 +196,7 @@ class ConversationController extends Controller
             ] : [
                 'id' => null,
                 'name' => $conversation->name ?: 'Group',
-                'avatar' => null,
+                'avatar' => $conversation->avatar,
                 'online' => false,
                 'is_group' => true,
             ],
@@ -240,11 +240,13 @@ class ConversationController extends Controller
         if ($conversation->is_group) {
             $conversation->loadMissing('participants:id,name,avatar,last_seen_at');
             $members = $conversation->participants;
+            $groupAvatar = $conversation->avatar;
 
             return [
                 'id' => $conversation->id,
                 'is_group' => true,
                 'name' => $conversation->name,
+                'avatar' => $groupAvatar,
                 'created_by' => $conversation->created_by,
                 'buyer_id' => $conversation->buyer_id,
                 'seller_id' => null,
@@ -260,7 +262,7 @@ class ConversationController extends Controller
                 'other' => [
                     'id' => null,
                     'name' => $conversation->name ?: 'Group',
-                    'avatar' => null,
+                    'avatar' => $groupAvatar,
                     'online' => false,
                     'is_seller' => false,
                     'is_group' => true,

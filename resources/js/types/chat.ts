@@ -7,7 +7,7 @@ export interface ChatCallLog {
 }
 
 export interface ChatConversationOther {
-    id: number;
+    id: number | null;
     name: string;
     avatar?: string | null;
     online: boolean;
@@ -15,6 +15,8 @@ export interface ChatConversationOther {
     city?: string | null;
     region?: string | null;
     is_seller?: boolean;
+    is_group?: boolean;
+    member_count?: number;
     store_slug?: string | null;
     seller_profile?: {
         business_name?: string | null;
@@ -27,6 +29,8 @@ export interface ChatConversationOther {
 export interface ChatConversation {
     id: number;
     is_group?: boolean;
+    name?: string | null;
+    avatar?: string | null;
     buyer_id?: number;
     seller_id?: number;
     can_complain?: boolean;
