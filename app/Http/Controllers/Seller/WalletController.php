@@ -13,7 +13,6 @@ use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
-use App\Support\PayoutNetwork;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -217,25 +216,40 @@ class WalletController extends Controller
     {
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:10'],
-            'payout_method_id' => ['required', 'exists:seller_payout_methods,id'],
+            'payout_type' => ['required', 'in:momo,bank'],
+            'momo_number' => ['required', 'string', 'max:30'],
+            'account_name' => ['required', 'string', 'max:255'],
+            'network' => [
+                'required',
+                'string',
+                $request->input('payout_type') === 'bank'
+                    ? GhanaBanks::validationRule()
+                    : 'in:mtn,telecel,airteltigo',
+            ],
             'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+            'payout_method_id' => ['nullable', 'exists:seller_payout_methods,id'],
         ]);
 
         \App\Services\PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);
 
-        $payoutMethod = SellerPayoutMethod::where('user_id', $request->user()->id)
-            ->findOrFail($validated['payout_method_id']);
-
-        $payoutType = $payoutMethod->type ?: PayoutNetwork::type($payoutMethod->network);
+        $payoutMethodId = null;
+        if (! empty($validated['payout_method_id'])) {
+            $owned = SellerPayoutMethod::where('user_id', $request->user()->id)
+                ->whereKey($validated['payout_method_id'])
+                ->exists();
+            if ($owned) {
+                $payoutMethodId = (int) $validated['payout_method_id'];
+            }
+        }
 
         try {
             $result = $withdrawals->submit($request->user(), [
                 'amount' => (float) $validated['amount'],
-                'payout_type' => $payoutType === 'bank' ? 'bank' : 'momo',
-                'momo_number' => $payoutMethod->account_number,
-                'account_name' => $payoutMethod->account_name,
-                'network' => $payoutMethod->network,
-                'payout_method_id' => $payoutMethod->id,
+                'payout_type' => $validated['payout_type'],
+                'momo_number' => $validated['momo_number'],
+                'account_name' => $validated['account_name'],
+                'network' => $validated['network'],
+                'payout_method_id' => $payoutMethodId,
             ]);
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
