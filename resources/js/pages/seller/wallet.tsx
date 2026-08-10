@@ -65,7 +65,7 @@ function feeFromBankTiers(amount: number, tiers: BankFeeTier, fallback = 0): num
     for (let i = 0; i < tiers.length - 1; i++) {
         const currMax = tiers[i].max;
         const nextMin = tiers[i + 1].min;
-        if (currMax != null && amount > currMax && amount < nextMin) return tiers[i].fee;
+        if (currMax != null && amount > currMax && amount < nextMin) return tiers[i + 1].fee;
     }
     return tiers[tiers.length - 1].fee;
 }

@@ -29,7 +29,7 @@ function tiersFromSettings(settings: Props['settings']): BankTier[] {
         ? settings.bank_tiers
         : [
               { min: 10, max: 1000, fee: 10 },
-              { min: 10000, max: 25000, fee: 20 },
+              { min: 1001, max: 25000, fee: 20 },
           ];
     return rows.map((t) => ({
         min: String(t.min ?? 0),

@@ -37,14 +37,14 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('summary.minimum', 10)
             ->assertJsonPath('summary.has_pending', false)
             ->assertJsonPath('summary.default_momo_number', $buyer->mobile)
-            ->assertJsonPath('summary.default_account_name', $buyer->name)
+            ->assertJsonPath('summary.default_account_name', null)
             ->assertJsonPath('summary.banks.0.id', 'absa')
             ->assertJsonPath('summary.withdrawal_fee.amount', 10)
             ->assertJsonPath('summary.withdrawal_fee.applies_to', 'bank')
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.min', 10)
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.max', 1000)
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.fee', 10)
-            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.min', 10000)
+            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.min', 1001)
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.max', 25000)
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.fee', 20)
             ->assertJsonCount(0, 'data');
@@ -129,7 +129,7 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('wallet.available_balance', 4980);
     }
 
-    public function test_bank_withdrawal_keeps_lower_fee_between_bands(): void
+    public function test_bank_withdrawal_uses_higher_fee_above_first_band(): void
     {
         $buyer = $this->buyerWithBalance(6000);
 
@@ -143,8 +143,8 @@ class ApiWithdrawalTest extends TestCase
             'account_name' => 'Kofi Amoah',
         ]))
             ->assertCreated()
-            ->assertJsonPath('data.fee', 10)
-            ->assertJsonPath('data.total_debited', 5010);
+            ->assertJsonPath('data.fee', 20)
+            ->assertJsonPath('data.total_debited', 5020);
     }
 
     public function test_the_minimum_is_ten_cedis(): void

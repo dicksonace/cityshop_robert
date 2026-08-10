@@ -85,7 +85,7 @@ class PlatformSettings
     {
         return [
             ['min' => 10.0, 'max' => 1000.0, 'fee' => 10.0],
-            ['min' => 10000.0, 'max' => 25000.0, 'fee' => 20.0],
+            ['min' => 1001.0, 'max' => 25000.0, 'fee' => 20.0],
         ];
     }
 
@@ -122,7 +122,7 @@ class PlatformSettings
 
     /**
      * Resolve fee from bank amount bands.
-     * Between bands → previous fee; above last band → last fee.
+     * Between bands → next (higher) fee; above last band → last fee.
      *
      * @param  list<array{min: float, max: float|null, fee: float}>  $tiers
      */
@@ -145,12 +145,12 @@ class PlatformSettings
             return (float) $tiers[0]['fee'];
         }
 
-        // Between bands → previous band fee (e.g. ₵1,001–₵9,999 still ₵10).
+        // Between bands → next band fee (e.g. ₵5,000 uses the GH₵20 band, not GH₵10).
         for ($i = 0; $i < count($tiers) - 1; $i++) {
             $currMax = $tiers[$i]['max'];
             $nextMin = (float) $tiers[$i + 1]['min'];
             if ($currMax !== null && $amount > (float) $currMax && $amount < $nextMin) {
-                return (float) $tiers[$i]['fee'];
+                return (float) $tiers[$i + 1]['fee'];
             }
         }
 
