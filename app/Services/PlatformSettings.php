@@ -116,8 +116,24 @@ class PlatformSettings
         }
 
         usort($tiers, fn ($a, $b) => $a['min'] <=> $b['min']);
+        $tiers = array_values($tiers);
 
-        return array_values($tiers);
+        // Upgrade the old gap schedule (…–1000 / 10000–25000) so GH₵5,000
+        // lands in the GH₵20 band instead of staying on GH₵10.
+        if (
+            count($tiers) >= 2
+            && (float) $tiers[0]['max'] === 1000.0
+            && (float) $tiers[0]['fee'] === 10.0
+            && (float) $tiers[1]['min'] === 10000.0
+            && (float) $tiers[1]['fee'] === 20.0
+        ) {
+            $tiers[1]['min'] = 1001.0;
+            if ($tiers[1]['max'] === null || (float) $tiers[1]['max'] < 25000.0) {
+                $tiers[1]['max'] = 25000.0;
+            }
+        }
+
+        return $tiers;
     }
 
     /**
