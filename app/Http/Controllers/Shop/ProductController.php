@@ -59,7 +59,7 @@ class ProductController extends Controller
             $request->user(),
         );
 
-        $related = $relatedQuery->limit(4)->get();
+        $related = $relatedQuery->limit(12)->get();
 
         return Inertia::render('shop/product-show', [
             'product' => $product,
