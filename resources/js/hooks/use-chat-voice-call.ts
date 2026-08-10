@@ -18,9 +18,22 @@ const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
 ];
 
+/** Ring / no-answer timeout — keep in sync with mobile ChatCallService. */
+const RING_TTL_MS = 45_000;
+
 /** Deterministic audio-then-video order so both peers build matching m-lines. */
 function orderedTracks(stream: MediaStream): MediaStreamTrack[] {
     return [...stream.getAudioTracks(), ...stream.getVideoTracks()];
+}
+
+function sdpHasActiveVideo(sdp: string): boolean {
+    for (const line of sdp.split('\n')) {
+        const trimmed = line.trimEnd();
+        if (!trimmed.startsWith('m=video ')) continue;
+        const parts = trimmed.split(/\s+/);
+        if (parts.length > 1 && parts[1] !== '0') return true;
+    }
+    return false;
 }
 
 function cleanSdpPayload(init: RTCSessionDescriptionInit | null | undefined): { type: RTCSdpType; sdp: string } | null {
@@ -97,6 +110,15 @@ export function useChatVoiceCall(
     const callStartedAtRef = useRef<number | null>(null);
     const callKindRef = useRef<CallKind>('voice');
     const iceServersRef = useRef<RTCIceServer[] | null>(null);
+    const ringExpireTimerRef = useRef<number | null>(null);
+    const callStateRef = useRef<CallState>('idle');
+
+    const clearRingExpire = useCallback(() => {
+        if (ringExpireTimerRef.current !== null) {
+            window.clearTimeout(ringExpireTimerRef.current);
+            ringExpireTimerRef.current = null;
+        }
+    }, []);
 
     const attachLocalVideo = useCallback((stream: MediaStream) => {
         if (localVideoRef.current) {
@@ -107,6 +129,7 @@ export function useChatVoiceCall(
 
     const cleanup = useCallback(() => {
         stopCallRing();
+        clearRingExpire();
         if (iceFlushTimerRef.current !== null) {
             window.clearTimeout(iceFlushTimerRef.current);
             iceFlushTimerRef.current = null;
@@ -131,8 +154,9 @@ export function useChatVoiceCall(
         callStartedAtRef.current = null;
         callKindRef.current = 'voice';
         setCallKind('voice');
+        callStateRef.current = 'idle';
         setCallState('idle');
-    }, []);
+    }, [clearRingExpire]);
 
     const sendSignal = useCallback(
         async (type: string, body = '', metadata?: Record<string, unknown>) => {
@@ -190,21 +214,20 @@ export function useChatVoiceCall(
 
     const endCall = useCallback(
         async (reason?: EndCallReason) => {
-            if (callState !== 'idle' && conversationId && currentUserId) {
-                // Caller hang-up while ringing = cancelled ("Call ended"), not missed.
+            const liveState = callStateRef.current;
+            if (liveState !== 'idle' && conversationId && currentUserId) {
+                // Explicit reason wins (e.g. missed = no answer). Otherwise map UI state.
                 const status: 'completed' | 'missed' | 'declined' | 'cancelled' = reason
-                    ? reason === 'missed'
-                        ? 'cancelled'
-                        : reason
-                    : callState === 'active'
+                    ? reason
+                    : liveState === 'active'
                       ? 'completed'
-                      : callState === 'incoming'
+                      : liveState === 'incoming'
                         ? 'declined'
-                        : callState === 'calling'
+                        : liveState === 'calling'
                           ? 'cancelled'
                           : 'cancelled';
                 const durationSeconds =
-                    callState === 'active' && callStartedAtRef.current
+                    liveState === 'active' && callStartedAtRef.current
                         ? Math.max(0, Math.floor((Date.now() - callStartedAtRef.current) / 1000))
                         : 0;
 
@@ -227,8 +250,19 @@ export function useChatVoiceCall(
             }
             cleanup();
         },
-        [callState, cleanup, conversationId, currentUserId, options, sendSignal],
+        [cleanup, conversationId, currentUserId, options, sendSignal],
     );
+
+    const armRingExpire = useCallback(() => {
+        clearRingExpire();
+        ringExpireTimerRef.current = window.setTimeout(() => {
+            const live = callStateRef.current;
+            if (live !== 'calling' && live !== 'incoming') return;
+            void endCall('missed').then(() => {
+                options.onCallError?.('No answer. Try calling again.');
+            });
+        }, RING_TTL_MS);
+    }, [clearRingExpire, endCall, options]);
 
     // Hard-bounded: this sits on the call-start path, so a slow response must
     // never hold up ringing or answering.
@@ -305,7 +339,12 @@ export function useChatVoiceCall(
                 pcRef.current = pc;
                 orderedTracks(stream).forEach((track) => pc.addTrack(track, stream));
 
-                const offer = await pc.createOffer();
+                const offer = await pc.createOffer({
+                    offerToReceiveAudio: true,
+                    // Without this, browsers often add a recvonly video m-line to
+                    // voice calls, so the other side opens a camera.
+                    offerToReceiveVideo: kind === 'video',
+                });
                 await pc.setLocalDescription(offer);
                 const payload = cleanSdpPayload(offer);
                 if (!payload) {
@@ -317,7 +356,9 @@ export function useChatVoiceCall(
                 });
                 unlockChatSounds();
                 startOutgoingRing();
+                callStateRef.current = 'calling';
                 setCallState('calling');
+                armRingExpire();
             } catch {
                 cleanup();
                 throw new Error(
@@ -327,7 +368,7 @@ export function useChatVoiceCall(
                 );
             }
         },
-        [attachLocalVideo, cleanup, conversationId, createPeerConnection, currentUserId, options.callerName, sendSignal],
+        [armRingExpire, attachLocalVideo, cleanup, conversationId, createPeerConnection, currentUserId, options.callerName, sendSignal],
     );
 
     const acceptCall = useCallback(async () => {
@@ -338,8 +379,9 @@ export function useChatVoiceCall(
             if (!offerInit) {
                 throw new Error('That call is no longer available. Ask them to call again.');
             }
-            const needsVideo = /^m=video\s/m.test(offerInit.sdp) || callKindRef.current === 'video';
-            const kind = needsVideo ? 'video' : 'voice';
+            // Prefer declared call_kind — leftover video m-lines must not force camera.
+            const kind = callKindRef.current === 'video' ? 'video' : 'voice';
+            const offerNeedsVideo = sdpHasActiveVideo(offerInit.sdp);
             callKindRef.current = kind;
             setCallKind(kind);
 
@@ -349,16 +391,19 @@ export function useChatVoiceCall(
 
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
-                video: needsVideo,
+                video: kind === 'video',
             });
             localStreamRef.current = stream;
-            if (needsVideo) {
+            if (kind === 'video') {
                 attachLocalVideo(stream);
             }
 
             await attachLocalTracksForAnswer(pc, stream, offerInit.sdp);
 
-            const answer = await pc.createAnswer();
+            const answer = await pc.createAnswer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: offerNeedsVideo,
+            });
             await pc.setLocalDescription(answer);
 
             for (const candidate of pendingIceRef.current) {
@@ -379,13 +424,15 @@ export function useChatVoiceCall(
                 call_kind: kind,
             });
             pendingOfferRef.current = null;
+            clearRingExpire();
             callStartedAtRef.current = Date.now();
+            callStateRef.current = 'active';
             setCallState('active');
         } catch {
             cleanup();
             throw new Error('Could not join the call. Ask them to call again.');
         }
-    }, [attachLocalVideo, cleanup, conversationId, createPeerConnection, sendSignal]);
+    }, [attachLocalVideo, cleanup, clearRingExpire, conversationId, createPeerConnection, sendSignal]);
 
     const handleCallMessage = useCallback(
         async (msg: ChatMessage) => {
@@ -400,10 +447,15 @@ export function useChatVoiceCall(
 
             if (msg.type === 'call_offer' && msg.sender_id !== currentUserId) {
                 const cleaned = cleanSdpPayload(msg.metadata?.sdp as RTCSessionDescriptionInit | undefined);
-                const kind =
-                    (cleaned && /^m=video\s/m.test(cleaned.sdp)) || msg.metadata?.call_kind === 'video'
-                        ? 'video'
-                        : 'voice';
+                const metaKind = String(msg.metadata?.call_kind ?? '').toLowerCase();
+                const kind: CallKind =
+                    metaKind === 'voice'
+                        ? 'voice'
+                        : metaKind === 'video'
+                          ? 'video'
+                          : cleaned && sdpHasActiveVideo(cleaned.sdp)
+                            ? 'video'
+                            : 'voice';
                 callKindRef.current = kind;
                 setCallKind(kind);
                 callerIdRef.current = msg.sender_id;
@@ -412,7 +464,9 @@ export function useChatVoiceCall(
                 pendingIceRef.current = [];
                 unlockChatSounds();
                 startIncomingRing();
+                callStateRef.current = 'incoming';
                 setCallState('incoming');
+                armRingExpire();
                 return;
             }
 
@@ -457,6 +511,7 @@ export function useChatVoiceCall(
                 if (pcRef.current.signalingState !== 'have-local-offer') return;
                 const answer = cleanSdpPayload(msg.metadata.sdp as RTCSessionDescriptionInit);
                 if (!answer) return;
+                clearRingExpire();
                 stopCallRing();
                 await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
                 for (const candidate of pendingIceRef.current) {
@@ -468,10 +523,11 @@ export function useChatVoiceCall(
                 }
                 pendingIceRef.current = [];
                 callStartedAtRef.current = Date.now();
+                callStateRef.current = 'active';
                 setCallState('active');
             }
         },
-        [cleanup, currentUserId],
+        [armRingExpire, cleanup, clearRingExpire, currentUserId],
     );
 
     return {

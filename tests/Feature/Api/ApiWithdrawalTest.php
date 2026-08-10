@@ -41,6 +41,12 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('summary.banks.0.id', 'absa')
             ->assertJsonPath('summary.withdrawal_fee.amount', 10)
             ->assertJsonPath('summary.withdrawal_fee.applies_to', 'bank')
+            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.min', 10)
+            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.max', 1000)
+            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.fee', 10)
+            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.min', 10000)
+            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.max', 25000)
+            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.fee', 20)
             ->assertJsonCount(0, 'data');
     }
 
@@ -102,6 +108,43 @@ class ApiWithdrawalTest extends TestCase
             'momo_number' => '1234567890',
             'fee' => 10,
         ]);
+    }
+
+    public function test_bank_withdrawal_uses_higher_fee_band_for_large_amounts(): void
+    {
+        $buyer = $this->buyerWithBalance(20000);
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
+            'amount' => 15000,
+            'payout_type' => 'bank',
+            'network' => 'gcb',
+            'momo_number' => '1234567890',
+            'account_name' => 'Kofi Amoah',
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.fee', 20)
+            ->assertJsonPath('data.total_debited', 15020)
+            ->assertJsonPath('wallet.available_balance', 4980);
+    }
+
+    public function test_bank_withdrawal_keeps_lower_fee_between_bands(): void
+    {
+        $buyer = $this->buyerWithBalance(6000);
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
+            'amount' => 5000,
+            'payout_type' => 'bank',
+            'network' => 'gcb',
+            'momo_number' => '1234567890',
+            'account_name' => 'Kofi Amoah',
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.fee', 10)
+            ->assertJsonPath('data.total_debited', 5010);
     }
 
     public function test_the_minimum_is_ten_cedis(): void

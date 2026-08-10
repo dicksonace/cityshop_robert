@@ -39,7 +39,26 @@ interface BuyerWalletProps {
         mode?: 'flat' | 'percent';
         applies_to: 'bank' | 'momo' | 'all' | 'none';
         auto_paystack?: boolean;
+        bank_tiers?: { min: number; max: number | null; fee: number }[];
     };
+}
+
+type BankFeeTier = NonNullable<NonNullable<BuyerWalletProps['withdrawalFee']>['bank_tiers']>;
+
+function feeFromBankTiers(amount: number, tiers: BankFeeTier, fallback = 0): number {
+    if (amount <= 0 || tiers.length === 0) return Math.max(0, fallback);
+    for (const tier of tiers) {
+        if (amount + 0.0001 >= tier.min && (tier.max == null || amount <= tier.max + 0.0001)) {
+            return tier.fee;
+        }
+    }
+    if (amount < tiers[0].min) return tiers[0].fee;
+    for (let i = 0; i < tiers.length - 1; i++) {
+        const currMax = tiers[i].max;
+        const nextMin = tiers[i + 1].min;
+        if (currMax != null && amount > currMax && amount < nextMin) return tiers[i].fee;
+    }
+    return tiers[tiers.length - 1].fee;
 }
 
 function feeForPayoutType(
@@ -52,9 +71,35 @@ function feeForPayoutType(
         const percent = settings.percent ?? 0;
         return percent > 0 ? Math.round(amount * (percent / 100) * 100) / 100 : 0;
     }
-    if (settings.applies_to === 'none' || settings.amount <= 0) return 0;
-    if (settings.applies_to === 'all' || settings.applies_to === payoutType) return settings.amount;
-    return 0;
+    if (settings.applies_to === 'none') return 0;
+    if (!(settings.applies_to === 'all' || settings.applies_to === payoutType)) return 0;
+    if (payoutType === 'bank' && (settings.bank_tiers?.length ?? 0) > 0) {
+        return feeFromBankTiers(amount, settings.bank_tiers!, settings.amount ?? 0);
+    }
+    return settings.amount > 0 ? settings.amount : 0;
+}
+
+function maxWithdrawableAmount(
+    balance: number,
+    settings: BuyerWalletProps['withdrawalFee'],
+    payoutType: 'momo' | 'bank',
+): number {
+    if (settings?.mode === 'percent' && (settings.percent ?? 0) > 0) {
+        return Math.max(0, Math.floor((balance / (1 + (settings.percent ?? 0) / 100)) * 100) / 100);
+    }
+    let lo = 0;
+    let hi = balance;
+    for (let i = 0; i < 48; i++) {
+        const mid = (lo + hi) / 2;
+        const fee = feeForPayoutType(settings, payoutType, mid);
+        if (mid + fee <= balance + 1e-9) lo = mid;
+        else hi = mid;
+    }
+    let amount = Math.round(lo * 100) / 100;
+    if (amount + feeForPayoutType(settings, payoutType, amount) > balance + 1e-9) {
+        amount = Math.round((amount - 0.01) * 100) / 100;
+    }
+    return Math.max(0, amount);
 }
 
 function formatDate(value?: string): string {
@@ -101,7 +146,8 @@ export default function BuyerWallet({
         amount: '',
         payout_type: 'momo' as 'momo' | 'bank',
         momo_number: auth.user?.mobile ?? '',
-        account_name: auth.user?.name ?? '',
+        // Leave blank — registered MoMo/bank name must be entered (not profile name / fee leftovers).
+        account_name: '',
         network: 'mtn',
         payment_pin: '',
     });
@@ -109,14 +155,11 @@ export default function BuyerWallet({
     const canRecharge = paystackConfigured || !!manualTopUpEnabled;
     const withdrawAmount = Number(withdrawForm.data.amount) || 0;
     const activeFee = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type, withdrawAmount);
-    const maxWithdraw = (() => {
-        const bal = wallet.available_balance;
-        if (withdrawalFee?.mode === 'percent' && (withdrawalFee.percent ?? 0) > 0) {
-            return Math.max(0, Math.floor((bal / (1 + (withdrawalFee.percent ?? 0) / 100)) * 100) / 100);
-        }
-        const flat = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type, 0);
-        return Math.max(0, bal - flat);
-    })();
+    const maxWithdraw = maxWithdrawableAmount(
+        wallet.available_balance,
+        withdrawalFee,
+        withdrawForm.data.payout_type,
+    );
 
     const setPayoutType = (type: 'momo' | 'bank') => {
         withdrawForm.setData({
@@ -125,6 +168,7 @@ export default function BuyerWallet({
             network: type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn',
             // Don't carry a MoMo phone into the bank account field (or the reverse).
             momo_number: type === 'momo' ? (auth.user?.mobile ?? '') : '',
+            account_name: '',
         });
     };
 
@@ -361,7 +405,11 @@ export default function BuyerWallet({
                                                 {activeFee > 0
                                                     ? withdrawalFee?.mode === 'percent'
                                                         ? ` · ${withdrawalFee.percent ?? 0}% fee`
-                                                        : ` · ${withdrawForm.data.payout_type === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)} per transaction`
+                                                        : withdrawForm.data.payout_type === 'bank' &&
+                                                            (withdrawalFee?.bank_tiers?.length ?? 0) > 0 &&
+                                                            withdrawAmount <= 0
+                                                          ? ' · Bank fee by amount (GH₵10–1,000 → GH₵10 · GH₵10,000–25,000 → GH₵20)'
+                                                          : ` · ${withdrawForm.data.payout_type === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)}`
                                                     : ''}
                                             </p>
                                         </div>

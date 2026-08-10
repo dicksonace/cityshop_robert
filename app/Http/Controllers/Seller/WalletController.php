@@ -165,8 +165,10 @@ class WalletController extends Controller
                     : 'in:mtn,telecel,airteltigo',
             ],
             'account_number' => ['required', 'string', 'max:30'],
-            'account_name' => ['required', 'string', 'max:255'],
+            'account_name' => ['required', 'string', 'max:255', 'not_regex:/^\d+([.,]\d+)?$/'],
             'is_default' => ['boolean'],
+        ], [
+            'account_name.not_regex' => 'Enter the name registered on the account, not a number.',
         ]);
 
         if ($profile) {
@@ -218,7 +220,7 @@ class WalletController extends Controller
             'amount' => ['required', 'numeric', 'min:10'],
             'payout_type' => ['required', 'in:momo,bank'],
             'momo_number' => ['required', 'string', 'max:30'],
-            'account_name' => ['required', 'string', 'max:255'],
+            'account_name' => ['required', 'string', 'max:255', 'not_regex:/^\d+([.,]\d+)?$/'],
             'network' => [
                 'required',
                 'string',
@@ -228,6 +230,8 @@ class WalletController extends Controller
             ],
             'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
             'payout_method_id' => ['nullable', 'exists:seller_payout_methods,id'],
+        ], [
+            'account_name.not_regex' => 'Enter the name registered on the account, not a number.',
         ]);
 
         \App\Services\PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);

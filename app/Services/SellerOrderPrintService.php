@@ -25,6 +25,7 @@ class SellerOrderPrintService
      *   storeAddressLines: list<string>,
      *   items: Collection<int, OrderItem>,
      *   itemImages: array<int, string|null>,
+     *   brandLogoSrc: string|null,
      *   subtotal: float,
      *   shipping: float,
      *   allTotal: float,
@@ -71,6 +72,7 @@ class SellerOrderPrintService
             ])),
             'items' => $items,
             'itemImages' => $itemImages,
+            'brandLogoSrc' => $this->brandLogoSrc(),
             'subtotal' => $subtotal,
             'shipping' => $shipping,
             'allTotal' => $allTotal,
@@ -241,6 +243,33 @@ class SellerOrderPrintService
 
         // mPDF expects forward slashes on Windows paths.
         return str_replace('\\', '/', $prepared);
+    }
+
+    /** CityShop bag mark for packing-slip header (mPDF local path). */
+    private function brandLogoSrc(): ?string
+    {
+        foreach ([
+            public_path('images/branding/cityshop-mark.png'),
+            public_path('images/logo.png'),
+            public_path('logo.svg'),
+        ] as $absolute) {
+            if (! is_file($absolute)) {
+                continue;
+            }
+            $ext = strtolower(pathinfo($absolute, PATHINFO_EXTENSION));
+            // Prefer raster for mPDF; skip SVG.
+            if ($ext === 'svg') {
+                continue;
+            }
+            $prepared = $this->prepareImageForPdf($absolute, 0);
+            if ($prepared !== null) {
+                return str_replace('\\', '/', $prepared);
+            }
+
+            return str_replace('\\', '/', $absolute);
+        }
+
+        return null;
     }
 
     private function prepareImageForPdf(string $absolute, int $itemId): ?string

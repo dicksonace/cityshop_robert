@@ -53,13 +53,7 @@ class ConversationController extends Controller
             'product.images',
         ]);
 
-        $messages = $conversation->messages()
-            ->whereIn('type', ChatService::visibleTypes())
-            ->with('sender:id,name')
-            ->orderBy('created_at')
-            ->limit(100)
-            ->get()
-            ->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
+        $messages = ChatService::threadMessagesFor($conversation, $request->user());
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -108,13 +102,7 @@ class ConversationController extends Controller
         ]);
 
         if ($request->wantsJson()) {
-            $messages = $conversation->messages()
-                ->whereIn('type', ChatService::visibleTypes())
-                ->with('sender:id,name')
-                ->orderBy('created_at')
-                ->limit(100)
-                ->get()
-                ->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
+            $messages = ChatService::threadMessagesFor($conversation, $request->user());
 
             return response()->json([
                 'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
@@ -232,13 +220,7 @@ class ConversationController extends Controller
             'latestVisibleMessage.sender:id,name',
         ]);
 
-        $messages = $conversation->messages()
-            ->whereIn('type', ChatService::visibleTypes())
-            ->with('sender:id,name')
-            ->orderBy('created_at')
-            ->limit(100)
-            ->get()
-            ->map(fn ($m) => ChatService::formatMessage($m, $user));
+        $messages = ChatService::threadMessagesFor($conversation, $user);
 
         return response()->json([
             'conversation' => $this->formatConversation($conversation, $user, detailed: true),

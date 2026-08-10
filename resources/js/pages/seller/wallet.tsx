@@ -48,7 +48,26 @@ interface WalletProps {
         mode?: 'flat' | 'percent';
         applies_to: 'bank' | 'momo' | 'all' | 'none';
         auto_paystack?: boolean;
+        bank_tiers?: { min: number; max: number | null; fee: number }[];
     };
+}
+
+type BankFeeTier = NonNullable<NonNullable<WalletProps['withdrawalFee']>['bank_tiers']>;
+
+function feeFromBankTiers(amount: number, tiers: BankFeeTier, fallback = 0): number {
+    if (amount <= 0 || tiers.length === 0) return Math.max(0, fallback);
+    for (const tier of tiers) {
+        if (amount + 0.0001 >= tier.min && (tier.max == null || amount <= tier.max + 0.0001)) {
+            return tier.fee;
+        }
+    }
+    if (amount < tiers[0].min) return tiers[0].fee;
+    for (let i = 0; i < tiers.length - 1; i++) {
+        const currMax = tiers[i].max;
+        const nextMin = tiers[i + 1].min;
+        if (currMax != null && amount > currMax && amount < nextMin) return tiers[i].fee;
+    }
+    return tiers[tiers.length - 1].fee;
 }
 
 function feeForPayoutType(
@@ -61,9 +80,43 @@ function feeForPayoutType(
         const percent = settings.percent ?? 0;
         return percent > 0 ? Math.round(amount * (percent / 100) * 100) / 100 : 0;
     }
-    if (settings.applies_to === 'none' || settings.amount <= 0) return 0;
-    if (settings.applies_to === 'all' || settings.applies_to === payoutType) return settings.amount;
-    return 0;
+    if (settings.applies_to === 'none') return 0;
+    if (!(settings.applies_to === 'all' || settings.applies_to === payoutType)) return 0;
+    if (payoutType === 'bank' && (settings.bank_tiers?.length ?? 0) > 0) {
+        return feeFromBankTiers(amount, settings.bank_tiers!, settings.amount ?? 0);
+    }
+    return settings.amount > 0 ? settings.amount : 0;
+}
+
+function maxWithdrawableAmount(
+    balance: number,
+    settings: WalletProps['withdrawalFee'],
+    payoutType: 'momo' | 'bank',
+): number {
+    if (settings?.mode === 'percent' && (settings.percent ?? 0) > 0) {
+        return Math.max(0, Math.floor((balance / (1 + (settings.percent ?? 0) / 100)) * 100) / 100);
+    }
+    let lo = 0;
+    let hi = balance;
+    for (let i = 0; i < 48; i++) {
+        const mid = (lo + hi) / 2;
+        const fee = feeForPayoutType(settings, payoutType, mid);
+        if (mid + fee <= balance + 1e-9) lo = mid;
+        else hi = mid;
+    }
+    let amount = Math.round(lo * 100) / 100;
+    if (amount + feeForPayoutType(settings, payoutType, amount) > balance + 1e-9) {
+        amount = Math.round((amount - 0.01) * 100) / 100;
+    }
+    return Math.max(0, amount);
+}
+
+/** Drop numeric leftovers (e.g. fee/minimum "10") from payout account name fields. */
+function usablePayoutAccountName(value?: string | null): string {
+    const name = (value ?? '').trim();
+    if (!name) return '';
+    if (/^\d+([.,]\d+)?$/.test(name)) return '';
+    return name;
 }
 
 function formatDate(value?: string): string {
@@ -112,7 +165,8 @@ export default function SellerWallet({
         amount: '',
         payout_type: (defaultIsBank ? 'bank' : 'momo') as 'momo' | 'bank',
         momo_number: defaultMethod?.account_number ?? auth.user?.mobile ?? '',
-        account_name: defaultMethod?.account_name ?? auth.user?.name ?? '',
+        // Never prefill — MoMo/bank registered name must be typed (avoids fee/min leftovers like "10").
+        account_name: usablePayoutAccountName(defaultMethod?.account_name),
         network: defaultMethod?.network ?? 'mtn',
         payment_pin: '',
         payout_method_id: defaultMethod?.id?.toString() ?? '',
@@ -120,14 +174,11 @@ export default function SellerWallet({
 
     const withdrawAmount = Number(withdrawForm.data.amount) || 0;
     const activeFee = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type, withdrawAmount);
-    const maxWithdraw = (() => {
-        const bal = wallet?.available_balance ?? 0;
-        if (withdrawalFee?.mode === 'percent' && (withdrawalFee.percent ?? 0) > 0) {
-            return Math.max(0, Math.floor((bal / (1 + (withdrawalFee.percent ?? 0) / 100)) * 100) / 100);
-        }
-        const flat = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type, 0);
-        return Math.max(0, bal - flat);
-    })();
+    const maxWithdraw = maxWithdrawableAmount(
+        wallet?.available_balance ?? 0,
+        withdrawalFee,
+        withdrawForm.data.payout_type,
+    );
 
     const setPayoutType = (type: 'momo' | 'bank') => {
         withdrawForm.setData({
@@ -135,6 +186,7 @@ export default function SellerWallet({
             payout_type: type,
             network: type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn',
             momo_number: type === 'momo' ? (auth.user?.mobile ?? '') : '',
+            account_name: '',
             payout_method_id: '',
         });
     };
@@ -146,7 +198,7 @@ export default function SellerWallet({
             payout_type: isBank ? 'bank' : 'momo',
             network: method.network,
             momo_number: method.account_number,
-            account_name: method.account_name,
+            account_name: usablePayoutAccountName(method.account_name),
             payout_method_id: String(method.id),
         });
         setWithdrawStep('details');
@@ -448,7 +500,11 @@ export default function SellerWallet({
                                     {activeFee > 0
                                         ? withdrawalFee?.mode === 'percent'
                                             ? ` · ${withdrawalFee.percent ?? 0}% fee`
-                                            : ` · ${withdrawForm.data.payout_type === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)} per transaction`
+                                            : withdrawForm.data.payout_type === 'bank' &&
+                                                (withdrawalFee?.bank_tiers?.length ?? 0) > 0 &&
+                                                withdrawAmount <= 0
+                                              ? ' · Bank fee by amount (GH₵10–1,000 → GH₵10 · GH₵10,000–25,000 → GH₵20)'
+                                              : ` · ${withdrawForm.data.payout_type === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)}`
                                         : ''}
                                 </p>
                             </div>

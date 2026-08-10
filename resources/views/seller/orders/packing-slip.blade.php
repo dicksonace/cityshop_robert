@@ -37,6 +37,10 @@
             line-height: 1.1;
         }
         .brand span { color: #ea580c; }
+        .brand-logo {
+            width: 36pt;
+            height: 36pt;
+        }
         .doc-title {
             font-size: 11pt;
             font-weight: bold;
@@ -163,12 +167,23 @@
     $storeLocation = $storeLocation ?? null;
 @endphp
 
-{{-- Header: brand | packing slip meta --}}
+{{-- Header: brand logo + name | packing slip meta --}}
 <table>
     <tr>
         <td class="top wrap" width="55%">
-            <div class="brand">City<span>Shop</span></div>
-            <div class="muted">cityunlock.net</div>
+            <table>
+                <tr>
+                    @if(! empty($brandLogoSrc))
+                        <td class="mid" width="42" style="padding-right:6pt;">
+                            <img class="brand-logo" src="{{ $brandLogoSrc }}" width="36" height="36" alt="CityShop">
+                        </td>
+                    @endif
+                    <td class="mid wrap">
+                        <div class="brand">City<span>Shop</span></div>
+                        <div class="muted">cityunlock.net</div>
+                    </td>
+                </tr>
+            </table>
         </td>
         <td class="top right wrap" width="45%">
             <div class="doc-title">Packing slip</div>

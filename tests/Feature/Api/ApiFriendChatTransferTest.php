@@ -159,4 +159,37 @@ class ApiFriendChatTransferTest extends TestCase
             'payment_pin' => '2468',
         ])->assertUnprocessable();
     }
+
+    public function test_group_chats_reject_wallet_transfers(): void
+    {
+        $me = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Kofi']);
+        $friend = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Asare Kwame', 'mobile' => '0202105124']);
+        $third = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Ama']);
+        PaymentPinService::set($me, '2468');
+
+        Wallet::create([
+            'user_id' => $me->id,
+            'available_balance' => 1000,
+            'pending_balance' => 0,
+            'total_earnings' => 0,
+            'withdrawn_amount' => 0,
+        ]);
+
+        Sanctum::actingAs($me);
+
+        $conversationId = $this->postJson('/api/v1/messages/groups', [
+            'name' => 'Weekend group',
+            'member_ids' => [$friend->id, $third->id],
+        ])->assertCreated()->json('conversation.id');
+
+        $this->postJson("/api/v1/messages/{$conversationId}/transfer", [
+            'amount' => 25,
+            'payment_pin' => '2468',
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Wallet transfers are only available in 1:1 chats.');
+
+        $this->assertSame(0, Message::where('conversation_id', $conversationId)->where('type', MessageType::Transfer)->count());
+        $this->assertSame(1000.0, (float) Wallet::where('user_id', $me->id)->value('available_balance'));
+    }
 }

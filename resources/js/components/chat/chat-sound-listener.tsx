@@ -15,6 +15,7 @@ export default function ChatSoundListener() {
     const { isOpen, view } = useChat();
     const unreadMapRef = useRef<Record<number, number>>({});
     const initializedRef = useRef(false);
+    const lastSoundAtRef = useRef(0);
 
     const threadActive = isOpen && view === 'thread';
 
@@ -33,16 +34,22 @@ export default function ChatSoundListener() {
                     return;
                 }
 
+                let shouldChime = false;
                 for (const c of conversations) {
                     const prev = unreadMapRef.current[c.id] ?? 0;
                     if (c.unread_count > prev) {
-                        playChatReceiveSound();
+                        shouldChime = true;
                         break;
                     }
                 }
 
                 for (const c of conversations) {
                     unreadMapRef.current[c.id] = c.unread_count;
+                }
+
+                if (shouldChime && Date.now() - lastSoundAtRef.current > 1600) {
+                    lastSoundAtRef.current = Date.now();
+                    playChatReceiveSound();
                 }
             } catch {
                 // ignore background poll errors

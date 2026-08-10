@@ -56,9 +56,18 @@ export function playChatSendSound(): void {
     }
 }
 
-/** Pleasant two-note chime when a reply arrives */
+/** Pleasant two-note chime when a reply arrives (once — never loop). */
+let lastReceiveSoundAt = 0;
+
 export function playChatReceiveSound(): void {
     try {
+        const nowMs = Date.now();
+        // Poll/realtime can deliver the same message more than once; don't beep in a loop.
+        if (nowMs - lastReceiveSoundAt < 1600) {
+            return;
+        }
+        lastReceiveSoundAt = nowMs;
+
         const ctx = getContext();
         if (!ctx) {
             return;

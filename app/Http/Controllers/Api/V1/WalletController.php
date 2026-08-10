@@ -171,7 +171,7 @@ class WalletController extends Controller
                     ),
                 ),
                 'default_momo_number' => $user->mobile,
-                'default_account_name' => $user->name,
+                'default_account_name' => null,
                 'banks' => collect(GhanaBanks::OPTIONS)
                     ->map(fn (string $label, string $id) => ['id' => $id, 'label' => $label])
                     ->values()
@@ -201,7 +201,7 @@ class WalletController extends Controller
             'amount' => ['required', 'numeric', 'min:'.self::MINIMUM_WITHDRAWAL],
             'payout_type' => ['required', 'in:momo,bank'],
             'momo_number' => ['required', 'string', 'max:30'],
-            'account_name' => ['required', 'string', 'max:255'],
+            'account_name' => ['required', 'string', 'max:255', 'not_regex:/^\d+([.,]\d+)?$/'],
             'network' => [
                 'required',
                 'string',
@@ -210,6 +210,8 @@ class WalletController extends Controller
                     : 'in:mtn,telecel,airteltigo',
             ],
             'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+        ], [
+            'account_name.not_regex' => 'Enter the name registered on the account, not a number.',
         ]);
 
         PaymentPinService::assertValidForAction($user, $validated['payment_pin']);
@@ -241,9 +243,6 @@ class WalletController extends Controller
      */
     private function withdrawalPayload(Withdrawal $withdrawal): array
     {
-        $payoutType = $withdrawal->payout_channel
-            ?: PayoutNetwork::type($withdrawal->network);
-
         return [
             'id' => $withdrawal->id,
             'amount' => (float) $withdrawal->amount,
@@ -253,7 +252,20 @@ class WalletController extends Controller
             'account_name' => $withdrawal->account_name,
             'network' => $withdrawal->network,
             'network_label' => PayoutNetwork::label($withdrawal->network),
-            'payout_type' => $payoutType,
+            'payout_type' => in_array($withdrawal->payout_channel, ['momo', 'bank'], true)
+                ? $withdrawal->payout_channel
+                : PayoutNetwork::type($withdrawal->network),
+            'payout_channel' => $withdrawal->payout_channel,
+            'payout_channel_label' => match ($withdrawal->payout_channel) {
+                'paystack' => 'Paystack',
+                'bank' => 'Bank transfer',
+                'momo' => 'Mobile Money',
+                'manual' => 'Manual payout',
+                default => $withdrawal->payout_channel
+                    ? ucfirst((string) $withdrawal->payout_channel)
+                    : 'Manual payout',
+            },
+            'reference' => 'WD-'.$withdrawal->id,
             'status' => $withdrawal->status?->value,
             // The web deliberately shows pending requests as "Processing".
             'status_label' => match ($withdrawal->status) {
@@ -263,7 +275,12 @@ class WalletController extends Controller
                 WithdrawalStatus::Rejected => 'Rejected',
                 default => 'Processing',
             },
-            'rejection_reason' => $withdrawal->rejection_reason ?? $withdrawal->failure_reason,
+            'rejection_reason' => $withdrawal->rejection_reason,
+            'failure_reason' => $withdrawal->failure_reason,
+            'admin_notes' => $withdrawal->admin_notes,
+            'proof_url' => $withdrawal->proof_path
+                ? \Illuminate\Support\Facades\Storage::disk('public')->url($withdrawal->proof_path)
+                : null,
             'created_at' => $withdrawal->created_at?->toIso8601String(),
             'processed_at' => $withdrawal->processed_at?->toIso8601String(),
         ];

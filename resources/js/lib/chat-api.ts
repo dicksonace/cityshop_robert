@@ -190,6 +190,32 @@ export async function uploadChatFile(
     return data.message;
 }
 
+export async function uploadChatVoice(
+    conversationId: number,
+    file: Blob,
+    durationSeconds?: number,
+): Promise<ChatMessage> {
+    const form = new FormData();
+    const ext = file.type.includes('ogg') ? 'ogg' : file.type.includes('mp4') ? 'm4a' : 'webm';
+    form.append('voice', file, `voice.${ext}`);
+    if (durationSeconds && durationSeconds > 0) {
+        form.append('duration_seconds', String(Math.round(durationSeconds)));
+    }
+
+    const res = await fetch(route('chat.messages.voice', conversationId), {
+        method: 'POST',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...csrfHeaders(),
+        },
+        credentials: 'same-origin',
+        body: form,
+    });
+    const data = await parseJsonResponse<{ message: ChatMessage }>(res);
+    return data.message;
+}
+
 export async function sendChatMessage(
     conversationId: number,
     body: string,
@@ -236,6 +262,7 @@ export async function deleteChatMessage(conversationId: number, messageId: numbe
 export async function pollConversation(conversationId: number, after: number): Promise<{
     messages: ChatMessage[];
     read_message_ids?: number[];
+    is_group?: boolean;
     other?: ChatConversation['other'];
 }> {
     const res = await fetch(route('chat.poll', { conversation: conversationId, after }), {

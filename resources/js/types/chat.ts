@@ -26,9 +26,11 @@ export interface ChatConversationOther {
 
 export interface ChatConversation {
     id: number;
+    is_group?: boolean;
     buyer_id?: number;
     seller_id?: number;
     can_complain?: boolean;
+    member_count?: number;
     product?: {
         id: number;
         name: string;

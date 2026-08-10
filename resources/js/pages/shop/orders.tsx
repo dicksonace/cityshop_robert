@@ -51,7 +51,7 @@ interface OrdersProps {
 }
 
 function packageHeadline(pkg: PurchasePackage): string {
-    if (pkg.status === 'cancelled') return 'Order closed';
+    if (pkg.status === 'cancelled') return 'Processing';
     if (pkg.payment_status === 'pending' && pkg.payment_method !== 'cash') return 'Awaiting payment';
     if (pkg.status === 'delivered') return 'Order completed';
     if (pkg.status === 'awaiting_confirmation') return 'Confirm delivery';

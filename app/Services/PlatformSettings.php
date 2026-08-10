@@ -38,9 +38,14 @@ class PlatformSettings
     }
 
     /**
-     * Flat withdrawal fee (per transaction). Admin can change amount / which channels.
+     * Flat / tiered withdrawal fee (per transaction). Admin can change amount / which channels.
      *
-     * @return array{enabled: bool, amount: float, applies_to: string}
+     * @return array{
+     *   enabled: bool,
+     *   amount: float,
+     *   applies_to: string,
+     *   bank_tiers: list<array{min: float, max: float|null, fee: float}>
+     * }
      */
     public static function withdrawalFeeSettings(): array
     {
@@ -54,6 +59,7 @@ class PlatformSettings
                 'enabled' => true,
                 'amount' => 10.0,
                 'applies_to' => 'bank',
+                'bank_tiers' => static::defaultBankFeeTiers(),
             ];
         }
 
@@ -66,11 +72,99 @@ class PlatformSettings
             'enabled' => (bool) ($decoded['enabled'] ?? true),
             'amount' => max(0, round((float) ($decoded['amount'] ?? 10), 2)),
             'applies_to' => $appliesTo,
+            'bank_tiers' => static::normalizeBankFeeTiers($decoded['bank_tiers'] ?? null),
         ];
     }
 
     /**
-     * @param  array{enabled?: bool, amount?: float|int|string, applies_to?: string}  $data
+     * Default CityShop bank withdrawal fee schedule.
+     *
+     * @return list<array{min: float, max: float|null, fee: float}>
+     */
+    public static function defaultBankFeeTiers(): array
+    {
+        return [
+            ['min' => 10.0, 'max' => 1000.0, 'fee' => 10.0],
+            ['min' => 10000.0, 'max' => 25000.0, 'fee' => 20.0],
+        ];
+    }
+
+    /**
+     * @param  mixed  $raw
+     * @return list<array{min: float, max: float|null, fee: float}>
+     */
+    public static function normalizeBankFeeTiers(mixed $raw): array
+    {
+        if (! is_array($raw) || $raw === []) {
+            return static::defaultBankFeeTiers();
+        }
+
+        $tiers = [];
+        foreach ($raw as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $min = max(0, round((float) ($row['min'] ?? 0), 2));
+            $fee = max(0, round((float) ($row['fee'] ?? 0), 2));
+            $maxRaw = $row['max'] ?? null;
+            $max = $maxRaw === null || $maxRaw === '' ? null : max($min, round((float) $maxRaw, 2));
+            $tiers[] = ['min' => $min, 'max' => $max, 'fee' => $fee];
+        }
+
+        if ($tiers === []) {
+            return static::defaultBankFeeTiers();
+        }
+
+        usort($tiers, fn ($a, $b) => $a['min'] <=> $b['min']);
+
+        return array_values($tiers);
+    }
+
+    /**
+     * Resolve fee from bank amount bands.
+     * Between bands → previous fee; above last band → last fee.
+     *
+     * @param  list<array{min: float, max: float|null, fee: float}>  $tiers
+     */
+    public static function feeFromBankTiers(float $amount, array $tiers, float $fallback = 0.0): float
+    {
+        if ($amount <= 0 || $tiers === []) {
+            return max(0, $fallback);
+        }
+
+        foreach ($tiers as $tier) {
+            $min = (float) $tier['min'];
+            $max = $tier['max'];
+            if ($amount + 0.0001 >= $min && ($max === null || $amount <= ((float) $max) + 0.0001)) {
+                return (float) $tier['fee'];
+            }
+        }
+
+        // Below first band → first fee.
+        if ($amount < (float) $tiers[0]['min']) {
+            return (float) $tiers[0]['fee'];
+        }
+
+        // Between bands → previous band fee (e.g. ₵1,001–₵9,999 still ₵10).
+        for ($i = 0; $i < count($tiers) - 1; $i++) {
+            $currMax = $tiers[$i]['max'];
+            $nextMin = (float) $tiers[$i + 1]['min'];
+            if ($currMax !== null && $amount > (float) $currMax && $amount < $nextMin) {
+                return (float) $tiers[$i]['fee'];
+            }
+        }
+
+        // Above last band → last fee.
+        return (float) $tiers[array_key_last($tiers)]['fee'];
+    }
+
+    /**
+     * @param  array{
+     *   enabled?: bool,
+     *   amount?: float|int|string,
+     *   applies_to?: string,
+     *   bank_tiers?: list<array{min?: float|int|string, max?: float|int|string|null, fee?: float|int|string}>
+     * }  $data
      */
     public static function saveWithdrawalFeeSettings(array $data): void
     {
@@ -83,6 +177,7 @@ class PlatformSettings
             'enabled' => (bool) ($data['enabled'] ?? false),
             'amount' => max(0, round((float) ($data['amount'] ?? 0), 2)),
             'applies_to' => $appliesTo,
+            'bank_tiers' => static::normalizeBankFeeTiers($data['bank_tiers'] ?? null),
         ]);
     }
 
@@ -127,25 +222,28 @@ class PlatformSettings
         return static::autoPaystackWithdrawSettings()['enabled'];
     }
 
-    /** Fee charged for a withdrawal to this payout channel (momo|bank). Flat-fee mode only. */
-    public static function feeForPayoutType(?string $payoutType): float
+    /** Fee charged for a withdrawal to this payout channel (momo|bank). Flat/tier mode only. */
+    public static function feeForPayoutType(?string $payoutType, float $amount = 0): float
     {
         $settings = static::withdrawalFeeSettings();
-        if (! $settings['enabled'] || $settings['applies_to'] === 'none' || $settings['amount'] <= 0) {
+        if (! $settings['enabled'] || $settings['applies_to'] === 'none') {
             return 0.0;
         }
 
         $type = $payoutType === 'bank' ? 'bank' : 'momo';
         $applies = $settings['applies_to'];
-
-        if ($applies === 'all' || $applies === $type) {
-            return $settings['amount'];
+        if (! ($applies === 'all' || $applies === $type)) {
+            return 0.0;
         }
 
-        return 0.0;
+        if ($type === 'bank' && $settings['bank_tiers'] !== []) {
+            return static::feeFromBankTiers($amount, $settings['bank_tiers'], (float) $settings['amount']);
+        }
+
+        return (float) $settings['amount'] > 0 ? (float) $settings['amount'] : 0.0;
     }
 
-    /** Fee for a withdrawal amount — percent when auto Paystack is on, else flat channel fee. */
+    /** Fee for a withdrawal amount — percent when auto Paystack is on, else flat/tier channel fee. */
     public static function feeForWithdrawal(float $amount, ?string $payoutType): float
     {
         $auto = static::autoPaystackWithdrawSettings();
@@ -153,7 +251,7 @@ class PlatformSettings
             return max(0, round($amount * ($auto['fee_percent'] / 100), 2));
         }
 
-        return static::feeForPayoutType($payoutType);
+        return static::feeForPayoutType($payoutType, $amount);
     }
 
     /**
@@ -165,7 +263,8 @@ class PlatformSettings
      *   amount: float,
      *   percent: float,
      *   applies_to: string,
-     *   auto_paystack: bool
+     *   auto_paystack: bool,
+     *   bank_tiers: list<array{min: float, max: float|null, fee: float}>
      * }
      */
     public static function withdrawalFeePayload(): array
@@ -179,6 +278,7 @@ class PlatformSettings
                 'percent' => $auto['fee_percent'],
                 'applies_to' => 'all',
                 'auto_paystack' => true,
+                'bank_tiers' => [],
             ];
         }
 
@@ -191,6 +291,7 @@ class PlatformSettings
             'percent' => 0.0,
             'applies_to' => $flat['applies_to'],
             'auto_paystack' => false,
+            'bank_tiers' => $flat['bank_tiers'],
         ];
     }
 

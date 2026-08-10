@@ -121,7 +121,11 @@ class SellerOrderPrintTest extends TestCase
         $this->assertSame('Accra, Greater Accra', $payload['storeLocation']);
         $this->assertSame('0248000111', $payload['sellerPhone']);
 
+        $this->assertNotEmpty($payload['brandLogoSrc']);
+        $this->assertFileExists($payload['brandLogoSrc']);
+
         $html = view('seller.orders.packing-slip', $payload)->render();
+        $this->assertStringContainsString('alt="CityShop"', $html);
         $this->assertStringContainsString('Store name', $html);
         $this->assertStringContainsString('Address', $html);
         $this->assertStringContainsString('Digital address', $html);

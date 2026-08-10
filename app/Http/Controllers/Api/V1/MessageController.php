@@ -714,13 +714,7 @@ class MessageController extends Controller
     /** @return \Illuminate\Support\Collection<int, array<string, mixed>> */
     private function threadFor(Conversation $conversation, User $user)
     {
-        return $conversation->messages()
-            ->whereIn('type', ChatService::visibleTypes())
-            ->with('sender:id,name')
-            ->orderBy('created_at')
-            ->limit(100)
-            ->get()
-            ->map(fn (Message $m) => ChatService::formatMessage($m, $user));
+        return ChatService::threadMessagesFor($conversation, $user);
     }
 
     private function formatConversation(Conversation $conversation, User $user, bool $detailed = false): array

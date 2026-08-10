@@ -7,11 +7,13 @@ import {
     FilePlus,
     MapPin,
     MessageCircle,
+    Mic,
     MoreVertical,
     Pencil,
     Phone,
     PhoneOff,
     Send,
+    Square,
     Store,
     Trash2,
     Video,
@@ -79,6 +81,9 @@ export default function ChatThreadPanel() {
     const [sendingProduct, setSendingProduct] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
     const [uploadingFile, setUploadingFile] = useState(false);
+    const [uploadingVoice, setUploadingVoice] = useState(false);
+    const [recordingVoice, setRecordingVoice] = useState(false);
+    const [voiceSeconds, setVoiceSeconds] = useState(0);
     const [showTransfer, setShowTransfer] = useState(false);
     const [other, setOther] = useState(activeConversation?.other);
     const [menuMessageId, setMenuMessageId] = useState<number | null>(null);
@@ -90,7 +95,12 @@ export default function ChatThreadPanel() {
     const inputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const docFileInputRef = useRef<HTMLInputElement>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const voiceChunksRef = useRef<Blob[]>([]);
+    const voiceStartedAtRef = useRef<number>(0);
+    const voiceTimerRef = useRef<number | null>(null);
     const lastIdRef = useRef(messages.at(-1)?.id ?? 0);
+    const announcedSoundIdsRef = useRef<Set<number>>(new Set());
     const lastScrolledConversationId = useRef<number | null>(null);
     const pinnedToBottomRef = useRef(true);
 
@@ -112,12 +122,14 @@ export default function ChatThreadPanel() {
         other?.seller_profile?.business_name ?? other?.seller_profile?.store_name ?? other?.name ?? 'Chat';
     const location = [other?.city, other?.region].filter(Boolean).join(', ');
     const storeSlug = other?.seller_profile?.slug?.trim() || other?.store_slug?.trim() || '';
+    const isGroup = Boolean(activeConversation?.is_group);
     const canComplain = Boolean(
-        activeConversation?.can_complain ||
-            (activeConversation?.buyer_id != null &&
-                activeConversation.buyer_id === auth.user?.id &&
-                activeConversation.seller_id != null &&
-                activeConversation.seller_id !== auth.user?.id),
+        !isGroup &&
+            (activeConversation?.can_complain ||
+                (activeConversation?.buyer_id != null &&
+                    activeConversation.buyer_id === auth.user?.id &&
+                    activeConversation.seller_id != null &&
+                    activeConversation.seller_id !== auth.user?.id)),
     );
     const complaintSellerId = activeConversation?.seller_id ?? (canComplain ? other?.id : null);
 
@@ -130,6 +142,12 @@ export default function ChatThreadPanel() {
     useEffect(() => {
         setOther(activeConversation?.other);
         lastIdRef.current = maxMessageId(messages);
+        // Keep announced ids aligned with what's on screen so poll gap-fill
+        // cannot re-chime the same messages every few seconds.
+        announcedSoundIdsRef.current = new Set(messages.map((m) => m.id));
+        if (activeConversation?.is_group) {
+            setShowTransfer(false);
+        }
     }, [activeConversation, messages]);
 
     // Jump straight to the latest message — never animate top→bottom on open/refresh.
@@ -160,32 +178,41 @@ export default function ChatThreadPanel() {
         async (incoming: ChatMessage[], { playSound }: { playSound: boolean }) => {
             if (!incoming.length) return;
 
-            let receivedNew = false;
             for (const msg of incoming) {
                 if (msg.type.startsWith('call')) {
                     await handleCallMessage(msg);
                 }
-                if (
-                    playSound &&
-                    (msg.type === 'text' ||
+            }
+
+            let receivedNew = false;
+            setMessages((prev) => {
+                const ids = new Set(prev.map((m) => m.id));
+                for (const msg of incoming) {
+                    const isChatContent =
+                        msg.type === 'text' ||
                         msg.type === 'image' ||
                         msg.type === 'video' ||
                         msg.type === 'voice' ||
                         msg.type === 'product' ||
                         msg.type === 'transfer' ||
-                        msg.type === 'file') &&
-                    msg.sender_id !== auth.user?.id
-                ) {
-                    receivedNew = true;
+                        msg.type === 'file';
+                    if (
+                        playSound &&
+                        isChatContent &&
+                        msg.sender_id !== auth.user?.id &&
+                        !ids.has(msg.id) &&
+                        !announcedSoundIdsRef.current.has(msg.id)
+                    ) {
+                        receivedNew = true;
+                        announcedSoundIdsRef.current.add(msg.id);
+                    }
                 }
-            }
+                return [...prev, ...incoming.filter((m) => !ids.has(m.id))];
+            });
+
             if (receivedNew) {
                 playChatReceiveSound();
             }
-            setMessages((prev) => {
-                const ids = new Set(prev.map((m) => m.id));
-                return [...prev, ...incoming.filter((m) => !ids.has(m.id))];
-            });
             lastIdRef.current = Math.max(lastIdRef.current, maxMessageId(incoming));
         },
         [auth.user?.id, handleCallMessage, setMessages],
@@ -203,7 +230,17 @@ export default function ChatThreadPanel() {
                 const data = await chatApi.pollConversation(activeConversation.id, lastIdRef.current);
                 if (data.other) {
                     setOther(data.other);
-                    setActiveConversation((prev) => (prev ? { ...prev, other: data.other! } : prev));
+                    setActiveConversation((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  other: data.other!,
+                                  is_group: data.is_group ?? prev.is_group,
+                              }
+                            : prev,
+                    );
+                } else if (typeof data.is_group === 'boolean') {
+                    setActiveConversation((prev) => (prev ? { ...prev, is_group: data.is_group } : prev));
                 }
                 if (data.read_message_ids?.length) {
                     const readSet = new Set(data.read_message_ids);
@@ -360,6 +397,126 @@ export default function ChatThreadPanel() {
         }
     };
 
+    const stopVoiceTimer = () => {
+        if (voiceTimerRef.current != null) {
+            window.clearInterval(voiceTimerRef.current);
+            voiceTimerRef.current = null;
+        }
+    };
+
+    const cancelVoiceRecording = () => {
+        stopVoiceTimer();
+        const recorder = mediaRecorderRef.current;
+        mediaRecorderRef.current = null;
+        voiceChunksRef.current = [];
+        if (recorder && recorder.state !== 'inactive') {
+            recorder.ondataavailable = null;
+            recorder.onstop = null;
+            try {
+                recorder.stop();
+            } catch {
+                // ignore
+            }
+            recorder.stream.getTracks().forEach((t) => t.stop());
+        }
+        setRecordingVoice(false);
+        setVoiceSeconds(0);
+    };
+
+    const finishVoiceRecording = async () => {
+        const recorder = mediaRecorderRef.current;
+        if (!recorder || !activeConversation) {
+            cancelVoiceRecording();
+            return;
+        }
+
+        stopVoiceTimer();
+        const startedAt = voiceStartedAtRef.current;
+        const mimeType = recorder.mimeType || 'audio/webm';
+
+        const blob = await new Promise<Blob | null>((resolve) => {
+            recorder.onstop = () => {
+                const chunks = voiceChunksRef.current;
+                voiceChunksRef.current = [];
+                resolve(chunks.length ? new Blob(chunks, { type: mimeType }) : null);
+            };
+            try {
+                recorder.stop();
+            } catch {
+                resolve(null);
+            }
+        });
+
+        recorder.stream.getTracks().forEach((t) => t.stop());
+        mediaRecorderRef.current = null;
+        setRecordingVoice(false);
+        setVoiceSeconds(0);
+
+        if (!blob || blob.size < 200) {
+            toast?.error('Voice note was too short');
+            return;
+        }
+
+        const durationSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+        setUploadingVoice(true);
+        try {
+            const message = await chatApi.uploadChatVoice(activeConversation.id, blob, durationSeconds);
+            setMessages((prev) => [...prev, message]);
+            lastIdRef.current = Math.max(lastIdRef.current, message.id);
+            refreshConversations();
+            playChatSendSound();
+        } catch (err) {
+            toast?.error(err instanceof Error ? err.message : 'Could not send voice note');
+        } finally {
+            setUploadingVoice(false);
+        }
+    };
+
+    const startVoiceRecording = async () => {
+        if (!activeConversation || recordingVoice || uploadingVoice || uploadingImage || uploadingFile || sending) {
+            return;
+        }
+        if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+            toast?.error('Voice notes are not supported in this browser');
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : MediaRecorder.isTypeSupported('audio/webm')
+                  ? 'audio/webm'
+                  : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+                    ? 'audio/ogg;codecs=opus'
+                    : '';
+            const recorder = mimeType
+                ? new MediaRecorder(stream, { mimeType })
+                : new MediaRecorder(stream);
+            voiceChunksRef.current = [];
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) voiceChunksRef.current.push(event.data);
+            };
+            mediaRecorderRef.current = recorder;
+            voiceStartedAtRef.current = Date.now();
+            setVoiceSeconds(0);
+            setRecordingVoice(true);
+            recorder.start(250);
+            voiceTimerRef.current = window.setInterval(() => {
+                setVoiceSeconds(Math.floor((Date.now() - voiceStartedAtRef.current) / 1000));
+            }, 250);
+        } catch {
+            toast?.error('Microphone permission is required for voice notes');
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            cancelVoiceRecording();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeConversation?.id]);
+
     const handleSendProduct = async () => {
         if (!activeConversation || !attachProduct || sendingProduct) return;
         setSendingProduct(true);
@@ -506,7 +663,7 @@ export default function ChatThreadPanel() {
                 </div>
                 {callState === 'idle' ? (
                     <div className="flex items-center gap-0.5">
-                        {storeSlug && (
+                        {storeSlug && !isGroup && (
                             <button
                                 type="button"
                                 onClick={openStore}
@@ -516,22 +673,26 @@ export default function ChatThreadPanel() {
                                 <Store className="h-4 w-4" />
                             </button>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => handleStartCall('voice')}
-                            className="rounded-lg p-1.5 text-green-600 hover:bg-green-50"
-                            title="Audio call"
-                        >
-                            <Phone className="h-4 w-4" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleStartCall('video')}
-                            className="rounded-lg p-1.5 text-sky-600 hover:bg-sky-50"
-                            title="Video call"
-                        >
-                            <Video className="h-4 w-4" />
-                        </button>
+                        {!isGroup && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => handleStartCall('voice')}
+                                    className="rounded-lg p-1.5 text-green-600 hover:bg-green-50"
+                                    title="Audio call"
+                                >
+                                    <Phone className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleStartCall('video')}
+                                    className="rounded-lg p-1.5 text-sky-600 hover:bg-sky-50"
+                                    title="Video call"
+                                >
+                                    <Video className="h-4 w-4" />
+                                </button>
+                            </>
+                        )}
                         <button
                             type="button"
                             onClick={() => setShowSettings(true)}
@@ -1073,7 +1234,7 @@ export default function ChatThreadPanel() {
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingImage || uploadingFile || sending}
+                        disabled={uploadingImage || uploadingFile || uploadingVoice || sending || recordingVoice}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50 sm:h-9 sm:w-9"
                         title="Send photo"
                     >
@@ -1082,7 +1243,7 @@ export default function ChatThreadPanel() {
                     <button
                         type="button"
                         onClick={() => docFileInputRef.current?.click()}
-                        disabled={uploadingImage || uploadingFile || sending}
+                        disabled={uploadingImage || uploadingFile || uploadingVoice || sending || recordingVoice}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50 sm:h-9 sm:w-9"
                         title="Send file"
                     >
@@ -1090,13 +1251,42 @@ export default function ChatThreadPanel() {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setShowTransfer(true)}
-                        disabled={uploadingImage || uploadingFile || sending || !activeConversation}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-emerald-600 disabled:opacity-50 sm:h-9 sm:w-9"
-                        title="Transfer money"
+                        onClick={() => (recordingVoice ? void finishVoiceRecording() : void startVoiceRecording())}
+                        disabled={uploadingImage || uploadingFile || uploadingVoice || sending || !activeConversation}
+                        className={cn(
+                            'flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 sm:h-9 sm:w-9',
+                            recordingVoice
+                                ? 'bg-red-500 text-white hover:bg-red-600'
+                                : 'text-gray-500 hover:bg-gray-100 hover:text-orange-500',
+                        )}
+                        title={recordingVoice ? 'Send voice note' : 'Record voice note'}
                     >
-                        <ArrowLeftRight className="h-5 w-5 sm:h-4 sm:w-4" />
+                        {recordingVoice ? <Square className="h-4 w-4 sm:h-3.5 sm:w-3.5" /> : <Mic className="h-5 w-5 sm:h-4 sm:w-4" />}
                     </button>
+                    {!isGroup && (
+                        <button
+                            type="button"
+                            onClick={() => setShowTransfer(true)}
+                            disabled={uploadingImage || uploadingFile || uploadingVoice || sending || recordingVoice || !activeConversation}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-emerald-600 disabled:opacity-50 sm:h-9 sm:w-9"
+                            title="Transfer money"
+                        >
+                            <ArrowLeftRight className="h-5 w-5 sm:h-4 sm:w-4" />
+                        </button>
+                    )}
+                    {recordingVoice ? (
+                        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700">
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                            Recording {Math.floor(voiceSeconds / 60)}:{String(voiceSeconds % 60).padStart(2, '0')}
+                            <button
+                                type="button"
+                                onClick={cancelVoiceRecording}
+                                className="ml-auto text-xs font-medium text-red-600 underline"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    ) : (
                     <input
                         ref={inputRef}
                         type="text"
@@ -1107,19 +1297,22 @@ export default function ChatThreadPanel() {
                                 ? 'Uploading photo...'
                                 : uploadingFile
                                   ? 'Uploading file...'
-                                  : editingMessage
-                                    ? 'Edit your message...'
-                                    : replyingTo
-                                      ? 'Write a reply...'
-                                      : 'Type a message...'
+                                  : uploadingVoice
+                                    ? 'Sending voice note...'
+                                    : editingMessage
+                                      ? 'Edit your message...'
+                                      : replyingTo
+                                        ? 'Write a reply...'
+                                        : 'Type a message...'
                         }
                         className="min-h-11 flex-1 rounded-full border border-gray-200 px-4 py-2.5 text-base focus:border-orange-300 focus:outline-none focus:ring-1 focus:ring-orange-300 sm:min-h-0 sm:py-2 sm:text-sm"
                         maxLength={2000}
-                        disabled={uploadingImage || uploadingFile}
+                        disabled={uploadingImage || uploadingFile || uploadingVoice}
                     />
+                    )}
                     <button
                         type="submit"
-                        disabled={!body.trim() || sending || uploadingImage || uploadingFile}
+                        disabled={!body.trim() || sending || uploadingImage || uploadingFile || uploadingVoice || recordingVoice}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 sm:h-9 sm:w-9"
                     >
                         <Send className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -1127,22 +1320,24 @@ export default function ChatThreadPanel() {
                 </form>
             </div>
 
-            <ChatTransferSheet
-                open={showTransfer}
-                conversationId={activeConversation?.id ?? null}
-                fallbackRecipientName={otherName}
-                fallbackRecipientAvatar={other?.avatar}
-                onOpenChange={setShowTransfer}
-                onSent={(message) => {
-                    setMessages((prev) => {
-                        if (prev.some((m) => m.id === message.id)) return prev;
-                        return [...prev, message];
-                    });
-                    lastIdRef.current = Math.max(lastIdRef.current, message.id);
-                    playChatSendSound();
-                    refreshConversations();
-                }}
-            />
+            {!isGroup && (
+                <ChatTransferSheet
+                    open={showTransfer}
+                    conversationId={activeConversation?.id ?? null}
+                    fallbackRecipientName={otherName}
+                    fallbackRecipientAvatar={other?.avatar}
+                    onOpenChange={setShowTransfer}
+                    onSent={(message) => {
+                        setMessages((prev) => {
+                            if (prev.some((m) => m.id === message.id)) return prev;
+                            return [...prev, message];
+                        });
+                        lastIdRef.current = Math.max(lastIdRef.current, message.id);
+                        playChatSendSound();
+                        refreshConversations();
+                    }}
+                />
+            )}
         </div>
     );
 }

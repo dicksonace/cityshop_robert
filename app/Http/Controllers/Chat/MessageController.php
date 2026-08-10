@@ -93,6 +93,10 @@ class MessageController extends Controller
     {
         abort_unless($conversation->involves($request->user()), 403);
 
+        if ($conversation->is_group) {
+            return response()->json(['message' => 'Wallet transfers are only available in 1:1 chats.'], 422);
+        }
+
         $conversation->loadMissing(['buyer', 'seller']);
         $recipient = $conversation->otherParticipant($request->user());
         $wallet = WalletService::ensure($request->user());
@@ -112,6 +116,10 @@ class MessageController extends Controller
     public function sendTransfer(Request $request, Conversation $conversation): JsonResponse
     {
         abort_unless($conversation->involves($request->user()), 403);
+
+        if ($conversation->is_group) {
+            return response()->json(['message' => 'Wallet transfers are only available in 1:1 chats.'], 422);
+        }
 
         $available = (float) WalletService::ensure($request->user())->available_balance;
 

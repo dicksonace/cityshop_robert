@@ -874,6 +874,25 @@ class ChatService
     }
 
     /**
+     * Newest timeline window for opening a chat (not the oldest 100 — that hid
+     * recent voice/text once call logs filled the early history).
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    public static function threadMessagesFor(Conversation $conversation, User $viewer, int $limit = 100)
+    {
+        return $conversation->messages()
+            ->whereIn('type', static::visibleTypes())
+            ->with('sender:id,name')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get()
+            ->sortBy('id')
+            ->values()
+            ->map(fn (Message $m) => static::formatMessage($m, $viewer));
+    }
+
+    /**
      * New rows after $afterId, plus any still-unread messages for this viewer
      * (fills gaps when realtime delivered a later id first and skipped a product card).
      *
