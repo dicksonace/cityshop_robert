@@ -141,7 +141,7 @@ class ProductController extends Controller
             $request->user(),
         );
 
-        $related = $relatedQuery->limit(4)->get();
+        $related = $relatedQuery->limit(12)->get();
 
         $isFollowingSeller = false;
         $followerCount = 0;
