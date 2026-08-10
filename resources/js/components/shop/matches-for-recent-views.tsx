@@ -22,14 +22,13 @@ export default function MatchesForRecentViews() {
 
     useEffect(() => {
         const ids = getRecentViewIds();
-        if (ids.length === 0) {
-            setLoaded(true);
-            return;
-        }
-
         let cancelled = false;
 
-        fetch(route('home.matches-for-recent-views', { ids: ids.join(',') }), {
+        // Even with no recent views, ask the API for recommended picks so the
+        // home strip stays visible (matches "add recent matches back").
+        const params = ids.length > 0 ? { ids: ids.join(',') } : {};
+
+        fetch(route('home.matches-for-recent-views', params), {
             headers: {
                 Accept: 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',

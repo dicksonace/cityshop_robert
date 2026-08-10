@@ -92,13 +92,16 @@ class MatchesForRecentViewsTest extends TestCase
         $this->assertTrue($ids->contains($match->id));
     }
 
-    public function test_returns_empty_when_no_ids_provided(): void
+    public function test_returns_recommended_picks_when_no_ids_provided(): void
     {
-        $this->seedCategoryWithProducts();
+        [, , $match] = $this->seedCategoryWithProducts();
 
-        $this->getJson(route('home.matches-for-recent-views'))
-            ->assertOk()
-            ->assertJson(['products' => []]);
+        $response = $this->getJson(route('home.matches-for-recent-views'))
+            ->assertOk();
+
+        $ids = collect($response->json('products'))->pluck('id');
+        $this->assertNotEmpty($ids);
+        $this->assertTrue($ids->contains($match->id));
     }
 
     public function test_api_matches_for_recent_views(): void

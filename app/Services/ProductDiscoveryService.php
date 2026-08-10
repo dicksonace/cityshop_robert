@@ -252,28 +252,33 @@ class ProductDiscoveryService
     {
         $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
 
-        if ($productIds === [] || $limit < 1) {
+        if ($limit < 1) {
             return collect();
         }
 
-        $categoryIds = Product::query()
-            ->whereIn('id', $productIds)
-            ->whereNotNull('category_id')
-            ->distinct()
-            ->pluck('category_id')
-            ->map(fn ($id) => (int) $id)
-            ->filter()
-            ->values()
-            ->all();
-
         $query = Product::with(['images', 'seller.sellerProfile', 'category'])
-            ->visibleInShop()
-            ->whereNotIn('id', $productIds);
+            ->visibleInShop();
 
-        if ($categoryIds !== []) {
-            $query->whereIn('category_id', $categoryIds);
+        if ($productIds !== []) {
+            $categoryIds = Product::query()
+                ->whereIn('id', $productIds)
+                ->whereNotNull('category_id')
+                ->distinct()
+                ->pluck('category_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->values()
+                ->all();
+
+            $query->whereNotIn('id', $productIds);
+
+            if ($categoryIds !== []) {
+                $query->whereIn('category_id', $categoryIds);
+            }
         }
 
+        // No recent views yet (fresh install) — still fill the home strip with
+        // recommended picks so "Matches for recent views" does not disappear.
         $this->applySort($query, 'recommended', $this->explorationSeed(), $viewer);
 
         return $query->limit($limit)->get();
