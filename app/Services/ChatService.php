@@ -12,6 +12,7 @@ use App\Models\Message;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -47,8 +48,41 @@ class ChatService
         return $user->last_seen_at->greaterThan(now()->subMinutes(3));
     }
 
+    /**
+     * @return array{online: bool, online_count: int, last_seen_at: ?string}
+     */
+    public static function presenceFor(Conversation $conversation, User $viewer): array
+    {
+        if ($conversation->is_group) {
+            $conversation->loadMissing('participants:id,last_seen_at');
+            $onlineCount = $conversation->participants
+                ->filter(fn (User $member) => (int) $member->id !== (int) $viewer->id && static::isOnline($member))
+                ->count();
+
+            return [
+                'online' => $onlineCount > 0,
+                'online_count' => $onlineCount,
+                'last_seen_at' => null,
+            ];
+        }
+
+        $other = $conversation->otherParticipant($viewer);
+
+        return [
+            'online' => static::isOnline($other),
+            'online_count' => static::isOnline($other) ? 1 : 0,
+            'last_seen_at' => $other?->last_seen_at?->toIso8601String(),
+        ];
+    }
+
     public static function touchPresence(User $user): void
     {
+        $cacheKey = 'presence:touch:'.$user->id;
+        if (Cache::has($cacheKey)) {
+            return;
+        }
+        Cache::put($cacheKey, 1, now()->addSeconds(40));
+
         $wasOnline = static::isOnline($user);
         $user->update(['last_seen_at' => now()]);
 

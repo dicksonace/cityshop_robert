@@ -177,6 +177,7 @@ class OrderController extends Controller
                                 && $order->status !== OrderStatus::Cancelled,
                             'driver_phone' => $order->items->first(fn (OrderItem $i) => filled($i->driver_phone))?->driver_phone,
                             'vehicle_number' => $order->items->first(fn (OrderItem $i) => filled($i->vehicle_number))?->vehicle_number,
+                            'package_image' => $order->items->first(fn (OrderItem $i) => filled($i->package_image))?->package_image,
                         ];
                     })->values(),
                 ];

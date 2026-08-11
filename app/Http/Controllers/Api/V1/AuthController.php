@@ -8,12 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
 use App\Services\PasswordResetService;
+use App\Support\Countries;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 
@@ -24,6 +26,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'mobile' => ['required', 'string', 'max:20', 'unique:users,mobile'],
+            'country' => ['nullable', 'string', 'max:80', Rule::in(Countries::names())],
             'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'device_name' => ['nullable', 'string', 'max:100'],
@@ -34,6 +37,7 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'mobile' => $validated['mobile'],
+            'country' => $validated['country'] ?? Countries::default(),
             'email' => $email,
             'password' => $validated['password'],
             'role' => UserRole::Buyer,

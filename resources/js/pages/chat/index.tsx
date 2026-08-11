@@ -84,7 +84,13 @@ export default function ChatIndex({ conversations }: ChatIndexProps) {
                                             <span className="shrink-0 text-xs text-gray-400">{formatTime(c.last_message_at)}</span>
                                         </div>
                                         <div className="mt-0.5 flex items-center gap-2">
-                                            <OnlineIndicator online={c.other.online} size="sm" />
+                                            <OnlineIndicator
+                                                online={c.other.online}
+                                                lastSeenAt={c.other.last_seen_at}
+                                                isGroup={c.is_group || c.other.is_group}
+                                                onlineCount={c.other.online_count}
+                                                size="sm"
+                                            />
                                             {location && (
                                                 <span className="flex items-center gap-0.5 truncate text-xs text-gray-400">
                                                     <MapPin className="h-3 w-3 shrink-0" />

@@ -653,7 +653,15 @@ export default function ChatThreadPanel() {
                         <p className="truncate text-sm font-semibold text-gray-900">{otherName}</p>
                     )}
                     <div className="flex items-center gap-1.5">
-                        {other && <OnlineIndicator online={other.online} size="sm" />}
+                        {other && (
+                            <OnlineIndicator
+                                online={other.online}
+                                lastSeenAt={other.last_seen_at}
+                                isGroup={activeConversation?.is_group || other.is_group}
+                                onlineCount={other.online_count}
+                                size="sm"
+                            />
+                        )}
                         {location && (
                             <span className="flex items-center gap-0.5 truncate text-[10px] text-gray-400">
                                 <MapPin className="h-2.5 w-2.5" />

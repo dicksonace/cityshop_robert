@@ -29,6 +29,7 @@ interface PurchasePackage {
     can_refund?: boolean;
     driver_phone?: string | null;
     vehicle_number?: string | null;
+    package_image?: string | null;
 }
 
 interface Purchase {

@@ -21,6 +21,7 @@ class RegistrationTest extends TestCase
         $response = $this->post('/register/buyer', [
             'name' => 'Test User',
             'mobile' => '0241234567',
+            'country' => 'Ghana',
             'email' => 'test@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
@@ -28,5 +29,9 @@ class RegistrationTest extends TestCase
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('home', absolute: false));
+        $this->assertDatabaseHas('users', [
+            'email' => 'test@example.com',
+            'country' => 'Ghana',
+        ]);
     }
 }

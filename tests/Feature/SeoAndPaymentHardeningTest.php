@@ -12,6 +12,7 @@ use App\Models\Checkout;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Services\OrderService;
@@ -49,6 +50,48 @@ class SeoAndPaymentHardeningTest extends TestCase
         $response->assertHeader('Content-Type', 'application/xml; charset=UTF-8');
         $response->assertSee('/products/'.$product->slug, false);
         $response->assertSee('/store/seo-store', false);
+    }
+
+    public function test_product_page_html_includes_item_image_for_chat_link_previews(): void
+    {
+        config(['app.url' => 'https://cityunlock.net']);
+
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+        SellerProfile::create([
+            'user_id' => $seller->id,
+            'store_name' => 'Share Store',
+            'slug' => 'share-store',
+            'status' => SellerStatus::Approved,
+            'approved_at' => now(),
+        ]);
+
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Net Power Switch',
+            'slug' => 'net-power-switch',
+            'description' => 'Wall switch for home and office.',
+            'price' => 45,
+            'quantity' => 8,
+            'status' => ProductStatus::Approved,
+        ]);
+
+        ProductImage::create([
+            'product_id' => $product->id,
+            'path' => 'products/net-power-switch.jpg',
+            'is_primary' => true,
+            'sort_order' => 0,
+        ]);
+
+        $html = $this->get('/products/net-power-switch')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('property="og:title"', $html);
+        $this->assertStringContainsString('Net Power Switch', $html);
+        $this->assertStringContainsString('property="og:image"', $html);
+        $this->assertStringContainsString('products/net-power-switch.jpg', $html);
+        $this->assertStringContainsString('property="og:type" content="product"', $html);
+        $this->assertStringContainsString('twitter:card" content="summary_large_image"', $html);
     }
 
     public function test_robots_txt_disallows_private_areas_and_points_to_sitemap(): void

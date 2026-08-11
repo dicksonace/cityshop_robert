@@ -50,6 +50,10 @@ return Application::configure(basePath: dirname(__DIR__))
             TrackUserPresence::class,
         ]);
 
+        $middleware->api(append: [
+            TrackUserPresence::class,
+        ]);
+
         RedirectIfAuthenticated::redirectUsing(
             fn ($request) => $request->user()?->defaultRedirectRoute() ?? route('home'),
         );

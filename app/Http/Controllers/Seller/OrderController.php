@@ -149,6 +149,10 @@ class OrderController extends Controller
             'package_image' => ['nullable', 'image', 'max:5120'],
         ]);
 
+        if (! filled($validated['status'] ?? null)) {
+            unset($validated['status']);
+        }
+
         foreach (['vehicle_number', 'driver_phone'] as $field) {
             if (array_key_exists($field, $validated)) {
                 $trimmed = trim((string) $validated[$field]);

@@ -48,6 +48,32 @@ class ApiChatThreadTest extends TestCase
         $this->assertSame(['text', 'call_log', 'image'], $types->all());
     }
 
+    public function test_chat_list_marks_a_recently_seen_peer_online(): void
+    {
+        [$buyer, $seller] = $this->conversation();
+        $seller->update(['last_seen_at' => now()->subMinute()]);
+
+        Sanctum::actingAs($buyer);
+
+        $this->getJson('/api/v1/messages')
+            ->assertOk()
+            ->assertJsonPath('data.0.other.online', true);
+    }
+
+    public function test_api_requests_refresh_presence_so_the_app_shows_online(): void
+    {
+        [$buyer, $seller, $conversation] = $this->conversation();
+
+        Sanctum::actingAs($seller);
+        $this->getJson('/api/v1/messages')->assertOk();
+        $this->assertNotNull($seller->fresh()->last_seen_at);
+
+        Sanctum::actingAs($buyer);
+        $this->getJson("/api/v1/messages/{$conversation->id}/poll?after=0")
+            ->assertOk()
+            ->assertJsonPath('other.online', true);
+    }
+
     public function test_polling_includes_call_signalling_for_webrtc(): void
     {
         [$buyer, $seller, $conversation] = $this->conversation();

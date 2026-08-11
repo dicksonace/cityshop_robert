@@ -11,21 +11,20 @@ class TrackUserPresence
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Poll/signal fire many times per second during calls — skip the
-        // users.last_seen_at write so presence updates don't amplify the load.
-        if ($user = $request->user()) {
-            $route = $request->route()?->getName() ?? '';
-            $path = $request->path();
-            $isChatHotPath = str_contains($route, 'poll')
-                || str_contains($route, 'signal')
-                || str_ends_with($path, '/poll')
-                || str_ends_with($path, '/signal');
+        $response = $next($request);
 
-            if (! $isChatHotPath) {
+        // Run after route auth (Sanctum/session) so $request->user() is set on API.
+        $user = $request->user() ?? $request->user('sanctum');
+        if ($user) {
+            $path = $request->path();
+            $isCallSignal = str_ends_with($path, '/signal');
+            // ICE/offer signalling is extremely hot — skip. Chat poll still
+            // touches presence (throttled) so people in a thread stay Online.
+            if (! $isCallSignal) {
                 ChatService::touchPresence($user);
             }
         }
 
-        return $next($request);
+        return $response;
     }
 }

@@ -98,6 +98,7 @@ export interface Wallet {
 export interface Withdrawal {
     id: number;
     amount: number;
+    fee?: number;
     momo_number: string;
     account_name: string;
     network: string;

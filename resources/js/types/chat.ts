@@ -11,6 +11,7 @@ export interface ChatConversationOther {
     name: string;
     avatar?: string | null;
     online: boolean;
+    online_count?: number;
     last_seen_at?: string | null;
     city?: string | null;
     region?: string | null;

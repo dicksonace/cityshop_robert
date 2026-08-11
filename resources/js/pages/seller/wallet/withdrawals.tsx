@@ -88,6 +88,9 @@ export default function SellerWithdrawals({ wallet, withdrawals }: Props) {
                                         <div className="flex items-center justify-between md:block md:text-right">
                                             <span className="text-xs text-gray-400 md:hidden">Amount</span>
                                             <p className="text-sm font-bold text-gray-900">{formatPrice(w.amount)}</p>
+                                            {(w.fee ?? 0) > 0 && (
+                                                <p className="text-xs text-gray-500">Fee {formatPrice(w.fee ?? 0)}</p>
+                                            )}
                                         </div>
                                         <div>
                                             <span

@@ -23,11 +23,14 @@ interface ChatMessage {
 
 interface ConversationData {
     id: number;
+    is_group?: boolean;
     product?: { id: number; name: string; slug: string } | null;
     other: {
         id: number;
         name: string;
         online: boolean;
+        online_count?: number;
+        is_group?: boolean;
         last_seen_at?: string;
         city?: string;
         region?: string;
@@ -328,7 +331,12 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
                     <div className="min-w-0 flex-1">
                         <p className="truncate font-semibold text-gray-900">{otherName}</p>
                         <div className="flex items-center gap-2">
-                            <OnlineIndicator online={other.online} />
+                            <OnlineIndicator
+                                online={other.online}
+                                lastSeenAt={other.last_seen_at}
+                                isGroup={conversation.is_group || other.is_group}
+                                onlineCount={other.online_count}
+                            />
                             {location && (
                                 <span className="flex items-center gap-0.5 text-xs text-gray-400">
                                     <MapPin className="h-3 w-3" />

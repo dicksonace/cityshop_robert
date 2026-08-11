@@ -125,6 +125,8 @@ class BuyerWalletWithdrawTest extends TestCase
                 ->where('hasPendingWithdrawal', true)
                 ->has('withdrawals.data', 1)
                 ->has('withdrawalFee')
+                ->where('withdrawalFee.applies_to', 'bank')
+                ->where('withdrawalFee.amount', 10)
                 ->where('wallet.available_balance', '80.00'));
     }
 }

@@ -90,7 +90,13 @@ export default function ChatListPanel() {
                                 <span className="shrink-0 text-[10px] text-gray-400">{formatTime(c.last_message_at)}</span>
                             </div>
                             <div className="mt-0.5 flex items-center gap-1.5">
-                                <OnlineIndicator online={c.other.online} size="sm" showLabel={false} />
+                                <OnlineIndicator
+                                    online={c.other.online}
+                                    lastSeenAt={c.other.last_seen_at}
+                                    isGroup={c.is_group || c.other.is_group}
+                                    onlineCount={c.other.online_count}
+                                    size="sm"
+                                />
                                 {location && (
                                     <span className="flex items-center gap-0.5 truncate text-[10px] text-gray-400">
                                         <MapPin className="h-2.5 w-2.5" />

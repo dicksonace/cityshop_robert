@@ -45,6 +45,11 @@ export default function SellerWithdrawalShow({ wallet, withdrawal, ledger }: Pro
                         {withdrawalStatusLabel[withdrawal.status] ?? withdrawal.status}
                     </span>
                     <p className="mt-3 text-3xl font-bold">{formatPrice(withdrawal.amount)}</p>
+                    {(withdrawal.fee ?? 0) > 0 && (
+                        <p className="mt-1 text-sm text-orange-200">
+                            Fee {formatPrice(withdrawal.fee ?? 0)} · Total {formatPrice(withdrawal.amount + (withdrawal.fee ?? 0))}
+                        </p>
+                    )}
                     <p className="mt-2 text-sm text-white/80">
                         {payoutNetworkLabel(withdrawal.network)} · {withdrawal.momo_number}
                     </p>

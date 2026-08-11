@@ -1,9 +1,11 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 
 import OrderPipelineCards from '@/components/seller/order-pipeline-cards';
 import SellerOrderCard, { SellerOrderListItem } from '@/components/seller/seller-order-card';
 import SellerLayout from '@/layouts/seller-layout';
+import { cn } from '@/lib/utils';
 import { getSellerOrderStage, SellerOrderStageSlug } from '@/lib/seller-order-stages';
 import { Paginated } from '@/types/marketplace';
 import { SharedData } from '@/types';
@@ -14,9 +16,24 @@ interface OrdersStageProps {
     stage: SellerOrderStageSlug;
 }
 
+function QueueRefreshButton({ refreshing, onRefresh }: { refreshing: boolean; onRefresh: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-3.5 py-2 text-sm font-semibold text-orange-700 shadow-sm transition hover:bg-orange-100 disabled:opacity-60"
+        >
+            <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+            Refresh
+        </button>
+    );
+}
+
 export default function OrdersStage({ orders, counts, stage }: OrdersStageProps) {
     const { flash } = usePage<SharedData>().props;
     const meta = getSellerOrderStage(stage);
+    const [refreshing, setRefreshing] = useState(false);
 
     if (!meta) {
         return null;
@@ -24,17 +41,29 @@ export default function OrdersStage({ orders, counts, stage }: OrdersStageProps)
 
     const Icon = meta.icon;
 
+    const refreshQueue = () => {
+        if (refreshing) return;
+        setRefreshing(true);
+        router.reload({
+            only: ['orders', 'counts'],
+            onFinish: () => setRefreshing(false),
+        });
+    };
+
     return (
         <SellerLayout title={meta.headline} active="orders">
             <Head title={meta.headline} />
 
-            <Link
-                href={route('seller.orders.index')}
-                className="mb-4 inline-flex items-center text-sm text-gray-500 hover:text-orange-600"
-            >
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                Sales center
-            </Link>
+            <div className="mb-4 flex items-center justify-between gap-3">
+                <Link
+                    href={route('seller.orders.index')}
+                    className="inline-flex items-center text-sm text-gray-500 hover:text-orange-600"
+                >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Sales center
+                </Link>
+                <QueueRefreshButton refreshing={refreshing} onRefresh={refreshQueue} />
+            </div>
 
             {flash.success && (
                 <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -65,7 +94,10 @@ export default function OrdersStage({ orders, counts, stage }: OrdersStageProps)
             </div>
 
             <div className="mb-6">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Jump to stage</p>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Jump to stage</p>
+                    <QueueRefreshButton refreshing={refreshing} onRefresh={refreshQueue} />
+                </div>
                 <OrderPipelineCards counts={counts} activeSlug={stage} compact />
             </div>
 

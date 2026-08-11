@@ -10,6 +10,7 @@ import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import RechargeModal from '@/components/wallet/recharge-modal';
 import { WalletTransactionReceiptButton } from '@/components/wallet/wallet-receipt-modal';
+import WithdrawalFeeNotice from '@/components/wallet/withdrawal-fee-notice';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import ShopLayout from '@/layouts/shop-layout';
 import { GHANA_BANKS, payoutNetworkLabel } from '@/lib/ghana-banks';
@@ -330,6 +331,12 @@ export default function BuyerWallet({
                                             </div>
                                             <InputError message={withdrawForm.errors.payout_type} />
                                         </div>
+                                        <WithdrawalFeeNotice
+                                            payoutType={withdrawForm.data.payout_type}
+                                            fee={activeFee}
+                                            amount={withdrawAmount}
+                                            settings={withdrawalFee}
+                                        />
                                         {withdrawForm.data.payout_type === 'momo' ? (
                                             <MomoNetworkPicker
                                                 value={withdrawForm.data.network}
@@ -400,18 +407,15 @@ export default function BuyerWallet({
                                             >
                                                 Withdraw all ({formatPrice(maxWithdraw)})
                                             </button>
-                                            <p className="mt-2 text-xs text-gray-500">
-                                                Minimum withdrawal: GH₵10
-                                                {activeFee > 0
-                                                    ? withdrawalFee?.mode === 'percent'
-                                                        ? ` · ${withdrawalFee.percent ?? 0}% fee`
-                                                        : withdrawForm.data.payout_type === 'bank' &&
-                                                            (withdrawalFee?.bank_tiers?.length ?? 0) > 0 &&
-                                                            withdrawAmount <= 0
-                                                          ? ' · Bank fee by amount (GH₵10–1,000 → GH₵10 · GH₵10,000–25,000 → GH₵20)'
-                                                          : ` · ${withdrawForm.data.payout_type === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)}`
-                                                    : ''}
-                                            </p>
+                                            <p className="mt-2 text-xs text-gray-500">Minimum withdrawal: GH₵10</p>
+                                            <div className="mt-3">
+                                                <WithdrawalFeeNotice
+                                                    payoutType={withdrawForm.data.payout_type}
+                                                    fee={activeFee}
+                                                    amount={withdrawAmount}
+                                                    settings={withdrawalFee}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -517,6 +521,9 @@ export default function BuyerWallet({
                                         </div>
                                         <p className="mt-1 text-sm text-gray-700">{w.momo_number}</p>
                                         <p className="text-xs text-gray-400">{formatDate(w.created_at)}</p>
+                                        {(w.fee ?? 0) > 0 && (
+                                            <p className="text-xs text-gray-500">Fee {formatPrice(w.fee ?? 0)}</p>
+                                        )}
                                     </div>
                                     <p className="shrink-0 font-semibold text-orange-600">{formatPrice(w.amount)}</p>
                                 </div>

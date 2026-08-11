@@ -608,10 +608,16 @@ class MessageController extends Controller
         }
 
         $readMessageIds = ChatService::recentReadMessageIds($conversation, $request->user());
+        $presence = ChatService::presenceFor($conversation, $request->user());
 
         return response()->json([
             'messages' => $messages,
             'read_message_ids' => $readMessageIds,
+            'other' => [
+                'online' => $presence['online'],
+                'online_count' => $presence['online_count'],
+                'last_seen_at' => $presence['last_seen_at'],
+            ],
         ]);
     }
 
@@ -730,6 +736,9 @@ class MessageController extends Controller
             $conversation->loadMissing('participants:id,name,avatar,mobile,last_seen_at');
             $members = $conversation->participants;
             $memberCount = $members->count();
+            $onlineCount = $members
+                ->filter(fn (User $member) => (int) $member->id !== (int) $user->id && ChatService::isOnline($member))
+                ->count();
             $groupAvatar = $this->publicMediaUrl($conversation->avatar);
 
             return [
@@ -751,13 +760,15 @@ class MessageController extends Controller
                     'mobile' => $member->mobile,
                     'avatar' => $this->publicMediaUrl($member->displayAvatarPath()),
                     'online' => ChatService::isOnline($member),
+                    'last_seen_at' => $member->last_seen_at?->toIso8601String(),
                     'is_creator' => (int) $conversation->created_by === (int) $member->id,
                 ])->values(),
                 'other' => [
                     'id' => null,
                     'name' => $conversation->name ?: 'Group',
                     'avatar' => $groupAvatar,
-                    'online' => false,
+                    'online' => $onlineCount > 0,
+                    'online_count' => $onlineCount,
                     'city' => null,
                     'region' => null,
                     'mobile' => null,
@@ -817,6 +828,7 @@ class MessageController extends Controller
                 'name' => $other->name,
                 'avatar' => $this->publicMediaUrl($other->displayAvatarPath()),
                 'online' => ChatService::isOnline($other),
+                'last_seen_at' => $other->last_seen_at?->toIso8601String(),
                 'city' => $other->city,
                 'region' => $other->region,
                 'mobile' => $other->mobile,

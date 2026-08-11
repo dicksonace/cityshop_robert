@@ -85,7 +85,9 @@ export default function ProductShow({ product, cashOnDelivery, related, reviews,
         product.meta_description?.trim() ||
         product.description?.replace(/\s+/g, ' ').trim().slice(0, 300) ||
         `Buy ${product.name} on CityShop from local Ghana sellers.`;
-    const ogImage = product.images?.[0]?.path ? productImageUrl(product.images[0].path) : null;
+    const primaryImage =
+        product.images?.find((img) => img.is_primary) ?? product.images?.[0];
+    const ogImage = primaryImage?.path ? productImageUrl(primaryImage.path) : null;
     const productUrl = `/products/${product.slug}`;
     const jsonLd = {
         '@context': 'https://schema.org',

@@ -197,7 +197,7 @@ class ConversationController extends Controller
                 'id' => null,
                 'name' => $conversation->name ?: 'Group',
                 'avatar' => $conversation->avatar,
-                'online' => false,
+                ...ChatService::presenceFor($conversation, $request->user()),
                 'is_group' => true,
             ],
         ]);
@@ -240,6 +240,9 @@ class ConversationController extends Controller
         if ($conversation->is_group) {
             $conversation->loadMissing('participants:id,name,avatar,last_seen_at');
             $members = $conversation->participants;
+            $onlineCount = $members
+                ->filter(fn (User $member) => (int) $member->id !== (int) $user->id && ChatService::isOnline($member))
+                ->count();
             $groupAvatar = $conversation->avatar;
 
             return [
@@ -258,12 +261,15 @@ class ConversationController extends Controller
                     'name' => $member->name,
                     'avatar' => $member->displayAvatarPath(),
                     'online' => ChatService::isOnline($member),
+                    'last_seen_at' => $member->last_seen_at?->toIso8601String(),
                 ])->values(),
                 'other' => [
                     'id' => null,
                     'name' => $conversation->name ?: 'Group',
                     'avatar' => $groupAvatar,
-                    'online' => false,
+                    'online' => $onlineCount > 0,
+                    'online_count' => $onlineCount,
+                    'last_seen_at' => null,
                     'is_seller' => false,
                     'is_group' => true,
                     'member_count' => $members->count(),

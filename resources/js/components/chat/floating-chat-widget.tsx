@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import ChatListPanel from '@/components/chat/chat-list-panel';
 import ChatThreadPanel from '@/components/chat/chat-thread-panel';
 import { useChat } from '@/contexts/chat-context';
+import { ensureBrowserNotifications } from '@/lib/browser-notifications';
 import { cn } from '@/lib/utils';
 import { SharedData } from '@/types';
 
@@ -29,6 +30,19 @@ export default function FloatingChatWidget() {
             openWidget();
         }
     }, [flash?.openChat, openWidget]);
+
+    useEffect(() => {
+        if (!auth.user) return;
+        const ask = () => {
+            void ensureBrowserNotifications();
+        };
+        document.addEventListener('click', ask, { once: true, capture: true });
+        document.addEventListener('touchend', ask, { once: true, capture: true });
+        return () => {
+            document.removeEventListener('click', ask, true);
+            document.removeEventListener('touchend', ask, true);
+        };
+    }, [auth.user]);
 
     // Phone-style: lock page scroll while full-screen chat is open.
     useEffect(() => {

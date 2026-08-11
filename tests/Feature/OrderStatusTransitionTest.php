@@ -16,6 +16,7 @@ use App\Models\StoreCustomization;
 use App\Models\User;
 use App\Services\OrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class OrderStatusTransitionTest extends TestCase
@@ -154,6 +155,23 @@ class OrderStatusTransitionTest extends TestCase
         $this->assertSame('0240000000', $item->driver_phone);
     }
 
+    public function test_seller_can_save_delivery_details_via_post_without_405(): void
+    {
+        [$seller, $item] = $this->makeItem('momo', OrderStatus::AwaitingConfirmation);
+
+        $this->actingAs($seller)
+            ->post(route('seller.orders.update', $item), [
+                'vehicle_number' => 'GR 999-20',
+                'driver_phone' => '0241111111',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('seller.orders.show', $item));
+
+        $item->refresh();
+        $this->assertSame('GR 999-20', $item->vehicle_number);
+        $this->assertSame('0241111111', $item->driver_phone);
+    }
+
     public function test_saving_delivery_details_with_same_status_does_not_fail_transition(): void
     {
         [$seller, $item] = $this->makeItem('momo', OrderStatus::Shipped);
@@ -171,5 +189,28 @@ class OrderStatusTransitionTest extends TestCase
         $this->assertSame(OrderStatus::Shipped, $item->status);
         $this->assertSame('GS 555-21', $item->vehicle_number);
         $this->assertSame('0201111111', $item->driver_phone);
+    }
+
+    public function test_buyer_api_includes_delivery_details(): void
+    {
+        [, $item] = $this->makeItem('momo', OrderStatus::Shipped);
+        $item->update([
+            'vehicle_number' => 'GR 1234-20',
+            'driver_phone' => '0240000000',
+            'package_image' => 'order-packages/box.jpg',
+        ]);
+
+        Sanctum::actingAs($item->order->buyer);
+
+        $response = $this->getJson('/api/v1/orders/'.$item->order_id)->assertOk();
+
+        $response->assertJsonPath('data.items.0.vehicle_number', 'GR 1234-20')
+            ->assertJsonPath('data.items.0.driver_phone', '0240000000')
+            ->assertJsonPath('data.items.0.package_image', 'order-packages/box.jpg');
+
+        $this->assertStringContainsString(
+            'order-packages/box.jpg',
+            (string) $response->json('data.items.0.package_image_url'),
+        );
     }
 }

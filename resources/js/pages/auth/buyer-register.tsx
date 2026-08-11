@@ -12,10 +12,14 @@ import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 
 export default function BuyerRegister() {
-    const { errors: pageErrors } = usePage<SharedData & { errors?: Record<string, string> }>().props;
+    const { errors: pageErrors, countries, defaultCountry } = usePage<
+        SharedData & { errors?: Record<string, string>; countries?: string[]; defaultCountry?: string }
+    >().props;
+    const countryOptions = countries?.length ? countries : ['Ghana'];
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         mobile: '',
+        country: defaultCountry || 'Ghana',
         email: '',
         password: '',
         password_confirmation: '',
@@ -55,6 +59,23 @@ export default function BuyerRegister() {
                             <Label htmlFor="mobile">Mobile Number</Label>
                             <Input id="mobile" value={data.mobile} onChange={(e) => setData('mobile', e.target.value)} required className="mt-1" placeholder="0241234567" />
                             <InputError message={formErrors.mobile} />
+                        </div>
+                        <div>
+                            <Label htmlFor="country">Choose Country</Label>
+                            <select
+                                id="country"
+                                value={data.country}
+                                onChange={(e) => setData('country', e.target.value)}
+                                required
+                                className="mt-1 flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-base text-gray-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm"
+                            >
+                                {countryOptions.map((country) => (
+                                    <option key={country} value={country}>
+                                        {country}
+                                    </option>
+                                ))}
+                            </select>
+                            <InputError message={formErrors.country} />
                         </div>
                         <div>
                             <Label htmlFor="email">Email Address</Label>

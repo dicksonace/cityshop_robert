@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
+import WithdrawalFeeNotice from '@/components/wallet/withdrawal-fee-notice';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import WalletBalanceCard from '@/components/seller/wallet-balance-card';
 import SellerLayout from '@/layouts/seller-layout';
@@ -392,6 +393,12 @@ export default function SellerWallet({
                                 </div>
                                 <InputError message={withdrawForm.errors.payout_type} />
                             </div>
+                            <WithdrawalFeeNotice
+                                payoutType={withdrawForm.data.payout_type}
+                                fee={activeFee}
+                                amount={withdrawAmount}
+                                settings={withdrawalFee}
+                            />
                             {withdrawForm.data.payout_type === 'momo' ? (
                                 <MomoNetworkPicker
                                     value={withdrawForm.data.network}
@@ -495,18 +502,15 @@ export default function SellerWallet({
                                 >
                                     Withdraw all ({formatPrice(maxWithdraw)})
                                 </button>
-                                <p className="mt-2 text-xs text-gray-500">
-                                    Minimum withdrawal: GH₵10
-                                    {activeFee > 0
-                                        ? withdrawalFee?.mode === 'percent'
-                                            ? ` · ${withdrawalFee.percent ?? 0}% fee`
-                                            : withdrawForm.data.payout_type === 'bank' &&
-                                                (withdrawalFee?.bank_tiers?.length ?? 0) > 0 &&
-                                                withdrawAmount <= 0
-                                              ? ' · Bank fee by amount (GH₵10–1,000 → GH₵10 · GH₵10,000–25,000 → GH₵20)'
-                                              : ` · ${withdrawForm.data.payout_type === 'bank' ? 'Bank' : 'MoMo'} fee GH₵${activeFee.toFixed(2)}`
-                                        : ''}
-                                </p>
+                                <p className="mt-2 text-xs text-gray-500">Minimum withdrawal: GH₵10</p>
+                                <div className="mt-3">
+                                    <WithdrawalFeeNotice
+                                        payoutType={withdrawForm.data.payout_type}
+                                        fee={activeFee}
+                                        amount={withdrawAmount}
+                                        settings={withdrawalFee}
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
@@ -714,7 +718,7 @@ export default function SellerWallet({
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-1">
                     <h3 className="font-semibold text-gray-900">Quick tips</h3>
                     <ul className="mt-4 space-y-3 text-sm text-gray-600">
-                        <li className="rounded-lg bg-gray-50 p-3"><strong className="text-gray-900">MoMo or bank</strong> — choose whichever account you want paid into.</li>
+                        <li className="rounded-lg bg-gray-50 p-3"><strong className="text-gray-900">MoMo or bank</strong> — choose whichever account you want paid into. Bank withdrawals include a fee (GH₵10 from GH₵10–1,000, GH₵20 above GH₵1,000).</li>
                         <li className="rounded-lg bg-gray-50 p-3">Use the name registered on the MoMo or bank account.</li>
                         <li className="rounded-lg bg-gray-50 p-3">Usually processed within 15 minutes and sometimes instant.</li>
                     </ul>
@@ -755,6 +759,9 @@ export default function SellerWallet({
                                         <p className="mt-1 text-sm text-gray-700">
                                             {payoutNetworkLabel(w.network)} · {w.momo_number}
                                         </p>
+                                        {(w.fee ?? 0) > 0 && (
+                                            <p className="mt-0.5 text-xs text-gray-500">Fee {formatPrice(w.fee ?? 0)}</p>
+                                        )}
                                         {w.proof_path && (
                                             <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-orange-600">
                                                 <Download className="h-3 w-3" /> Proof available

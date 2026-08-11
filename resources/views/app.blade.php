@@ -8,6 +8,24 @@
 
         <title inertia>{{ config('app.name', 'CityShop') }}</title>
 
+        @php
+            $share = \App\Support\SharePreview::fromInertiaPage($page ?? []);
+        @endphp
+        <meta property="og:type" content="{{ $share['type'] }}">
+        <meta property="og:site_name" content="{{ config('app.name', 'CityShop') }}">
+        <meta property="og:title" content="{{ $share['title'] }}">
+        <meta property="og:description" content="{{ $share['description'] }}">
+        <meta property="og:url" content="{{ $share['url'] }}">
+        <meta property="og:image" content="{{ $share['image'] }}">
+        <meta property="og:image:secure_url" content="{{ $share['image'] }}">
+        <meta property="og:image:alt" content="{{ $share['image_alt'] }}">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="1200">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="{{ $share['title'] }}">
+        <meta name="twitter:description" content="{{ $share['description'] }}">
+        <meta name="twitter:image" content="{{ $share['image'] }}">
+
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/images/branding/icon-192.png" type="image/png" sizes="192x192">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">

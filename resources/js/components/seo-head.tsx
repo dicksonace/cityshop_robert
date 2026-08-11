@@ -73,6 +73,10 @@ export default function SeoHead({
             <meta head-key="og:description" property="og:description" content={desc.slice(0, 320)} />
             {canonical && <meta head-key="og:url" property="og:url" content={canonical} />}
             {ogImage && <meta head-key="og:image" property="og:image" content={ogImage} />}
+            {ogImage && <meta head-key="og:image:secure_url" property="og:image:secure_url" content={ogImage} />}
+            {ogImage && <meta head-key="og:image:alt" property="og:image:alt" content={fullTitle} />}
+            {ogImage && <meta head-key="og:image:width" property="og:image:width" content="1200" />}
+            {ogImage && <meta head-key="og:image:height" property="og:image:height" content="1200" />}
 
             <meta head-key="twitter:card" name="twitter:card" content="summary_large_image" />
             <meta head-key="twitter:title" name="twitter:title" content={fullTitle} />

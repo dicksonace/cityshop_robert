@@ -35,7 +35,42 @@ class ApiAuthTest extends TestCase
             ->assertJsonStructure(['token', 'token_type', 'user' => ['id', 'email', 'role']]);
 
         $this->assertSame('buyer', $response->json('user.role'));
-        $this->assertDatabaseHas('users', ['email' => 'ama@example.com']);
+        $this->assertDatabaseHas('users', [
+            'email' => 'ama@example.com',
+            'country' => 'Ghana',
+        ]);
+    }
+
+    public function test_buyer_can_register_with_a_chosen_country(): void
+    {
+        $response = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Nana Buyer',
+            'mobile' => '0530000011',
+            'country' => 'Nigeria',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'device_name' => 'phpunit',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('user.country', 'Nigeria');
+
+        $this->assertDatabaseHas('users', [
+            'mobile' => '0530000011',
+            'country' => 'Nigeria',
+        ]);
+    }
+
+    public function test_buyer_cannot_register_with_an_unknown_country(): void
+    {
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Bad Country',
+            'mobile' => '0530000012',
+            'country' => 'Narnia',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['country']);
     }
 
     public function test_buyer_can_register_without_email(): void

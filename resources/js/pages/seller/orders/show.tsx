@@ -145,7 +145,6 @@ export default function SellerOrderShow({
             vehicle_number: String(data.vehicle_number ?? '').trim(),
             driver_phone: String(data.driver_phone ?? '').trim(),
             package_image: data.package_image,
-            _method: 'patch',
         }));
         form.post(route('seller.orders.update', orderItem.id), {
             forceFormData: true,
@@ -162,11 +161,10 @@ export default function SellerOrderShow({
         if (next === 'shipped') {
             setAdvancing(true);
             form.transform((data) => ({
-                ...data,
                 status: 'shipped',
                 vehicle_number: form.data.vehicle_number.trim(),
                 driver_phone: form.data.driver_phone.trim(),
-                _method: 'patch',
+                package_image: data.package_image,
             }));
             form.post(route('seller.orders.update', orderItem.id), {
                 forceFormData: true,
@@ -180,7 +178,7 @@ export default function SellerOrderShow({
         }
 
         setAdvancing(true);
-        router.patch(
+        router.post(
             route('seller.orders.update', orderItem.id),
             {
                 status: next,
@@ -390,7 +388,11 @@ export default function SellerOrderShow({
                         )}
 
                         {needsDeliveryDetails && (
-                            <div
+                            <form
+                                method="post"
+                                action={route('seller.orders.update', orderItem.id)}
+                                encType="multipart/form-data"
+                                onSubmit={submit}
                                 className="mt-4 space-y-4 rounded-xl border-2 border-orange-200 bg-orange-50/60 p-4"
                             >
                                 <div>
@@ -449,7 +451,11 @@ export default function SellerOrderShow({
                                         onChange={(e) => form.setData('package_image', e.target.files?.[0] ?? null)}
                                     />
                                 </div>
-                            </div>
+                                <Button type="submit" disabled={form.processing} className="bg-orange-500 hover:bg-orange-600">
+                                    {form.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                    Save delivery info
+                                </Button>
+                            </form>
                         )}
 
                         {itemStatus === 'cancelled' && (
@@ -567,7 +573,13 @@ export default function SellerOrderShow({
                         )}
 
                         {!needsDeliveryDetails && (
-                            <form onSubmit={submit} className="mt-6 space-y-4 border-t border-gray-100 pt-4">
+                            <form
+                                method="post"
+                                action={route('seller.orders.update', orderItem.id)}
+                                encType="multipart/form-data"
+                                onSubmit={submit}
+                                className="mt-6 space-y-4 border-t border-gray-100 pt-4"
+                            >
                                 <div>
                                     <h4 className="text-sm font-semibold text-gray-900">Delivery details</h4>
                                     <p className="text-xs text-gray-500">Optional. Add if a driver is delivering for you; leave blank if you bring it yourself. Buyer only sees what you enter.</p>
