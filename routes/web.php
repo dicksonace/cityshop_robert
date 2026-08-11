@@ -172,6 +172,10 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
         Route::middleware(['seller.store-setup'])->group(function () {
             Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('dashboard');
             Route::get('/account', [SellerAccountController::class, 'index'])->name('account');
+            Route::get('/livestream', [\App\Http\Controllers\Seller\LivestreamController::class, 'show'])->name('livestream');
+            Route::post('/livestream/start', [\App\Http\Controllers\Seller\LivestreamController::class, 'start'])->name('livestream.start');
+            Route::post('/livestream/heartbeat', [\App\Http\Controllers\Seller\LivestreamController::class, 'heartbeat'])->name('livestream.heartbeat');
+            Route::post('/livestream/end', [\App\Http\Controllers\Seller\LivestreamController::class, 'end'])->name('livestream.end');
 
             Route::get('/products', [SellerProductController::class, 'index'])->name('products.index');
             Route::get('/products/create', [SellerProductController::class, 'create'])->name('products.create');

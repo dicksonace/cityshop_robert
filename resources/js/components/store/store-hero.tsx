@@ -13,6 +13,7 @@ interface StoreHeroProps {
     logoUrl?: string | null;
     coverUrl?: string | null;
     shopPhotoUrl?: string | null;
+    isLive?: boolean;
 }
 
 export default function StoreHero({
@@ -24,6 +25,7 @@ export default function StoreHero({
     logoUrl,
     coverUrl,
     shopPhotoUrl,
+    isLive = false,
 }: StoreHeroProps) {
     const [slide, setSlide] = useState(0);
     const images = hero.images.length > 0 ? hero.images : coverUrl ? [coverUrl] : [];
@@ -51,7 +53,12 @@ export default function StoreHero({
                         {logo ? <img src={productImageUrl(logo)} alt="" className="h-full w-full object-cover" /> : storeName.charAt(0)}
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold" style={{ color: theme.text_color }}>{storeName}</h1>
+                        <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold" style={{ color: theme.text_color }}>
+                            {storeName}
+                            {isLive && (
+                                <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">LIVE</span>
+                            )}
+                        </h1>
                         {slogan && <p className="text-sm text-gray-500">{slogan}</p>}
                         {description && <p className="mt-1 text-sm text-gray-600 line-clamp-2">{description}</p>}
                     </div>
@@ -78,7 +85,12 @@ export default function StoreHero({
                             {logo ? <img src={productImageUrl(logo)} alt="" className="h-full w-full object-cover" /> : storeName.charAt(0)}
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold sm:text-3xl">{storeName}</h1>
+                            <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold sm:text-3xl">
+                                {storeName}
+                                {isLive && (
+                                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold">LIVE</span>
+                                )}
+                            </h1>
                             {slogan && <p className="mt-1 text-white/85">{slogan}</p>}
                         </div>
                     </div>

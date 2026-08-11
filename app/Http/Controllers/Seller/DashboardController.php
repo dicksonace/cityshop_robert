@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Seller;
 use App\Enums\SellerStatus;
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
+use App\Services\LiveStreamService;
 use App\Services\PaystackService;
 use App\Services\PlatformSettings;
 use App\Services\SellerDashboardService;
@@ -46,6 +47,7 @@ class DashboardController extends Controller
             'orderPipelineCounts' => $this->dashboard->orderPipelineCounts($seller),
             'paystackConfigured' => $this->paystack->isConfigured(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
+            'isLive' => LiveStreamService::currentForSeller($seller) !== null,
         ]);
     }
 

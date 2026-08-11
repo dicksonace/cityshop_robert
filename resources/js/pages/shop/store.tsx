@@ -29,6 +29,12 @@ interface StorePageProps {
     sellerReviewCount: number;
     promoActive: boolean;
     search: string;
+    livestream?: {
+        id: number;
+        title?: string | null;
+        store_name: string;
+        room?: { domain: string; room_name: string };
+    } | null;
 }
 
 export default function StorePage({
@@ -43,6 +49,7 @@ export default function StorePage({
     sellerReviewCount,
     promoActive,
     search,
+    livestream = null,
 }: StorePageProps) {
     const { auth } = usePage<SharedData>().props;
     const storeName = store.business_name ?? store.store_name ?? 'Store';
@@ -90,6 +97,7 @@ export default function StorePage({
                 currentUserId={auth.user?.id}
                 onAddToCart={handleAddToCart}
                 search={search}
+                livestream={livestream}
             />
         </ShopLayout>
     );

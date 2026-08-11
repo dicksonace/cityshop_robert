@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\SellerProfile;
+use App\Services\LiveStreamService;
 use App\Services\ProductDiscoveryService;
 use App\Services\StoreCustomizationService;
 use App\Support\InfiniteScroll;
@@ -79,8 +80,11 @@ class StoreController extends Controller
             $onSale = (clone $baseQuery)->whereNotNull('discount_price')->latest()->limit(4)->get();
         }
 
+        $live = LiveStreamService::currentForStore($store);
+
         return Inertia::render('shop/store', [
             'store' => $store,
+            'livestream' => $live ? LiveStreamService::card($live, withRoom: true) : null,
             'customization' => $settings,
             'sections' => $sections,
             'products' => $products,

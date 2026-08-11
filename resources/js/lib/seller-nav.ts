@@ -6,6 +6,7 @@ import {
     Star,
     Store,
     Tag,
+    Video,
     Wallet,
 } from 'lucide-react';
 
@@ -16,6 +17,7 @@ export type SellerNavKey =
     | 'dashboard'
     | 'account'
     | 'appearance'
+    | 'livestream'
     | 'products'
     | 'orders'
     | 'payment-methods'
@@ -32,6 +34,7 @@ const sectionMap: Record<SellerNavKey, string> = {
     dashboard: 'dashboard',
     account: 'dashboard',
     appearance: 'store',
+    livestream: 'store',
     products: 'products',
     orders: 'orders',
     'payment-methods': 'finance',
@@ -69,7 +72,10 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
             label: 'Store',
             icon: Store,
             defaultOpen: section === 'store',
-            items: [{ key: 'appearance', label: 'Customize Store', href: route('seller.store-appearance.index') }],
+            items: [
+                { key: 'appearance', label: 'Customize Store', href: route('seller.store-appearance.index') },
+                { key: 'livestream', label: 'Go Live', href: route('seller.livestream') },
+            ],
         },
         {
             key: 'products',

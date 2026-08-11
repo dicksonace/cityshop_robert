@@ -2,6 +2,7 @@ import { Link, router } from '@inertiajs/react';
 import { Globe, Mail, MapPin, MessageCircle, Phone, Share2, Star, Store, User, Verified } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import JitsiLiveRoom from '@/components/live/jitsi-live-room';
 import StoreHero from '@/components/store/store-hero';
 import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
 import MessageSellerButton from '@/components/shop/message-seller-button';
@@ -52,6 +53,12 @@ interface StoreStorefrontProps {
     currentUserId?: number;
     onAddToCart?: (productId: number) => void;
     search?: string;
+    livestream?: {
+        id: number;
+        title?: string | null;
+        store_name: string;
+        room?: { domain: string; room_name: string };
+    } | null;
 }
 
 export default function StoreStorefront({
@@ -69,6 +76,7 @@ export default function StoreStorefront({
     currentUserId,
     onAddToCart,
     search = '',
+    livestream = null,
 }: StoreStorefrontProps) {
     const [profileOpen, setProfileOpen] = useState(false);
     const storeName = store.business_name ?? store.store_name ?? 'Store';
@@ -131,6 +139,7 @@ export default function StoreStorefront({
                 logoUrl={branding.store_logo}
                 coverUrl={branding.cover_image}
                 shopPhotoUrl={store.shop_photo}
+                isLive={Boolean(livestream)}
             />
         ),
         promo: promoActive && customization.promo_banner.enabled ? (
@@ -281,6 +290,33 @@ export default function StoreStorefront({
 
                 return null;
             })}
+
+            {livestream?.room && !previewMode && currentUserId !== store.user_id && (
+                <div className="border-b border-red-100 bg-black">
+                    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
+                        <div className="mb-3 flex items-center gap-2 text-white">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
+                                LIVE
+                            </span>
+                            <p className="text-sm font-semibold">{livestream.title || `${storeName} is live`}</p>
+                        </div>
+                        <JitsiLiveRoom
+                            room={livestream.room}
+                            displayName="CityShop shopper"
+                            isHost={false}
+                        />
+                    </div>
+                </div>
+            )}
+            {livestream && !previewMode && currentUserId === store.user_id && (
+                <div className="border-b border-red-100 bg-red-50 px-4 py-3 text-center text-sm font-semibold text-red-700">
+                    You are live. Manage the camera from{' '}
+                    <a href={route('seller.livestream')} className="underline">
+                        Go Live
+                    </a>
+                    .
+                </div>
+            )}
 
             {/* Store actions bar under hero for static/slideshow */}
             <div className="border-b border-gray-100 bg-white/80">

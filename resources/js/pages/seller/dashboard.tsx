@@ -9,6 +9,7 @@ import {
     ShoppingCart,
     Star,
     Users,
+    Video,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -29,6 +30,7 @@ const DASHBOARD_RELOAD_KEYS = [
     'recentWithdrawals',
     'revenueChart',
     'storeHealth',
+    'isLive',
 ] as const;
 
 interface DashboardProps {
@@ -61,6 +63,7 @@ interface DashboardProps {
     orderPipelineCounts: Record<string, number>;
     paystackConfigured?: boolean;
     manualTopUpEnabled?: boolean;
+    isLive?: boolean;
 }
 
 export default function SellerDashboard({
@@ -75,6 +78,7 @@ export default function SellerDashboard({
     orderPipelineCounts,
     paystackConfigured = false,
     manualTopUpEnabled = false,
+    isLive = false,
 }: DashboardProps) {
     const [secondsLeft, setSecondsLeft] = useState(AUTO_REFRESH_SECONDS);
     const [refreshing, setRefreshing] = useState(false);
@@ -137,6 +141,18 @@ export default function SellerDashboard({
                         <h2 className="text-2xl font-bold">{profile.business_name ?? profile.store_name}</h2>
                         <p className="mt-1 text-sm text-orange-100">Total earnings · {formatPrice(stats.total_earnings)}</p>
                     </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                        href={route('seller.livestream')}
+                        className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold shadow-sm ${
+                            isLive
+                                ? 'bg-red-600 text-white hover:bg-red-700'
+                                : 'bg-white text-orange-700 hover:bg-orange-50'
+                        }`}
+                    >
+                        <Video className="h-4 w-4" />
+                        {isLive ? 'You are live' : 'Go Live'}
+                    </Link>
                     <div className="rounded-xl bg-white/15 px-4 py-3 text-center backdrop-blur">
                         <p className="text-xs text-orange-100">Store health</p>
                         <p className="text-2xl font-bold">{storeHealth.score}%</p>
@@ -145,6 +161,7 @@ export default function SellerDashboard({
                                 <Star key={i} className={`h-3.5 w-3.5 ${i < Math.round(storeHealth.stars) ? 'fill-yellow-300 text-yellow-300' : 'text-white/30'}`} />
                             ))}
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>

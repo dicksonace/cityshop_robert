@@ -8,6 +8,7 @@ use App\Http\Resources\Api\V1\ProductResource;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\SellerProfile;
+use App\Services\LiveStreamService;
 use App\Services\ProductDiscoveryService;
 use App\Services\SellerFollowService;
 use Illuminate\Http\JsonResponse;
@@ -77,6 +78,8 @@ class StoreController extends Controller
             ? SellerFollowService::isFollowing($viewer, (int) $store->user_id)
             : false;
 
+        $live = LiveStreamService::currentForStore($store);
+
         return response()->json([
             'data' => [
                 'id' => $store->id,
@@ -102,6 +105,8 @@ class StoreController extends Controller
                 'whatsapp' => $user?->whatsapp,
                 'digital_address' => $user?->digital_address,
                 'residential_address' => $user?->residential_address,
+                'is_live' => $live !== null,
+                'livestream' => $live ? LiveStreamService::card($live, withRoom: true) : null,
             ],
             'products' => [
                 'data' => ProductResource::collection($products->getCollection())->resolve(),

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\LiveStreamService;
 use App\Services\ProductDiscoveryService;
 use App\Support\InfiniteScroll;
 use Illuminate\Http\JsonResponse;
@@ -98,6 +99,7 @@ class HomeController extends Controller
             ->get();
 
         return Inertia::render('shop/home', [
+            'liveNow' => LiveStreamService::liveNow(),
             'products' => $products,
             'categories' => $categories,
             'brands' => $brands,

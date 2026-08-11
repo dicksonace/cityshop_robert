@@ -1,3 +1,4 @@
+import LiveNowStrip, { LiveNowCard } from '@/components/live/live-now-strip';
 import HeroBanner from '@/components/shop/hero-banner';
 import HomeCategoryShortcuts from '@/components/shop/home-category-shortcuts';
 import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
@@ -30,6 +31,7 @@ interface HomeProps {
     counts: { in_ghana: number; free_ship: number; total: number };
     heroSlides: { title: string; subtitle: string; accent: string }[];
     hasSaleProducts?: boolean;
+    liveNow?: LiveNowCard[];
 }
 
 const sortOptions = [
@@ -47,7 +49,7 @@ const quickFilters = [
     { key: 'free_ship', label: 'Free Delivery', param: { free_ship: true } },
 ];
 
-export default function Home({ products, categories, brands, priceRange, filters, counts, heroSlides, hasSaleProducts = false }: HomeProps) {
+export default function Home({ products, categories, brands, priceRange, filters, counts, heroSlides, hasSaleProducts = false, liveNow = [] }: HomeProps) {
     const { auth } = usePage<SharedData>().props;
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -81,6 +83,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                 counts={counts}
                 hasSaleProducts={hasSaleProducts}
             />
+            <LiveNowStrip lives={liveNow} />
 
             <div className="border-b border-gray-100 bg-white">
                 <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-4 py-3 text-center text-xs text-gray-500 md:justify-between md:text-sm">

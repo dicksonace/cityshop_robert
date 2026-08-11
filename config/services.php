@@ -64,6 +64,11 @@ return [
         'server_key' => env('FCM_SERVER_KEY'),
     ],
 
+    'livestream' => [
+        // Public Jitsi room host used for seller Go Live / buyer watch.
+        'jitsi_domain' => env('JITSI_DOMAIN', 'meet.jit.si'),
+    ],
+
     'webrtc' => [
         // STUN alone cannot traverse the carrier-grade NAT used by most Ghanaian
         // mobile networks, so a TURN relay is required for calls between two

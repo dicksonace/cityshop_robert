@@ -54,6 +54,8 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/matches-for-recent-views', [ProductController::class, 'matchesForRecentViews']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
     Route::get('/stores/{slug}', [StoreController::class, 'show']);
+    Route::get('/livestreams', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'index']);
+    Route::get('/livestreams/{slug}', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'show']);
     Route::post('/search/image', [ImageSearchController::class, 'store']);
 
     // Paystack in-app WebView return (no auth — app detects URL then calls verify)
@@ -89,6 +91,10 @@ Route::prefix('v1')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::post('/logout', [AuthController::class, 'logout']);
         });
+
+        Route::post('/livestreams/start', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'start']);
+        Route::post('/livestreams/heartbeat', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'heartbeat']);
+        Route::post('/livestreams/end', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'end']);
 
         Route::patch('/profile', [ProfileController::class, 'update']);
         Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar']);
