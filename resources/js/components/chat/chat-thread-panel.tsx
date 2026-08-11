@@ -28,6 +28,7 @@ import ChatSettingsSheet from '@/components/chat/chat-settings-sheet';
 import ChatTransferBubble from '@/components/chat/chat-transfer-bubble';
 import ChatTransferSheet from '@/components/chat/chat-transfer-sheet';
 import ChatVideoBubble from '@/components/chat/chat-video-bubble';
+import ChatVoiceBubble from '@/components/chat/chat-voice-bubble';
 import { useChat } from '@/contexts/chat-context';
 import { useToastOptional } from '@/contexts/toast-context';
 import { useChatVoiceCall } from '@/hooks/use-chat-voice-call';
@@ -1018,14 +1019,11 @@ export default function ChatThreadPanel() {
                                         ) : isVideo ? (
                                             <ChatVideoBubble src={msg.video_url!} caption={msg.body} />
                                         ) : isVoice ? (
-                                            <div className={cn('min-w-[12rem]', (isImage || isVideo) && 'px-1')}>
-                                                <audio src={msg.voice_url!} controls preload="metadata" className="w-full" />
-                                                {msg.duration_seconds ? (
-                                                    <p className={cn('mt-1 text-[11px]', mine ? 'text-orange-100' : 'text-gray-400')}>
-                                                        {msg.duration_seconds}s
-                                                    </p>
-                                                ) : null}
-                                            </div>
+                                            <ChatVoiceBubble
+                                                src={msg.voice_url!}
+                                                durationSeconds={msg.duration_seconds}
+                                                mine={mine}
+                                            />
                                         ) : (
                                             <p>{msg.body}</p>
                                         )}
