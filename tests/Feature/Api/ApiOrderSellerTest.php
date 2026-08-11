@@ -5,10 +5,13 @@ namespace Tests\Feature\Api;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
+use App\Enums\ProductStatus;
 use App\Enums\SellerStatus;
 use App\Enums\UserRole;
 use App\Models\Checkout;
 use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -85,6 +88,50 @@ class ApiOrderSellerTest extends TestCase
 
         $logo = $this->getJson('/api/v1/orders')->assertOk()->json('data.0.seller.store_logo');
         $this->assertStringContainsString('sellers/documents/shop-front.jpg', (string) $logo);
+    }
+
+    public function test_buyer_order_payload_includes_seller_delivery_details(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $order = $this->orderFor($buyer, shopPhoto: null);
+        $seller = User::find($order->seller_id);
+
+        $product = Product::create([
+            'seller_id' => $seller->id,
+            'name' => 'Delivery Phone',
+            'slug' => 'delivery-phone-'.uniqid(),
+            'price' => 20,
+            'quantity' => 2,
+            'status' => ProductStatus::Approved,
+        ]);
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'seller_id' => $seller->id,
+            'product_name' => 'Delivery Phone',
+            'quantity' => 1,
+            'unit_price' => 20,
+            'commission_rate' => 0,
+            'commission_amount' => 0,
+            'seller_amount' => 20,
+            'status' => OrderStatus::AwaitingConfirmation,
+            'vehicle_number' => 'GR 1234-20',
+            'driver_phone' => '0240000000',
+            'package_image' => 'order-packages/box.jpg',
+        ]);
+
+        Sanctum::actingAs($buyer);
+
+        $this->getJson("/api/v1/orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonPath('data.items.0.vehicle_number', 'GR 1234-20')
+            ->assertJsonPath('data.items.0.driver_phone', '0240000000')
+            ->assertJsonPath('data.items.0.package_image', 'order-packages/box.jpg');
+
+        $photo = $this->getJson("/api/v1/orders/{$order->id}")->json('data.items.0.package_image_url');
+        $this->assertIsString($photo);
+        $this->assertStringContainsString('order-packages/box.jpg', $photo);
     }
 
     private function orderFor(User $buyer, ?string $shopPhoto, ?string $avatar = null): Order

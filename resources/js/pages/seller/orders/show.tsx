@@ -141,12 +141,15 @@ export default function SellerOrderShow({
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+        form.transform((data) => ({
+            vehicle_number: String(data.vehicle_number ?? '').trim(),
+            driver_phone: String(data.driver_phone ?? '').trim(),
+            package_image: data.package_image,
+            _method: 'patch',
+        }));
         form.post(route('seller.orders.update', orderItem.id), {
             forceFormData: true,
             preserveScroll: true,
-            onBefore: () => {
-                form.transform((data) => ({ ...data, _method: 'patch' }));
-            },
             onFinish: () => form.setData('package_image', null),
         });
     };
@@ -568,6 +571,11 @@ export default function SellerOrderShow({
                                 <div>
                                     <h4 className="text-sm font-semibold text-gray-900">Delivery details</h4>
                                     <p className="text-xs text-gray-500">Optional. Add if a driver is delivering for you; leave blank if you bring it yourself. Buyer only sees what you enter.</p>
+                                    {(form.errors.status || form.errors.vehicle_number || form.errors.driver_phone) && (
+                                        <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                            {form.errors.status || form.errors.vehicle_number || form.errors.driver_phone}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <div>

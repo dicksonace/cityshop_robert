@@ -164,6 +164,10 @@ class OrderController extends Controller
                     'auto_confirm_at' => $item->getAttribute('auto_confirm_at'),
                     'can_request_refund' => $canItemRefund,
                     'can_review' => $canReview,
+                    'vehicle_number' => $item->vehicle_number,
+                    'driver_phone' => $item->driver_phone,
+                    'package_image' => $item->package_image,
+                    'package_image_url' => $this->publicUrl($item->package_image),
                     'buyer_review' => $existingReview ? [
                         'id' => $existingReview->id,
                         'rating' => (int) $existingReview->rating,

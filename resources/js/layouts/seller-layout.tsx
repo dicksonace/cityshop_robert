@@ -79,7 +79,9 @@ function SellerSidebar({
 }
 
 export default function SellerLayout({ children, title, active, showFab = false }: SellerLayoutProps) {
-    const { url } = usePage();
+    const page = usePage<{ flash?: { success?: string; error?: string } }>();
+    const { url } = page;
+    const flash = page.props.flash;
     const mobileNav = sellerMobileNavItems(active);
     const [menuOpen, setMenuOpen] = useState(false);
     const closeMenu = () => setMenuOpen(false);
@@ -129,6 +131,16 @@ export default function SellerLayout({ children, title, active, showFab = false 
                             </div>
                         </div>
                     </header>
+                    {flash?.success && (
+                        <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-800">
+                            {flash.success}
+                        </div>
+                    )}
+                    {flash?.error && (
+                        <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-800">
+                            {flash.error}
+                        </div>
+                    )}
                     <main className="min-w-0 flex-1 overflow-x-hidden p-4 lg:p-8">{children}</main>
                 </div>
             </div>

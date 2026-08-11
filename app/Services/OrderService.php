@@ -1217,10 +1217,17 @@ class OrderService
         $allowed = ['status', 'vehicle_number', 'driver_phone', 'package_image'];
         $payload = array_intersect_key($data, array_flip($allowed));
 
-        if (isset($payload['status'])) {
-            $this->assertValidStatusTransition($item, OrderStatus::from($payload['status']));
+        $nextStatus = isset($payload['status']) ? (string) $payload['status'] : null;
+        $statusChanging = $nextStatus !== null && $nextStatus !== $previousStatus;
 
-            if ($payload['status'] === OrderStatus::AwaitingConfirmation->value && $previousStatus !== OrderStatus::AwaitingConfirmation->value) {
+        if (isset($payload['status']) && ! $statusChanging) {
+            unset($payload['status']);
+        }
+
+        if ($statusChanging) {
+            $this->assertValidStatusTransition($item, OrderStatus::from($nextStatus));
+
+            if ($nextStatus === OrderStatus::AwaitingConfirmation->value) {
                 $payload['awaiting_confirmation_at'] = now();
             }
         }
@@ -1228,39 +1235,39 @@ class OrderService
         $item->update($payload);
         $item = $item->fresh(['order']);
 
-        if (isset($data['status'])) {
+        if ($statusChanging) {
             $this->markMarketplaceFundsPendingWhenProcessing($item);
         }
 
-        if ($data['status'] === 'packed' && $previousStatus !== 'packed') {
+        if ($nextStatus === 'packed' && $previousStatus !== 'packed') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'packed'));
             if ($item->order->buyer) {
                 AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'packed');
             }
         }
 
-        if ($data['status'] === 'shipped' && $previousStatus !== 'shipped') {
+        if ($nextStatus === 'shipped' && $previousStatus !== 'shipped') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'shipped'));
             if ($item->order->buyer) {
                 AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'shipped');
             }
         }
 
-        if ($data['status'] === 'awaiting_confirmation' && $previousStatus !== 'awaiting_confirmation') {
+        if ($nextStatus === 'awaiting_confirmation' && $previousStatus !== 'awaiting_confirmation') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'awaiting_confirmation'));
             if ($item->order->buyer) {
                 AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'awaiting_confirmation');
             }
         }
 
-        if ($data['status'] === 'call_confirmed' && $previousStatus !== 'call_confirmed') {
+        if ($nextStatus === 'call_confirmed' && $previousStatus !== 'call_confirmed') {
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'call_confirmed'));
             if ($item->order->buyer) {
                 AppNotificationService::notifyBuyerOrderStatus($item->order->buyer, $item, 'call_confirmed');
             }
         }
 
-        if ($data['status'] === 'delivered' && $previousStatus !== 'delivered' && $item->order->payment_method === 'cash') {
+        if ($nextStatus === 'delivered' && $previousStatus !== 'delivered' && $item->order->payment_method === 'cash') {
             $item->order->update(['payment_status' => PaymentStatus::Paid, 'status' => OrderStatus::Delivered]);
             $item->order->buyer->notify(new OrderStatusUpdatedNotification($item, 'delivered'));
             if ($item->order->buyer) {

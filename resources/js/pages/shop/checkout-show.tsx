@@ -427,10 +427,17 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                                                             </span>
                                                         </div>
 
-                                                        {(item.vehicle_number || item.driver_phone) && (
+                                                        {(item.vehicle_number || item.driver_phone || item.package_image) && (
                                                             <div className="mt-2 rounded-lg bg-blue-50 p-3 text-xs text-blue-900">
                                                                 <p className="font-semibold">Delivery details</p>
-                                                                {item.driver_phone && <p>Driver phone: {item.driver_phone}</p>}
+                                                                {item.driver_phone && (
+                                                                    <p>
+                                                                        Driver phone:{' '}
+                                                                        <a href={`tel:${item.driver_phone}`} className="font-semibold underline">
+                                                                            {item.driver_phone}
+                                                                        </a>
+                                                                    </p>
+                                                                )}
                                                                 {item.vehicle_number && <p>Vehicle: {item.vehicle_number}</p>}
                                                             </div>
                                                         )}

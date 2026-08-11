@@ -143,11 +143,18 @@ class OrderController extends Controller
         abort_unless($orderItem->seller_id === $request->user()->id, 403);
 
         $validated = $request->validate([
-            'status' => ['required', 'in:processing,call_confirmed,packed,shipped,awaiting_confirmation,delivered'],
+            'status' => ['nullable', 'in:processing,call_confirmed,packed,shipped,awaiting_confirmation,delivered'],
             'vehicle_number' => ['nullable', 'string', 'max:50'],
             'driver_phone' => ['nullable', 'string', 'max:30'],
             'package_image' => ['nullable', 'image', 'max:5120'],
         ]);
+
+        foreach (['vehicle_number', 'driver_phone'] as $field) {
+            if (array_key_exists($field, $validated)) {
+                $trimmed = trim((string) $validated[$field]);
+                $validated[$field] = $trimmed === '' ? null : $trimmed;
+            }
+        }
 
         if ($request->hasFile('package_image')) {
             $validated['package_image'] = $request->file('package_image')->store('order-packages', 'public');
@@ -155,13 +162,23 @@ class OrderController extends Controller
             unset($validated['package_image']);
         }
 
+        $previousStatus = $orderItem->status->value;
+        $requestedStatus = $validated['status'] ?? null;
+        $statusChanging = is_string($requestedStatus) && $requestedStatus !== '' && $requestedStatus !== $previousStatus;
+
         try {
             $this->orderService->updateOrderItemStatus($orderItem, $validated);
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        $nextStage = $this->statusToStage(OrderStatus::from($validated['status']));
+        if (! $statusChanging) {
+            return redirect()
+                ->route('seller.orders.show', $orderItem)
+                ->with('success', 'Delivery details saved. The buyer can see them on the order.');
+        }
+
+        $nextStage = $this->statusToStage(OrderStatus::from($requestedStatus));
 
         return redirect()
             ->route('seller.orders.stage', $nextStage)

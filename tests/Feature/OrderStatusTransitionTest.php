@@ -134,4 +134,42 @@ class OrderStatusTransitionTest extends TestCase
                 ->has('orders.data', 1)
                 ->where('orders.data.0.id', $codItem->id));
     }
+
+    public function test_seller_can_save_delivery_details_without_changing_status(): void
+    {
+        [$seller, $item] = $this->makeItem('momo', OrderStatus::AwaitingConfirmation);
+
+        $this->actingAs($seller)
+            ->patch(route('seller.orders.update', $item), [
+                'vehicle_number' => 'GR 1234-20',
+                'driver_phone' => '0240000000',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success')
+            ->assertRedirect(route('seller.orders.show', $item));
+
+        $item->refresh();
+        $this->assertSame(OrderStatus::AwaitingConfirmation, $item->status);
+        $this->assertSame('GR 1234-20', $item->vehicle_number);
+        $this->assertSame('0240000000', $item->driver_phone);
+    }
+
+    public function test_saving_delivery_details_with_same_status_does_not_fail_transition(): void
+    {
+        [$seller, $item] = $this->makeItem('momo', OrderStatus::Shipped);
+
+        $this->actingAs($seller)
+            ->patch(route('seller.orders.update', $item), [
+                'status' => 'shipped',
+                'vehicle_number' => 'GS 555-21',
+                'driver_phone' => '0201111111',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('seller.orders.show', $item));
+
+        $item->refresh();
+        $this->assertSame(OrderStatus::Shipped, $item->status);
+        $this->assertSame('GS 555-21', $item->vehicle_number);
+        $this->assertSame('0201111111', $item->driver_phone);
+    }
 }

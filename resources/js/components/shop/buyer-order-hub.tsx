@@ -262,15 +262,23 @@ export function orderStatusMessage(order: {
     if (order.payment_status === 'pending' && order.payment_method !== 'cash') {
         return 'Waiting for payment';
     }
+    const deliveryItem = order.items?.find((i) => i.driver_phone || i.vehicle_number);
+    const deliveryLine = deliveryItem?.driver_phone
+        ? `Driver ${deliveryItem.driver_phone}${deliveryItem.vehicle_number ? ` · ${deliveryItem.vehicle_number}` : ''}`
+        : deliveryItem?.vehicle_number
+            ? `Vehicle ${deliveryItem.vehicle_number}`
+            : null;
+
     if (order.status === 'shipped') {
-        const item = order.items?.find((i) => i.driver_phone || i.vehicle_number);
-        if (item?.driver_phone) {
-            return `On the way · Driver ${item.driver_phone}${item.vehicle_number ? ` · ${item.vehicle_number}` : ''}`;
+        if (deliveryLine) {
+            return `On the way · ${deliveryLine}`;
         }
         return 'Out for delivery';
     }
     if (order.status === 'awaiting_confirmation') {
-        return 'Delivered — tap Confirm delivery when you receive your item';
+        return deliveryLine
+            ? `Confirm delivery · ${deliveryLine}`
+            : 'Delivered — tap Confirm delivery when you receive your item';
     }
     if (order.status === 'delivered') {
         return 'Order completed';
