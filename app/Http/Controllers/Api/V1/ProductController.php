@@ -182,6 +182,25 @@ class ProductController extends Controller
         ]);
     }
 
+    public function recordVideoPlay(string $slug): JsonResponse
+    {
+        $product = Product::query()
+            ->visibleInShop()
+            ->where(ctype_digit($slug) ? 'id' : 'slug', $slug)
+            ->firstOrFail();
+
+        if (! $product->video_path) {
+            return response()->json(['message' => 'This product has no video.'], 422);
+        }
+
+        $this->analytics->recordVideoPlay($product);
+        $product->refresh();
+
+        return response()->json([
+            'video_plays' => (int) ($product->video_plays ?? 0),
+        ]);
+    }
+
     public function matchesForRecentViews(Request $request): JsonResponse
     {
         $rawIds = $request->query('ids', []);

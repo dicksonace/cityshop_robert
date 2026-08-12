@@ -19,6 +19,15 @@ class ProductAnalyticsService
         });
     }
 
+    public function recordVideoPlay(Product $product): void
+    {
+        if (! $product->video_path) {
+            return;
+        }
+
+        $this->safe(fn () => $product->increment('video_plays'));
+    }
+
     public function recordCartAdd(Product $product, int $quantity = 1): void
     {
         $this->safe(function () use ($product, $quantity) {

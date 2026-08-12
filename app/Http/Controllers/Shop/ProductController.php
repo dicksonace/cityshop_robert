@@ -72,4 +72,23 @@ class ProductController extends Controller
             ] : null,
         ]);
     }
+
+    public function recordVideoPlay(string $slug): \Illuminate\Http\JsonResponse
+    {
+        $product = Product::query()
+            ->visibleInShop()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        if (! $product->video_path) {
+            return response()->json(['message' => 'This product has no video.'], 422);
+        }
+
+        $this->analytics->recordVideoPlay($product);
+        $product->refresh();
+
+        return response()->json([
+            'video_plays' => (int) ($product->video_plays ?? 0),
+        ]);
+    }
 }

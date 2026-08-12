@@ -46,6 +46,7 @@ export interface Product {
     ships_nationwide?: boolean;
     video_path?: string | null;
     video_duration?: number | null;
+    video_plays?: number;
     rating: number;
     review_count: number;
     views?: number;

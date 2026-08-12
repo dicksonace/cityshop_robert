@@ -53,6 +53,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/matches-for-recent-views', [ProductController::class, 'matchesForRecentViews']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
+    Route::post('/products/{slug}/video-play', [ProductController::class, 'recordVideoPlay']);
     Route::get('/stores/{slug}', [StoreController::class, 'show']);
     Route::get('/livestreams', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'index']);
     Route::get('/livestreams/{slug}', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'show']);

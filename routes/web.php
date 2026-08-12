@@ -67,6 +67,7 @@ Route::get('/search/suggest', [SearchController::class, 'suggest'])->name('searc
 Route::get('/search/image', [ImageSearchController::class, 'create'])->name('search.image');
 Route::post('/search/image', [ImageSearchController::class, 'store'])->name('search.image.store');
 Route::get('/products/{slug}', [ProductController::class, 'show'])->name('products.show');
+Route::post('/products/{slug}/video-play', [ProductController::class, 'recordVideoPlay'])->name('products.video-play');
 Route::get('/store/{slug}', [StoreController::class, 'show'])->name('store.show');
 Route::get('/app/products/{slug}', [\App\Http\Controllers\Shop\AppLinkController::class, 'product'])->name('app.products');
 Route::get('/app/product/{slug}', [\App\Http\Controllers\Shop\AppLinkController::class, 'product']);

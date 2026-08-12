@@ -46,6 +46,7 @@ class ProductResource extends JsonResource
                     : Storage::disk('public')->url($this->video_path))
                 : null,
             'video_duration' => $this->video_duration !== null ? (int) $this->video_duration : null,
+            'video_plays' => (int) ($this->video_plays ?? 0),
             'images' => $this->whenLoaded('images', fn () => $this->images->map(function ($image) {
                 $path = (string) $image->path;
                 $url = str_starts_with($path, 'http://') || str_starts_with($path, 'https://')

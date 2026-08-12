@@ -2,14 +2,18 @@ import { ChevronLeft, ChevronRight, Film, ZoomIn } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ImageLightbox, type LightboxImage } from '@/components/shop/image-lightbox';
+import { recordProductVideoPlay } from '@/lib/product-video';
 import { cn } from '@/lib/utils';
 import { ProductImage, productImageUrl, productVideoUrl } from '@/types/marketplace';
 
 interface ProductImageGalleryProps {
     images: ProductImage[];
     productName: string;
+    productSlug: string;
     videoPath?: string | null;
     videoDuration?: number | null;
+    videoPlays?: number | null;
+    onVideoPlay?: (count: number) => void;
     className?: string;
 }
 
@@ -20,8 +24,11 @@ type GalleryItem =
 export default function ProductImageGallery({
     images,
     productName,
+    productSlug,
     videoPath,
     videoDuration,
+    videoPlays,
+    onVideoPlay,
     className,
 }: ProductImageGalleryProps) {
     const [current, setCurrent] = useState(0);
@@ -29,6 +36,7 @@ export default function ProductImageGallery({
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
     const thumbsRef = useRef<HTMLDivElement>(null);
+    const playRecordedRef = useRef(false);
 
     const sortedImages = [...images].sort((a, b) => {
         if (a.is_primary && !b.is_primary) return -1;
@@ -74,6 +82,24 @@ export default function ProductImageGallery({
 
     const prev = () => goTo(current - 1);
     const next = () => goTo(current + 1);
+
+    const handleVideoPlay = useCallback(() => {
+        if (playRecordedRef.current || !videoPath) {
+            return;
+        }
+        playRecordedRef.current = true;
+        const optimistic = Math.max(0, Number(videoPlays) || 0) + 1;
+        onVideoPlay?.(optimistic);
+        void recordProductVideoPlay(productSlug).then((count) => {
+            if (count != null) {
+                onVideoPlay?.(count);
+            }
+        });
+    }, [onVideoPlay, productSlug, videoPath, videoPlays]);
+
+    useEffect(() => {
+        playRecordedRef.current = false;
+    }, [productSlug, videoPath]);
 
     const updateThumbScrollState = useCallback(() => {
         const el = thumbsRef.current;
@@ -153,6 +179,7 @@ export default function ProductImageGallery({
                             playsInline
                             preload="metadata"
                             className="h-full w-full object-contain"
+                            onPlay={handleVideoPlay}
                         >
                             Your browser does not support product videos.
                         </video>

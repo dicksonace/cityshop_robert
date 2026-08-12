@@ -34,10 +34,16 @@ export default function ProductShow({ product, cashOnDelivery, related, reviews,
     const { auth, canShop = true } = usePage<SharedData>().props;
     const price = product.discount_price ?? product.price;
     const [likes, setLikes] = useState(product.wishlist_adds ?? 0);
+    const [videoPlays, setVideoPlays] = useState(product.video_plays ?? 0);
+    const hasVideo = Boolean(product.video_path);
 
     useEffect(() => {
         setLikes(product.wishlist_adds ?? 0);
     }, [product.wishlist_adds]);
+
+    useEffect(() => {
+        setVideoPlays(product.video_plays ?? 0);
+    }, [product.video_plays]);
 
     useEffect(() => {
         recordRecentView({
@@ -133,8 +139,11 @@ export default function ProductShow({ product, cashOnDelivery, related, reviews,
                     <ProductImageGallery
                         images={product.images ?? []}
                         productName={product.name}
+                        productSlug={product.slug}
                         videoPath={product.video_path}
                         videoDuration={product.video_duration}
+                        videoPlays={videoPlays}
+                        onVideoPlay={setVideoPlays}
                         className="w-full min-w-0"
                     />
 
@@ -183,6 +192,7 @@ export default function ProductShow({ product, cashOnDelivery, related, reviews,
                         <ProductEngagementStats
                             views={product.views}
                             likes={likes}
+                            videoPlays={hasVideo ? videoPlays : undefined}
                             size="md"
                             className="mt-3"
                         />
