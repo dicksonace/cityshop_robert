@@ -145,6 +145,23 @@ export default function ProductReviews({ productSlug, reviews, reviewable }: Pro
                             {review.comment && (
                                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{review.comment}</p>
                             )}
+                            {review.seller_reply && (
+                                <div className="mt-3 rounded-lg border border-orange-100 bg-orange-50/80 px-3 py-2.5">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+                                            Seller reply
+                                        </p>
+                                        {review.seller_replied_at && (
+                                            <span className="text-xs text-orange-500/80">
+                                                {formatReviewDate(review.seller_replied_at)}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="mt-1 text-sm leading-relaxed text-orange-950/80">
+                                        {review.seller_reply}
+                                    </p>
+                                </div>
+                            )}
                         </article>
                     ))
                 )}

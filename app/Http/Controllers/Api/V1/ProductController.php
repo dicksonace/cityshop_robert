@@ -165,6 +165,8 @@ class ProductController extends Controller
                     'id' => $review->id,
                     'rating' => (float) $review->rating,
                     'comment' => $review->comment,
+                    'seller_reply' => $review->seller_reply,
+                    'seller_replied_at' => $review->seller_replied_at?->toIso8601String(),
                     'created_at' => $review->created_at?->toIso8601String(),
                     'user' => [
                         'id' => $review->user?->id,
