@@ -716,6 +716,78 @@ class ChatService
         return $message->fresh(['sender:id,name']);
     }
 
+    /**
+     * Copy a group message into 1:1 chats with selected members.
+     *
+     * @param  list<int>  $memberIds
+     * @return array{sent: int, conversation_ids: list<int>}
+     */
+    public static function forwardToMembers(Conversation $group, Message $message, User $actor, array $memberIds): array
+    {
+        abort_unless($group->is_group, 422, 'Forward to members is only available in group chats.');
+        abort_unless($group->involves($actor), 403);
+        abort_unless($message->conversation_id === $group->id, 404);
+        abort_unless(empty($message->metadata['deleted_at']), 422, 'This message can no longer be forwarded.');
+        abort_unless(in_array($message->type, [
+            MessageType::Text,
+            MessageType::Image,
+            MessageType::Video,
+            MessageType::Voice,
+            MessageType::Product,
+            MessageType::File,
+        ], true), 422, 'This message cannot be forwarded.');
+
+        $group->loadMissing('participants');
+        $memberIdSet = $group->participants->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $ids = collect($memberIds)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->filter(fn (int $id) => $id > 0 && $id !== (int) $actor->id && in_array($id, $memberIdSet, true))
+            ->values();
+
+        if ($ids->isEmpty()) {
+            abort(422, 'Choose at least one group member.');
+        }
+
+        if ($ids->count() > 49) {
+            abort(422, 'Choose fewer members.');
+        }
+
+        $members = User::query()->whereIn('id', $ids)->get();
+        if ($members->count() !== $ids->count()) {
+            abort(422, 'One or more members could not be found.');
+        }
+
+        $metadata = $message->metadata ?? [];
+        unset($metadata['reply_to'], $metadata['deleted_at'], $metadata['edited_at']);
+        $metadata['forwarded'] = true;
+
+        $body = (string) ($message->body ?? '');
+        $sent = 0;
+        $conversationIds = [];
+
+        foreach ($members as $member) {
+            if (UserBlockService::isBlockedEitherWay($actor, $member)) {
+                continue;
+            }
+
+            $direct = static::findOrCreateConversation($actor, $member);
+            static::sendMessage($direct, $actor, $body, $message->type, $metadata);
+            $sent++;
+            $conversationIds[] = $direct->id;
+        }
+
+        if ($sent === 0) {
+            abort(422, 'Could not forward to the selected members.');
+        }
+
+        return [
+            'sent' => $sent,
+            'conversation_ids' => $conversationIds,
+        ];
+    }
+
     public static function formatMessage(Message $message, ?User $viewer = null): array
     {
         $metadata = $message->metadata ?? [];

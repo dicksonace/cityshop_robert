@@ -146,6 +146,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/messages/{conversation}/signal', [MessageController::class, 'signal']);
         Route::get('/messages/{conversation}/poll', [MessageController::class, 'poll']);
         Route::delete('/messages/{conversation}/messages/{message}', [MessageController::class, 'destroy']);
+        Route::post('/messages/{conversation}/messages/{message}/forward', [MessageController::class, 'forward']);
 
         Route::post('/sellers/report', [\App\Http\Controllers\Api\V1\SellerReportController::class, 'store']);
 

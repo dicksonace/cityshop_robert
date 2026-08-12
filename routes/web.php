@@ -151,6 +151,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/messages/{conversation}/file', [ChatMessageController::class, 'uploadFile'])->name('chat.messages.file');
     Route::patch('/messages/{conversation}/messages/{message}', [ChatMessageController::class, 'update'])->name('chat.messages.update');
     Route::delete('/messages/{conversation}/messages/{message}', [ChatMessageController::class, 'destroy'])->name('chat.messages.destroy');
+    Route::post('/messages/{conversation}/messages/{message}/forward', [ChatMessageController::class, 'forward'])->name('chat.messages.forward');
     Route::post('/messages/{conversation}/signal', [ChatMessageController::class, 'signal'])->name('chat.signal');
 
     Route::get('/calls/ice-servers', fn () => response()->json([

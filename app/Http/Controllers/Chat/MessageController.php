@@ -407,6 +407,35 @@ class MessageController extends Controller
         ]);
     }
 
+    public function forward(Request $request, Conversation $conversation, Message $message): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($message->conversation_id === $conversation->id, 404);
+
+        $validated = $request->validate([
+            'member_ids' => ['required', 'array', 'min:1', 'max:49'],
+            'member_ids.*' => ['integer', 'exists:users,id'],
+        ]);
+
+        try {
+            $result = ChatService::forwardToMembers(
+                $conversation,
+                $message,
+                $request->user(),
+                $validated['member_ids'],
+            );
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'sent' => $result['sent'],
+            'message' => $result['sent'] === 1
+                ? 'Forwarded to 1 member.'
+                : 'Forwarded to '.$result['sent'].' members.',
+        ]);
+    }
+
     public function signal(Request $request, Conversation $conversation): JsonResponse
     {
         abort_unless($conversation->involves($request->user()), 403);

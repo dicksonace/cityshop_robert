@@ -3,6 +3,7 @@ import {
     ArrowLeft,
     ArrowLeftRight,
     CornerUpLeft,
+    Forward,
     ImagePlus,
     FilePlus,
     MapPin,
@@ -91,6 +92,9 @@ export default function ChatThreadPanel() {
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
     const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
     const [showSettings, setShowSettings] = useState(false);
+    const [forwardingMessage, setForwardingMessage] = useState<ChatMessage | null>(null);
+    const [forwardMemberIds, setForwardMemberIds] = useState<number[]>([]);
+    const [forwarding, setForwarding] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesScrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -285,6 +289,32 @@ export default function ChatThreadPanel() {
         setEditingMessage(null);
         setReplyingTo(msg);
         inputRef.current?.focus();
+    };
+
+    const startForward = (msg: ChatMessage) => {
+        setMenuMessageId(null);
+        setForwardingMessage(msg);
+        setForwardMemberIds([]);
+    };
+
+    const handleForward = async () => {
+        if (!activeConversation || !forwardingMessage || forwardMemberIds.length === 0 || forwarding) return;
+        setForwarding(true);
+        try {
+            const result = await chatApi.forwardChatMessage(
+                activeConversation.id,
+                forwardingMessage.id,
+                forwardMemberIds,
+            );
+            toast?.success(result.message);
+            setForwardingMessage(null);
+            setForwardMemberIds([]);
+            void refreshConversations();
+        } catch (error) {
+            toast?.error(error instanceof Error ? error.message : 'Could not forward message.');
+        } finally {
+            setForwarding(false);
+        }
     };
 
     const startEdit = (msg: ChatMessage) => {
@@ -626,6 +656,64 @@ export default function ChatThreadPanel() {
                         void refreshConversations();
                     }}
                 />
+            )}
+
+            {forwardingMessage && (
+                <div className="absolute inset-0 z-30 flex flex-col bg-white">
+                    <div className="flex items-center justify-between border-b border-gray-100 px-3 py-3">
+                        <p className="font-semibold text-gray-900">Forward to members</p>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setForwardingMessage(null);
+                                setForwardMemberIds([]);
+                            }}
+                            className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
+                            aria-label="Close"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-2">
+                        {(activeConversation?.participants ?? [])
+                            .filter((member) => member.id !== auth.user?.id)
+                            .map((member) => {
+                                const checked = forwardMemberIds.includes(member.id);
+                                return (
+                                    <label
+                                        key={member.id}
+                                        className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() =>
+                                                setForwardMemberIds((prev) =>
+                                                    checked
+                                                        ? prev.filter((id) => id !== member.id)
+                                                        : [...prev, member.id],
+                                                )
+                                            }
+                                            className="h-4 w-4 rounded border-gray-300 text-orange-500"
+                                        />
+                                        <span className="text-sm font-medium text-gray-900">{member.name}</span>
+                                    </label>
+                                );
+                            })}
+                    </div>
+                    <div className="border-t border-gray-100 p-3">
+                        <button
+                            type="button"
+                            disabled={forwardMemberIds.length === 0 || forwarding}
+                            onClick={() => void handleForward()}
+                            className="w-full rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+                        >
+                            {forwardMemberIds.length === 0
+                                ? 'Choose members'
+                                : `Send to ${forwardMemberIds.length} ${forwardMemberIds.length === 1 ? 'member' : 'members'}`}
+                        </button>
+                    </div>
+                </div>
             )}
 
             <div className="flex items-center gap-2 border-b border-gray-100 bg-white px-3 py-2.5">
@@ -1087,6 +1175,16 @@ export default function ChatThreadPanel() {
                                                 <CornerUpLeft className="h-3.5 w-3.5" />
                                                 Reply
                                             </button>
+                                            {isGroup && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => startForward(msg)}
+                                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    <Forward className="h-3.5 w-3.5" />
+                                                    Forward to members
+                                                </button>
+                                            )}
                                             {mine && msg.can_edit && msg.type === 'text' && (
                                                 <button
                                                     type="button"

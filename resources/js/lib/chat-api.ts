@@ -259,6 +259,20 @@ export async function deleteChatMessage(conversationId: number, messageId: numbe
     return data.message;
 }
 
+export async function forwardChatMessage(
+    conversationId: number,
+    messageId: number,
+    memberIds: number[],
+): Promise<{ sent: number; message: string }> {
+    const res = await fetch(route('chat.messages.forward', { conversation: conversationId, message: messageId }), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify({ member_ids: memberIds }),
+    });
+    return parseJsonResponse(res);
+}
+
 export async function pollConversation(conversationId: number, after: number): Promise<{
     messages: ChatMessage[];
     read_message_ids?: number[];
