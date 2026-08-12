@@ -25,6 +25,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import OnlineIndicator from '@/components/shop/online-indicator';
 import ChatCallLogItem from '@/components/chat/chat-call-log-item';
 import ChatFileBubble from '@/components/chat/chat-file-bubble';
+import ChatLinkedText from '@/components/chat/chat-linked-text';
 import ChatSettingsSheet from '@/components/chat/chat-settings-sheet';
 import ChatTransferBubble from '@/components/chat/chat-transfer-bubble';
 import ChatTransferSheet from '@/components/chat/chat-transfer-sheet';
@@ -638,6 +639,29 @@ export default function ChatThreadPanel() {
         router.visit(route('products.show', slug));
     };
 
+    const openCityShopPath = (path: string) => {
+        if (!path) return;
+        closeWidget();
+        if (path.startsWith('/products/')) {
+            router.visit(route('products.show', path.replace('/products/', '')));
+            return;
+        }
+        if (path.startsWith('/stores/')) {
+            router.visit(route('store.show', path.replace('/stores/', '')));
+            return;
+        }
+        router.visit(path);
+    };
+
+    const copyChatValue = async (value: string, label: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
+            toast?.success(`${label} copied`);
+        } catch {
+            toast?.error(`Could not copy ${label.toLowerCase()}`);
+        }
+    };
+
     return (
         <div className="relative flex flex-1 flex-col overflow-hidden">
             <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
@@ -1109,7 +1133,14 @@ export default function ChatThreadPanel() {
                                                     />
                                                 </a>
                                                 {msg.body?.trim() && (
-                                                    <p className="px-2 py-1.5 text-sm">{msg.body}</p>
+                                                    <div className="px-2 py-1.5 text-sm">
+                                                        <ChatLinkedText
+                                                            text={msg.body}
+                                                            mine={mine}
+                                                            onOpenCityShop={openCityShopPath}
+                                                            onCopy={copyChatValue}
+                                                        />
+                                                    </div>
                                                 )}
                                             </div>
                                         ) : isVideo ? (
@@ -1121,7 +1152,12 @@ export default function ChatThreadPanel() {
                                                 mine={mine}
                                             />
                                         ) : (
-                                            <p>{msg.body}</p>
+                                            <ChatLinkedText
+                                                text={msg.body ?? ''}
+                                                mine={mine}
+                                                onOpenCityShop={openCityShopPath}
+                                                onCopy={copyChatValue}
+                                            />
                                         )}
 
                                         <div
