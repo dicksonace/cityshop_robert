@@ -225,21 +225,12 @@ export default function CheckoutShow({ checkout, reviews }: CheckoutShowProps) {
                             ← All purchases
                         </Link>
                     </div>
-                    {printInvoice ? (
-                        <Button asChild className="shrink-0 bg-orange-500 text-white hover:bg-orange-600">
+                    {printInvoice && (
+                        <Button asChild className="shrink-0 bg-orange-500 text-white hover:bg-orange-600 print:hidden">
                             <a href={route('invoices.print', printInvoice.id)} target="_blank" rel="noopener noreferrer">
                                 <Printer className="mr-2 h-4 w-4" />
                                 Print
                             </a>
-                        </Button>
-                    ) : (
-                        <Button
-                            type="button"
-                            className="shrink-0 bg-orange-500 text-white hover:bg-orange-600"
-                            onClick={() => window.print()}
-                        >
-                            <Printer className="mr-2 h-4 w-4" />
-                            Print
                         </Button>
                     )}
                 </div>

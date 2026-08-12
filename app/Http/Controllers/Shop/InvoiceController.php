@@ -9,6 +9,7 @@ use App\Services\BuyerInvoicePrintService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -16,14 +17,13 @@ class InvoiceController extends Controller
 {
     public function __construct(private BuyerInvoicePrintService $printService) {}
 
-    public function show(Request $request, Invoice $invoice): InertiaResponse|RedirectResponse|Response
+    public function show(Request $request, Invoice $invoice): InertiaResponse|RedirectResponse|View
     {
         abort_unless($invoice->user_id === $request->user()->id, 403);
         abort_unless(in_array($invoice->type, [InvoiceType::Customer, InvoiceType::CustomerMaster], true), 403);
 
-        // Mobile browsers often break window.print() — open the PDF printer instead.
         if ($request->boolean('print') || $request->query('print') === '1') {
-            return $this->printService->stream($invoice);
+            return $this->printView($invoice);
         }
 
         $sellerContacts = $this->printService->resolveSellerContacts($invoice);
@@ -42,12 +42,20 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function print(Request $request, Invoice $invoice): Response
+    public function print(Request $request, Invoice $invoice): View
     {
         abort_unless($invoice->user_id === $request->user()->id, 403);
         abort_unless(in_array($invoice->type, [InvoiceType::Customer, InvoiceType::CustomerMaster], true), 403);
 
-        return $this->printService->stream($invoice);
+        return $this->printView($invoice);
+    }
+
+    private function printView(Invoice $invoice): View
+    {
+        $data = $this->printService->payload($invoice);
+        $data['lineItems'] = $this->printService->lineItemsWithImages($invoice, forPdf: false);
+
+        return view('invoices.buyer-web', $data);
     }
 
     public function pdf(Request $request, Invoice $invoice): Response

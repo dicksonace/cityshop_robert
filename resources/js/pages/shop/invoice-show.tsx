@@ -102,7 +102,7 @@ export default function InvoiceShow({
             <Head title={`Invoice ${invoice.invoice_number}`} />
 
             <div className="mx-auto max-w-3xl px-3 pb-28 pt-4 sm:px-4 sm:pb-8 sm:py-8">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden sm:mb-6">
                     <Link
                         href={invoice.checkout ? route('checkouts.show', invoice.checkout.id) : route('orders.index')}
                         className="text-sm text-orange-500 hover:underline"
@@ -125,7 +125,7 @@ export default function InvoiceShow({
                     </div>
                 </div>
 
-                <article className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:border-0 sm:p-8 sm:shadow-sm">
+                <article className="bg-white p-0 sm:rounded-xl sm:border sm:border-gray-100 sm:p-8 sm:shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-4">
                         <div>
                             <p className="text-2xl font-bold text-gray-900">
@@ -254,59 +254,37 @@ export default function InvoiceShow({
                         </p>
                     </div>
 
-                    <div className="mt-5 overflow-x-auto">
-                        <table className="w-full min-w-[520px] table-fixed border-collapse text-sm">
-                            <colgroup>
-                                <col className="w-[48%]" />
-                                <col className="w-[12%]" />
-                                <col className="w-[20%]" />
-                                <col className="w-[20%]" />
-                            </colgroup>
-                            <thead>
-                                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                                    <th className="px-2 py-2.5 font-semibold">Item</th>
-                                    <th className="px-2 py-2.5 text-center font-semibold">Qty</th>
-                                    <th className="px-2 py-2.5 text-right font-semibold">Unit</th>
-                                    <th className="px-2 py-2.5 text-right font-semibold">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {invoice.line_items.map((line, i) => {
-                                    const src = lineImageSrc(line.image);
+                    <div className="mt-5 divide-y divide-gray-100">
+                        {invoice.line_items.map((line, i) => {
+                            const src = lineImageSrc(line.image);
 
-                                    return (
-                                        <tr key={i}>
-                                            <td className="px-2 py-3 align-middle">
-                                                <div className="flex items-center gap-2.5">
-                                                    {src ? (
-                                                        <img
-                                                            src={src}
-                                                            alt=""
-                                                            className="h-11 w-11 shrink-0 rounded border border-gray-200 object-contain"
-                                                        />
-                                                    ) : (
-                                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400">
-                                                            —
-                                                        </div>
-                                                    )}
-                                                    <div className="min-w-0">
-                                                        <p className="font-medium leading-snug text-gray-900">{line.product_name}</p>
-                                                        {line.seller && <p className="text-xs text-gray-400">{line.seller}</p>}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-2 py-3 text-center align-middle tabular-nums">{line.quantity ?? 1}</td>
-                                            <td className="px-2 py-3 text-right align-middle tabular-nums">
-                                                {line.unit_price != null ? formatPrice(line.unit_price) : '—'}
-                                            </td>
-                                            <td className="px-2 py-3 text-right align-middle font-semibold tabular-nums">
-                                                {line.total != null ? formatPrice(line.total) : '—'}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                            return (
+                                <div key={i} className="flex gap-3 py-3">
+                                    {src ? (
+                                        <img
+                                            src={src}
+                                            alt=""
+                                            className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 object-contain"
+                                        />
+                                    ) : (
+                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-400">
+                                            —
+                                        </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-medium leading-snug text-gray-900">{line.product_name}</p>
+                                        {line.seller && <p className="text-xs text-gray-400">{line.seller}</p>}
+                                        <p className="mt-0.5 text-xs text-gray-500">
+                                            Qty {line.quantity ?? 1}
+                                            {line.unit_price != null && <> · {formatPrice(line.unit_price)}</>}
+                                        </p>
+                                    </div>
+                                    <p className="shrink-0 pt-0.5 text-sm font-semibold tabular-nums text-gray-900">
+                                        {line.total != null ? formatPrice(line.total) : '—'}
+                                    </p>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     <div className="mt-4 ml-auto w-full max-w-xs space-y-1.5 border-t border-gray-200 pt-3 text-sm">
@@ -336,7 +314,7 @@ export default function InvoiceShow({
                 </article>
             </div>
 
-            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 p-3 backdrop-blur sm:hidden">
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 p-3 backdrop-blur print:hidden sm:hidden">
                 <div className="mx-auto flex max-w-3xl gap-2">
                     <Button asChild className="flex-1 bg-orange-500 text-white hover:bg-orange-600">
                         <a href={printUrl} target="_blank" rel="noopener noreferrer">

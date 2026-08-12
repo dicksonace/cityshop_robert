@@ -160,7 +160,10 @@ class BuyerInvoiceSellerContactTest extends TestCase
         $this->actingAs($buyer)
             ->get(route('invoices.print', $master))
             ->assertOk()
-            ->assertHeader('content-type', 'application/pdf');
+            ->assertSee('USB Cable', false)
+            ->assertSee('City Gadget Hub', false)
+            ->assertSee('Kofi Buyer', false)
+            ->assertSee($master->invoice_number, false);
 
         $this->actingAs($buyer)
             ->get(route('invoices.pdf', $master))
