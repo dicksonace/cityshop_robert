@@ -65,20 +65,8 @@ export default function WithdrawalFeeNotice({
     }
 
     if (payoutType === 'bank') {
-        return (
-            <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-950">
-                <p className="font-semibold">Bank withdrawal fee</p>
-                <p className="mt-1 text-xs text-orange-900/80">{bankFeeScheduleLabel(settings.bank_tiers)}</p>
-                {amount > 0 && fee > 0 && (
-                    <p className="mt-2 text-sm font-semibold">
-                        This withdrawal: fee {formatPrice(fee)} · Total deducted {formatPrice(amount + fee)}
-                    </p>
-                )}
-                {amount <= 0 && (
-                    <p className="mt-2 text-sm font-semibold">Below GH₵1,000 fee is GH₵10. From GH₵1,000 fee is GH₵20.</p>
-                )}
-            </div>
-        );
+        // Fee still applies at review/submit; do not show the schedule banner.
+        return null;
     }
 
     if (fee <= 0 && (settings.amount ?? 0) <= 0) {
