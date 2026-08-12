@@ -10,7 +10,7 @@ return [
             ['key' => 'storage', 'label' => 'Storage', 'type' => 'select', 'options' => ['128GB SSD', '256GB SSD', '512GB SSD', '1TB SSD', '1TB HDD']],
             ['key' => 'display', 'label' => 'Display', 'type' => 'text'],
             ['key' => 'graphics', 'label' => 'Graphics', 'type' => 'text'],
-            ['key' => 'os', 'label' => 'Operating System', 'type' => 'select', 'options' => ['Windows 11', 'macOS', 'Linux', 'Chrome OS']],
+            ['key' => 'os', 'label' => 'Operating System', 'type' => 'select', 'options' => ['Windows 7', 'Windows 8', 'Windows 10', 'Windows 10 Pro', 'Windows 11', 'macOS', 'Linux', 'Chrome OS']],
             ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Refurbished', 'Used - Like New', 'Used - Good']],
         ],
     ],
