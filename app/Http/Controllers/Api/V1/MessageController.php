@@ -36,6 +36,13 @@ class MessageController extends Controller
         return response()->json(['data' => $conversations]);
     }
 
+    public function forwardTargets(Request $request): JsonResponse
+    {
+        return response()->json([
+            'data' => ChatService::forwardTargets($request->user()),
+        ]);
+    }
+
     public function storeGroup(Request $request): JsonResponse
     {
         $user = $request->user();

@@ -127,6 +127,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/addresses/{address}/default', [AddressController::class, 'setDefault']);
 
         Route::get('/messages', [MessageController::class, 'index']);
+        Route::get('/messages/forward-targets', [MessageController::class, 'forwardTargets']);
         Route::post('/messages', [MessageController::class, 'store']);
         Route::post('/messages/groups', [MessageController::class, 'storeGroup']);
         Route::get('/messages/{conversation}', [MessageController::class, 'show']);

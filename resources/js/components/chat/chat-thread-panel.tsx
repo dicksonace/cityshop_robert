@@ -95,6 +95,8 @@ export default function ChatThreadPanel() {
     const [showSettings, setShowSettings] = useState(false);
     const [forwardingMessage, setForwardingMessage] = useState<ChatMessage | null>(null);
     const [forwardMemberIds, setForwardMemberIds] = useState<number[]>([]);
+    const [forwardTargets, setForwardTargets] = useState<chatApi.ForwardTarget[]>([]);
+    const [forwardTargetsLoading, setForwardTargetsLoading] = useState(false);
     const [forwarding, setForwarding] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesScrollRef = useRef<HTMLDivElement>(null);
@@ -296,6 +298,27 @@ export default function ChatThreadPanel() {
         setMenuMessageId(null);
         setForwardingMessage(msg);
         setForwardMemberIds([]);
+        setForwardTargets([]);
+
+        if (activeConversation?.is_group) {
+            return;
+        }
+
+        setForwardTargetsLoading(true);
+        void chatApi
+            .fetchForwardTargets()
+            .then((targets) => {
+                setForwardTargets(targets);
+                if (targets.length === 0) {
+                    toast?.error('Join a group chat first to forward messages to members.');
+                    setForwardingMessage(null);
+                }
+            })
+            .catch((error) => {
+                toast?.error(error instanceof Error ? error.message : 'Could not load forward targets.');
+                setForwardingMessage(null);
+            })
+            .finally(() => setForwardTargetsLoading(false));
     };
 
     const handleForward = async () => {
@@ -310,6 +333,7 @@ export default function ChatThreadPanel() {
             toast?.success(result.message);
             setForwardingMessage(null);
             setForwardMemberIds([]);
+            setForwardTargets([]);
             void refreshConversations();
         } catch (error) {
             toast?.error(error instanceof Error ? error.message : 'Could not forward message.');
@@ -685,12 +709,17 @@ export default function ChatThreadPanel() {
             {forwardingMessage && (
                 <div className="absolute inset-0 z-30 flex flex-col bg-white">
                     <div className="flex items-center justify-between border-b border-gray-100 px-3 py-3">
-                        <p className="font-semibold text-gray-900">Forward to members</p>
+                        <p className="font-semibold text-gray-900">
+                            {activeConversation?.is_group
+                                ? 'Forward to members'
+                                : 'Forward to people from your groups'}
+                        </p>
                         <button
                             type="button"
                             onClick={() => {
                                 setForwardingMessage(null);
                                 setForwardMemberIds([]);
+                                setForwardTargets([]);
                             }}
                             className="rounded-full p-1 text-gray-400 hover:bg-gray-100"
                             aria-label="Close"
@@ -699,9 +728,18 @@ export default function ChatThreadPanel() {
                         </button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-2">
-                        {(activeConversation?.participants ?? [])
-                            .filter((member) => member.id !== auth.user?.id)
-                            .map((member) => {
+                        {forwardTargetsLoading ? (
+                            <p className="px-2 py-4 text-sm text-gray-500">Loading…</p>
+                        ) : (
+                            (activeConversation?.is_group
+                                ? (activeConversation?.participants ?? [])
+                                      .filter((member) => member.id !== auth.user?.id)
+                                      .map((member) => ({
+                                          id: member.id,
+                                          name: member.name,
+                                      }))
+                                : forwardTargets
+                            ).map((member) => {
                                 const checked = forwardMemberIds.includes(member.id);
                                 return (
                                     <label
@@ -723,12 +761,13 @@ export default function ChatThreadPanel() {
                                         <span className="text-sm font-medium text-gray-900">{member.name}</span>
                                     </label>
                                 );
-                            })}
+                            })
+                        )}
                     </div>
                     <div className="border-t border-gray-100 p-3">
                         <button
                             type="button"
-                            disabled={forwardMemberIds.length === 0 || forwarding}
+                            disabled={forwardMemberIds.length === 0 || forwarding || forwardTargetsLoading}
                             onClick={() => void handleForward()}
                             className="w-full rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
                         >
@@ -1215,20 +1254,8 @@ export default function ChatThreadPanel() {
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    setMenuMessageId(null);
-                                                    if (isGroup) {
-                                                        startForward(msg);
-                                                        return;
-                                                    }
-                                                    toast?.error(
-                                                        'Forward to members is only available in group chats.',
-                                                    );
-                                                }}
-                                                className={cn(
-                                                    'flex w-full flex-col items-start gap-0 px-3 py-2 text-left text-xs hover:bg-gray-50',
-                                                    isGroup ? 'text-gray-700' : 'text-gray-400',
-                                                )}
+                                                onClick={() => startForward(msg)}
+                                                className="flex w-full flex-col items-start gap-0 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
                                             >
                                                 <span className="inline-flex items-center gap-2">
                                                     <Forward className="h-3.5 w-3.5" />
@@ -1236,7 +1263,7 @@ export default function ChatThreadPanel() {
                                                 </span>
                                                 {!isGroup && (
                                                     <span className="pl-5 text-[10px] font-normal text-gray-400">
-                                                        Group chats only
+                                                        People from your groups
                                                     </span>
                                                 )}
                                             </button>

@@ -717,16 +717,17 @@ class ChatService
     }
 
     /**
-     * Copy a group message into 1:1 chats with selected members.
+     * Copy a message into 1:1 chats with selected people.
+     * In a group: recipients must be members of that group.
+     * In a direct chat: recipients must share a group with the sender (buyer network).
      *
      * @param  list<int>  $memberIds
      * @return array{sent: int, conversation_ids: list<int>}
      */
-    public static function forwardToMembers(Conversation $group, Message $message, User $actor, array $memberIds): array
+    public static function forwardToMembers(Conversation $conversation, Message $message, User $actor, array $memberIds): array
     {
-        abort_unless($group->is_group, 422, 'Forward to members is only available in group chats.');
-        abort_unless($group->involves($actor), 403);
-        abort_unless($message->conversation_id === $group->id, 404);
+        abort_unless($conversation->involves($actor), 403);
+        abort_unless($message->conversation_id === $conversation->id, 404);
         abort_unless(empty($message->metadata['deleted_at']), 422, 'This message can no longer be forwarded.');
         abort_unless(in_array($message->type, [
             MessageType::Text,
@@ -737,17 +738,26 @@ class ChatService
             MessageType::File,
         ], true), 422, 'This message cannot be forwarded.');
 
-        $group->loadMissing('participants');
-        $memberIdSet = $group->participants->pluck('id')->map(fn ($id) => (int) $id)->all();
+        if ($conversation->is_group) {
+            $conversation->loadMissing('participants');
+            $allowedIds = $conversation->participants->pluck('id')->map(fn ($id) => (int) $id)->all();
+        } else {
+            $allowedIds = static::sharedGroupContactIds($actor);
+            if ($allowedIds === []) {
+                abort(422, 'Join a group chat first to forward messages to members.');
+            }
+        }
 
         $ids = collect($memberIds)
             ->map(fn ($id) => (int) $id)
             ->unique()
-            ->filter(fn (int $id) => $id > 0 && $id !== (int) $actor->id && in_array($id, $memberIdSet, true))
+            ->filter(fn (int $id) => $id > 0 && $id !== (int) $actor->id && in_array($id, $allowedIds, true))
             ->values();
 
         if ($ids->isEmpty()) {
-            abort(422, 'Choose at least one group member.');
+            abort(422, $conversation->is_group
+                ? 'Choose at least one group member.'
+                : 'Choose people from your group chats.');
         }
 
         if ($ids->count() > 49) {
@@ -786,6 +796,56 @@ class ChatService
             'sent' => $sent,
             'conversation_ids' => $conversationIds,
         ];
+    }
+
+    /**
+     * People the user can forward to from a direct chat: members of any shared group.
+     *
+     * @return list<int>
+     */
+    public static function sharedGroupContactIds(User $actor): array
+    {
+        $groupIds = \Illuminate\Support\Facades\DB::table('conversation_participants')
+            ->join('conversations', 'conversations.id', '=', 'conversation_participants.conversation_id')
+            ->where('conversation_participants.user_id', $actor->id)
+            ->where('conversations.is_group', true)
+            ->pluck('conversations.id');
+
+        if ($groupIds->isEmpty()) {
+            return [];
+        }
+
+        return \Illuminate\Support\Facades\DB::table('conversation_participants')
+            ->whereIn('conversation_id', $groupIds)
+            ->where('user_id', '!=', $actor->id)
+            ->distinct()
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string, avatar: ?string}>
+     */
+    public static function forwardTargets(User $actor): array
+    {
+        $ids = static::sharedGroupContactIds($actor);
+        if ($ids === []) {
+            return [];
+        }
+
+        return User::query()
+            ->whereIn('id', $ids)
+            ->orderBy('name')
+            ->get(['id', 'name', 'avatar'])
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'avatar' => $user->displayAvatarPath(),
+            ])
+            ->values()
+            ->all();
     }
 
     public static function formatMessage(Message $message, ?User $viewer = null): array

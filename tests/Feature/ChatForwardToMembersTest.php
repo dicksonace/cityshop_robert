@@ -49,7 +49,45 @@ class ChatForwardToMembersTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_forward_is_not_available_in_direct_chats(): void
+    public function test_buyer_can_forward_from_direct_chat_to_group_contacts(): void
+    {
+        $me = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Kofi']);
+        $friend = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Ama']);
+        $seller = User::factory()->create(['role' => UserRole::Seller, 'name' => 'City Unlock']);
+        $outsider = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Outsider']);
+
+        ChatService::createGroup($me, 'Buyer friends', [$friend->id]);
+        $direct = ChatService::findOrCreateConversation($me, $seller);
+        $message = ChatService::sendMessage($direct, $seller, 'New stock in store', MessageType::Text);
+
+        Sanctum::actingAs($me);
+
+        $this->getJson('/api/v1/messages/forward-targets')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $friend->id);
+
+        $this->postJson("/api/v1/messages/{$direct->id}/messages/{$message->id}/forward", [
+            'member_ids' => [$friend->id],
+        ])
+            ->assertOk()
+            ->assertJsonPath('sent', 1);
+
+        $friendChat = ChatService::findOrCreateConversation($me, $friend);
+        $this->assertTrue(
+            Message::query()
+                ->where('conversation_id', $friendChat->id)
+                ->where('sender_id', $me->id)
+                ->get()
+                ->contains(fn (Message $row) => $row->body === 'New stock in store')
+        );
+
+        $this->postJson("/api/v1/messages/{$direct->id}/messages/{$message->id}/forward", [
+            'member_ids' => [$outsider->id],
+        ])
+            ->assertStatus(422);
+    }
+
+    public function test_forward_from_direct_chat_requires_a_group_contact(): void
     {
         $me = User::factory()->create(['role' => UserRole::Buyer]);
         $peer = User::factory()->create(['role' => UserRole::Seller]);

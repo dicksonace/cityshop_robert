@@ -136,6 +136,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/wallet/manual-top-up/{topUp}/cancel', [WalletManualTopUpController::class, 'cancel'])->name('wallet.manual-top-up.cancel');
 
     Route::get('/messages', [ChatConversationController::class, 'index'])->name('chat.index');
+    Route::get('/messages/forward-targets', [ChatConversationController::class, 'forwardTargets'])->name('chat.forward-targets');
     Route::post('/messages', [ChatConversationController::class, 'store'])->name('chat.store');
     Route::post('/messages/groups', [ChatConversationController::class, 'storeGroup'])->name('chat.groups.store');
     Route::get('/messages/{conversation}', [ChatConversationController::class, 'show'])->name('chat.show');

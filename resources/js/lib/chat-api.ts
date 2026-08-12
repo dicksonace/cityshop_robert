@@ -273,6 +273,21 @@ export async function forwardChatMessage(
     return parseJsonResponse(res);
 }
 
+export type ForwardTarget = {
+    id: number;
+    name: string;
+    avatar: string | null;
+};
+
+export async function fetchForwardTargets(): Promise<ForwardTarget[]> {
+    const res = await fetch(route('chat.forward-targets'), {
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+    });
+    const data = await parseJsonResponse<{ data: ForwardTarget[] }>(res);
+    return data.data ?? [];
+}
+
 export async function pollConversation(conversationId: number, after: number): Promise<{
     messages: ChatMessage[];
     read_message_ids?: number[];

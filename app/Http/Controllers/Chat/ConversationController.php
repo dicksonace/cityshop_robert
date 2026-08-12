@@ -39,6 +39,13 @@ class ConversationController extends Controller
         return back()->with('openChat', true);
     }
 
+    public function forwardTargets(Request $request): JsonResponse
+    {
+        return response()->json([
+            'data' => ChatService::forwardTargets($request->user()),
+        ]);
+    }
+
     public function show(Request $request, Conversation $conversation): JsonResponse|RedirectResponse
     {
         abort_unless($conversation->involves($request->user()), 403);
