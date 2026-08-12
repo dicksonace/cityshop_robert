@@ -91,9 +91,12 @@ export function WalletTransactionReceiptButton({ tx }: { tx: WalletTransaction }
             <button
                 type="button"
                 onClick={() => setOpen(true)}
-                className="mt-1 text-left text-xs font-bold text-orange-600 hover:underline"
+                className="mt-2 inline-flex items-center gap-0.5 text-[13px] font-bold text-orange-500 hover:text-orange-600"
             >
                 View receipt
+                <span aria-hidden className="text-base leading-none">
+                    ›
+                </span>
             </button>
             <WalletReceiptModal tx={tx} open={open} onClose={() => setOpen(false)} />
         </>
