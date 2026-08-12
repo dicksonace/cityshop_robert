@@ -57,6 +57,46 @@ class SharePreview
 
     /**
      * @param  array<string, mixed>  $product
+     * @return array<string, string>
+     */
+    public static function productPreview(array $product): array
+    {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $site = (string) config('app.name', 'CityShop');
+        $defaults = [
+            'title' => $site,
+            'description' => 'Shop products from local Ghana sellers on CityShop — secure checkout, delivery across Ghana.',
+            'image' => self::absoluteMediaUrl('/images/logo.png') ?? $appUrl.'/images/logo.png',
+            'url' => $appUrl,
+            'type' => 'website',
+            'image_alt' => $site,
+        ];
+
+        return self::forProduct($product, $defaults, $appUrl, $site);
+    }
+
+    /**
+     * @param  array<string, mixed>  $store
+     * @return array<string, string>
+     */
+    public static function storePreview(array $store): array
+    {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $site = (string) config('app.name', 'CityShop');
+        $defaults = [
+            'title' => $site,
+            'description' => 'Shop products from local Ghana sellers on CityShop — secure checkout, delivery across Ghana.',
+            'image' => self::absoluteMediaUrl('/images/logo.png') ?? $appUrl.'/images/logo.png',
+            'url' => $appUrl,
+            'type' => 'website',
+            'image_alt' => $site,
+        ];
+
+        return self::forStore($store, $defaults, $appUrl, $site);
+    }
+
+    /**
+     * @param  array<string, mixed>  $product
      * @param  array<string, string>  $defaults
      * @return array<string, string>
      */

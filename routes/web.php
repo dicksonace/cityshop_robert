@@ -68,6 +68,12 @@ Route::get('/search/image', [ImageSearchController::class, 'create'])->name('sea
 Route::post('/search/image', [ImageSearchController::class, 'store'])->name('search.image.store');
 Route::get('/products/{slug}', [ProductController::class, 'show'])->name('products.show');
 Route::get('/store/{slug}', [StoreController::class, 'show'])->name('store.show');
+Route::get('/app/products/{slug}', [\App\Http\Controllers\Shop\AppLinkController::class, 'product'])->name('app.products');
+Route::get('/app/product/{slug}', [\App\Http\Controllers\Shop\AppLinkController::class, 'product']);
+Route::get('/app/store/{slug}', [\App\Http\Controllers\Shop\AppLinkController::class, 'store'])->name('app.store');
+Route::get('/app/stores/{slug}', [\App\Http\Controllers\Shop\AppLinkController::class, 'store']);
+Route::get('/app/live/{slug}', [\App\Http\Controllers\Shop\AppLinkController::class, 'live'])->name('app.live');
+Route::get('/.well-known/assetlinks.json', [\App\Http\Controllers\Shop\AppLinkController::class, 'assetLinks']);
 Route::get('/contact', [ContactController::class, 'show'])->name('contact');
 Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
 Route::get('/faq', [FaqController::class, 'show'])->name('faq');
