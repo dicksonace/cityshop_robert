@@ -1195,7 +1195,9 @@ export default function ChatThreadPanel() {
                                         </div>
                                     </div>
 
-                                    {showMenu && ['text', 'image', 'video', 'voice', 'product'].includes(msg.type) && !msg.is_deleted && (
+                                    {showMenu &&
+                                        ['text', 'image', 'video', 'voice', 'product', 'file'].includes(msg.type) &&
+                                        !msg.is_deleted && (
                                         <div
                                             className={cn(
                                                 'absolute z-10 mt-1 min-w-[7rem] overflow-hidden rounded-lg border border-gray-100 bg-white py-1 shadow-lg',
@@ -1211,16 +1213,33 @@ export default function ChatThreadPanel() {
                                                 <CornerUpLeft className="h-3.5 w-3.5" />
                                                 Reply
                                             </button>
-                                            {isGroup && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => startForward(msg)}
-                                                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50"
-                                                >
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setMenuMessageId(null);
+                                                    if (isGroup) {
+                                                        startForward(msg);
+                                                        return;
+                                                    }
+                                                    toast?.error(
+                                                        'Forward to members is only available in group chats.',
+                                                    );
+                                                }}
+                                                className={cn(
+                                                    'flex w-full flex-col items-start gap-0 px-3 py-2 text-left text-xs hover:bg-gray-50',
+                                                    isGroup ? 'text-gray-700' : 'text-gray-400',
+                                                )}
+                                            >
+                                                <span className="inline-flex items-center gap-2">
                                                     <Forward className="h-3.5 w-3.5" />
                                                     Forward to members
-                                                </button>
-                                            )}
+                                                </span>
+                                                {!isGroup && (
+                                                    <span className="pl-5 text-[10px] font-normal text-gray-400">
+                                                        Group chats only
+                                                    </span>
+                                                )}
+                                            </button>
                                             {mine && msg.can_edit && msg.type === 'text' && (
                                                 <button
                                                     type="button"
