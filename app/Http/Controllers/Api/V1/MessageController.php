@@ -762,7 +762,7 @@ class MessageController extends Controller
             ->count();
 
         if ($conversation->is_group) {
-            $conversation->loadMissing('participants:id,name,avatar,mobile,last_seen_at');
+            $conversation->loadMissing('participants:id,name,avatar,last_seen_at');
             $members = $conversation->participants;
             $memberCount = $members->count();
             $onlineCount = $members
@@ -786,7 +786,6 @@ class MessageController extends Controller
                 'participants' => $members->map(fn (User $member) => [
                     'id' => $member->id,
                     'name' => $member->name,
-                    'mobile' => $member->mobile,
                     'avatar' => $this->publicMediaUrl($member->displayAvatarPath()),
                     'online' => ChatService::isOnline($member),
                     'last_seen_at' => $member->last_seen_at?->toIso8601String(),
