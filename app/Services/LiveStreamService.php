@@ -129,12 +129,15 @@ class LiveStreamService
             return null;
         }
 
-        $photo = $profile->shop_photo;
-        $photoUrl = null;
-        if (filled($photo)) {
+        $photoUrl = $live->seller?->publicAvatarUrl();
+        if (! $photoUrl && filled($profile->shop_photo)) {
+            $photo = $profile->shop_photo;
             $photoUrl = str_starts_with((string) $photo, 'http')
                 ? $photo
                 : Storage::disk('public')->url($photo);
+        }
+        if (is_string($photoUrl) && str_starts_with($photoUrl, '/')) {
+            $photoUrl = url($photoUrl);
         }
 
         $payload = [

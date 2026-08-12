@@ -9,6 +9,7 @@ interface JitsiLiveRoomProps {
     room: JitsiRoom;
     displayName: string;
     isHost: boolean;
+    avatarUrl?: string | null;
     onHangup?: () => void;
 }
 
@@ -46,7 +47,7 @@ function loadJitsiScript(): Promise<void> {
     });
 }
 
-export default function JitsiLiveRoom({ room, displayName, isHost, onHangup }: JitsiLiveRoomProps) {
+export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, onHangup }: JitsiLiveRoomProps) {
     const wrapRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -57,12 +58,16 @@ export default function JitsiLiveRoom({ room, displayName, isHost, onHangup }: J
             .then(() => {
                 if (cancelled || !wrapRef.current || !window.JitsiMeetExternalAPI) return;
                 wrapRef.current.innerHTML = '';
+                const userInfo: Record<string, string> = { displayName };
+                if (avatarUrl && /^https?:\/\//i.test(avatarUrl)) {
+                    userInfo.avatarURL = avatarUrl;
+                }
                 api = new window.JitsiMeetExternalAPI(room.domain || 'meet.jit.si', {
                     roomName: room.room_name,
                     parentNode: wrapRef.current,
                     width: '100%',
                     height: '100%',
-                    userInfo: { displayName },
+                    userInfo,
                     configOverwrite: {
                         prejoinPageEnabled: false,
                         startWithAudioMuted: !isHost,
@@ -90,7 +95,7 @@ export default function JitsiLiveRoom({ room, displayName, isHost, onHangup }: J
             cancelled = true;
             api?.dispose();
         };
-    }, [displayName, isHost, onHangup, room.domain, room.room_name]);
+    }, [avatarUrl, displayName, isHost, onHangup, room.domain, room.room_name]);
 
     return <div ref={wrapRef} className="h-full min-h-[420px] w-full overflow-hidden rounded-2xl bg-black" />;
 }

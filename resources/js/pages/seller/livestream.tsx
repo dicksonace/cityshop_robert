@@ -20,6 +20,7 @@ interface LivestreamCard {
     title: string | null;
     store_name: string;
     store_slug: string;
+    shop_photo?: string | null;
     room?: LiveRoom;
 }
 
@@ -105,7 +106,8 @@ export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
                     </div>
                     <JitsiLiveRoom
                         room={livestream.room}
-                        displayName={auth.user?.name || livestream.store_name}
+                        displayName={livestream.store_name || auth.user?.name || 'Store'}
+                        avatarUrl={livestream.shop_photo}
                         isHost
                         onHangup={endLive}
                     />

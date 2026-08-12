@@ -297,7 +297,7 @@ export default function StoreStorefront({
                     <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
                         <StoreLivePill
                             storeName={storeName}
-                            shopPhotoUrl={store.shop_photo}
+                            shopPhotoUrl={livestream.shop_photo || store.shop_photo}
                             title={livestream.title ?? storeName}
                             href="#store-live-player"
                         />
@@ -308,11 +308,32 @@ export default function StoreStorefront({
             {livestream?.room && !previewMode && currentUserId !== store.user_id && (
                 <div id="store-live-player" className="border-b border-red-100 bg-black scroll-mt-4">
                     <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
-                        <div className="mb-3 flex items-center gap-2 text-white">
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
-                                LIVE
+                        <div className="mb-3 flex items-center gap-3 text-white">
+                            <span className="relative shrink-0">
+                                <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white/10 text-sm font-bold ring-2 ring-red-500">
+                                    {(livestream.shop_photo || store.shop_photo) ? (
+                                        <img
+                                            src={productImageUrl(livestream.shop_photo || store.shop_photo)}
+                                            alt=""
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : (
+                                        storeName.charAt(0).toUpperCase()
+                                    )}
+                                </span>
+                                <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-black bg-red-600" />
                             </span>
-                            <p className="text-sm font-semibold">{livestream.title || `${storeName} is live`}</p>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
+                                        LIVE
+                                    </span>
+                                    <p className="truncate text-sm font-semibold">
+                                        {livestream.title || `${storeName} is live`}
+                                    </p>
+                                </div>
+                                <p className="truncate text-xs text-white/70">{storeName}</p>
+                            </div>
                         </div>
                         <JitsiLiveRoom
                             room={livestream.room}
