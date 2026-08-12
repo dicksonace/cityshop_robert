@@ -362,16 +362,14 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                                                         <LightboxTrigger
                                                             images={gallery}
                                                             startIndex={packageIndex}
-                                                            className="mt-2"
+                                                            className="mt-1"
                                                         >
+                                                            <span className="font-semibold underline">View package image</span>
                                                             <img
                                                                 src={productImageUrl(item.package_image)}
-                                                                alt="Delivery package — tap to enlarge"
-                                                                className="h-24 w-24 rounded-lg border object-cover shadow-sm"
+                                                                alt="Delivery package"
+                                                                className="mt-2 h-24 w-24 rounded-lg border object-cover shadow-sm"
                                                             />
-                                                            <span className="mt-1 block text-[11px] font-semibold text-blue-800">
-                                                                View
-                                                            </span>
                                                         </LightboxTrigger>
                                                     );
                                                 })()}
