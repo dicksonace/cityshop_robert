@@ -11,6 +11,7 @@ import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import RechargeModal from '@/components/wallet/recharge-modal';
 import { WalletTransactionReceiptButton } from '@/components/wallet/wallet-receipt-modal';
 import WithdrawalFeeNotice from '@/components/wallet/withdrawal-fee-notice';
+import WithdrawalBalanceAlert from '@/components/wallet/withdrawal-balance-alert';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import ShopLayout from '@/layouts/shop-layout';
 import { GHANA_BANKS, payoutNetworkLabel } from '@/lib/ghana-banks';
@@ -161,6 +162,11 @@ export default function BuyerWallet({
         withdrawalFee,
         withdrawForm.data.payout_type,
     );
+    const balanceOverLimit = !!withdrawalBalanceMessage(
+        withdrawAmount,
+        activeFee,
+        wallet.available_balance,
+    );
 
     const setPayoutType = (type: 'momo' | 'bank') => {
         withdrawForm.setData({
@@ -192,6 +198,15 @@ export default function BuyerWallet({
         }
         if (withdrawStep === 'amount') {
             if (!withdrawForm.data.amount || Number(withdrawForm.data.amount) < 10) {
+                return;
+            }
+            if (
+                withdrawalBalanceMessage(
+                    withdrawAmount,
+                    activeFee,
+                    wallet.available_balance,
+                )
+            ) {
                 return;
             }
             setWithdrawStep('review');
@@ -389,6 +404,12 @@ export default function BuyerWallet({
                                         </div>
                                         <div>
                                             <Label className="text-base font-semibold">2. Enter amount (GH₵)</Label>
+                                            <WithdrawalBalanceAlert
+                                                amount={withdrawAmount}
+                                                fee={activeFee}
+                                                available={wallet.available_balance}
+                                                className="mt-3"
+                                            />
                                             <Input
                                                 type="number"
                                                 step="0.01"
@@ -485,7 +506,11 @@ export default function BuyerWallet({
                                     )}
                                     <Button
                                         type="submit"
-                                        disabled={withdrawForm.processing || wallet.available_balance < 10}
+                                        disabled={
+                                            withdrawForm.processing ||
+                                            wallet.available_balance < 10 ||
+                                            (withdrawStep === 'amount' && balanceOverLimit)
+                                        }
                                         className="flex-1 bg-orange-500 py-6 text-base hover:bg-orange-600"
                                     >
                                         {withdrawForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
