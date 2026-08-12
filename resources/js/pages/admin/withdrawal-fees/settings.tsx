@@ -28,8 +28,8 @@ function tiersFromSettings(settings: Props['settings']): BankTier[] {
     const rows = settings.bank_tiers?.length
         ? settings.bank_tiers
         : [
-              { min: 10, max: 1000, fee: 10 },
-              { min: 1001, max: 25000, fee: 20 },
+              { min: 10, max: 999.99, fee: 10 },
+              { min: 1000, max: 25000, fee: 20 },
           ];
     return rows.map((t) => ({
         min: String(t.min ?? 0),
@@ -165,8 +165,7 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                         <div>
                             <p className="text-sm font-semibold text-gray-900">Bank fee bands</p>
                             <p className="mt-0.5 text-xs text-gray-600">
-                                Example: GH₵10–1,000 → fee GH₵10 · GH₵10,000–25,000 → fee GH₵20. Amounts between bands
-                                keep the lower band fee.
+                                Example: below GH₵1,000 → fee GH₵10 · from GH₵1,000 → fee GH₵20.
                             </p>
                         </div>
 

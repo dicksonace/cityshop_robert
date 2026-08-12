@@ -42,9 +42,9 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('summary.withdrawal_fee.amount', 10)
             ->assertJsonPath('summary.withdrawal_fee.applies_to', 'bank')
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.min', 10)
-            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.max', 1000)
+            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.max', 999.99)
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.fee', 10)
-            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.min', 1001)
+            ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.min', 1000)
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.max', 25000)
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.fee', 20)
             ->assertJsonCount(0, 'data');
@@ -145,6 +145,42 @@ class ApiWithdrawalTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.fee', 20)
             ->assertJsonPath('data.total_debited', 5020);
+    }
+
+    public function test_bank_withdrawal_from_one_thousand_uses_twenty_cedi_fee(): void
+    {
+        $buyer = $this->buyerWithBalance(2000);
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
+            'amount' => 1500,
+            'payout_type' => 'bank',
+            'network' => 'gcb',
+            'momo_number' => '1234567890',
+            'account_name' => 'Kofi Amoah',
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.fee', 20)
+            ->assertJsonPath('data.total_debited', 1520);
+    }
+
+    public function test_bank_withdrawal_of_exactly_one_thousand_uses_twenty_cedi_fee(): void
+    {
+        $buyer = $this->buyerWithBalance(1200);
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
+            'amount' => 1000,
+            'payout_type' => 'bank',
+            'network' => 'gcb',
+            'momo_number' => '1234567890',
+            'account_name' => 'Kofi Amoah',
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.fee', 20)
+            ->assertJsonPath('data.total_debited', 1020);
     }
 
     public function test_the_minimum_is_ten_cedis(): void

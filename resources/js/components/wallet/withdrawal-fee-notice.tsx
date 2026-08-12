@@ -16,7 +16,7 @@ function formatGhc(value: number): string {
 
 export function bankFeeScheduleLabel(tiers?: { min: number; max: number | null; fee: number }[]): string {
     if (!tiers?.length) {
-        return 'GH₵10–1,000 → GH₵10 · GH₵1,001–25,000 → GH₵20';
+        return 'Below GH₵1,000 → GH₵10 · From GH₵1,000 → GH₵20';
     }
 
     return tiers
@@ -75,7 +75,7 @@ export default function WithdrawalFeeNotice({
                     </p>
                 )}
                 {amount <= 0 && (
-                    <p className="mt-2 text-sm font-semibold">From GH₵10, bank fee is GH₵10.</p>
+                    <p className="mt-2 text-sm font-semibold">Below GH₵1,000 fee is GH₵10. From GH₵1,000 fee is GH₵20.</p>
                 )}
             </div>
         );

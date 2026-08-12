@@ -718,7 +718,7 @@ export default function SellerWallet({
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-1">
                     <h3 className="font-semibold text-gray-900">Quick tips</h3>
                     <ul className="mt-4 space-y-3 text-sm text-gray-600">
-                        <li className="rounded-lg bg-gray-50 p-3"><strong className="text-gray-900">MoMo or bank</strong> — choose whichever account you want paid into. Bank withdrawals include a fee (GH₵10 from GH₵10–1,000, GH₵20 above GH₵1,000).</li>
+                        <li className="rounded-lg bg-gray-50 p-3"><strong className="text-gray-900">MoMo or bank</strong> — choose whichever account you want paid into. Bank withdrawals include a fee (GH₵10 below GH₵1,000, GH₵20 from GH₵1,000).</li>
                         <li className="rounded-lg bg-gray-50 p-3">Use the name registered on the MoMo or bank account.</li>
                         <li className="rounded-lg bg-gray-50 p-3">Usually processed within 15 minutes and sometimes instant.</li>
                     </ul>

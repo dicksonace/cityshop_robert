@@ -84,8 +84,8 @@ class PlatformSettings
     public static function defaultBankFeeTiers(): array
     {
         return [
-            ['min' => 10.0, 'max' => 1000.0, 'fee' => 10.0],
-            ['min' => 1001.0, 'max' => 25000.0, 'fee' => 20.0],
+            ['min' => 10.0, 'max' => 999.99, 'fee' => 10.0],
+            ['min' => 1000.0, 'max' => 25000.0, 'fee' => 20.0],
         ];
     }
 
@@ -116,24 +116,46 @@ class PlatformSettings
         }
 
         usort($tiers, fn ($a, $b) => $a['min'] <=> $b['min']);
-        $tiers = array_values($tiers);
 
-        // Upgrade the old gap schedule (…–1000 / 10000–25000) so GH₵5,000
-        // lands in the GH₵20 band instead of staying on GH₵10.
-        if (
-            count($tiers) >= 2
-            && (float) $tiers[0]['max'] === 1000.0
-            && (float) $tiers[0]['fee'] === 10.0
-            && (float) $tiers[1]['min'] === 10000.0
-            && (float) $tiers[1]['fee'] === 20.0
-        ) {
-            $tiers[1]['min'] = 1001.0;
-            if ($tiers[1]['max'] === null || (float) $tiers[1]['max'] < 25000.0) {
-                $tiers[1]['max'] = 25000.0;
+        return static::ensureTwentyFromThousand(array_values($tiers));
+    }
+
+    /**
+     * CityShop bank rule: GH₵10 below GH₵1,000, GH₵20 from GH₵1,000.
+     * Old admin rows often kept a single GH₵10 band (or first band max 1000),
+     * so GH₵1,500 still charged GH₵10.
+     *
+     * @param  list<array{min: float, max: float|null, fee: float}>  $tiers
+     * @return list<array{min: float, max: float|null, fee: float}>
+     */
+    private static function ensureTwentyFromThousand(array $tiers): array
+    {
+        if ($tiers === []) {
+            return static::defaultBankFeeTiers();
+        }
+
+        $onlyDefaultFees = true;
+        foreach ($tiers as $tier) {
+            $fee = (float) $tier['fee'];
+            if ($fee !== 10.0 && $fee !== 20.0) {
+                $onlyDefaultFees = false;
+                break;
             }
         }
 
-        return $tiers;
+        if (! $onlyDefaultFees) {
+            return $tiers;
+        }
+
+        $feeAt999 = static::feeFromBankTiers(999, $tiers, 10);
+        $feeAt1000 = static::feeFromBankTiers(1000, $tiers, 10);
+        $feeAt1500 = static::feeFromBankTiers(1500, $tiers, 10);
+
+        if ($feeAt999 === 10.0 && $feeAt1000 >= 20.0 && $feeAt1500 >= 20.0) {
+            return $tiers;
+        }
+
+        return static::defaultBankFeeTiers();
     }
 
     /**
