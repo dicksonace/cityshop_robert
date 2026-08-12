@@ -9,6 +9,7 @@ interface JitsiLiveRoomProps {
     room: JitsiRoom;
     displayName: string;
     isHost: boolean;
+    /** Host-only shop avatar. Avoid for shoppers — it replaces the face when video is muted. */
     avatarUrl?: string | null;
     onHangup?: () => void;
 }
@@ -61,8 +62,11 @@ export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, on
             .then(() => {
                 if (cancelled || !wrapRef.current || !window.JitsiMeetExternalAPI) return;
                 wrapRef.current.innerHTML = '';
-                const userInfo: Record<string, string> = { displayName };
-                if (avatarUrl && /^https?:\/\//i.test(avatarUrl)) {
+                const userInfo: Record<string, string> = {
+                    displayName: displayName.trim() || (isHost ? 'Store' : 'CityShop shopper'),
+                };
+                // Only hosts get a static avatar fallback — shopper avatars hide their camera face.
+                if (isHost && avatarUrl && /^https?:\/\//i.test(avatarUrl)) {
                     userInfo.avatarURL = avatarUrl;
                 }
                 api = new window.JitsiMeetExternalAPI(room.domain || 'meet.jit.si', {
@@ -73,16 +77,16 @@ export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, on
                     userInfo,
                     configOverwrite: {
                         prejoinPageEnabled: false,
-                        // Host starts unmuted; shoppers can unmute mic/camera from the toolbar.
-                        startWithAudioMuted: !isHost,
-                        startWithVideoMuted: !isHost,
+                        // Everyone starts with camera+mic on so faces show (browser still prompts for permission).
+                        startWithAudioMuted: false,
+                        startWithVideoMuted: false,
                         disableDeepLinking: true,
                         disableInviteFunctions: true,
+                        enableWelcomePage: false,
                     },
                     interfaceConfigOverwrite: {
                         SHOW_JITSI_WATERMARK: false,
                         SHOW_WATERMARK_FOR_GUESTS: false,
-                        // Camera must be available for joiners so their face can publish (audio alone was showing before).
                         TOOLBAR_BUTTONS: isHost
                             ? ['microphone', 'camera', 'hangup', 'tileview', 'fullscreen']
                             : ['microphone', 'camera', 'tileview', 'fullscreen'],
@@ -90,13 +94,13 @@ export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, on
                 });
 
                 api.addListener('videoConferenceJoined', () => {
-                    if (!isHost || !api) return;
-                    // Ensure host camera actually publishes after join (permissions / auto-mute edge cases).
+                    if (!api) return;
                     try {
                         api.executeCommand('setVideoMute', false);
                         api.executeCommand('setAudioMute', false);
+                        api.executeCommand('setTileView', true);
                     } catch {
-                        // ignore — browser may still prompt for permission
+                        // browser may still prompt for permission
                     }
                 });
 

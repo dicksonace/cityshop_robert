@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Globe, Mail, MapPin, MessageCircle, Phone, Share2, Star, Store, User, Verified } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -18,6 +18,7 @@ import {
     productGridClass,
     StoreCustomizationSettings,
 } from '@/types/store-customization';
+import { SharedData } from '@/types';
 
 interface StoreUser {
     name: string;
@@ -82,6 +83,8 @@ export default function StoreStorefront({
     search = '',
     livestream = null,
 }: StoreStorefrontProps) {
+    const { auth } = usePage<SharedData>().props;
+    const shopperName = auth.user?.name?.trim() || 'CityShop shopper';
     const [activeLive, setActiveLive] = useState<StoreLivestream>(livestream);
 
     useEffect(() => {
@@ -381,7 +384,7 @@ export default function StoreStorefront({
                         </div>
                         <JitsiLiveRoom
                             room={activeLive.room}
-                            displayName="CityShop shopper"
+                            displayName={shopperName}
                             isHost={false}
                         />
                     </div>
