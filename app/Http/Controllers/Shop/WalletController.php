@@ -54,7 +54,7 @@ class WalletController extends Controller
         $funding = PlatformSettings::manualFundingAccounts();
 
         return Inertia::render('shop/wallet', [
-            'wallet' => $wallet,
+            'wallet' => $wallet->toFrontendArray(),
             'transactions' => $transactions,
             'withdrawals' => $withdrawals,
             'hasPendingWithdrawal' => $hasPendingWithdrawal,

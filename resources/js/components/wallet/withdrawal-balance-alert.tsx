@@ -7,16 +7,21 @@ export function withdrawalBalanceMessage(
     fee: number,
     available: number,
 ): string | null {
-    if (amount <= 0) {
+    // Laravel decimal casts arrive as strings; coerce so `available + fee` is never string concat.
+    const amt = Number(amount) || 0;
+    const feeAmt = Number(fee) || 0;
+    const avail = Number(available) || 0;
+
+    if (amt <= 0) {
         return null;
     }
 
-    const total = amount + fee;
-    if (total <= available + 1e-9) {
+    const total = amt + feeAmt;
+    if (total <= avail + 1e-9) {
         return null;
     }
 
-    return `Insufficient balance. Available: ${formatPrice(available)}`;
+    return `Insufficient balance. Available: ${formatPrice(avail)}`;
 }
 
 export default function WithdrawalBalanceAlert({

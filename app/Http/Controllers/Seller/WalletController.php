@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Seller;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\SellerPayoutMethod;
+use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\PaystackService;
@@ -55,7 +56,7 @@ class WalletController extends Controller
         $funding = PlatformSettings::manualFundingAccounts();
 
         return Inertia::render('seller/wallet', [
-            'wallet' => $wallet,
+            'wallet' => $wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),
             'transactions' => $transactions,
             'withdrawals' => $withdrawals,
             'payoutMethods' => $payoutMethods,
@@ -88,7 +89,7 @@ class WalletController extends Controller
         );
 
         return Inertia::render('seller/wallet/transactions', [
-            'wallet' => $wallet,
+            'wallet' => $wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),
             'transactions' => $transactions,
         ]);
     }
@@ -111,7 +112,7 @@ class WalletController extends Controller
         ]);
 
         return Inertia::render('seller/wallet/transaction-show', [
-            'wallet' => $wallet,
+            'wallet' => $wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),
             'transaction' => array_merge($transaction->toArray(), $balances),
         ]);
     }
@@ -124,7 +125,7 @@ class WalletController extends Controller
             ->withQueryString();
 
         return Inertia::render('seller/wallet/withdrawals', [
-            'wallet' => $request->user()->wallet,
+            'wallet' => $request->user()->wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),
             'withdrawals' => $withdrawals,
         ]);
     }
@@ -138,7 +139,7 @@ class WalletController extends Controller
             ->get();
 
         return Inertia::render('seller/wallet/withdrawal-show', [
-            'wallet' => $request->user()->wallet,
+            'wallet' => $request->user()->wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),
             'withdrawal' => $withdrawal,
             'ledger' => $ledger,
         ]);

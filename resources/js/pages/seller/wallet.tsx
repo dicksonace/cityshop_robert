@@ -95,19 +95,20 @@ function maxWithdrawableAmount(
     settings: WalletProps['withdrawalFee'],
     payoutType: 'momo' | 'bank',
 ): number {
+    const available = Number(balance) || 0;
     if (settings?.mode === 'percent' && (settings.percent ?? 0) > 0) {
-        return Math.max(0, Math.floor((balance / (1 + (settings.percent ?? 0) / 100)) * 100) / 100);
+        return Math.max(0, Math.floor((available / (1 + (settings.percent ?? 0) / 100)) * 100) / 100);
     }
     let lo = 0;
-    let hi = balance;
+    let hi = available;
     for (let i = 0; i < 48; i++) {
         const mid = (lo + hi) / 2;
         const fee = feeForPayoutType(settings, payoutType, mid);
-        if (mid + fee <= balance + 1e-9) lo = mid;
+        if (mid + fee <= available + 1e-9) lo = mid;
         else hi = mid;
     }
     let amount = Math.round(lo * 100) / 100;
-    if (amount + feeForPayoutType(settings, payoutType, amount) > balance + 1e-9) {
+    if (amount + feeForPayoutType(settings, payoutType, amount) > available + 1e-9) {
         amount = Math.round((amount - 0.01) * 100) / 100;
     }
     return Math.max(0, amount);
