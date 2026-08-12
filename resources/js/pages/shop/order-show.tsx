@@ -351,32 +351,32 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                                                     </p>
                                                 )}
                                                 {item.vehicle_number && <p>Vehicle: {item.vehicle_number}</p>}
+                                                {item.package_image && (() => {
+                                                    const gallery = orderItemLightboxImages(item);
+                                                    const packageIndex = Math.max(
+                                                        0,
+                                                        gallery.findIndex((img) => img.src === item.package_image),
+                                                    );
+
+                                                    return (
+                                                        <LightboxTrigger
+                                                            images={gallery}
+                                                            startIndex={packageIndex}
+                                                            className="mt-2"
+                                                        >
+                                                            <img
+                                                                src={productImageUrl(item.package_image)}
+                                                                alt="Delivery package — tap to enlarge"
+                                                                className="h-24 w-24 rounded-lg border object-cover shadow-sm"
+                                                            />
+                                                            <span className="mt-1 block text-[11px] font-semibold text-blue-800">
+                                                                View
+                                                            </span>
+                                                        </LightboxTrigger>
+                                                    );
+                                                })()}
                                             </div>
                                         )}
-                                        {item.package_image && (() => {
-                                            const gallery = orderItemLightboxImages(item);
-                                            const packageIndex = Math.max(
-                                                0,
-                                                gallery.findIndex((img) => img.src === item.package_image),
-                                            );
-
-                                            return (
-                                                <LightboxTrigger
-                                                    images={gallery}
-                                                    startIndex={packageIndex}
-                                                    className="mt-2"
-                                                >
-                                                    <img
-                                                        src={productImageUrl(item.package_image)}
-                                                        alt="Delivery package — tap to enlarge"
-                                                        className="h-24 w-24 rounded-lg border object-cover shadow-sm transition group-hover:ring-2 group-hover:ring-orange-400"
-                                                    />
-                                                    <span className="mt-1 block text-[11px] text-gray-500">
-                                                        Tap to view full size
-                                                    </span>
-                                                </LightboxTrigger>
-                                            );
-                                        })()}
 
                                         {item.status === 'awaiting_confirmation' && (
                                             <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-4">

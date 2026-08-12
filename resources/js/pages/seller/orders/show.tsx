@@ -438,11 +438,19 @@ export default function SellerOrderShow({
                                 <div>
                                     <Label>Package photo (optional)</Label>
                                     {orderItem.package_image && (
-                                        <img
-                                            src={productImageUrl(orderItem.package_image)}
-                                            alt="Package"
-                                            className="mt-2 h-32 w-32 rounded-lg border object-cover"
-                                        />
+                                        <a
+                                            href={productImageUrl(orderItem.package_image)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="mt-2 inline-block"
+                                        >
+                                            <img
+                                                src={productImageUrl(orderItem.package_image)}
+                                                alt="Package"
+                                                className="h-32 w-32 rounded-lg border object-cover"
+                                            />
+                                            <span className="mt-1 block text-xs font-semibold text-orange-600">View</span>
+                                        </a>
                                     )}
                                     <Input
                                         type="file"
@@ -615,11 +623,19 @@ export default function SellerOrderShow({
                                 <div>
                                     <Label>Package photo</Label>
                                     {orderItem.package_image && (
-                                        <img
-                                            src={productImageUrl(orderItem.package_image)}
-                                            alt="Package"
-                                            className="mt-2 h-32 w-32 rounded-lg border object-cover"
-                                        />
+                                        <a
+                                            href={productImageUrl(orderItem.package_image)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="mt-2 inline-block"
+                                        >
+                                            <img
+                                                src={productImageUrl(orderItem.package_image)}
+                                                alt="Package"
+                                                className="h-32 w-32 rounded-lg border object-cover"
+                                            />
+                                            <span className="mt-1 block text-xs font-semibold text-orange-600">View</span>
+                                        </a>
                                     )}
                                     <Input
                                         type="file"
