@@ -133,7 +133,12 @@ export default function StoreHero({
                             {logo ? <img src={productImageUrl(logo)} alt="" className="h-full w-full object-cover" /> : storeName.charAt(0)}
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold sm:text-3xl">{storeName}</h1>
+                            <h1 className="flex flex-wrap items-center gap-2 text-xl font-bold sm:text-3xl">
+                                {storeName}
+                                {isLive && (
+                                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold">LIVE</span>
+                                )}
+                            </h1>
                             {slogan && <p className="mt-1 text-sm text-white/80 sm:text-base">{slogan}</p>}
                         </div>
                     </div>

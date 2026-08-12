@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 
 import JitsiLiveRoom from '@/components/live/jitsi-live-room';
 import StoreHero from '@/components/store/store-hero';
+import StoreLivePill from '@/components/store/store-live-pill';
 import InfiniteProductGrid from '@/components/shop/infinite-product-grid';
 import MessageSellerButton from '@/components/shop/message-seller-button';
 import ReportSellerButton from '@/components/shop/report-seller-button';
@@ -291,8 +292,21 @@ export default function StoreStorefront({
                 return null;
             })}
 
+            {livestream && !previewMode && currentUserId !== store.user_id && (
+                <div className="border-b border-orange-100 bg-white">
+                    <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+                        <StoreLivePill
+                            storeName={storeName}
+                            shopPhotoUrl={store.shop_photo}
+                            title={livestream.title ?? storeName}
+                            href="#store-live-player"
+                        />
+                    </div>
+                </div>
+            )}
+
             {livestream?.room && !previewMode && currentUserId !== store.user_id && (
-                <div className="border-b border-red-100 bg-black">
+                <div id="store-live-player" className="border-b border-red-100 bg-black scroll-mt-4">
                     <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
                         <div className="mb-3 flex items-center gap-2 text-white">
                             <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
