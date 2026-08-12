@@ -16,10 +16,6 @@ export function withdrawalBalanceMessage(
         return null;
     }
 
-    if (fee > 0) {
-        return `Needs ${formatPrice(total)} (incl. ${formatPrice(fee)} fee). Available ${formatPrice(available)}`;
-    }
-
     return `Insufficient balance. Available: ${formatPrice(available)}`;
 }
 
