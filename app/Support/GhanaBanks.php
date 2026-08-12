@@ -64,6 +64,31 @@ class GhanaBanks
         return self::OPTIONS[$code] ?? str_replace('_', ' ', ucwords($code, '_'));
     }
 
+    /** Accept a bank id or display name and return the canonical label, or null if unknown. */
+    public static function resolveName(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        if (isset(self::OPTIONS[$value])) {
+            return self::OPTIONS[$value];
+        }
+
+        foreach (self::OPTIONS as $label) {
+            if (strcasecmp($label, $value) === 0) {
+                return $label;
+            }
+        }
+
+        return null;
+    }
+
     public static function validationRule(): string
     {
         return 'in:'.implode(',', self::codes());

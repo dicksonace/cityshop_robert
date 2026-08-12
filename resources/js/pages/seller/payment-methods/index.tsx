@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import SellerLayout from '@/layouts/seller-layout';
+import { GHANA_BANKS } from '@/lib/ghana-banks';
 import { SharedData } from '@/types';
 
 interface PaymentMethod {
@@ -35,9 +36,10 @@ interface PaymentMethodsProps {
     };
     methods: PaymentMethod[];
     types: { value: string; label: string }[];
+    banks?: { id: string; label: string }[];
 }
 
-export default function PaymentMethodsIndex({ profile, methods, types }: PaymentMethodsProps) {
+export default function PaymentMethodsIndex({ profile, methods, types, banks = GHANA_BANKS }: PaymentMethodsProps) {
     const { flash } = usePage<SharedData>().props;
     const locked = profile.payment_methods_locked;
 
@@ -153,7 +155,7 @@ export default function PaymentMethodsIndex({ profile, methods, types }: Payment
                                             ...methodForm.data,
                                             type,
                                             network: type === 'mobile_money' ? (methodForm.data.network || 'MTN') : '',
-                                            bank_name: type === 'bank' ? methodForm.data.bank_name : '',
+                                            bank_name: '',
                                         });
                                     }}
                                     className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
@@ -184,7 +186,19 @@ export default function PaymentMethodsIndex({ profile, methods, types }: Payment
                                 <>
                                     <div>
                                         <Label>Bank name</Label>
-                                        <Input value={methodForm.data.bank_name} onChange={(e) => methodForm.setData('bank_name', e.target.value)} required className="mt-1" placeholder="e.g. GCB, GTBank, Absa" />
+                                        <select
+                                            value={methodForm.data.bank_name}
+                                            onChange={(e) => methodForm.setData('bank_name', e.target.value)}
+                                            required
+                                            className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                                        >
+                                            <option value="">Select bank</option>
+                                            {banks.map((bank) => (
+                                                <option key={bank.id} value={bank.id}>
+                                                    {bank.label}
+                                                </option>
+                                            ))}
+                                        </select>
                                         <InputError message={methodForm.errors.bank_name} />
                                     </div>
                                     <div>
@@ -217,7 +231,10 @@ export default function PaymentMethodsIndex({ profile, methods, types }: Payment
                             <li key={m.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                                 <div className="min-w-0">
                                     <p className="font-medium capitalize">{m.type.replace('_', ' ')}</p>
-                                    <p className="text-gray-500">{m.account_name} · {m.account_number ?? m.label}</p>
+                                    <p className="text-gray-500">
+                                        {m.type === 'bank' && m.bank_name ? `${m.bank_name} · ` : ''}
+                                        {m.account_name} · {m.account_number ?? m.label}
+                                    </p>
                                     {m.is_disabled ? (
                                         <p className="mt-1 text-xs font-medium text-red-600">
                                             Disabled by admin

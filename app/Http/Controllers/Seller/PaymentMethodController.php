@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\OrderService;
 use App\Services\SellerPaymentMethodSecurityService;
+use App\Support\GhanaBanks;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -49,6 +50,10 @@ class PaymentMethodController extends Controller
                 'value' => $t->value,
                 'label' => ucwords(str_replace('_', ' ', $t->value)),
             ]),
+            'banks' => collect(GhanaBanks::OPTIONS)->map(fn ($label, $id) => [
+                'id' => $id,
+                'label' => $label,
+            ])->values(),
         ]);
     }
 
@@ -101,7 +106,11 @@ class PaymentMethodController extends Controller
                 'bank_name' => ['required', 'string', 'max:100'],
                 'account_number' => ['required', 'string', 'max:100'],
             ]);
-            $validated['bank_name'] = trim((string) $validated['bank_name']);
+            $bankName = GhanaBanks::resolveName($validated['bank_name'] ?? null);
+            if (! $bankName) {
+                return back()->withErrors(['bank_name' => 'Select a bank from the list.']);
+            }
+            $validated['bank_name'] = $bankName;
             $validated['network'] = null;
         } else {
             $validated['bank_name'] = null;
