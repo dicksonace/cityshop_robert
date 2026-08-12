@@ -1496,13 +1496,25 @@ export default function ChatThreadPanel() {
                         disabled={uploadingImage || uploadingFile || uploadingVoice}
                     />
                     )}
-                    <button
-                        type="submit"
-                        disabled={!body.trim() || sending || uploadingImage || uploadingFile || uploadingVoice || recordingVoice}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 sm:h-9 sm:w-9"
-                    >
-                        <Send className="h-5 w-5 sm:h-4 sm:w-4" />
-                    </button>
+                    {recordingVoice ? (
+                        <button
+                            type="button"
+                            onClick={() => void finishVoiceRecording()}
+                            disabled={uploadingVoice}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 sm:h-9 sm:w-9"
+                            title="Send voice note"
+                        >
+                            <Send className="h-5 w-5 sm:h-4 sm:w-4" />
+                        </button>
+                    ) : (
+                        <button
+                            type="submit"
+                            disabled={!body.trim() || sending || uploadingImage || uploadingFile || uploadingVoice}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 sm:h-9 sm:w-9"
+                        >
+                            <Send className="h-5 w-5 sm:h-4 sm:w-4" />
+                        </button>
+                    )}
                 </form>
             </div>
 
