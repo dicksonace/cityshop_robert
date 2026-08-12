@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Radio } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 export interface LiveNowCard {
     id: number;
@@ -10,7 +11,44 @@ export interface LiveNowCard {
 }
 
 export default function LiveNowStrip({ lives }: { lives: LiveNowCard[] }) {
-    if (!lives.length) return null;
+    const [items, setItems] = useState<LiveNowCard[]>(lives);
+
+    useEffect(() => {
+        setItems(lives);
+    }, [lives]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const refresh = async () => {
+            try {
+                const res = await fetch('/api/v1/livestreams', {
+                    headers: { Accept: 'application/json' },
+                    credentials: 'same-origin',
+                });
+                if (!res.ok || cancelled) return;
+                const json = (await res.json()) as { data?: LiveNowCard[] };
+                if (cancelled) return;
+                setItems(Array.isArray(json.data) ? json.data : []);
+            } catch {
+                // keep current strip
+            }
+        };
+
+        const tick = window.setInterval(() => {
+            void refresh();
+        }, 12000);
+
+        // If SSR said something is live, re-check soon; also poll when empty so a new live can appear.
+        void refresh();
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(tick);
+        };
+    }, []);
+
+    if (!items.length) return null;
 
     return (
         <section className="border-b border-red-50 bg-white">
@@ -23,7 +61,7 @@ export default function LiveNowStrip({ lives }: { lives: LiveNowCard[] }) {
                     <h2 className="text-sm font-bold uppercase tracking-wide text-gray-900">Live now</h2>
                 </div>
                 <div className="flex gap-3 overflow-x-auto pb-1">
-                    {lives.map((live) => (
+                    {items.map((live) => (
                         <Link
                             key={live.id}
                             href={route('store.show', live.store_slug)}

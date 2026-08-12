@@ -9,3 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('orders:auto-confirm-deliveries')->hourly();
+
+Schedule::call(function () {
+    \App\Services\LiveStreamService::expireStale();
+})->everyMinute();

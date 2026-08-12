@@ -13,15 +13,15 @@ interface JitsiLiveRoomProps {
     onHangup?: () => void;
 }
 
+type JitsiApi = {
+    dispose: () => void;
+    addListener: (event: string, handler: (...args: unknown[]) => void) => void;
+    executeCommand: (command: string, ...args: unknown[]) => void;
+};
+
 declare global {
     interface Window {
-        JitsiMeetExternalAPI?: new (
-            domain: string,
-            options: Record<string, unknown>,
-        ) => {
-            dispose: () => void;
-            addListener: (event: string, handler: () => void) => void;
-        };
+        JitsiMeetExternalAPI?: new (domain: string, options: Record<string, unknown>) => JitsiApi;
     }
 }
 
@@ -49,10 +49,13 @@ function loadJitsiScript(): Promise<void> {
 
 export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, onHangup }: JitsiLiveRoomProps) {
     const wrapRef = useRef<HTMLDivElement>(null);
+    const hangupRef = useRef(onHangup);
+    hangupRef.current = onHangup;
 
     useEffect(() => {
-        let api: { dispose: () => void; addListener: (event: string, handler: () => void) => void } | null = null;
+        let api: JitsiApi | null = null;
         let cancelled = false;
+        let leftHandled = false;
 
         void loadJitsiScript()
             .then(() => {
@@ -70,6 +73,7 @@ export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, on
                     userInfo,
                     configOverwrite: {
                         prejoinPageEnabled: false,
+                        // Host starts unmuted; shoppers can unmute mic/camera from the toolbar.
                         startWithAudioMuted: !isHost,
                         startWithVideoMuted: !isHost,
                         disableDeepLinking: true,
@@ -78,14 +82,29 @@ export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, on
                     interfaceConfigOverwrite: {
                         SHOW_JITSI_WATERMARK: false,
                         SHOW_WATERMARK_FOR_GUESTS: false,
+                        // Camera must be available for joiners so their face can publish (audio alone was showing before).
                         TOOLBAR_BUTTONS: isHost
                             ? ['microphone', 'camera', 'hangup', 'tileview', 'fullscreen']
-                            : ['microphone', 'tileview', 'fullscreen'],
+                            : ['microphone', 'camera', 'tileview', 'fullscreen'],
                     },
                 });
-                if (onHangup) {
-                    api.addListener('videoConferenceLeft', onHangup);
-                }
+
+                api.addListener('videoConferenceJoined', () => {
+                    if (!isHost || !api) return;
+                    // Ensure host camera actually publishes after join (permissions / auto-mute edge cases).
+                    try {
+                        api.executeCommand('setVideoMute', false);
+                        api.executeCommand('setAudioMute', false);
+                    } catch {
+                        // ignore — browser may still prompt for permission
+                    }
+                });
+
+                api.addListener('videoConferenceLeft', () => {
+                    if (leftHandled || cancelled) return;
+                    leftHandled = true;
+                    hangupRef.current?.();
+                });
             })
             .catch(() => {
                 // keep empty container; parent can still show a fallback link
@@ -95,7 +114,7 @@ export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, on
             cancelled = true;
             api?.dispose();
         };
-    }, [avatarUrl, displayName, isHost, onHangup, room.domain, room.room_name]);
+    }, [avatarUrl, displayName, isHost, room.domain, room.room_name]);
 
     return <div ref={wrapRef} className="h-full min-h-[420px] w-full overflow-hidden rounded-2xl bg-black" />;
 }

@@ -45,9 +45,13 @@ class LivestreamController extends Controller
         ]);
     }
 
-    public function end(Request $request): RedirectResponse
+    public function end(Request $request): RedirectResponse|JsonResponse
     {
         LiveStreamService::end($request->user());
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['ok' => true]);
+        }
 
         return back()->with('success', 'Live ended.');
     }

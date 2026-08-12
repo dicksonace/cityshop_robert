@@ -54,9 +54,51 @@ export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
                         (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ?? '',
                 },
                 credentials: 'same-origin',
+            }).then(async (res) => {
+                try {
+                    const json = (await res.json()) as { ok?: boolean };
+                    if (json.ok === false) {
+                        router.reload({ only: ['livestream'] });
+                    }
+                } catch {
+                    // ignore parse errors
+                }
             });
         }, 25000);
         return () => window.clearInterval(tick);
+    }, [livestream?.id]);
+
+    // End the session if the host closes/navigates away from Go Live (so buyer pages stop showing LIVE).
+    useEffect(() => {
+        if (!livestream) return;
+
+        const csrf =
+            (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ?? '';
+
+        const endBeacon = () => {
+            try {
+                void fetch(route('seller.livestream.end'), {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrf,
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                    keepalive: true,
+                    body: '{}',
+                });
+            } catch {
+                // best-effort
+            }
+        };
+
+        window.addEventListener('pagehide', endBeacon);
+        return () => {
+            window.removeEventListener('pagehide', endBeacon);
+            endBeacon();
+        };
     }, [livestream?.id]);
 
     return (
@@ -112,7 +154,8 @@ export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
                         onHangup={endLive}
                     />
                     <p className="text-xs text-gray-500">
-                        Allow camera and microphone. Keep this page open while you are live — closing it ends the stream after a few minutes.
+                        Allow camera and microphone. Keep this page open while you are live — closing or leaving this
+                        page ends the stream for shoppers.
                     </p>
                 </div>
             ) : (

@@ -17,7 +17,7 @@ class LiveStreamService
     {
         Livestream::query()
             ->where('status', LivestreamStatus::Live)
-            ->where('last_heartbeat_at', '<', now()->subMinutes(5))
+            ->where('last_heartbeat_at', '<', now()->subMinutes(2))
             ->update([
                 'status' => LivestreamStatus::Ended->value,
                 'ended_at' => now(),

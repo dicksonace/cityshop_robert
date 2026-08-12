@@ -1,6 +1,6 @@
 import { Link, router } from '@inertiajs/react';
 import { Globe, Mail, MapPin, MessageCircle, Phone, Share2, Star, Store, User, Verified } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import JitsiLiveRoom from '@/components/live/jitsi-live-room';
 import StoreHero from '@/components/store/store-hero';
@@ -30,6 +30,14 @@ interface StoreUser {
     residential_address?: string;
 }
 
+type StoreLivestream = {
+    id: number;
+    title?: string | null;
+    store_name: string;
+    shop_photo?: string | null;
+    room?: { domain: string; room_name: string };
+} | null;
+
 interface StoreStorefrontProps {
     store: SellerProfile & {
         user_id: number;
@@ -54,12 +62,7 @@ interface StoreStorefrontProps {
     currentUserId?: number;
     onAddToCart?: (productId: number) => void;
     search?: string;
-    livestream?: {
-        id: number;
-        title?: string | null;
-        store_name: string;
-        room?: { domain: string; room_name: string };
-    } | null;
+    livestream?: StoreLivestream;
 }
 
 export default function StoreStorefront({
@@ -79,6 +82,47 @@ export default function StoreStorefront({
     search = '',
     livestream = null,
 }: StoreStorefrontProps) {
+    const [activeLive, setActiveLive] = useState<StoreLivestream>(livestream);
+
+    useEffect(() => {
+        setActiveLive(livestream);
+    }, [livestream]);
+
+    // Drop the LIVE chrome as soon as the host ends — Inertia props alone stay stale.
+    useEffect(() => {
+        if (previewMode || !store.slug || !activeLive) return;
+
+        let cancelled = false;
+        const check = async () => {
+            try {
+                const res = await fetch(`/api/v1/livestreams/${encodeURIComponent(store.slug)}`, {
+                    headers: { Accept: 'application/json' },
+                    credentials: 'same-origin',
+                });
+                if (!res.ok || cancelled) return;
+                const json = (await res.json()) as { data?: StoreLivestream };
+                if (cancelled) return;
+                if (!json.data) {
+                    setActiveLive(null);
+                    return;
+                }
+                setActiveLive(json.data);
+            } catch {
+                // keep current UI; next tick retries
+            }
+        };
+
+        const tick = window.setInterval(() => {
+            void check();
+        }, 8000);
+        void check();
+
+        return () => {
+            cancelled = true;
+            window.clearInterval(tick);
+        };
+    }, [activeLive?.id, previewMode, store.slug]);
+
     const [profileOpen, setProfileOpen] = useState(false);
     const storeName = store.business_name ?? store.store_name ?? 'Store';
     const theme = customization.theme;
@@ -140,7 +184,7 @@ export default function StoreStorefront({
                 logoUrl={branding.store_logo}
                 coverUrl={branding.cover_image}
                 shopPhotoUrl={store.shop_photo}
-                isLive={Boolean(livestream)}
+                isLive={Boolean(activeLive)}
             />
         ),
         promo: promoActive && customization.promo_banner.enabled ? (
@@ -292,28 +336,28 @@ export default function StoreStorefront({
                 return null;
             })}
 
-            {livestream && !previewMode && currentUserId !== store.user_id && (
+            {activeLive && !previewMode && currentUserId !== store.user_id && (
                 <div className="border-b border-orange-100 bg-white">
                     <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
                         <StoreLivePill
                             storeName={storeName}
-                            shopPhotoUrl={livestream.shop_photo || store.shop_photo}
-                            title={livestream.title ?? storeName}
+                            shopPhotoUrl={activeLive.shop_photo || store.shop_photo}
+                            title={activeLive.title ?? storeName}
                             href="#store-live-player"
                         />
                     </div>
                 </div>
             )}
 
-            {livestream?.room && !previewMode && currentUserId !== store.user_id && (
+            {activeLive?.room && !previewMode && currentUserId !== store.user_id && (
                 <div id="store-live-player" className="border-b border-red-100 bg-black scroll-mt-4">
                     <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
                         <div className="mb-3 flex items-center gap-3 text-white">
                             <span className="relative shrink-0">
                                 <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white/10 text-sm font-bold ring-2 ring-red-500">
-                                    {(livestream.shop_photo || store.shop_photo) ? (
+                                    {(activeLive.shop_photo || store.shop_photo) ? (
                                         <img
-                                            src={productImageUrl(livestream.shop_photo || store.shop_photo)}
+                                            src={productImageUrl(activeLive.shop_photo || store.shop_photo)}
                                             alt=""
                                             className="h-full w-full object-cover"
                                         />
@@ -329,21 +373,21 @@ export default function StoreStorefront({
                                         LIVE
                                     </span>
                                     <p className="truncate text-sm font-semibold">
-                                        {livestream.title || `${storeName} is live`}
+                                        {activeLive.title || `${storeName} is live`}
                                     </p>
                                 </div>
                                 <p className="truncate text-xs text-white/70">{storeName}</p>
                             </div>
                         </div>
                         <JitsiLiveRoom
-                            room={livestream.room}
+                            room={activeLive.room}
                             displayName="CityShop shopper"
                             isHost={false}
                         />
                     </div>
                 </div>
             )}
-            {livestream && !previewMode && currentUserId === store.user_id && (
+            {activeLive && !previewMode && currentUserId === store.user_id && (
                 <div className="border-b border-red-100 bg-red-50 px-4 py-3 text-center text-sm font-semibold text-red-700">
                     You are live. Manage the camera from{' '}
                     <a href={route('seller.livestream')} className="underline">
