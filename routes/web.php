@@ -166,6 +166,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->group(function () {
+    Route::get('/', fn () => redirect()->route('seller.dashboard'))->name('home');
     Route::get('/pending', [SellerDashboardController::class, 'pending'])->name('pending');
 
     Route::middleware(['seller.approved'])->group(function () {
@@ -242,6 +243,7 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
 });
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/', fn () => redirect()->route('admin.dashboard'))->name('home');
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/sellers', [AdminSellerController::class, 'index'])->name('sellers.index');

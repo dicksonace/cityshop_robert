@@ -54,6 +54,18 @@ return Application::configure(basePath: dirname(__DIR__))
             TrackUserPresence::class,
         ]);
 
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('admin') || $request->is('admin/*')) {
+                return route('admin.login');
+            }
+
+            if ($request->is('seller') || $request->is('seller/*')) {
+                return route('seller.login');
+            }
+
+            return route('login');
+        });
+
         RedirectIfAuthenticated::redirectUsing(
             fn ($request) => $request->user()?->defaultRedirectRoute() ?? route('home'),
         );
