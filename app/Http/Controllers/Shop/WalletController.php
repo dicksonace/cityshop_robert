@@ -62,6 +62,7 @@ class WalletController extends Controller
             'paystackPublicKey' => config('services.paystack.public_key'),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
+            'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
         ]);
     }
 
@@ -186,7 +187,9 @@ class WalletController extends Controller
                 'network' => $validated['network'],
             ]);
         } catch (\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'amount' => [$e->getMessage()],
+            ]);
         }
 
         return back()->with('success', $result['message']);

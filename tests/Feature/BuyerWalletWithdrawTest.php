@@ -127,6 +127,7 @@ class BuyerWalletWithdrawTest extends TestCase
                 ->has('withdrawalFee')
                 ->where('withdrawalFee.applies_to', 'bank')
                 ->where('withdrawalFee.amount', 10)
-                ->where('wallet.available_balance', '80.00'));
+                ->where('wallet.available_balance', 80)
+                ->where('hasPaymentPin', false));
     }
 }

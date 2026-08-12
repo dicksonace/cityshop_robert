@@ -65,8 +65,20 @@ export default function WithdrawalFeeNotice({
     }
 
     if (payoutType === 'bank') {
-        // Fee still applies at review/submit; do not show the schedule banner.
-        return null;
+        const shown = amount > 0 ? fee : (settings.bank_tiers?.[0]?.fee ?? settings.amount);
+        return (
+            <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-950">
+                <p className="font-semibold">Bank withdrawal fee</p>
+                <p className="mt-1 text-sm font-semibold">
+                    {amount > 0 && fee > 0
+                        ? `${formatPrice(fee)} for this amount`
+                        : `${formatPrice(Number(shown) || 10)}+ depending on amount`}
+                </p>
+                <p className="mt-1 text-xs text-orange-900/80">
+                    Fee is deducted from your wallet with the withdrawal — leave enough balance, or use Withdraw all.
+                </p>
+            </div>
+        );
     }
 
     if (fee <= 0 && (settings.amount ?? 0) <= 0) {

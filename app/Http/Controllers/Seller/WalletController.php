@@ -8,6 +8,7 @@ use App\Models\SellerPayoutMethod;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\PaymentPinService;
 use App\Services\PaystackService;
 use App\Services\PlatformSettings;
 use App\Services\SellerPaymentMethodSecurityService;
@@ -28,7 +29,7 @@ class WalletController extends Controller
     {
         $user = $request->user();
         WalletTransactionService::backfillForSeller($user->id);
-        $wallet = $user->wallet;
+        $wallet = WalletService::ensure($user);
 
         $transactions = WalletTransaction::where('user_id', $user->id)
             ->latest()
@@ -38,8 +39,8 @@ class WalletController extends Controller
         WalletTransactionService::attachRunningBalances(
             $user->id,
             $transactions->getCollection(),
-            (float) ($wallet?->available_balance ?? 0),
-            (float) ($wallet?->pending_balance ?? 0),
+            (float) $wallet->available_balance,
+            (float) $wallet->pending_balance,
         );
 
         $withdrawals = Withdrawal::where('user_id', $user->id)
@@ -56,7 +57,7 @@ class WalletController extends Controller
         $funding = PlatformSettings::manualFundingAccounts();
 
         return Inertia::render('seller/wallet', [
-            'wallet' => $wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),
+            'wallet' => $wallet->toFrontendArray(),
             'transactions' => $transactions,
             'withdrawals' => $withdrawals,
             'payoutMethods' => $payoutMethods,
@@ -66,6 +67,7 @@ class WalletController extends Controller
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'paystackConfigured' => $this->paystack->isConfigured(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
+            'hasPaymentPin' => PaymentPinService::hasPin($user),
         ]);
     }
 
@@ -257,7 +259,9 @@ class WalletController extends Controller
                 'payout_method_id' => $payoutMethodId,
             ]);
         } catch (\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'amount' => [$e->getMessage()],
+            ]);
         }
 
         return back()->with('success', $result['message']);

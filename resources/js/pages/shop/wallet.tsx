@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Check, LoaderCircle, RefreshCw } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import { FormEventHandler, useEffect, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -10,11 +10,12 @@ import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import RechargeModal from '@/components/wallet/recharge-modal';
 import { WalletTransactionReceiptButton } from '@/components/wallet/wallet-receipt-modal';
-import WithdrawalFeeNotice from '@/components/wallet/withdrawal-fee-notice';
+import WithdrawalFeeNotice, { type WithdrawalFeeSettings } from '@/components/wallet/withdrawal-fee-notice';
 import WithdrawalBalanceAlert, { withdrawalBalanceMessage } from '@/components/wallet/withdrawal-balance-alert';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import ShopLayout from '@/layouts/shop-layout';
 import { GHANA_BANKS, payoutNetworkLabel } from '@/lib/ghana-banks';
+import { feeForPayoutType, maxWithdrawableAmount } from '@/lib/withdrawal-fees';
 import { SharedData } from '@/types';
 import { cn } from '@/lib/utils';
 import {
@@ -34,75 +35,8 @@ interface BuyerWalletProps {
     paystackConfigured: boolean;
     paystackPublicKey: string;
     manualTopUpEnabled?: boolean;
-    withdrawalFee?: {
-        enabled: boolean;
-        amount: number;
-        percent?: number;
-        mode?: 'flat' | 'percent';
-        applies_to: 'bank' | 'momo' | 'all' | 'none';
-        auto_paystack?: boolean;
-        bank_tiers?: { min: number; max: number | null; fee: number }[];
-    };
-}
-
-type BankFeeTier = NonNullable<NonNullable<BuyerWalletProps['withdrawalFee']>['bank_tiers']>;
-
-function feeFromBankTiers(amount: number, tiers: BankFeeTier, fallback = 0): number {
-    if (amount <= 0 || tiers.length === 0) return Math.max(0, fallback);
-    for (const tier of tiers) {
-        if (amount + 0.0001 >= tier.min && (tier.max == null || amount <= tier.max + 0.0001)) {
-            return tier.fee;
-        }
-    }
-    if (amount < tiers[0].min) return tiers[0].fee;
-    for (let i = 0; i < tiers.length - 1; i++) {
-        const currMax = tiers[i].max;
-        const nextMin = tiers[i + 1].min;
-        if (currMax != null && amount > currMax && amount < nextMin) return tiers[i + 1].fee;
-    }
-    return tiers[tiers.length - 1].fee;
-}
-
-function feeForPayoutType(
-    settings: BuyerWalletProps['withdrawalFee'],
-    payoutType: 'momo' | 'bank',
-    amount = 0,
-): number {
-    if (!settings?.enabled) return 0;
-    if (settings.mode === 'percent') {
-        const percent = settings.percent ?? 0;
-        return percent > 0 ? Math.round(amount * (percent / 100) * 100) / 100 : 0;
-    }
-    if (settings.applies_to === 'none') return 0;
-    if (!(settings.applies_to === 'all' || settings.applies_to === payoutType)) return 0;
-    if (payoutType === 'bank' && (settings.bank_tiers?.length ?? 0) > 0) {
-        return feeFromBankTiers(amount, settings.bank_tiers!, settings.amount ?? 0);
-    }
-    return settings.amount > 0 ? settings.amount : 0;
-}
-
-function maxWithdrawableAmount(
-    balance: number,
-    settings: BuyerWalletProps['withdrawalFee'],
-    payoutType: 'momo' | 'bank',
-): number {
-    const available = Number(balance) || 0;
-    if (settings?.mode === 'percent' && (settings.percent ?? 0) > 0) {
-        return Math.max(0, Math.floor((available / (1 + (settings.percent ?? 0) / 100)) * 100) / 100);
-    }
-    let lo = 0;
-    let hi = available;
-    for (let i = 0; i < 48; i++) {
-        const mid = (lo + hi) / 2;
-        const fee = feeForPayoutType(settings, payoutType, mid);
-        if (mid + fee <= available + 1e-9) lo = mid;
-        else hi = mid;
-    }
-    let amount = Math.round(lo * 100) / 100;
-    if (amount + feeForPayoutType(settings, payoutType, amount) > available + 1e-9) {
-        amount = Math.round((amount - 0.01) * 100) / 100;
-    }
-    return Math.max(0, amount);
+    withdrawalFee?: WithdrawalFeeSettings;
+    hasPaymentPin?: boolean;
 }
 
 function formatDate(value?: string): string {
@@ -139,17 +73,20 @@ export default function BuyerWallet({
     paystackConfigured,
     manualTopUpEnabled,
     withdrawalFee,
+    hasPaymentPin = false,
 }: BuyerWalletProps) {
     const { auth, flash } = usePage<SharedData>().props;
     const [refreshing, setRefreshing] = useState(false);
     const [withdrawStep, setWithdrawStep] = useState<'details' | 'amount' | 'review'>('details');
+    const [stepError, setStepError] = useState<string | null>(null);
     const [rechargeOpen, setRechargeOpen] = useState(false);
+
+    const availableBalance = Number(wallet.available_balance) || 0;
 
     const withdrawForm = useForm({
         amount: '',
         payout_type: 'momo' as 'momo' | 'bank',
         momo_number: auth.user?.mobile ?? '',
-        // Leave blank — registered MoMo/bank name must be entered (not profile name / fee leftovers).
         account_name: '',
         network: 'mtn',
         payment_pin: '',
@@ -159,22 +96,28 @@ export default function BuyerWallet({
     const withdrawAmount = Number(withdrawForm.data.amount) || 0;
     const activeFee = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type, withdrawAmount);
     const maxWithdraw = maxWithdrawableAmount(
-        wallet.available_balance,
+        availableBalance,
         withdrawalFee,
         withdrawForm.data.payout_type,
     );
     const balanceOverLimit = !!withdrawalBalanceMessage(
         withdrawAmount,
         activeFee,
-        wallet.available_balance,
+        availableBalance,
     );
 
+    useEffect(() => {
+        if (withdrawForm.errors.payment_pin || withdrawForm.errors.amount) {
+            setWithdrawStep('review');
+        }
+    }, [withdrawForm.errors.payment_pin, withdrawForm.errors.amount]);
+
     const setPayoutType = (type: 'momo' | 'bank') => {
+        setStepError(null);
         withdrawForm.setData({
             ...withdrawForm.data,
             payout_type: type,
             network: type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn',
-            // Don't carry a MoMo phone into the bank account field (or the reverse).
             momo_number: type === 'momo' ? (auth.user?.mobile ?? '') : '',
             account_name: '',
         });
@@ -183,40 +126,53 @@ export default function BuyerWallet({
     const refreshBalance = () => {
         setRefreshing(true);
         router.reload({
-            only: ['wallet', 'transactions', 'withdrawals', 'hasPendingWithdrawal'],
+            only: ['wallet', 'transactions', 'withdrawals', 'hasPendingWithdrawal', 'hasPaymentPin'],
             onFinish: () => setRefreshing(false),
         });
     };
 
     const submitWithdraw: FormEventHandler = (e) => {
         e.preventDefault();
+        setStepError(null);
         if (withdrawStep === 'details') {
             if (!withdrawForm.data.network || !withdrawForm.data.momo_number.trim() || !withdrawForm.data.account_name.trim()) {
+                setStepError('Enter network, account number, and the name on the account to continue.');
                 return;
             }
             setWithdrawStep('amount');
             return;
         }
         if (withdrawStep === 'amount') {
-            if (!withdrawForm.data.amount || Number(withdrawForm.data.amount) < 10) {
+            if (!withdrawForm.data.amount || withdrawAmount < 10) {
+                setStepError('Enter an amount of at least GH₵10.');
                 return;
             }
-            if (
-                withdrawalBalanceMessage(
-                    withdrawAmount,
-                    activeFee,
-                    wallet.available_balance,
-                )
-            ) {
+            if (withdrawalBalanceMessage(withdrawAmount, activeFee, availableBalance)) {
+                setStepError(
+                    activeFee > 0
+                        ? `Not enough balance for amount + ${formatPrice(activeFee)} fee. Try Withdraw all (${formatPrice(maxWithdraw)}).`
+                        : `Not enough available balance. You can withdraw up to ${formatPrice(maxWithdraw)}.`,
+                );
                 return;
             }
             setWithdrawStep('review');
             return;
         }
+        if (!hasPaymentPin) {
+            setStepError('Set a 4-digit payment PIN in Settings before withdrawing.');
+            return;
+        }
+        if (!/^\d{4}$/.test(withdrawForm.data.payment_pin)) {
+            setStepError('Enter your 4-digit payment PIN.');
+            return;
+        }
         withdrawForm.post(route('wallet.withdraw'), {
+            preserveScroll: true,
+            onError: () => setWithdrawStep('review'),
             onSuccess: () => {
-                withdrawForm.reset('amount');
+                withdrawForm.reset('amount', 'payment_pin');
                 setWithdrawStep('details');
+                setStepError(null);
             },
         });
     };
@@ -299,8 +255,8 @@ export default function BuyerWallet({
                     <WithdrawalHighlight
                         title="Withdraw funds"
                         subtitle={
-                            wallet.available_balance >= 10
-                                ? `You can withdraw up to ${formatPrice(wallet.available_balance)}. Choose MoMo or bank, then enter your details.`
+                            availableBalance >= 10
+                                ? `You can withdraw up to ${formatPrice(maxWithdraw)} after fees. Choose MoMo or bank, then enter your details.`
                                 : 'Choose MoMo or a Ghana bank, then enter your payout details. Minimum withdrawal is GH₵10.'
                         }
                     >
@@ -309,7 +265,21 @@ export default function BuyerWallet({
                                 You have a withdrawal in processing (usually within 15 minutes). You can still request another with your remaining balance.
                             </p>
                         ) : null}
+                        {!hasPaymentPin && (
+                            <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                Set a 4-digit payment PIN before withdrawing.{' '}
+                                <a href={route('payment-pin.edit')} className="font-semibold underline">
+                                    Open Payment PIN settings
+                                </a>
+                                .
+                            </p>
+                        )}
                         <form onSubmit={submitWithdraw} className="space-y-5">
+                            {stepError && (
+                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
+                                    {stepError}
+                                </div>
+                            )}
                             {withdrawStep === 'details' && (
                                     <div className="space-y-4">
                                         <div>
@@ -397,16 +367,19 @@ export default function BuyerWallet({
                                             <WithdrawalBalanceAlert
                                                 amount={withdrawAmount}
                                                 fee={activeFee}
-                                                available={wallet.available_balance}
+                                                available={availableBalance}
                                                 className="mt-3"
                                             />
                                             <Input
                                                 type="number"
                                                 step="0.01"
                                                 min="10"
-                                                max={wallet.available_balance}
+                                                max={maxWithdraw > 0 ? maxWithdraw : undefined}
                                                 value={withdrawForm.data.amount}
-                                                onChange={(e) => withdrawForm.setData('amount', e.target.value)}
+                                                onChange={(e) => {
+                                                    setStepError(null);
+                                                    withdrawForm.setData('amount', e.target.value);
+                                                }}
                                                 required
                                                 className="mt-2 text-lg"
                                             />
@@ -489,7 +462,10 @@ export default function BuyerWallet({
                                             type="button"
                                             variant="outline"
                                             className="flex-1"
-                                            onClick={() => setWithdrawStep(withdrawStep === 'review' ? 'amount' : 'details')}
+                                            onClick={() => {
+                                                setStepError(null);
+                                                setWithdrawStep(withdrawStep === 'review' ? 'amount' : 'details');
+                                            }}
                                         >
                                             Back
                                         </Button>
@@ -498,8 +474,9 @@ export default function BuyerWallet({
                                         type="submit"
                                         disabled={
                                             withdrawForm.processing ||
-                                            wallet.available_balance < 10 ||
-                                            (withdrawStep === 'amount' && balanceOverLimit)
+                                            availableBalance < 10 ||
+                                            (withdrawStep === 'amount' && balanceOverLimit) ||
+                                            (withdrawStep === 'review' && !hasPaymentPin)
                                         }
                                         className="flex-1 bg-orange-500 py-6 text-base hover:bg-orange-600"
                                     >
