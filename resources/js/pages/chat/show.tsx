@@ -1,7 +1,8 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, MapPin, MessageCircle, Phone, PhoneOff, Send, Store, Trash2 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
+import ChatLinkedText from '@/components/chat/chat-linked-text';
 import OnlineIndicator from '@/components/shop/online-indicator';
 import { useToastOptional } from '@/contexts/toast-context';
 import { useConversationRealtime } from '@/hooks/use-conversation-realtime';
@@ -429,7 +430,33 @@ export default function ChatShow({ conversation, messages: initialMessages }: Ch
                                                   : 'bg-gray-100 text-gray-900'
                                         }`}
                                     >
-                                        <p>{deleted ? 'Message deleted' : msg.body}</p>
+                                        {deleted ? (
+                                            <p>Message deleted</p>
+                                        ) : (
+                                            <ChatLinkedText
+                                                text={msg.body ?? ''}
+                                                mine={mine}
+                                                onOpenCityShop={(path) => {
+                                                    if (path.startsWith('/products/')) {
+                                                        router.visit(route('products.show', path.replace('/products/', '')));
+                                                        return;
+                                                    }
+                                                    if (path.startsWith('/stores/')) {
+                                                        router.visit(route('store.show', path.replace('/stores/', '')));
+                                                        return;
+                                                    }
+                                                    router.visit(path);
+                                                }}
+                                                onCopy={async (value, label) => {
+                                                    try {
+                                                        await navigator.clipboard.writeText(value);
+                                                        toast?.success(`${label} copied`);
+                                                    } catch {
+                                                        toast?.error(`Could not copy ${label.toLowerCase()}`);
+                                                    }
+                                                }}
+                                            />
+                                        )}
                                         {msg.created_at && (
                                             <p className={`mt-1 text-[10px] ${mine && !deleted ? 'text-orange-100' : 'text-gray-400'}`}>
                                                 {new Date(msg.created_at).toLocaleTimeString('en-GH', {

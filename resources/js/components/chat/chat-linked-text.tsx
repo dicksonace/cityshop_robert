@@ -1,3 +1,4 @@
+import ChatSharedLinkPreview from '@/components/chat/chat-shared-link-preview';
 import { firstCityShopLinkIn, parseChatText, parseCityShopDeepLink } from '@/lib/parse-chat-text';
 import { cn } from '@/lib/utils';
 
@@ -15,19 +16,7 @@ export default function ChatLinkedText({ text, mine = false, onOpenCityShop, onC
     return (
         <div>
             {preview && (
-                <button
-                    type="button"
-                    onClick={() => onOpenCityShop?.(preview.path)}
-                    className={cn(
-                        'mb-2 w-full rounded-xl px-3 py-2 text-left',
-                        mine ? 'bg-white/15' : 'bg-gray-50',
-                    )}
-                >
-                    <p className={cn('text-sm font-semibold', mine ? 'text-white' : 'text-gray-900')}>
-                        {preview.kind === 'product' ? 'Open product' : preview.kind === 'store' ? 'Open store' : 'Watch live'}
-                    </p>
-                    <p className={cn('text-[11px]', mine ? 'text-orange-100' : 'text-gray-400')}>cityunlock.net</p>
-                </button>
+                <ChatSharedLinkPreview link={preview} mine={mine} onOpen={onOpenCityShop} />
             )}
             <p className="whitespace-pre-wrap break-words">
                 {segments.map((segment, index) => {
