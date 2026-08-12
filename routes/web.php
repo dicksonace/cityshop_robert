@@ -45,6 +45,7 @@ use App\Http\Controllers\Shop\CheckoutSessionController;
 use App\Http\Controllers\Shop\ContactController;
 use App\Http\Controllers\Shop\DisputeController;
 use App\Http\Controllers\Shop\FaqController;
+use App\Http\Controllers\Shop\FollowingController;
 use App\Http\Controllers\Shop\HomeController;
 use App\Http\Controllers\Shop\ImageSearchController;
 use App\Http\Controllers\Shop\InvoiceController;
@@ -115,6 +116,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
     Route::delete('/wishlist/{wishlist}', [WishlistController::class, 'destroy'])->name('wishlist.destroy');
+
+    Route::get('/following', [FollowingController::class, 'index'])->middleware('buyer.shop')->name('following.index');
+    Route::post('/following/toggle', [FollowingController::class, 'toggle'])->middleware('buyer.shop')->name('following.toggle');
 
     Route::get('/account', [AccountController::class, 'index'])->middleware('buyer.shop')->name('account.index');
 

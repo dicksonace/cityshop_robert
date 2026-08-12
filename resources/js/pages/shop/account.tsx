@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ChevronRight, Heart, KeyRound, LogOut, MapPin, User } from 'lucide-react';
+import { ChevronRight, Heart, KeyRound, LogOut, MapPin, Store, User } from 'lucide-react';
 
 import ProfileAvatarUpload from '@/components/profile-avatar-upload';
 import ShopLayout from '@/layouts/shop-layout';
@@ -9,6 +9,7 @@ const links = [
     { label: 'Profile settings', href: route('profile.edit'), icon: User, hint: 'Name & email' },
     { label: 'Addresses', href: route('addresses.index'), icon: MapPin, hint: 'Saved delivery addresses' },
     { label: 'Wishlist', href: route('wishlist.index'), icon: Heart, hint: 'Saved products' },
+    { label: 'Following', href: route('following.index'), icon: Store, hint: 'Sellers you follow' },
     { label: 'Change password', href: route('password.edit'), icon: KeyRound, hint: 'Account security' },
 ];
 
