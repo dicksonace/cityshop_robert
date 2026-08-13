@@ -38,6 +38,7 @@ $pairs = [
     'MAIL_ENCRYPTION' => '',
     'MAIL_FROM_ADDRESS' => 'wedplanghana@scholatrade.com',
     'MAIL_FROM_NAME' => '"CityShop"',
+    'MAIL_EHLO_DOMAIN' => 'scholatrade.com',
     'SMS_DRIVER' => 'formula_dc',
     'FORMULA_DC_API_KEY' => $formulaKey,
     'FORMULA_DC_SENDER' => 'Cityshop',
@@ -80,5 +81,6 @@ echo "Applied production env:\n";
 echo "  QUEUE_CONNECTION=sync\n";
 echo "  MAIL_MAILER=smtp (".$pairs['MAIL_HOST'].")\n";
 echo "  MAIL_FROM_ADDRESS=".$pairs['MAIL_FROM_ADDRESS']."\n";
+echo "  MAIL_EHLO_DOMAIN=".$pairs['MAIL_EHLO_DOMAIN']."\n";
 echo "  SMS_DRIVER=formula_dc sender=".$pairs['FORMULA_DC_SENDER']."\n";
 echo "  PAYSTACK_PUBLIC_KEY=".substr($paystackPublic, 0, 10)."...\n";
