@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Channels\SmsChannel;
+use App\Enums\InvoiceType;
 use App\Models\Invoice;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -17,7 +18,14 @@ class InvoiceSentNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', SmsChannel::class];
+        $channels = ['mail'];
+
+        // Buyers already get order placed + payment confirmed SMS.
+        if ($this->invoice->type === InvoiceType::Seller && filled($notifiable->mobile ?? null)) {
+            $channels[] = SmsChannel::class;
+        }
+
+        return $channels;
     }
 
     public function toMail(object $notifiable): MailMessage
