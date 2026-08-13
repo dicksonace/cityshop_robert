@@ -42,6 +42,8 @@ class WalletService
                 $amount,
                 'admin',
                 'ADMIN-'.$tx->id,
+                (float) Wallet::query()->where('user_id', $target->id)->value('available_balance'),
+                now('Africa/Accra'),
             ));
         } catch (\Throwable $e) {
             report($e);
@@ -97,9 +99,9 @@ class WalletService
 
     public static function creditFromVerifiedTopUp(int $userId, float $amount, string $reference, string $method): bool
     {
-        $ok = (bool) DB::transaction(function () use ($userId, $amount, $reference, $method) {
+        $available = DB::transaction(function () use ($userId, $amount, $reference, $method) {
             if (WalletTransaction::where('reference', $reference)->exists()) {
-                return false;
+                return null;
             }
 
             $wallet = Wallet::where('user_id', $userId)->lockForUpdate()->first();
@@ -117,13 +119,19 @@ class WalletService
             $wallet->increment('available_balance', $amount);
             WalletTransactionService::recordFundAdded($userId, $amount, $method, $reference);
 
-            return true;
+            return (float) $wallet->available_balance;
         });
 
-        if ($ok) {
+        if ($available !== null) {
             $user = User::query()->find($userId);
             try {
-                $user?->notify(new WalletFundedNotification($amount, $method, $reference));
+                $user?->notify(new WalletFundedNotification(
+                    $amount,
+                    $method,
+                    $reference,
+                    (float) $available,
+                    now('Africa/Accra'),
+                ));
             } catch (\Throwable $e) {
                 report($e);
             }
@@ -143,7 +151,7 @@ class WalletService
             }
         }
 
-        return $ok;
+        return $available !== null;
     }
 
     /**

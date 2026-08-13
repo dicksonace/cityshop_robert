@@ -11,6 +11,7 @@ use App\Notifications\AdminWalletDepositNotification;
 use App\Notifications\WalletFundedNotification;
 use App\Services\AdminNotifier;
 use App\Services\WalletService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -90,5 +91,17 @@ class AdminWalletAlertTest extends TestCase
                 && in_array('mail', $channels, true)
                 && in_array(SmsChannel::class, $channels, true);
         });
+    }
+
+    public function test_wallet_funded_sms_includes_available_balance_and_date(): void
+    {
+        $buyer = User::factory()->create(['mobile' => '0248620718']);
+        $at = Carbon::parse('2026-08-13 15:49:00', 'Africa/Accra');
+
+        $sms = (new WalletFundedNotification(10, 'paystack', 'TOP-6A7DE77468CE0', 2303.50, $at))->toSms($buyer);
+
+        $this->assertStringContainsString('GH₵10.00 added to your wallet. Ref TOP-6A7DE77468CE0.', $sms);
+        $this->assertStringContainsString('Available Balance: GHS 2303.50', $sms);
+        $this->assertStringContainsString('Date: 13 Aug 2026, 3:49 PM', $sms);
     }
 }
