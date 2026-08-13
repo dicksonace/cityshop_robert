@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
+import ChinaTransferChannels from '@/components/wallet/china-transfer-channels';
 import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
 import WithdrawalFeeNotice, { type WithdrawalFeeSettings } from '@/components/wallet/withdrawal-fee-notice';
 import WithdrawalBalanceAlert, { withdrawalBalanceMessage } from '@/components/wallet/withdrawal-balance-alert';
@@ -108,7 +109,7 @@ export default function SellerWallet({
 
     const withdrawForm = useForm({
         amount: '',
-        payout_type: (defaultIsBank ? 'bank' : 'momo') as 'momo' | 'bank',
+        payout_type: (defaultIsBank ? 'bank' : 'momo') as 'momo' | 'bank' | 'china',
         momo_number: defaultMethod?.account_number ?? auth.user?.mobile ?? '',
         // Never prefill — MoMo/bank registered name must be typed (avoids fee/min leftovers like "10").
         account_name: usablePayoutAccountName(defaultMethod?.account_name),
@@ -118,11 +119,13 @@ export default function SellerWallet({
     });
 
     const withdrawAmount = Number(withdrawForm.data.amount) || 0;
-    const activeFee = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type, withdrawAmount);
+    const ghanaPayout = withdrawForm.data.payout_type === 'china' ? 'momo' : withdrawForm.data.payout_type;
+    const isChinaTransfer = withdrawForm.data.payout_type === 'china';
+    const activeFee = feeForPayoutType(withdrawalFee, ghanaPayout, withdrawAmount);
     const maxWithdraw = maxWithdrawableAmount(
         availableBalance,
         withdrawalFee,
-        withdrawForm.data.payout_type,
+        ghanaPayout,
     );
     const balanceOverLimit = !!withdrawalBalanceMessage(
         withdrawAmount,
@@ -136,7 +139,7 @@ export default function SellerWallet({
         }
     }, [withdrawForm.errors.payment_pin, withdrawForm.errors.amount]);
 
-    const setPayoutType = (type: 'momo' | 'bank') => {
+    const setPayoutType = (type: 'momo' | 'bank' | 'china') => {
         withdrawForm.setData({
             ...withdrawForm.data,
             payout_type: type,
@@ -189,6 +192,10 @@ export default function SellerWallet({
         e.preventDefault();
         setStepError(null);
         if (withdrawStep === 'details') {
+            if (isChinaTransfer) {
+                setStepError('Transfer to China is currently not available. Choose Mobile Money or Bank.');
+                return;
+            }
             if (!withdrawForm.data.network || !withdrawForm.data.momo_number.trim() || !withdrawForm.data.account_name.trim()) {
                 setStepError('Enter network, account number, and the name on the account to continue.');
                 return;
@@ -383,15 +390,31 @@ export default function SellerWallet({
                                         </button>
                                     ))}
                                 </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setPayoutType('china')}
+                                    className={cn(
+                                        'mt-2 w-full rounded-xl border-2 px-3 py-3 text-sm font-semibold transition',
+                                        isChinaTransfer
+                                            ? 'border-orange-500 bg-orange-50 text-orange-800'
+                                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                                    )}
+                                >
+                                    Transfer to China
+                                </button>
                                 <InputError message={withdrawForm.errors.payout_type} />
                             </div>
+                            {!isChinaTransfer && (
                             <WithdrawalFeeNotice
-                                payoutType={withdrawForm.data.payout_type}
+                                payoutType={ghanaPayout}
                                 fee={activeFee}
                                 amount={withdrawAmount}
                                 settings={withdrawalFee}
                             />
-                            {withdrawForm.data.payout_type === 'momo' ? (
+                            )}
+                            {isChinaTransfer ? (
+                                <ChinaTransferChannels />
+                            ) : withdrawForm.data.payout_type === 'momo' ? (
                                 <MomoNetworkPicker
                                     value={withdrawForm.data.network}
                                     onChange={(network) =>
@@ -418,6 +441,7 @@ export default function SellerWallet({
                                     <InputError message={withdrawForm.errors.network} />
                                 </div>
                             )}
+                            {!isChinaTransfer && (
                             <div>
                                 <Label className="text-base font-semibold">2. Where should the money go?</Label>
                                 <div className="mt-2 space-y-3">
@@ -462,6 +486,7 @@ export default function SellerWallet({
                                     </div>
                                 </div>
                             </div>
+                            )}
                         </div>
                     )}
 
@@ -506,7 +531,7 @@ export default function SellerWallet({
                                 <p className="mt-2 text-xs text-gray-500">Minimum withdrawal: GH₵10</p>
                                 <div className="mt-3">
                                     <WithdrawalFeeNotice
-                                        payoutType={withdrawForm.data.payout_type}
+                                        payoutType={ghanaPayout}
                                         fee={activeFee}
                                         amount={withdrawAmount}
                                         settings={withdrawalFee}
@@ -575,6 +600,7 @@ export default function SellerWallet({
                         </div>
                     )}
 
+                    {!isChinaTransfer && (
                     <div className="flex gap-2">
                         {withdrawStep !== 'details' && (
                             <Button
@@ -607,6 +633,7 @@ export default function SellerWallet({
                             )}
                         </Button>
                     </div>
+                    )}
                 </form>
             </WithdrawalHighlight>
             </div>
