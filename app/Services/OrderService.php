@@ -233,7 +233,7 @@ class OrderService
             CartItem::where('user_id', $buyer->id)->delete();
 
             $checkout = $checkout->load('orders.items.seller');
-            if ($paymentMethod !== 'cash') {
+            if ($paymentMethod !== 'cash' && $paymentMethod !== 'wallet') {
                 $firstOrder = $checkout->orders->first();
                 $buyer->notify(new OrderPlacedNotification($firstOrder, checkout: $checkout));
                 if ($firstOrder) {
@@ -653,7 +653,10 @@ class OrderService
             ]);
         }
 
-        return DB::transaction(function () use ($checkout, $buyer, $marketplaceTotal) {
+        $reference = 'WAL-'.$checkout->checkout_number;
+        $alreadyPaid = WalletTransaction::where('reference', $reference)->exists();
+
+        $paid = DB::transaction(function () use ($checkout, $buyer, $marketplaceTotal, $reference) {
             $wallet = Wallet::where('user_id', $buyer->id)->lockForUpdate()->first()
                 ?? WalletService::ensure($buyer);
 
@@ -662,8 +665,6 @@ class OrderService
                     'payment_method' => 'Insufficient wallet balance. Add funds or choose another payment method.',
                 ]);
             }
-
-            $reference = 'WAL-'.$checkout->checkout_number;
 
             if (WalletTransaction::where('reference', $reference)->exists()) {
                 return $this->fulfillPaidCheckout($checkout, $reference);
@@ -680,6 +681,17 @@ class OrderService
 
             return $this->fulfillPaidCheckout($checkout, $reference);
         });
+
+        if (! $alreadyPaid) {
+            $paid = $paid->fresh(['buyer', 'orders']) ?? $paid;
+            $firstOrder = $paid->orders->first();
+            if ($paid->buyer && $firstOrder) {
+                $paid->buyer->notify(new OrderPlacedNotification($firstOrder, checkout: $paid));
+                AppNotificationService::notifyBuyerOrderPlaced($paid->buyer, $firstOrder, paymentComplete: true);
+            }
+        }
+
+        return $paid;
     }
 
     public function fulfillPaidOrder(Order $order, string $paystackReference, bool $skipCheckoutUpdate = false, bool $skipBuyerNotify = false): Order

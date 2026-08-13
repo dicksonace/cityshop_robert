@@ -113,11 +113,14 @@ class AppNotificationService
         User $buyer,
         Order $order,
         bool $cashOnDelivery = false,
+        bool $paymentComplete = false,
     ): void {
         $title = $cashOnDelivery ? 'Cash on delivery order placed' : 'Order placed';
-        $body = $cashOnDelivery
-            ? "Order {$order->order_number} is placed. The seller will call you to confirm."
-            : "Order {$order->order_number} was created. Complete payment if you have not already.";
+        $body = match (true) {
+            $cashOnDelivery => "Order {$order->order_number} is placed. The seller will call you to confirm.",
+            $paymentComplete => "Order {$order->order_number} was placed. Payment complete.",
+            default => "Order {$order->order_number} was placed.",
+        };
 
         static::send($buyer, 'order', $title, $body, [
             'order_id' => $order->id,

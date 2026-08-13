@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Channels\SmsChannel;
 use App\Enums\InvoiceType;
+use App\Enums\PaymentStatus;
 use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\User;
 use App\Notifications\InvoiceSentNotification;
 use App\Notifications\OrderPlacedNotification;
@@ -56,7 +58,26 @@ class BuyerOrderSmsTest extends TestCase
     {
         $buyer = User::factory()->create(['mobile' => '0249998887']);
 
-        $this->assertContains(SmsChannel::class, (new OrderPlacedNotification(new \App\Models\Order))->via($buyer));
-        $this->assertContains(SmsChannel::class, (new PaymentConfirmedNotification(new \App\Models\Order))->via($buyer));
+        $this->assertContains(SmsChannel::class, (new OrderPlacedNotification(new Order))->via($buyer));
+        $this->assertContains(SmsChannel::class, (new PaymentConfirmedNotification(new Order))->via($buyer));
+    }
+
+    public function test_order_email_says_payment_complete_not_to_confirm(): void
+    {
+        $paid = new Order(['payment_status' => PaymentStatus::Paid]);
+        $pending = new Order(['payment_status' => PaymentStatus::Pending]);
+
+        $this->assertSame(
+            'Your order has been placed. Payment complete.',
+            (new OrderPlacedNotification($paid))->buyerIntroLine(),
+        );
+        $this->assertSame(
+            'Your order has been placed.',
+            (new OrderPlacedNotification($pending))->buyerIntroLine(),
+        );
+        $this->assertStringNotContainsString(
+            'to confirm',
+            (new OrderPlacedNotification($paid))->buyerIntroLine(),
+        );
     }
 }

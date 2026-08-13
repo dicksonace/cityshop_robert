@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Channels\SmsChannel;
+use App\Enums\PaymentStatus;
 use App\Models\Checkout;
 use App\Models\Order;
 use Illuminate\Bus\Queueable;
@@ -31,14 +32,10 @@ class OrderPlacedNotification extends Notification implements ShouldQueue
         $number = $checkout?->checkout_number ?? $this->order->order_number;
         $total = $checkout?->total ?? $this->order->total;
 
-        $message = $this->cashOnDelivery
-            ? 'Your cash-on-delivery order has been placed.'
-            : 'Your order has been placed. Complete payment to confirm.';
-
         return (new MailMessage)
             ->subject("Order {$number} placed")
             ->greeting('Hello '.$notifiable->name.'!')
-            ->line($message)
+            ->line($this->buyerIntroLine())
             ->line('Order total: GH₵'.number_format((float) $total, 2))
             ->action('View Order', $checkout ? route('checkouts.show', $checkout) : route('orders.show', $this->order));
     }
@@ -50,5 +47,32 @@ class OrderPlacedNotification extends Notification implements ShouldQueue
         $total = $checkout?->total ?? $this->order->total;
 
         return "CityShop: Order {$number} placed. Total GH₵".number_format((float) $total, 2).'.';
+    }
+
+    public function buyerIntroLine(): string
+    {
+        if ($this->cashOnDelivery) {
+            return 'Your cash-on-delivery order has been placed.';
+        }
+
+        if ($this->paymentIsComplete()) {
+            return 'Your order has been placed. Payment complete.';
+        }
+
+        return 'Your order has been placed.';
+    }
+
+    private function paymentIsComplete(): bool
+    {
+        $checkout = $this->checkout ?? $this->order->checkout;
+
+        foreach ([$checkout?->payment_status, $this->order->payment_status] as $status) {
+            $value = $status instanceof \BackedEnum ? $status->value : $status;
+            if (strtolower((string) $value) === PaymentStatus::Paid->value) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
