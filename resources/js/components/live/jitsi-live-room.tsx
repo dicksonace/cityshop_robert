@@ -88,14 +88,22 @@ export default function JitsiLiveRoom({
                     parentNode: wrapRef.current,
                     width: '100%',
                     height: '100%',
+                    lang: 'en',
                     userInfo,
                     configOverwrite: jitsiConfigOverwrite(isHost),
                     interfaceConfigOverwrite: jitsiInterfaceConfigOverwrite(isHost),
                 });
 
+                try {
+                    api.executeCommand('setLanguage', 'en');
+                } catch {
+                    // older Jitsi builds may not support this command
+                }
+
                 api.addListener('videoConferenceJoined', () => {
                     if (!api) return;
                     try {
+                        api.executeCommand('setLanguage', 'en');
                         api.executeCommand('setVideoMute', !isHost);
                         api.executeCommand('setAudioMute', !isHost);
                         api.executeCommand('setTileView', true);

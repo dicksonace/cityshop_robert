@@ -11,6 +11,7 @@ export function jitsiScriptUrl(domain: string): string {
 
 export function jitsiConfigOverwrite(isHost: boolean): Record<string, unknown> {
     return {
+        defaultLanguage: 'en',
         prejoinPageEnabled: false,
         startWithAudioMuted: !isHost,
         startWithVideoMuted: !isHost,
@@ -31,6 +32,7 @@ export function jitsiConfigOverwrite(isHost: boolean): Record<string, unknown> {
 
 export function jitsiInterfaceConfigOverwrite(isHost: boolean): Record<string, unknown> {
     return {
+        LANG_DETECTION: false,
         SHOW_JITSI_WATERMARK: false,
         SHOW_WATERMARK_FOR_GUESTS: false,
         DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
