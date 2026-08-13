@@ -30,10 +30,22 @@ $PHP_BIN artisan products:index-image-colors
 echo "==> Storage link (safe if already exists)"
 $PHP_BIN artisan storage:link 2>/dev/null || true
 
-echo "==> Cache for production"
+echo "==> Refresh config (so .env changes actually apply)"
+$PHP_BIN artisan config:clear
+$PHP_BIN artisan cache:clear
 $PHP_BIN artisan config:cache
 $PHP_BIN artisan route:cache
 $PHP_BIN artisan view:cache
+
+if grep -qE '^PAYSTACK_PUBLIC_KEY=pk_test_' .env 2>/dev/null; then
+    echo "WARNING: PAYSTACK_PUBLIC_KEY is still a TEST key. Payments will hit the Paystack test account."
+fi
+if grep -qE '^MAIL_MAILER=log' .env 2>/dev/null; then
+    echo "WARNING: MAIL_MAILER=log — emails will not leave the server."
+fi
+if grep -qE '^QUEUE_CONNECTION=database' .env 2>/dev/null; then
+    echo "WARNING: QUEUE_CONNECTION=database with no worker — queued mail/SMS will not send. Use QUEUE_CONNECTION=sync."
+fi
 
 echo "==> Fix permissions"
 chmod -R 775 storage bootstrap/cache

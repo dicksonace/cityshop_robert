@@ -129,8 +129,14 @@ class AuthController extends Controller
             'via' => ['nullable', 'in:email,sms'],
         ]);
 
-        $via = \App\Support\ResetChannel::parse($validated['via'] ?? 'email');
-        $result = PasswordResetService::sendCode(trim($validated['login']), $via);
+        $login = trim($validated['login']);
+        $via = filled($validated['via'] ?? null)
+            ? \App\Support\ResetChannel::parse($validated['via'])
+            : (filter_var($login, FILTER_VALIDATE_EMAIL)
+                ? \App\Support\ResetChannel::EMAIL
+                : \App\Support\ResetChannel::SMS);
+
+        $result = PasswordResetService::sendCode($login, $via);
 
         $destination = $via === 'sms' ? 'phone' : 'email';
 
@@ -140,7 +146,7 @@ class AuthController extends Controller
                 : "If that account exists, a reset code was sent to the {$destination} on file.",
             'via' => $result['via'],
             'hint' => $result['hint'],
-            'email_hint' => $result['email_hint'],
+            'email_hint' => $result['hint'],
         ]);
     }
 
