@@ -1,6 +1,8 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Radio } from 'lucide-react';
 import { useEffect, useState } from 'react';
+
+import { SharedData } from '@/types';
 
 export interface LiveNowCard {
     id: number;
@@ -11,6 +13,7 @@ export interface LiveNowCard {
 }
 
 export default function LiveNowStrip({ lives }: { lives: LiveNowCard[] }) {
+    const livestreamEnabled = usePage<SharedData>().props.livestreamEnabled === true;
     const [items, setItems] = useState<LiveNowCard[]>(lives);
 
     useEffect(() => {
@@ -18,6 +21,8 @@ export default function LiveNowStrip({ lives }: { lives: LiveNowCard[] }) {
     }, [lives]);
 
     useEffect(() => {
+        if (!livestreamEnabled) return;
+
         let cancelled = false;
 
         const refresh = async () => {
@@ -46,7 +51,7 @@ export default function LiveNowStrip({ lives }: { lives: LiveNowCard[] }) {
             cancelled = true;
             window.clearInterval(tick);
         };
-    }, []);
+    }, [livestreamEnabled]);
 
     if (!items.length) return null;
 

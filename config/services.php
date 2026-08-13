@@ -65,6 +65,8 @@ return [
     ],
 
     'livestream' => [
+        // Off until Go Live is reliable. Flip to true to bring seller/buyer live back.
+        'enabled' => env('LIVESTREAM_ENABLED', false),
         // meet.jit.si requires Google/GitHub for the host and shows a lobby to shoppers.
         // meet.ffmuc.net blocks third-party iframes. jitsi.riot.im allows anonymous embeds.
         'jitsi_domain' => env('JITSI_DOMAIN', 'jitsi.riot.im'),

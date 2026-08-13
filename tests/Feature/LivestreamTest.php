@@ -60,6 +60,24 @@ class LivestreamTest extends TestCase
             ->assertJsonPath('data.livestream.room.room_name', Livestream::query()->first()->room_name);
     }
 
+    public function test_livestream_is_hidden_when_the_feature_flag_is_off(): void
+    {
+        config(['services.livestream.enabled' => false]);
+        [$seller] = $this->approvedSeller();
+        Sanctum::actingAs($seller);
+
+        $this->postJson('/api/v1/livestreams/start', ['title' => 'Evening deals'])
+            ->assertForbidden();
+
+        $this->getJson('/api/v1/livestreams')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->getJson('/api/v1/stores/'.$seller->sellerProfile->slug)
+            ->assertOk()
+            ->assertJsonPath('data.is_live', false);
+    }
+
     public function test_buyer_cannot_start_a_livestream(): void
     {
         $buyer = User::factory()->create(['role' => UserRole::Buyer]);

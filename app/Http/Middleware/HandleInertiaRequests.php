@@ -70,6 +70,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user ? $user->load('sellerProfile') : null,
             ],
             'canShop' => $user ? ! $user->isSeller() : true,
+            'livestreamEnabled' => \App\Services\LiveStreamService::enabled(),
             'cartCount' => $cartCount,
             'wishlistProductIds' => $wishlistProductIds,
             'wishlistCount' => $wishlistCount,

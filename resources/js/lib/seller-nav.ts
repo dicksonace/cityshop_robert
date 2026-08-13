@@ -6,7 +6,6 @@ import {
     Star,
     Store,
     Tag,
-    Video,
     Wallet,
 } from 'lucide-react';
 
@@ -52,7 +51,7 @@ export function sellerNavSection(active: SellerNavKey): string {
     return sectionMap[active];
 }
 
-export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
+export function sellerNavGroups(active: SellerNavKey, livestreamEnabled = false): PanelNavGroup[] {
     const section = sellerNavSection(active);
 
     return [
@@ -74,7 +73,9 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
             defaultOpen: section === 'store',
             items: [
                 { key: 'appearance', label: 'Customize Store', href: route('seller.store-appearance.index') },
-                { key: 'livestream', label: 'Go Live', href: route('seller.livestream') },
+                ...(livestreamEnabled
+                    ? [{ key: 'livestream', label: 'Go Live', href: route('seller.livestream') }]
+                    : []),
             ],
         },
         {
@@ -151,8 +152,8 @@ export function sellerNavGroups(active: SellerNavKey): PanelNavGroup[] {
     ];
 }
 
-export function sellerMobileNavItems(active: SellerNavKey) {
-    return sellerNavGroups(active)
+export function sellerMobileNavItems(active: SellerNavKey, livestreamEnabled = false) {
+    return sellerNavGroups(active, livestreamEnabled)
         .flatMap((group) => group.items)
         .filter((item) => item.mobile);
 }

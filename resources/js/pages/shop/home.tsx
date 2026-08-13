@@ -50,7 +50,7 @@ const quickFilters = [
 ];
 
 export default function Home({ products, categories, brands, priceRange, filters, counts, heroSlides, hasSaleProducts = false, liveNow = [] }: HomeProps) {
-    const { auth } = usePage<SharedData>().props;
+    const { auth, livestreamEnabled } = usePage<SharedData>().props;
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
     const resetKey = useMemo(
@@ -83,7 +83,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                 counts={counts}
                 hasSaleProducts={hasSaleProducts}
             />
-            <LiveNowStrip lives={liveNow} />
+            {livestreamEnabled && <LiveNowStrip lives={liveNow} />}
 
             <div className="border-b border-gray-100 bg-white">
                 <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-6 px-4 py-3 text-center text-xs text-gray-500 md:justify-between md:text-sm">

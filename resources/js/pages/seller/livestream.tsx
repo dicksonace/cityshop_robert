@@ -30,7 +30,7 @@ interface PageProps {
 }
 
 export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
-    const { auth, flash } = usePage<SharedData>().props;
+    const { auth, flash, livestreamEnabled } = usePage<SharedData>().props;
     const form = useForm({ title: livestream?.title ?? '' });
     const [hostReady, setHostReady] = useState(false);
 
@@ -76,6 +76,24 @@ export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
         const tick = window.setInterval(ping, 25000);
         return () => window.clearInterval(tick);
     }, [livestream?.id, hostReady]);
+
+    if (!livestreamEnabled) {
+        return (
+            <SellerLayout title="Go Live" active="dashboard">
+                <Head title="Go Live" />
+                <div className="mx-auto max-w-lg rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
+                    <h1 className="text-xl font-bold text-gray-900">Live selling is coming soon</h1>
+                    <p className="mt-2 text-sm text-gray-500">
+                        We paused Go Live while we finish a more reliable stream. Your store, orders, and wallet still
+                        work as usual.
+                    </p>
+                    <Link href={route('seller.dashboard')} className="mt-4 inline-block font-medium text-orange-600 hover:underline">
+                        Back to dashboard
+                    </Link>
+                </div>
+            </SellerLayout>
+        );
+    }
 
     return (
         <SellerLayout title="Go Live" active="livestream">

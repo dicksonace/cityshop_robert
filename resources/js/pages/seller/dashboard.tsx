@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowRight,
@@ -20,6 +20,7 @@ import WalletBalanceCard from '@/components/seller/wallet-balance-card';
 import SellerLayout from '@/layouts/seller-layout';
 import { sellerOrdersStageHref } from '@/lib/seller-order-stages';
 import { formatPrice, formatOrderStatus, OrderItem, SellerProfile } from '@/types/marketplace';
+import { SharedData } from '@/types';
 
 const AUTO_REFRESH_SECONDS = 60;
 const DASHBOARD_RELOAD_KEYS = [
@@ -80,6 +81,7 @@ export default function SellerDashboard({
     manualTopUpEnabled = false,
     isLive = false,
 }: DashboardProps) {
+    const livestreamEnabled = usePage<SharedData>().props.livestreamEnabled === true;
     const [secondsLeft, setSecondsLeft] = useState(AUTO_REFRESH_SECONDS);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -142,6 +144,7 @@ export default function SellerDashboard({
                         <p className="mt-1 text-sm text-orange-100">Total earnings · {formatPrice(stats.total_earnings)}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
+                    {livestreamEnabled && (
                     <Link
                         href={route('seller.livestream')}
                         className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold shadow-sm ${
@@ -153,6 +156,7 @@ export default function SellerDashboard({
                         <Video className="h-4 w-4" />
                         {isLive ? 'You are live' : 'Go Live'}
                     </Link>
+                    )}
                     <div className="rounded-xl bg-white/15 px-4 py-3 text-center backdrop-blur">
                         <p className="text-xs text-orange-100">Store health</p>
                         <p className="text-2xl font-bold">{storeHealth.score}%</p>

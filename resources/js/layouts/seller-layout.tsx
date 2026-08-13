@@ -19,6 +19,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { SellerNavKey, sellerMobileNavItems, sellerNavGroups, sellerNavSection } from '@/lib/seller-nav';
 import { isNavSubItemActive } from '@/lib/panel-nav-utils';
 import { cn } from '@/lib/utils';
+import { SharedData } from '@/types';
 
 const mobileIcons: Record<string, typeof LayoutDashboard> = {
     overview: LayoutDashboard,
@@ -37,10 +38,12 @@ interface SellerLayoutProps {
 
 function SellerSidebar({
     active,
+    livestreamEnabled,
     onNavigate,
     className,
 }: {
     active: SellerNavKey;
+    livestreamEnabled: boolean;
     onNavigate?: () => void;
     className?: string;
 }) {
@@ -52,7 +55,7 @@ function SellerSidebar({
             </div>
             <PanelSidebarNav
                 panelId="seller"
-                groups={sellerNavGroups(active)}
+                groups={sellerNavGroups(active, livestreamEnabled)}
                 fallbackSection={sellerNavSection(active)}
                 onNavigate={onNavigate}
                 className="min-h-0 flex-1"
@@ -79,10 +82,11 @@ function SellerSidebar({
 }
 
 export default function SellerLayout({ children, title, active, showFab = false }: SellerLayoutProps) {
-    const page = usePage<{ flash?: { success?: string; error?: string } }>();
+    const page = usePage<SharedData>();
     const { url } = page;
     const flash = page.props.flash;
-    const mobileNav = sellerMobileNavItems(active);
+    const livestreamEnabled = page.props.livestreamEnabled === true;
+    const mobileNav = sellerMobileNavItems(active, livestreamEnabled);
     const [menuOpen, setMenuOpen] = useState(false);
     const closeMenu = () => setMenuOpen(false);
 
@@ -91,7 +95,7 @@ export default function SellerLayout({ children, title, active, showFab = false 
             <Head title={title} />
             <div className="flex">
                 <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-gray-200 bg-white lg:flex">
-                    <SellerSidebar active={active} className="h-full" />
+                    <SellerSidebar active={active} livestreamEnabled={livestreamEnabled} className="h-full" />
                 </aside>
 
                 <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -99,7 +103,7 @@ export default function SellerLayout({ children, title, active, showFab = false 
                         <SheetHeader className="sr-only">
                             <SheetTitle>Seller Hub menu</SheetTitle>
                         </SheetHeader>
-                        <SellerSidebar active={active} onNavigate={closeMenu} className="h-full" />
+                        <SellerSidebar active={active} livestreamEnabled={livestreamEnabled} onNavigate={closeMenu} className="h-full" />
                     </SheetContent>
                 </Sheet>
 

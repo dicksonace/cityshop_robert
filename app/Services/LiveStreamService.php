@@ -13,8 +13,24 @@ use Illuminate\Support\Str;
 
 class LiveStreamService
 {
+    public static function enabled(): bool
+    {
+        return (bool) config('services.livestream.enabled', false);
+    }
+
     public static function expireStale(): void
     {
+        if (! static::enabled()) {
+            Livestream::query()
+                ->where('status', LivestreamStatus::Live)
+                ->update([
+                    'status' => LivestreamStatus::Ended->value,
+                    'ended_at' => now(),
+                ]);
+
+            return;
+        }
+
         Livestream::query()
             ->where('status', LivestreamStatus::Live)
             ->where('last_heartbeat_at', '<', now()->subMinutes(8))
@@ -48,6 +64,8 @@ class LiveStreamService
 
     public static function start(User $seller, ?string $title = null): Livestream
     {
+        abort_unless(static::enabled(), 403, 'Live selling is temporarily unavailable.');
+
         $profile = $seller->sellerProfile;
         abort_unless($profile && $profile->status === SellerStatus::Approved, 403, 'Only approved sellers can go live.');
 
@@ -110,6 +128,10 @@ class LiveStreamService
      */
     public static function liveNow(int $limit = 12): Collection
     {
+        if (! static::enabled()) {
+            return collect();
+        }
+
         static::expireStale();
 
         return Livestream::query()

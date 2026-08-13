@@ -26,6 +26,10 @@ class LivestreamController extends Controller
 
     public function start(Request $request): RedirectResponse
     {
+        if (! LiveStreamService::enabled()) {
+            return back()->with('error', 'Live selling is temporarily unavailable.');
+        }
+
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:80'],
         ]);
