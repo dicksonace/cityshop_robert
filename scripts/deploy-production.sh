@@ -11,6 +11,9 @@ cd "$APP_DIR"
 echo "==> Pull latest code"
 git pull origin main
 
+echo "==> Apply production .env (mail, SMS, live Paystack, sync queue)"
+$PHP_BIN scripts/apply-production-env.php "$APP_DIR/.env"
+
 echo "==> Install PHP dependencies"
 if [[ -f "$COMPOSER_BIN" ]]; then
     $PHP_BIN -d memory_limit=-1 "$COMPOSER_BIN" install --no-dev --optimize-autoloader
@@ -38,16 +41,21 @@ $PHP_BIN artisan route:cache
 $PHP_BIN artisan view:cache
 
 if grep -qE '^PAYSTACK_PUBLIC_KEY=pk_test_' .env 2>/dev/null; then
-    echo "WARNING: PAYSTACK_PUBLIC_KEY is still a TEST key. Payments will hit the Paystack test account."
+    echo "WARNING: PAYSTACK_PUBLIC_KEY is still a TEST key."
 fi
 if grep -qE '^MAIL_MAILER=log' .env 2>/dev/null; then
     echo "WARNING: MAIL_MAILER=log — emails will not leave the server."
 fi
+if grep -qE '^SMS_DRIVER=log' .env 2>/dev/null; then
+    echo "WARNING: SMS_DRIVER=log — SMS will only write to laravel.log."
+fi
 if grep -qE '^QUEUE_CONNECTION=database' .env 2>/dev/null; then
-    echo "WARNING: QUEUE_CONNECTION=database with no worker — queued mail/SMS will not send. Use QUEUE_CONNECTION=sync."
+    echo "WARNING: QUEUE_CONNECTION=database with no worker — queued mail/SMS will not send."
 fi
 
 echo "==> Fix permissions"
 chmod -R 775 storage bootstrap/cache
 
 echo "==> Done. Open https://cityunlock.net"
+echo "    Test: php artisan mail:test you@gmail.com"
+echo "          php artisan sms:send 0532700209 \"CityShop test\""
