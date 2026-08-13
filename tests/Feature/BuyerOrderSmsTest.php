@@ -11,6 +11,7 @@ use App\Models\OrderItem;
 use App\Models\User;
 use App\Notifications\InvoiceSentNotification;
 use App\Notifications\OrderPlacedNotification;
+use App\Notifications\OrderStatusUpdatedNotification;
 use App\Notifications\PaymentConfirmedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -112,5 +113,27 @@ class BuyerOrderSmsTest extends TestCase
         $this->assertSame('You have a new order. Payment complete: HP 1040G8 i5', $paidMail);
         $this->assertStringNotContainsString('awaiting payment', $paidMail);
         $this->assertSame('You have a new order awaiting payment: HP 1040G8 i5', $pendingMail);
+    }
+
+    public function test_order_status_sms_only_for_confirm_receipt_and_cancel(): void
+    {
+        $buyer = User::factory()->create(['mobile' => '0249998887']);
+        $item = new OrderItem(['product_name' => 'HP 1040G8 i5']);
+
+        foreach (['packed', 'shipped', 'delivered', 'call_confirmed'] as $status) {
+            $this->assertSame(
+                ['mail'],
+                (new OrderStatusUpdatedNotification($item, $status))->via($buyer),
+                $status.' should be email only',
+            );
+        }
+
+        foreach (['awaiting_confirmation', 'cancelled'] as $status) {
+            $this->assertSame(
+                ['mail', SmsChannel::class],
+                (new OrderStatusUpdatedNotification($item, $status))->via($buyer),
+                $status.' should still SMS',
+            );
+        }
     }
 }

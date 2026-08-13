@@ -22,7 +22,19 @@ class OrderStatusUpdatedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', SmsChannel::class];
+        $channels = ['mail'];
+
+        if ($this->sendsSms() && filled($notifiable->mobile ?? null)) {
+            $channels[] = SmsChannel::class;
+        }
+
+        return $channels;
+    }
+
+    /** Packed / shipped / complete / COD call stay email-only. */
+    public function sendsSms(): bool
+    {
+        return in_array($this->status, ['awaiting_confirmation', 'cancelled'], true);
     }
 
     public function toMail(object $notifiable): MailMessage
