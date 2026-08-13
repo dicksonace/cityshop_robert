@@ -55,7 +55,7 @@ class OrderStatusUpdatedNotification extends Notification implements ShouldQueue
         $mail = (new MailMessage)
             ->subject($labels[$this->status] ?? 'Order update')
             ->greeting('Hello '.$notifiable->name.'!')
-            ->line("{$this->orderItem->product_name} — status: {$statusLabel}");
+            ->line("{$this->orderItem->product_name} — Order Status: {$statusLabel}");
 
         if ($this->orderItem->rejection_reason) {
             $mail->line("Reason: {$this->orderItem->rejection_reason}");
