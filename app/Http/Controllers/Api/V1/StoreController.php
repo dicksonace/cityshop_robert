@@ -24,6 +24,7 @@ class StoreController extends Controller
         $store = SellerProfile::with(['user'])
             ->where('slug', $slug)
             ->where('status', SellerStatus::Approved)
+            ->serviceActive()
             ->firstOrFail();
 
         $search = trim((string) ($request->get('search') ?: $request->get('q', '')));

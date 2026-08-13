@@ -30,6 +30,13 @@ class LivestreamController extends Controller
             return back()->with('error', 'Live selling is temporarily unavailable.');
         }
 
+        if ($request->user()->sellerProfile?->needsActivationPayment()) {
+            return redirect()->route('seller.activation.show')->with(
+                'error',
+                'Pay your annual seller service fee before going live.',
+            );
+        }
+
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:80'],
         ]);

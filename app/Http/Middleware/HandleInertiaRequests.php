@@ -77,6 +77,7 @@ class HandleInertiaRequests extends Middleware
             'unreadMessages' => $unreadMessages,
             'unreadNotifications' => $unreadNotifications,
             'panelNavCounts' => fn () => PanelNavService::countsFor($user),
+            'sellerActivation' => fn () => $user?->isSeller() ? $user->sellerProfile?->activationPayload() : null,
             'reverb' => [
                 'key' => config('broadcasting.connections.reverb.key'),
                 'host' => config('broadcasting.connections.reverb.options.host'),

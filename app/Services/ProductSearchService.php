@@ -171,7 +171,7 @@ class ProductSearchService
      */
     public function constrainStoreName(Builder $profile, array $parsed): void
     {
-        $profile->where('status', SellerStatus::Approved);
+        $profile->where('status', SellerStatus::Approved)->serviceActive();
 
         $phrase = '%'.$parsed['phrase'].'%';
 

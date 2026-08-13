@@ -36,6 +36,7 @@ class AppLinkController extends Controller
         $store = SellerProfile::query()
             ->where('slug', $slug)
             ->where('status', SellerStatus::Approved)
+            ->serviceActive()
             ->firstOrFail();
 
         $share = SharePreview::storePreview($store->toArray());

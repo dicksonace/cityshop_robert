@@ -36,6 +36,14 @@ export interface SharedData {
     unreadMessages?: number;
     unreadNotifications?: number;
     panelNavCounts?: Record<string, number>;
+    sellerActivation?: {
+        fee_amount: number;
+        prompted_at?: string | null;
+        paid_until?: string | null;
+        paid_at?: string | null;
+        is_active: boolean;
+        needs_payment: boolean;
+    } | null;
     reverb?: {
         key?: string | null;
         host?: string | null;

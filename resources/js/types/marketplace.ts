@@ -140,6 +140,7 @@ export const walletTransactionLabels: Record<string, string> = {
     withdrawal_refunded: 'Withdrawal Refunded',
     fund_added: 'Funds Added',
     fund_removed: 'Funds Removed',
+    service_fee: 'Seller Service Fee',
     order_payment: 'Order Payment',
     order_refund: 'Order Refund',
     sale_reversed: 'Sale Reversed',

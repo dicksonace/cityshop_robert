@@ -189,6 +189,8 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
 
         Route::middleware(['seller.store-setup'])->group(function () {
             Route::get('/dashboard', [SellerDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/activation', [\App\Http\Controllers\Seller\ActivationController::class, 'show'])->name('activation.show');
+            Route::post('/activation/pay', [\App\Http\Controllers\Seller\ActivationController::class, 'pay'])->name('activation.pay');
             Route::get('/account', [SellerAccountController::class, 'index'])->name('account');
             Route::get('/livestream', [\App\Http\Controllers\Seller\LivestreamController::class, 'show'])->name('livestream');
             Route::post('/livestream/start', [\App\Http\Controllers\Seller\LivestreamController::class, 'start'])->name('livestream.start');
@@ -258,6 +260,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/sellers', [AdminSellerController::class, 'index'])->name('sellers.index');
     Route::get('/sellers/{seller}', [AdminSellerController::class, 'show'])->name('sellers.show');
     Route::patch('/sellers/{seller}/profile', [AdminSellerController::class, 'updateProfile'])->name('sellers.update-profile');
+    Route::post('/sellers/{seller}/activation/prompt', [AdminSellerController::class, 'promptActivation'])->name('sellers.activation.prompt');
+    Route::post('/sellers/{seller}/activation/waive', [AdminSellerController::class, 'waiveActivation'])->name('sellers.activation.waive');
+    Route::post('/sellers/{seller}/activation/end', [AdminSellerController::class, 'endActivation'])->name('sellers.activation.end');
     Route::post('/sellers/{seller}/approve', [AdminSellerController::class, 'approve'])->name('sellers.approve');
     Route::post('/sellers/{seller}/reject', [AdminSellerController::class, 'reject'])->name('sellers.reject');
     Route::post('/sellers/{seller}/block', [AdminSellerController::class, 'block'])->name('sellers.block');

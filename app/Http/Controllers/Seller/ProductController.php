@@ -58,8 +58,12 @@ class ProductController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response|RedirectResponse
     {
+        if ($redirect = $this->activationRedirect($request)) {
+            return $redirect;
+        }
+
         return Inertia::render('seller/products/create', [
             'categories' => Category::activeOrdered()->get(),
             'profile' => auth()->user()->sellerProfile,
@@ -68,6 +72,10 @@ class ProductController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if ($redirect = $this->activationRedirect($request)) {
+            return $redirect;
+        }
+
         // Oversized multipart uploads can empty the whole request (PHP post_max_size).
         if ($request->server('CONTENT_LENGTH') && empty($request->all()) && empty($request->allFiles())) {
             return back()->withErrors([
@@ -245,6 +253,10 @@ class ProductController extends Controller
     {
         abort_unless($product->seller_id === $request->user()->id, 403);
 
+        if ($redirect = $this->activationRedirect($request)) {
+            return $redirect;
+        }
+
         $copy = $product->replicate(['slug', 'views', 'rating', 'review_count', 'cart_adds', 'wishlist_adds', 'purchase_count']);
         $copy->name = $product->name.' (Copy)';
         $copy->slug = Product::generateUniqueSlug($copy->name, $product->seller_id);
@@ -267,6 +279,10 @@ class ProductController extends Controller
     public function toggleVisibility(Request $request, Product $product): RedirectResponse
     {
         abort_unless($product->seller_id === $request->user()->id, 403);
+
+        if ($product->status !== ProductStatus::Approved && ($redirect = $this->activationRedirect($request))) {
+            return $redirect;
+        }
 
         if ($product->status === ProductStatus::Draft || $product->status === ProductStatus::Pending || $product->status === ProductStatus::Rejected) {
             $product->update([
@@ -525,5 +541,18 @@ class ProductController extends Controller
         $validated = CategorySpecService::validateSpecs($category->slug, $specs);
 
         return $validated ?: null;
+    }
+
+    private function activationRedirect(Request $request): ?RedirectResponse
+    {
+        $profile = $request->user()?->sellerProfile;
+        if (! $profile?->needsActivationPayment()) {
+            return null;
+        }
+
+        return redirect()->route('seller.activation.show')->with(
+            'error',
+            'Pay your annual seller service fee to list products. Buyers cannot see your store until you pay. You can still withdraw and recharge.',
+        );
     }
 }

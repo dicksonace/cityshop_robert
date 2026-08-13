@@ -27,6 +27,15 @@ interface AdminPaymentMethod {
     deleted_at: string | null;
 }
 
+interface ActivationPayload {
+    fee_amount: number;
+    prompted_at?: string | null;
+    paid_until?: string | null;
+    paid_at?: string | null;
+    is_active: boolean;
+    needs_payment: boolean;
+}
+
 interface SellerShowProps {
     seller: SellerProfile & {
         user: {
@@ -56,6 +65,7 @@ interface SellerShowProps {
     paymentMethodsLockReason: string | null;
     paymentMethodsLockedBy: { id: number; name: string } | null;
     paymentMethodsLockedAt: string | null;
+    activation: ActivationPayload;
 }
 
 function DocLink({ path, label }: { path?: string; label: string }) {
@@ -74,9 +84,13 @@ export default function SellerShow({
     paymentMethodsLockReason,
     paymentMethodsLockedBy,
     paymentMethodsLockedAt,
+    activation,
 }: SellerShowProps) {
     const { flash } = usePage<SharedData>().props;
     const [reason, setReason] = useState('');
+    const [activationAmount, setActivationAmount] = useState(
+        activation.fee_amount > 0 ? String(activation.fee_amount) : '',
+    );
     const [sendRegistrationLink, setSendRegistrationLink] = useState(false);
     const [copied, setCopied] = useState(false);
     const [disableReason, setDisableReason] = useState<Record<number, string>>({});
@@ -330,6 +344,75 @@ export default function SellerShow({
                     <Button onClick={resendInvite} className="mt-4 bg-orange-500 hover:bg-orange-600">
                         Generate registration link
                     </Button>
+                </div>
+            )}
+
+            {seller.status === 'approved' && (
+                <div className="mt-6 rounded-xl border border-orange-200 bg-white p-6 shadow-sm">
+                    <h3 className="font-semibold text-gray-900">Seller activation</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Enter an amount to prompt this seller to pay a 1-year service fee. Until they pay, products stay hidden and they cannot post.
+                        They can still withdraw and recharge.
+                    </p>
+                    <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                        {activation.is_active && activation.paid_until ? (
+                            <span>
+                                Active until {new Date(activation.paid_until).toLocaleString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                {activation.fee_amount > 0 ? ` · next fee ${activation.fee_amount.toFixed(2)}` : ''}
+                            </span>
+                        ) : activation.needs_payment ? (
+                            <span className="font-medium text-amber-800">
+                                Payment due: GH₵{activation.fee_amount.toFixed(2)}. Store hidden from buyers.
+                            </span>
+                        ) : (
+                            <span>Not required yet. Enter an amount and prompt the seller.</span>
+                        )}
+                    </div>
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div className="sm:w-40">
+                            <label className="text-xs font-semibold text-gray-500">Amount (GH₵)</label>
+                            <Input
+                                type="number"
+                                min="1"
+                                step="0.01"
+                                value={activationAmount}
+                                onChange={(e) => setActivationAmount(e.target.value)}
+                                className="mt-1"
+                            />
+                        </div>
+                        <Button
+                            type="button"
+                            className="bg-orange-500 hover:bg-orange-600"
+                            onClick={() =>
+                                router.post(route('admin.sellers.activation.prompt', seller.id), {
+                                    amount: Number(activationAmount),
+                                })
+                            }
+                            disabled={!activationAmount || Number(activationAmount) < 1}
+                        >
+                            Prompt seller to pay
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                router.post(route('admin.sellers.activation.waive', seller.id), {
+                                    amount: activationAmount ? Number(activationAmount) : undefined,
+                                })
+                            }
+                        >
+                            Activate 1 year (no charge)
+                        </Button>
+                        {activation.is_active && (
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => router.post(route('admin.sellers.activation.end', seller.id))}
+                            >
+                                End activation now
+                            </Button>
+                        )}
+                    </div>
                 </div>
             )}
 

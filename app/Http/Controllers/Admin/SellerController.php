@@ -10,6 +10,7 @@ use App\Models\SellerProfile;
 use App\Notifications\SellerApprovedNotification;
 use App\Notifications\SellerRejectedNotification;
 use App\Services\SellerAccountService;
+use App\Services\SellerActivationService;
 use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\SellerRegistrationInviteService;
 use App\Services\StoreCustomizationService;
@@ -81,7 +82,37 @@ class SellerController extends Controller
             'paymentMethodsLockReason' => $seller->payment_methods_lock_reason,
             'paymentMethodsLockedBy' => $seller->paymentMethodsLockedBy?->only(['id', 'name']),
             'paymentMethodsLockedAt' => $seller->payment_methods_locked_at?->toIso8601String(),
+            'activation' => $seller->activationPayload(),
         ]);
+    }
+
+    public function promptActivation(Request $request, SellerProfile $seller, SellerActivationService $activation): RedirectResponse
+    {
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:1', 'max:50000'],
+        ]);
+
+        $activation->prompt($seller, (float) $validated['amount']);
+
+        return back()->with('success', 'Seller has been prompted to pay the GH₵'.number_format((float) $validated['amount'], 2).' service fee. Products stay hidden until they pay. Wallet withdraw and recharge still work.');
+    }
+
+    public function waiveActivation(Request $request, SellerProfile $seller, SellerActivationService $activation): RedirectResponse
+    {
+        $validated = $request->validate([
+            'amount' => ['nullable', 'numeric', 'min:1', 'max:50000'],
+        ]);
+
+        $activation->waiveForYear($seller, isset($validated['amount']) ? (float) $validated['amount'] : null);
+
+        return back()->with('success', 'Seller store activated for 1 year without charging the wallet.');
+    }
+
+    public function endActivation(SellerProfile $seller, SellerActivationService $activation): RedirectResponse
+    {
+        $activation->endNow($seller);
+
+        return back()->with('success', 'Activation ended. Products are hidden until the seller pays the service fee.');
     }
 
     public function updateProfile(UpdateSellerInformationRequest $request, SellerProfile $seller): RedirectResponse

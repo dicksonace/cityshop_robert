@@ -86,6 +86,8 @@ export default function SellerLayout({ children, title, active, showFab = false 
     const { url } = page;
     const flash = page.props.flash;
     const livestreamEnabled = page.props.livestreamEnabled === true;
+    const activation = page.props.sellerActivation;
+    const showActivationBanner = activation?.needs_payment && !url.startsWith('/seller/activation');
     const mobileNav = sellerMobileNavItems(active, livestreamEnabled);
     const [menuOpen, setMenuOpen] = useState(false);
     const closeMenu = () => setMenuOpen(false);
@@ -143,6 +145,15 @@ export default function SellerLayout({ children, title, active, showFab = false 
                     {flash?.error && (
                         <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-medium text-red-800">
                             {flash.error}
+                        </div>
+                    )}
+                    {showActivationBanner && activation && (
+                        <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
+                            Pay GH₵{Number(activation.fee_amount).toFixed(2)} annual service fee to keep your store live.
+                            Buyers cannot see your products until you pay. You can still withdraw and recharge.{' '}
+                            <Link href={route('seller.activation.show')} className="font-bold text-orange-700 underline">
+                                Pay now
+                            </Link>
                         </div>
                     )}
                     <main className="min-w-0 flex-1 overflow-x-hidden p-4 lg:p-8">{children}</main>

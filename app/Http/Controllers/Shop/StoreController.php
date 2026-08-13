@@ -25,6 +25,7 @@ class StoreController extends Controller
         $store = SellerProfile::with(['user', 'storeCustomization'])
             ->where('slug', $slug)
             ->where('status', SellerStatus::Approved)
+            ->serviceActive()
             ->firstOrFail();
 
         $customization = $customizations->forProfile($store);

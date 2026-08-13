@@ -112,6 +112,19 @@ class WalletTransactionService
         );
     }
 
+    public static function recordServiceFee(int $userId, float $amount, \DateTimeInterface $paidUntil): WalletTransaction
+    {
+        $until = \Illuminate\Support\Carbon::parse($paidUntil)->timezone('Africa/Accra')->format('j M Y');
+
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::ServiceFee,
+            amount: -1 * $amount,
+            description: 'Seller service fee — store active until '.$until,
+            reference: 'ACT-'.strtoupper(uniqid()),
+        );
+    }
+
     public static function recordAdminDebit(int $userId, float $amount, int $adminId, ?string $note = null): WalletTransaction
     {
         $description = 'Funds removed by admin';

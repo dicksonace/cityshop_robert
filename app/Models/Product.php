@@ -181,7 +181,9 @@ class Product extends Model
     {
         return $query->where('status', ProductStatus::Approved)
             ->whereHas('seller', function ($q) {
-                $q->whereHas('sellerProfile', fn ($sq) => $sq->where('status', SellerStatus::Approved));
+                $q->whereHas('sellerProfile', function ($sq) {
+                    $sq->where('status', SellerStatus::Approved)->serviceActive();
+                });
             });
     }
 
@@ -193,7 +195,9 @@ class Product extends Model
 
         $profile = $this->seller?->sellerProfile;
 
-        return $profile && $profile->status === SellerStatus::Approved;
+        return $profile
+            && $profile->status === SellerStatus::Approved
+            && $profile->isServiceActive();
     }
 
     public function getRouteKeyName(): string

@@ -19,6 +19,8 @@ enum WalletTransactionType: string
     /** Peer-to-peer wallet send (chat transfer). */
     case TransferOut = 'transfer_out';
     case TransferIn = 'transfer_in';
+    /** Annual seller service / activation fee. */
+    case ServiceFee = 'service_fee';
 
     /** Mirrors the labels the web wallet shows, for API clients. */
     public function label(): string
@@ -37,6 +39,7 @@ enum WalletTransactionType: string
             self::DirectCancelDebit => 'Pay-to-seller Cancel',
             self::TransferOut => 'Money Sent',
             self::TransferIn => 'Money Received',
+            self::ServiceFee => 'Seller Service Fee',
         };
     }
 }

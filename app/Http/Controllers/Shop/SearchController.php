@@ -147,6 +147,7 @@ class SearchController extends Controller
 
         return SellerProfile::query()
             ->where('status', SellerStatus::Approved)
+            ->serviceActive()
             ->whereNotNull('slug')
             ->where('slug', '!=', '')
             ->tap(fn ($query) => $this->search->constrainStoreName($query, $parsed))
