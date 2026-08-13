@@ -65,9 +65,9 @@ return [
     ],
 
     'livestream' => [
-        // meet.jit.si embeds force a moderator lobby ("no moderator have yet arrived").
-        // FFMUC still allows anonymous rooms for seller Go Live / buyer watch.
-        'jitsi_domain' => env('JITSI_DOMAIN', 'meet.ffmuc.net'),
+        // meet.jit.si requires Google/GitHub for the host and shows a lobby to shoppers.
+        // meet.ffmuc.net blocks third-party iframes. jitsi.riot.im allows anonymous embeds.
+        'jitsi_domain' => env('JITSI_DOMAIN', 'jitsi.riot.im'),
     ],
 
     'webrtc' => [

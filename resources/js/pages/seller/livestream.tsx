@@ -77,39 +77,6 @@ export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
         return () => window.clearInterval(tick);
     }, [livestream?.id, hostReady]);
 
-    // End the session if the host closes/navigates away from Go Live (so buyer pages stop showing LIVE).
-    useEffect(() => {
-        if (!livestream) return;
-
-        const csrf =
-            (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content ?? '';
-
-        const endBeacon = () => {
-            try {
-                void fetch(route('seller.livestream.end'), {
-                    method: 'POST',
-                    headers: {
-                        Accept: 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': csrf,
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'same-origin',
-                    keepalive: true,
-                    body: '{}',
-                });
-            } catch {
-                // best-effort
-            }
-        };
-
-        window.addEventListener('pagehide', endBeacon);
-        return () => {
-            window.removeEventListener('pagehide', endBeacon);
-            endBeacon();
-        };
-    }, [livestream?.id]);
-
     return (
         <SellerLayout title="Go Live" active="livestream">
             <Head title="Go Live" />
@@ -161,11 +128,10 @@ export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
                         avatarUrl={livestream.shop_photo}
                         isHost
                         onJoined={() => setHostReady(true)}
-                        onHangup={endLive}
                     />
                     <p className="text-xs text-gray-500">
                         Allow camera and microphone. Shoppers join after your camera connects. Keep this page open while
-                        you are live — closing or leaving this page ends the stream.
+                        you are live, and tap End live when you are done.
                     </p>
                 </div>
             ) : (

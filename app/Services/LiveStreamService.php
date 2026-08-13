@@ -17,7 +17,7 @@ class LiveStreamService
     {
         Livestream::query()
             ->where('status', LivestreamStatus::Live)
-            ->where('last_heartbeat_at', '<', now()->subMinutes(2))
+            ->where('last_heartbeat_at', '<', now()->subMinutes(8))
             ->update([
                 'status' => LivestreamStatus::Ended->value,
                 'ended_at' => now(),
@@ -171,7 +171,7 @@ class LiveStreamService
     {
         return [
             'provider' => $live->provider ?: 'jitsi',
-            'domain' => (string) config('services.livestream.jitsi_domain', 'meet.ffmuc.net'),
+            'domain' => (string) config('services.livestream.jitsi_domain', 'jitsi.riot.im'),
             'room_name' => $live->room_name,
         ];
     }

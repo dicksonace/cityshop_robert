@@ -4,7 +4,7 @@ export interface JitsiRoom {
 }
 
 export function jitsiScriptUrl(domain: string): string {
-    const host = (domain || 'meet.ffmuc.net').replace(/[^a-zA-Z0-9.-]/g, '');
+    const host = (domain || 'jitsi.riot.im').replace(/[^a-zA-Z0-9.-]/g, '');
 
     return `https://${host}/external_api.js`;
 }

@@ -83,7 +83,7 @@ export default function JitsiLiveRoom({
                 if (isHost && avatarUrl && /^https?:\/\//i.test(avatarUrl)) {
                     userInfo.avatarURL = avatarUrl;
                 }
-                api = new window.JitsiMeetExternalAPI(room.domain || 'meet.ffmuc.net', {
+                api = new window.JitsiMeetExternalAPI(room.domain || 'jitsi.riot.im', {
                     roomName: room.room_name,
                     parentNode: wrapRef.current,
                     width: '100%',
@@ -114,7 +114,8 @@ export default function JitsiLiveRoom({
                 });
 
                 api.addListener('videoConferenceLeft', () => {
-                    if (leftHandled || cancelled) return;
+                    // Do not end the CityShop live on a Jitsi reconnect/blip — only the End live button should.
+                    if (leftHandled || cancelled || isHost) return;
                     leftHandled = true;
                     hangupRef.current?.();
                 });

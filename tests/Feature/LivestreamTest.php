@@ -52,7 +52,7 @@ class LivestreamTest extends TestCase
         $ready = $this->getJson('/api/v1/livestreams/'.$seller->sellerProfile->slug)->assertOk();
         $this->assertTrue($ready->json('data.host_joined'));
         $this->assertSame(Livestream::query()->first()->room_name, $ready->json('data.room.room_name'));
-        $this->assertSame('meet.ffmuc.net', $ready->json('data.room.domain'));
+        $this->assertSame('jitsi.riot.im', $ready->json('data.room.domain'));
 
         $this->getJson('/api/v1/stores/'.$seller->sellerProfile->slug)
             ->assertOk()
