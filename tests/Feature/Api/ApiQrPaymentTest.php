@@ -42,6 +42,7 @@ class ApiQrPaymentTest extends TestCase
             ->json('data');
 
         $this->assertNotEmpty($receive['payload']);
+        $this->assertSame('CS-'.$payee->id, $receive['code']);
         $this->assertSame(25.0, (float) $receive['amount']);
         $this->assertSame('Market stall fee', $receive['reason']);
 
@@ -110,6 +111,79 @@ class ApiQrPaymentTest extends TestCase
         $this->postJson('/api/v1/wallet/qr/resolve', ['payload' => $payload])
             ->assertOk()
             ->assertJsonPath('data.user.id', $payee->id);
+    }
+
+    public function test_resolve_accepts_short_cityshop_code(): void
+    {
+        $payer = User::factory()->create(['role' => UserRole::Buyer]);
+        $payee = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Ama']);
+        Sanctum::actingAs($payer);
+
+        $this->postJson('/api/v1/wallet/qr/resolve', ['payload' => 'CS-'.$payee->id])
+            ->assertOk()
+            ->assertJsonPath('data.user.id', $payee->id)
+            ->assertJsonPath('data.user.name', 'Ama')
+            ->assertJsonPath('data.amount', null);
+    }
+
+    public function test_resolve_accepts_mobile_number(): void
+    {
+        $payer = User::factory()->create(['role' => UserRole::Buyer]);
+        $payee = User::factory()->create([
+            'role' => UserRole::Buyer,
+            'name' => 'Kofi',
+            'mobile' => '0532700209',
+        ]);
+        Sanctum::actingAs($payer);
+
+        $this->postJson('/api/v1/wallet/qr/resolve', ['payload' => '0532700209'])
+            ->assertOk()
+            ->assertJsonPath('data.user.id', $payee->id)
+            ->assertJsonPath('data.user.name', 'Kofi');
+    }
+
+    public function test_pay_with_short_code(): void
+    {
+        $payer = User::factory()->create(['role' => UserRole::Buyer]);
+        $payee = User::factory()->create(['role' => UserRole::Buyer]);
+        PaymentPinService::set($payer, '2468');
+
+        Wallet::create([
+            'user_id' => $payer->id,
+            'available_balance' => 50,
+            'pending_balance' => 0,
+            'total_earnings' => 0,
+            'withdrawn_amount' => 0,
+        ]);
+        Wallet::create([
+            'user_id' => $payee->id,
+            'available_balance' => 0,
+            'pending_balance' => 0,
+            'total_earnings' => 0,
+            'withdrawn_amount' => 0,
+        ]);
+
+        Sanctum::actingAs($payer);
+        $this->postJson('/api/v1/wallet/qr/pay', [
+            'payload' => 'CS-'.$payee->id,
+            'amount' => 10,
+            'note' => 'Code add',
+            'payment_pin' => '2468',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.amount', 10)
+            ->assertJsonPath('wallet.available_balance', 40);
+
+        $this->assertSame(10.0, (float) Wallet::where('user_id', $payee->id)->value('available_balance'));
+    }
+
+    public function test_cannot_resolve_own_short_code(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::Buyer]);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/wallet/qr/resolve', ['payload' => 'CS-'.$user->id])
+            ->assertStatus(422);
     }
 
     public function test_invalid_payload_is_rejected(): void
