@@ -6,6 +6,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { csrfHeaders } from '@/lib/csrf';
 import { paystackRechargeQuote, type PaystackFeeSettings } from '@/lib/paystack-fees';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +38,8 @@ export default function RechargeModal({
     paystackFee,
 }: RechargeModalProps) {
     const [step, setStep] = useState<'choose' | 'paystack'>('choose');
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState('');
     const form = useForm({
         amount: '',
         method: 'momo' as 'momo' | 'card',
@@ -47,6 +50,8 @@ export default function RechargeModal({
 
         form.reset();
         form.clearErrors();
+        setSubmitting(false);
+        setSubmitError('');
 
         if (paystackConfigured && !manualTopUpEnabled) {
             setStep('paystack');
@@ -69,15 +74,51 @@ export default function RechargeModal({
     const close = () => {
         form.reset();
         form.clearErrors();
+        setSubmitting(false);
+        setSubmitError('');
         setStep('choose');
         onClose();
     };
 
-    const submitPaystack: FormEventHandler = (e) => {
+    const submitPaystack: FormEventHandler = async (e) => {
         e.preventDefault();
-        form.post(paystackRoute, {
-            onSuccess: () => close(),
-        });
+        setSubmitError('');
+        const amount = Number(form.data.amount);
+        if (!Number.isFinite(amount) || amount < 5) {
+            form.setError('amount', 'Enter at least GH₵5.');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const res = await fetch(paystackRoute, {
+                method: 'POST',
+                headers: {
+                    ...csrfHeaders(),
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    amount,
+                    method: form.data.method,
+                }),
+            });
+            const data = (await res.json().catch(() => ({}))) as {
+                message?: string;
+                authorization_url?: string;
+            };
+            if (!res.ok) {
+                throw new Error(data.message || 'Could not start payment. Please try again.');
+            }
+            if (!data.authorization_url) {
+                throw new Error('Could not start payment. Please try again.');
+            }
+            window.location.href = data.authorization_url;
+        } catch (err) {
+            setSubmitting(false);
+            setSubmitError(err instanceof Error ? err.message : 'Could not start payment. Please try again.');
+        }
     };
 
     const showChooser = paystackConfigured && manualTopUpEnabled && step === 'choose';
@@ -173,6 +214,11 @@ export default function RechargeModal({
                             </div>
                             <InputError message={form.errors.method} />
                         </div>
+                        {submitError && (
+                            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                                {submitError}
+                            </p>
+                        )}
                         {quote.credit >= 5 && (
                             <div className="rounded-xl bg-orange-50 px-3 py-2.5 text-xs text-orange-900">
                                 <div className="flex justify-between gap-3">
@@ -198,10 +244,10 @@ export default function RechargeModal({
                             <Button
                                 type="submit"
                                 size="sm"
-                                disabled={form.processing}
+                                disabled={submitting}
                                 className="flex-1 bg-orange-500 hover:bg-orange-600"
                             >
-                                {form.processing && <LoaderCircle className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                                {submitting && <LoaderCircle className="mr-2 h-3.5 w-3.5 animate-spin" />}
                                 Recharge
                             </Button>
                         </div>

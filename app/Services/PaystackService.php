@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -14,12 +15,12 @@ class PaystackService
 
     public function __construct()
     {
-        $this->secretKey = config('services.paystack.secret_key', '');
+        $this->secretKey = trim((string) config('services.paystack.secret_key', ''), " \t\n\r\0\x0B\"'");
     }
 
     public function isConfigured(): bool
     {
-        return ! empty($this->secretKey) && ! empty(config('services.paystack.public_key'));
+        return $this->secretKey !== '' && trim((string) config('services.paystack.public_key', '')) !== '';
     }
 
     /**
@@ -130,24 +131,137 @@ class PaystackService
         return round($paidGhs, 2);
     }
 
-    public function initializeTransaction(string $email, float $amountGhs, string $reference, array $metadata = [], ?string $callbackUrl = null): array
-    {
-        $response = Http::withToken($this->secretKey)
-            ->post("{$this->baseUrl}/transaction/initialize", [
-                'email' => $email,
-                'amount' => (int) round($amountGhs * 100),
-                'currency' => 'GHS',
-                'reference' => $reference,
-                'callback_url' => $callbackUrl ?? route('checkout.callback'),
-                'metadata' => $metadata,
-            ]);
-
-        if (! $response->successful()) {
-            Log::error('Paystack initialize failed', ['body' => $response->json()]);
-            throw new \RuntimeException($response->json('message') ?? 'Payment initialization failed.');
+    /**
+     * Start a Paystack hosted checkout for wallet recharge (buyer, seller, or app).
+     *
+     * @param  array<string, mixed>  $extraMetadata
+     * @return array{
+     *   authorization_url: string,
+     *   access_code: ?string,
+     *   reference: string,
+     *   email: string,
+     *   credit: float,
+     *   fee: float,
+     *   charge: float
+     * }
+     */
+    public function initializeWalletTopUp(
+        User $user,
+        float $creditGhs,
+        string $method,
+        string $callbackUrl,
+        string $referencePrefix = 'TOP',
+        array $extraMetadata = [],
+    ): array {
+        if (! $this->isConfigured()) {
+            throw new \RuntimeException('Online top-up is not available. Contact support.');
         }
 
-        return $response->json('data');
+        $quote = $this->rechargeQuote($creditGhs, $method);
+        $reference = rtrim($referencePrefix, '-').'-'.strtoupper(uniqid());
+        $email = $user->billingEmail();
+
+        $data = $this->initializeTransaction(
+            $email,
+            $quote['charge'],
+            $reference,
+            array_merge([
+                'type' => 'wallet_topup',
+                'user_id' => $user->id,
+                'method' => $method,
+                'wallet_credit' => $quote['credit'],
+                'paystack_fee' => $quote['fee'],
+                'expected_amount' => $quote['charge'],
+            ], $extraMetadata),
+            $callbackUrl,
+        );
+
+        return [
+            'authorization_url' => (string) $data['authorization_url'],
+            'access_code' => isset($data['access_code']) ? (string) $data['access_code'] : null,
+            'reference' => (string) ($data['reference'] ?? $reference),
+            'email' => $email,
+            'credit' => $quote['credit'],
+            'fee' => $quote['fee'],
+            'charge' => $quote['charge'],
+        ];
+    }
+
+    public function initializeTransaction(string $email, float $amountGhs, string $reference, array $metadata = [], ?string $callbackUrl = null): array
+    {
+        $email = $this->paystackEmail($email);
+        $amountPesewas = (int) round(max(0, $amountGhs) * 100);
+        if ($amountPesewas < 100) {
+            throw new \RuntimeException('Amount is too small to start payment.');
+        }
+
+        $callback = $this->secureCallbackUrl($callbackUrl ?? route('checkout.callback'));
+        $payload = [
+            'email' => $email,
+            'amount' => $amountPesewas,
+            'currency' => 'GHS',
+            'reference' => $reference,
+            'callback_url' => $callback,
+            'metadata' => $metadata,
+        ];
+
+        $response = Http::withToken($this->secretKey)
+            ->acceptJson()
+            ->asJson()
+            ->timeout(30)
+            ->post("{$this->baseUrl}/transaction/initialize", $payload);
+
+        $body = $response->json();
+        if (! is_array($body)) {
+            $body = [];
+        }
+
+        if (! $response->successful() || ($body['status'] ?? false) !== true) {
+            Log::error('Paystack initialize failed', [
+                'http' => $response->status(),
+                'message' => $body['message'] ?? null,
+                'email' => $email,
+                'amount' => $amountPesewas,
+                'reference' => $reference,
+                'callback_url' => $callback,
+            ]);
+
+            throw new \RuntimeException((string) ($body['message'] ?? 'Payment initialization failed.'));
+        }
+
+        $data = $body['data'] ?? null;
+        if (! is_array($data) || empty($data['authorization_url'])) {
+            Log::error('Paystack initialize missing authorization_url', [
+                'reference' => $reference,
+                'keys' => is_array($data) ? array_keys($data) : null,
+            ]);
+
+            throw new \RuntimeException('Payment initialization failed.');
+        }
+
+        return $data;
+    }
+
+    private function paystackEmail(string $email): string
+    {
+        $email = strtolower(trim($email));
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && ! str_ends_with($email, '.local')) {
+            return $email;
+        }
+
+        $digits = preg_replace('/\D+/', '', $email) ?: 'cityshop';
+
+        return $digits.'@pay.cityunlock.net';
+    }
+
+    private function secureCallbackUrl(string $url): string
+    {
+        $url = trim($url);
+        if (str_starts_with($url, 'http://')) {
+            return 'https://'.substr($url, strlen('http://'));
+        }
+
+        return $url;
     }
 
     public function verifyTransaction(string $reference): array

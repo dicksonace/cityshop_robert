@@ -347,43 +347,35 @@ class WalletController extends Controller
             return response()->json(['message' => 'Online top-up is not available. Contact support.'], 503);
         }
 
-        $quote = $this->paystack->rechargeQuote((float) $validated['amount'], $validated['method']);
-        $reference = 'TOP-'.strtoupper(uniqid());
         $callbackUrl = url('/api/v1/paystack/mobile-return');
 
         try {
-            $data = $this->paystack->initializeTransaction(
-                $user->billingEmail(),
-                $quote['charge'],
-                $reference,
-                [
-                    'type' => 'wallet_topup',
-                    'user_id' => $user->id,
-                    'method' => $validated['method'],
-                    'source' => 'mobile_app',
-                    'wallet_credit' => $quote['credit'],
-                    'paystack_fee' => $quote['fee'],
-                    'expected_amount' => $quote['charge'],
-                ],
+            $data = $this->paystack->initializeWalletTopUp(
+                $user,
+                (float) $validated['amount'],
+                $validated['method'],
                 $callbackUrl,
+                'TOP',
+                ['source' => 'mobile_app'],
             );
-
-            $paystackReference = (string) ($data['reference'] ?? $reference);
 
             return response()->json([
                 'authorization_url' => $data['authorization_url'],
-                'access_code' => $data['access_code'] ?? null,
-                'reference' => $paystackReference,
+                'access_code' => $data['access_code'],
+                'reference' => $data['reference'],
                 'callback_url' => $callbackUrl,
-                'amount' => $quote['credit'],
-                'fee' => $quote['fee'],
-                'charge' => $quote['charge'],
+                'amount' => $data['credit'],
+                'fee' => $data['fee'],
+                'charge' => $data['charge'],
                 'currency' => 'GHS',
             ]);
         } catch (\Throwable $e) {
             Log::error('API wallet top-up init failed', ['error' => $e->getMessage()]);
+            $message = $e instanceof \RuntimeException
+                ? $e->getMessage()
+                : 'Could not start payment. Please try again.';
 
-            return response()->json(['message' => 'Could not start payment. Please try again.'], 500);
+            return response()->json(['message' => $message], 500);
         }
     }
 

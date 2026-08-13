@@ -199,15 +199,17 @@ class User extends Authenticatable
     /**
      * Email for Paystack / payment gateways. Falls back to a synthetic
      * address from mobile when the shopper skipped email at signup.
+     * Paystack rejects `.local` and invalid addresses, which aborts initialize.
      */
     public function billingEmail(): string
     {
-        if (filled($this->email)) {
-            return strtolower((string) $this->email);
+        $email = strtolower(trim((string) $this->email));
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && ! str_ends_with($email, '.local')) {
+            return $email;
         }
 
         $digits = preg_replace('/\D+/', '', (string) $this->mobile) ?: ('user'.$this->id);
 
-        return $digits.'@pay.cityshop.local';
+        return $digits.'@pay.cityunlock.net';
     }
 }

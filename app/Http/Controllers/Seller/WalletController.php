@@ -15,6 +15,7 @@ use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -268,7 +269,7 @@ class WalletController extends Controller
         return back()->with('success', $result['message']);
     }
 
-    public function addFunds(Request $request): RedirectResponse
+    public function addFunds(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
@@ -276,35 +277,45 @@ class WalletController extends Controller
         ]);
 
         if (! $this->paystack->isConfigured()) {
-            return back()->with('error', 'Online top-up is not available. Use manual top-up or contact support.');
+            $message = 'Online top-up is not available. Use manual top-up or contact support.';
+
+            return $request->expectsJson()
+                ? response()->json(['message' => $message], 503)
+                : back()->with('error', $message);
         }
 
-        $quote = $this->paystack->rechargeQuote((float) $validated['amount'], $validated['method']);
-        $reference = 'STOP-'.strtoupper(uniqid());
-        $email = $request->user()->billingEmail();
-
         try {
-            $data = $this->paystack->initializeTransaction(
-                $email,
-                $quote['charge'],
-                $reference,
-                [
-                    'type' => 'wallet_topup',
-                    'user_id' => $request->user()->id,
-                    'method' => $validated['method'],
-                    'role' => 'seller',
-                    'wallet_credit' => $quote['credit'],
-                    'paystack_fee' => $quote['fee'],
-                    'expected_amount' => $quote['charge'],
-                ],
+            $data = $this->paystack->initializeWalletTopUp(
+                $request->user(),
+                (float) $validated['amount'],
+                $validated['method'],
                 route('seller.wallet.callback'),
+                'STOP',
+                ['role' => 'seller'],
             );
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'authorization_url' => $data['authorization_url'],
+                    'access_code' => $data['access_code'],
+                    'reference' => $data['reference'],
+                    'email' => $data['email'],
+                    'amount' => $data['credit'],
+                    'fee' => $data['fee'],
+                    'charge' => $data['charge'],
+                ]);
+            }
 
             return Inertia::location($data['authorization_url']);
         } catch (\Throwable $e) {
             Log::error('Seller wallet top-up init failed', ['error' => $e->getMessage()]);
+            $message = $e instanceof \RuntimeException
+                ? $e->getMessage()
+                : 'Could not start payment. Please try again.';
 
-            return back()->with('error', 'Could not start payment. Please try again.');
+            return $request->expectsJson()
+                ? response()->json(['message' => $message], 500)
+                : back()->with('error', $message);
         }
     }
 
