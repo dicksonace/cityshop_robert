@@ -97,6 +97,7 @@ class CheckoutController extends Controller
             'wallet' => $this->walletPayload($request->user()),
             'paystack_public_key' => config('services.paystack.public_key'),
             'paystack_configured' => $this->paystack->isConfigured(),
+            'paystack_fee' => $this->paystack->rechargeFeePayload(),
         ]);
     }
 
@@ -198,10 +199,15 @@ class CheckoutController extends Controller
             );
             DirectCheckoutDraft::clearForUser($request->user());
 
+            $quote = $this->paystack->rechargeQuote((float) $amount, $method);
+
             return response()->json([
                 'message' => 'Complete payment to place your order. No order is created until payment succeeds.',
                 'next' => 'paystack',
-                'amount' => $amount,
+                'amount' => $quote['credit'],
+                'fee' => $quote['fee'],
+                'charge' => $quote['charge'],
+                'paystack_fee' => $this->paystack->rechargeFeePayload(),
                 'paystack_configured' => $this->paystack->isConfigured(),
                 'shipping' => $shipping,
             ]);
@@ -411,20 +417,24 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'No marketplace payment required for this checkout.'], 422);
         }
 
+        $quote = $this->paystack->rechargeQuote($amount);
         $reference = 'CSH-'.uniqid('', true);
-        $amountPesewas = (int) round($amount * 100);
+        $amountPesewas = (int) round($quote['charge'] * 100);
         $callbackUrl = url('/api/v1/paystack/mobile-return');
 
         try {
             $data = $this->paystack->initializeTransaction(
                 $request->user()->billingEmail(),
-                $amount,
+                $quote['charge'],
                 $reference,
                 [
                     'checkout_id' => $checkout->id,
                     'checkout_number' => $checkout->checkout_number,
                     'buyer_id' => $request->user()->id,
                     'source' => 'mobile_app',
+                    'order_amount' => $quote['credit'],
+                    'paystack_fee' => $quote['fee'],
+                    'expected_amount' => $quote['charge'],
                 ],
                 $callbackUrl,
             );
@@ -449,7 +459,10 @@ class CheckoutController extends Controller
                 'reference' => $paystackReference,
                 'callback_url' => $callbackUrl,
                 'email' => $request->user()->billingEmail(),
-                'amount' => $amount,
+                'amount' => $quote['charge'],
+                'order_amount' => $quote['credit'],
+                'fee' => $quote['fee'],
+                'charge' => $quote['charge'],
                 'currency' => 'GHS',
             ]);
         } catch (\RuntimeException $e) {
@@ -513,19 +526,23 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'No marketplace payment required.'], 422);
         }
 
+        $quote = $this->paystack->rechargeQuote($amount, $draft['payment_method'] ?? 'momo');
         $reference = 'CSH-'.uniqid('', true);
-        $amountPesewas = (int) round($amount * 100);
+        $amountPesewas = (int) round($quote['charge'] * 100);
         $callbackUrl = url('/api/v1/paystack/mobile-return');
 
         try {
             $data = $this->paystack->initializeTransaction(
                 $request->user()->billingEmail(),
-                $amount,
+                $quote['charge'],
                 $reference,
                 [
                     'buyer_id' => $request->user()->id,
                     'source' => 'mobile_app_draft',
                     'draft' => true,
+                    'order_amount' => $quote['credit'],
+                    'paystack_fee' => $quote['fee'],
+                    'expected_amount' => $quote['charge'],
                 ],
                 $callbackUrl,
             );
@@ -539,7 +556,10 @@ class CheckoutController extends Controller
                 'reference' => $paystackReference,
                 'callback_url' => $callbackUrl,
                 'email' => $request->user()->billingEmail(),
-                'amount' => $amount,
+                'amount' => $quote['charge'],
+                'order_amount' => $quote['credit'],
+                'fee' => $quote['fee'],
+                'charge' => $quote['charge'],
                 'currency' => 'GHS',
             ]);
         } catch (\RuntimeException $e) {

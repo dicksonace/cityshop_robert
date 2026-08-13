@@ -101,14 +101,21 @@ class CheckoutPaymentVerifier
             ]);
         }
 
-        $expectedPesewas = (int) round($this->marketplaceAmountGhs($checkout) * 100);
-        $paidPesewas = (int) ($data['amount'] ?? 0);
+        $orderTotal = $this->marketplaceAmountGhs($checkout);
+        $paidGhs = round(((int) ($data['amount'] ?? 0)) / 100, 2);
+        $pendingCharge = is_array($pending) && isset($pending['amount_pesewas'])
+            ? round(((int) $pending['amount_pesewas']) / 100, 2)
+            : null;
 
-        if ($expectedPesewas <= 0 || $paidPesewas !== $expectedPesewas) {
+        $matchesPending = $pendingCharge !== null && $this->paystack->amountsMatch($paidGhs, $pendingCharge);
+        $coversCheckout = $this->paystack->paidCoversCheckout($paidGhs, $orderTotal);
+
+        if ($orderTotal <= 0 || (! $matchesPending && ! $coversCheckout)) {
             Log::warning('Paystack amount mismatch', [
                 'checkout_id' => $checkout->id,
-                'expected' => $expectedPesewas,
-                'paid' => $paidPesewas,
+                'order_total' => $orderTotal,
+                'paid' => $paidGhs,
+                'pending_charge' => $pendingCharge,
                 'reference' => $reference,
             ]);
 

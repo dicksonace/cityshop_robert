@@ -8,6 +8,8 @@ import { formatPrice } from '@/types/marketplace';
 
 interface PaymentDraftProps {
     amount: number;
+    paystackFee?: number;
+    paystackCharge?: number;
     paymentMethod: string;
     shipping: {
         receiver_name?: string;
@@ -28,10 +30,13 @@ declare global {
 
 export default function PaymentDraft({
     amount,
+    paystackFee = 0,
+    paystackCharge,
     shipping,
     paystackPublicKey,
     paystackConfigured,
 }: PaymentDraftProps) {
+    const totalDue = paystackCharge && paystackCharge > 0 ? paystackCharge : amount;
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -102,7 +107,19 @@ export default function PaymentDraft({
 
                     <div className="mt-6 rounded-xl border border-orange-100 bg-orange-50 p-4">
                         <p className="font-semibold text-gray-900">CityShop secure payment</p>
-                        <p className="mt-1 text-2xl font-bold text-orange-500">{formatPrice(amount)}</p>
+                        {paystackFee > 0 ? (
+                            <div className="mt-2 space-y-1 text-sm text-gray-600">
+                                <div className="flex justify-between">
+                                    <span>Order</span>
+                                    <span>{formatPrice(amount)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Paystack fee</span>
+                                    <span>{formatPrice(paystackFee)}</span>
+                                </div>
+                            </div>
+                        ) : null}
+                        <p className="mt-2 text-2xl font-bold text-orange-500">{formatPrice(totalDue)}</p>
                         <p className="mt-1 text-sm text-gray-500">Pay securely via Paystack.</p>
                         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
                         <Button

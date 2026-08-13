@@ -572,7 +572,7 @@ class OrderService
                     ->where('payment_channel', PaymentChannel::Marketplace)
                     ->sum('total');
 
-                if ($expected > 0 && ! app(PaystackService::class)->amountsMatch($paidAmountGhs, $expected)) {
+                if ($expected > 0 && ! app(PaystackService::class)->paidCoversCheckout($paidAmountGhs, $expected)) {
                     Log::warning('Paystack checkout amount mismatch', [
                         'checkout_id' => $locked->id,
                         'reference' => $paystackReference,

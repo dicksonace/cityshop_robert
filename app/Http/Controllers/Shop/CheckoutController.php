@@ -338,8 +338,12 @@ class CheckoutController extends Controller
             return redirect()->route('checkout.direct-pay');
         }
 
+        $quote = $this->paystack->rechargeQuote($amount, $draft['payment_method'] ?? 'momo');
+
         return Inertia::render('shop/payment-draft', [
             'amount' => $amount,
+            'paystackFee' => $quote['fee'],
+            'paystackCharge' => $quote['charge'],
             'paymentMethod' => $draft['payment_method'] ?? 'momo',
             'shipping' => $draft['shipping'] ?? [],
             'paystackPublicKey' => config('services.paystack.public_key'),
@@ -376,18 +380,22 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'No marketplace payment required.'], 422);
         }
 
+        $quote = $this->paystack->rechargeQuote($amount, $draft['payment_method'] ?? 'momo');
         $reference = 'CSH-'.uniqid('', true);
-        $amountPesewas = (int) round($amount * 100);
+        $amountPesewas = (int) round($quote['charge'] * 100);
 
         try {
             $data = $this->paystack->initializeTransaction(
                 $request->user()->billingEmail(),
-                $amount,
+                $quote['charge'],
                 $reference,
                 [
                     'buyer_id' => $request->user()->id,
                     'source' => 'web_draft',
                     'draft' => true,
+                    'order_amount' => $quote['credit'],
+                    'paystack_fee' => $quote['fee'],
+                    'expected_amount' => $quote['charge'],
                 ],
                 route('checkout.callback'),
             );
@@ -402,6 +410,9 @@ class CheckoutController extends Controller
                 'public_key' => config('services.paystack.public_key'),
                 'email' => $request->user()->billingEmail(),
                 'amount' => $amountPesewas,
+                'order_amount' => $quote['credit'],
+                'fee' => $quote['fee'],
+                'charge' => $quote['charge'],
             ]);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 500);
@@ -433,9 +444,13 @@ class CheckoutController extends Controller
             ->reject(fn ($o) => $o->status === OrderStatus::Cancelled)
             ->values();
 
+        $quote = $this->paystack->rechargeQuote((float) $marketplaceTotal);
+
         return Inertia::render('shop/payment', [
             'checkout' => $checkout,
             'marketplaceTotal' => $marketplaceTotal,
+            'paystackFee' => $quote['fee'],
+            'paystackCharge' => $quote['charge'],
             'directOrders' => $directOrders,
             'paystackPublicKey' => config('services.paystack.public_key'),
             'paystackConfigured' => $this->paystack->isConfigured(),
@@ -536,19 +551,23 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'No marketplace payment required for this checkout.'], 422);
         }
 
+        $quote = $this->paystack->rechargeQuote($amount);
         $reference = 'CSH-'.uniqid('', true);
-        $amountPesewas = (int) round($amount * 100);
+        $amountPesewas = (int) round($quote['charge'] * 100);
 
         try {
             $data = $this->paystack->initializeTransaction(
                 $request->user()->billingEmail(),
-                $amount,
+                $quote['charge'],
                 $reference,
                 [
                     'checkout_id' => $checkout->id,
                     'checkout_number' => $checkout->checkout_number,
                     'buyer_id' => $request->user()->id,
                     'source' => 'web',
+                    'order_amount' => $quote['credit'],
+                    'paystack_fee' => $quote['fee'],
+                    'expected_amount' => $quote['charge'],
                 ]
             );
 
@@ -564,7 +583,10 @@ class CheckoutController extends Controller
                 'access_code' => $data['access_code'],
                 'reference' => $paystackReference,
                 'email' => $request->user()->billingEmail(),
-                'amount' => $amount,
+                'amount' => $quote['charge'],
+                'order_amount' => $quote['credit'],
+                'fee' => $quote['fee'],
+                'charge' => $quote['charge'],
             ]);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 500);

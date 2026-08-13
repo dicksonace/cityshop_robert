@@ -180,7 +180,10 @@ export default function RechargeModal({
                                     <span className="font-semibold">GH₵{quote.credit.toFixed(2)}</span>
                                 </div>
                                 <div className="mt-1 flex justify-between gap-3">
-                                    <span>Paystack fee ({quote.percent}%)</span>
+                                    <span>
+                                        Paystack fee
+                                        {quote.mode === 'percent' && quote.percent > 0 ? ` (${quote.percent}%)` : ''}
+                                    </span>
                                     <span className="font-semibold">GH₵{quote.fee.toFixed(2)}</span>
                                 </div>
                                 <div className="mt-1.5 flex justify-between gap-3 border-t border-orange-200 pt-1.5 text-sm font-bold">

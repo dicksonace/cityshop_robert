@@ -23,48 +23,74 @@ class PaystackService
     }
 
     /**
-     * Ghana local collection fee (MoMo + local cards).
+     * Ghana local collection fee (MoMo + local cards). Admin-editable.
      *
-     * @return array{percent: float, flat: float}
+     * @return array{enabled: bool, mode: string, percent: float, flat: float, tiers: list<array{min: float, max: float|null, fee: float}>}
      */
     public function rechargeFeePayload(): array
     {
-        return [
-            'percent' => max(0, round((float) config('services.paystack.local_percent', 1.95), 4)),
-            'flat' => max(0, round((float) config('services.paystack.local_flat', 0), 2)),
-        ];
+        return PlatformSettings::paystackFeePayload();
     }
 
     /**
-     * Charge enough that after Paystack's cut, settlement covers the wallet credit.
+     * Charge the buyer enough to cover the net amount plus the admin Paystack fee.
      *
-     * @return array{credit: float, fee: float, charge: float, percent: float, flat: float}
+     * @return array{credit: float, fee: float, charge: float, percent: float, flat: float, mode: string}
      */
     public function rechargeQuote(float $creditGhs, string $method = 'momo'): array
     {
         $credit = round(max(0, $creditGhs), 2);
-        $percent = (float) config('services.paystack.local_percent', 1.95);
-        $flat = (float) config('services.paystack.local_flat', 0);
+        $settings = PlatformSettings::paystackFeeSettings();
+        $mode = $settings['mode'];
+        $percent = $settings['percent'];
+        $flat = $settings['flat'];
 
-        if ($method === 'card_international') {
+        if ($method === 'card_international' && $mode === 'percent') {
             $percent = (float) config('services.paystack.international_percent', 3.9);
             $flat = (float) config('services.paystack.international_flat', 0.20);
         }
 
-        $percent = max(0, $percent);
-        $flat = max(0, round($flat, 2));
-        $rate = $percent / 100;
-
-        if ($credit <= 0) {
+        if ($credit <= 0 || ! $settings['enabled']) {
             return [
-                'credit' => 0.0,
+                'credit' => $credit,
                 'fee' => 0.0,
-                'charge' => 0.0,
+                'charge' => $credit,
                 'percent' => $percent,
                 'flat' => $flat,
+                'mode' => $mode,
             ];
         }
 
+        if ($mode === 'tiers') {
+            $fee = PlatformSettings::feeFromBankTiers($credit, $settings['tiers'], $flat);
+            $charge = round($credit + $fee, 2);
+
+            return [
+                'credit' => $credit,
+                'fee' => round($fee, 2),
+                'charge' => $charge,
+                'percent' => 0.0,
+                'flat' => round($fee, 2),
+                'mode' => $mode,
+            ];
+        }
+
+        if ($mode === 'flat') {
+            $fee = max(0, round($flat, 2));
+            $charge = round($credit + $fee, 2);
+
+            return [
+                'credit' => $credit,
+                'fee' => $fee,
+                'charge' => $charge,
+                'percent' => 0.0,
+                'flat' => $fee,
+                'mode' => $mode,
+            ];
+        }
+
+        $rate = max(0, $percent) / 100;
+        $flat = max(0, round($flat, 2));
         $charge = $rate >= 1
             ? round($credit + $flat, 2)
             : round(($credit + $flat) / (1 - $rate), 2);
@@ -75,7 +101,16 @@ class PaystackService
             'charge' => $charge,
             'percent' => $percent,
             'flat' => $flat,
+            'mode' => 'percent',
         ];
+    }
+
+    public function paidCoversCheckout(float $paidGhs, float $orderTotalGhs): bool
+    {
+        $quote = $this->rechargeQuote($orderTotalGhs);
+
+        return $this->amountsMatch($paidGhs, $orderTotalGhs)
+            || $this->amountsMatch($paidGhs, $quote['charge']);
     }
 
     /**

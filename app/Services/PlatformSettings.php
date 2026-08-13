@@ -13,6 +13,8 @@ class PlatformSettings
 
     public const AUTO_PAYSTACK_WITHDRAW_KEY = 'auto_paystack_withdraw';
 
+    public const PAYSTACK_FEE_KEY = 'paystack_collection_fee';
+
     public static function get(string $key, mixed $default = null): mixed
     {
         return Cache::remember("platform_setting.{$key}", 3600, function () use ($key, $default) {
@@ -521,5 +523,145 @@ class PlatformSettings
             str_contains($compact, 'airtel'), str_contains($compact, 'tigo') => 'airteltigo',
             default => null,
         };
+    }
+
+    /**
+     * Paystack collection fee (wallet top-up + checkout). Admin can use one percent/flat fee or range flats.
+     *
+     * @return array{
+     *   enabled: bool,
+     *   mode: string,
+     *   percent: float,
+     *   flat: float,
+     *   tiers: list<array{min: float, max: float|null, fee: float}>
+     * }
+     */
+    public static function paystackFeeSettings(): array
+    {
+        $raw = static::get(self::PAYSTACK_FEE_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return static::defaultPaystackFeeSettings();
+        }
+
+        $mode = (string) ($decoded['mode'] ?? 'percent');
+        if (! in_array($mode, ['percent', 'flat', 'tiers'], true)) {
+            $mode = 'percent';
+        }
+
+        return [
+            'enabled' => (bool) ($decoded['enabled'] ?? true),
+            'mode' => $mode,
+            'percent' => max(0, min(25, round((float) ($decoded['percent'] ?? 1.95), 4))),
+            'flat' => max(0, round((float) ($decoded['flat'] ?? 0), 2)),
+            'tiers' => static::normalizePaystackFeeTiers($decoded['tiers'] ?? null),
+        ];
+    }
+
+    /**
+     * @return array{
+     *   enabled: bool,
+     *   mode: string,
+     *   percent: float,
+     *   flat: float,
+     *   tiers: list<array{min: float, max: float|null, fee: float}>
+     * }
+     */
+    public static function defaultPaystackFeeSettings(): array
+    {
+        return [
+            'enabled' => true,
+            'mode' => 'percent',
+            'percent' => 1.95,
+            'flat' => 0.0,
+            'tiers' => static::defaultPaystackFeeTiers(),
+        ];
+    }
+
+    /**
+     * @return list<array{min: float, max: float|null, fee: float}>
+     */
+    public static function defaultPaystackFeeTiers(): array
+    {
+        return [
+            ['min' => 1.0, 'max' => 99.99, 'fee' => 1.0],
+            ['min' => 100.0, 'max' => 999.99, 'fee' => 2.0],
+            ['min' => 1000.0, 'max' => null, 'fee' => 5.0],
+        ];
+    }
+
+    /**
+     * @param  mixed  $raw
+     * @return list<array{min: float, max: float|null, fee: float}>
+     */
+    public static function normalizePaystackFeeTiers(mixed $raw): array
+    {
+        if (! is_array($raw) || $raw === []) {
+            return static::defaultPaystackFeeTiers();
+        }
+
+        $tiers = [];
+        foreach ($raw as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $min = max(0, round((float) ($row['min'] ?? 0), 2));
+            $fee = max(0, round((float) ($row['fee'] ?? 0), 2));
+            $maxRaw = $row['max'] ?? null;
+            $max = $maxRaw === null || $maxRaw === '' ? null : max($min, round((float) $maxRaw, 2));
+            $tiers[] = ['min' => $min, 'max' => $max, 'fee' => $fee];
+        }
+
+        if ($tiers === []) {
+            return static::defaultPaystackFeeTiers();
+        }
+
+        usort($tiers, fn ($a, $b) => $a['min'] <=> $b['min']);
+
+        return array_values($tiers);
+    }
+
+    /**
+     * @param  array{
+     *   enabled?: bool,
+     *   mode?: string,
+     *   percent?: float|int|string,
+     *   flat?: float|int|string,
+     *   tiers?: list<array{min?: float|int|string, max?: float|int|string|null, fee?: float|int|string}>
+     * }  $data
+     */
+    public static function savePaystackFeeSettings(array $data): void
+    {
+        $mode = (string) ($data['mode'] ?? 'percent');
+        if (! in_array($mode, ['percent', 'flat', 'tiers'], true)) {
+            $mode = 'percent';
+        }
+
+        static::set(self::PAYSTACK_FEE_KEY, [
+            'enabled' => (bool) ($data['enabled'] ?? false),
+            'mode' => $mode,
+            'percent' => max(0, min(25, round((float) ($data['percent'] ?? 1.95), 4))),
+            'flat' => max(0, round((float) ($data['flat'] ?? 0), 2)),
+            'tiers' => static::normalizePaystackFeeTiers($data['tiers'] ?? null),
+        ]);
+    }
+
+    /**
+     * Client-facing Paystack fee summary for wallet / checkout screens.
+     *
+     * @return array{
+     *   enabled: bool,
+     *   mode: string,
+     *   percent: float,
+     *   flat: float,
+     *   tiers: list<array{min: float, max: float|null, fee: float}>
+     * }
+     */
+    public static function paystackFeePayload(): array
+    {
+        return static::paystackFeeSettings();
     }
 }
