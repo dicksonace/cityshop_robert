@@ -129,9 +129,10 @@ class ApiFriendChatTransferTest extends TestCase
         );
 
         $sms = $notification->toSms($recipient);
-        $this->assertStringContainsString('You received GH₵20.00 from Kofi amoah. Ref TRF-E774EF3F9AAC.', $sms);
+        $this->assertStringContainsString('GH₵20.00 credited to your wallet from Kofi amoah.', $sms);
         $this->assertStringContainsString('Available Balance: GHS 6445.00', $sms);
-        $this->assertStringContainsString('Date: 13 Aug 2026, 5:12 PM', $sms);
+        $this->assertStringContainsString('Ref: TRF-E774EF3F9AAC.', $sms);
+        $this->assertStringContainsString('Date: 13 Aug 2026, 5:12 PM.', $sms);
 
         $mail = $notification->toMail($recipient);
         $this->assertInstanceOf(MailMessage::class, $mail);

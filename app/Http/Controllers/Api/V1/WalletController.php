@@ -423,7 +423,7 @@ class WalletController extends Controller
 
             return response()->json([
                 'message' => $credited
-                    ? 'GH₵'.number_format($credit, 2).' added to your wallet.'
+                    ? 'GH₵'.number_format($credit, 2).' credited to your wallet.'
                     : 'Payment already credited.',
                 'amount' => $credit,
                 'reference' => $reference,

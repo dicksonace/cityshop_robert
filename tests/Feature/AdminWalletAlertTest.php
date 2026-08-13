@@ -100,8 +100,9 @@ class AdminWalletAlertTest extends TestCase
 
         $sms = (new WalletFundedNotification(10, 'paystack', 'TOP-6A7DE77468CE0', 2303.50, $at))->toSms($buyer);
 
-        $this->assertStringContainsString('GH₵10.00 added to your wallet. Ref TOP-6A7DE77468CE0.', $sms);
+        $this->assertStringContainsString('GH₵10.00 credited to your wallet.', $sms);
         $this->assertStringContainsString('Available Balance: GHS 2303.50', $sms);
-        $this->assertStringContainsString('Date: 13 Aug 2026, 3:49 PM', $sms);
+        $this->assertStringContainsString('Ref: TOP-6A7DE77468CE0.', $sms);
+        $this->assertStringContainsString('Date: 13 Aug 2026, 3:49 PM.', $sms);
     }
 }

@@ -361,7 +361,7 @@ class WalletController extends Controller
             WalletService::creditFromVerifiedTopUp($request->user()->id, $credit, $reference, $method);
 
             return redirect()->route('seller.dashboard')
-                ->with('success', 'GH₵'.number_format($credit, 2).' added to your wallet. You can cancel Pay-to-seller orders and refund buyers.');
+                ->with('success', 'GH₵'.number_format($credit, 2).' credited to your wallet. You can cancel Pay-to-seller orders and refund buyers.');
         } catch (\Throwable $e) {
             Log::error('Seller wallet callback error', ['error' => $e->getMessage()]);
 

@@ -186,7 +186,7 @@ class WalletController extends Controller
             WalletService::creditFromVerifiedTopUp($request->user()->id, $credit, $reference, $method);
 
             return redirect()->route('wallet.index')
-                ->with('success', 'GH₵'.number_format($credit, 2).' added to your wallet.');
+                ->with('success', 'GH₵'.number_format($credit, 2).' credited to your wallet.');
         } catch (\Throwable $e) {
             Log::error('Wallet callback error', ['error' => $e->getMessage()]);
 

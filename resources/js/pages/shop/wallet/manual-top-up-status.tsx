@@ -106,7 +106,7 @@ export default function ManualTopUpStatus({
                         {pending
                             ? 'Your deposit is being reviewed.'
                             : approved
-                              ? 'Funds have been added to your wallet.'
+                              ? 'Funds have been credited to your wallet.'
                               : item.admin_notes || 'This request was not credited.'}
                     </p>
                 </div>

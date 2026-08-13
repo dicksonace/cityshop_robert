@@ -186,12 +186,10 @@ class BuyerWalletWithdrawTest extends TestCase
 
         $sms = (new WithdrawalRequestedNotification($withdrawal, 6445))->toSms($buyer);
 
-        $this->assertStringContainsString(
-            'Your withdrawal of GH₵10.00 to 024****718 has been requested.',
-            $sms,
-        );
+        $this->assertStringContainsString('GH₵10.00 debited from your wallet.', $sms);
         $this->assertStringContainsString('Available Balance: GHS 6445.00', $sms);
-        $this->assertStringContainsString('Date: 13 Aug 2026, 2:51 PM', $sms);
+        $this->assertStringContainsString('Date: 13 Aug 2026, 2:51 PM.', $sms);
         $this->assertStringNotContainsStringIgnoringCase('usually', $sms);
+        $this->assertStringNotContainsStringIgnoringCase('added', $sms);
     }
 }

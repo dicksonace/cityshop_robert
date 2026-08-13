@@ -91,7 +91,7 @@ class WalletTransactionService
             userId: $userId,
             type: WalletTransactionType::FundAdded,
             amount: $amount,
-            description: "Funds added via {$method}",
+            description: "Funds credited via {$method}",
             reference: $reference ?? 'TOP-'.now()->format('YmdHis'),
         );
     }
@@ -364,7 +364,7 @@ class WalletTransactionService
             WalletTransactionType::Withdrawal => 'Withdrawal Request',
             WalletTransactionType::WithdrawalCompleted => 'Payout Sent',
             WalletTransactionType::WithdrawalRefunded => 'Withdrawal Refunded',
-            WalletTransactionType::FundAdded => 'Funds Added',
+            WalletTransactionType::FundAdded => 'Funds Credited',
             WalletTransactionType::OrderPayment => 'Order Payment',
             WalletTransactionType::OrderRefund => 'Order Refund',
             WalletTransactionType::SaleReversed => 'Sale Reversed',

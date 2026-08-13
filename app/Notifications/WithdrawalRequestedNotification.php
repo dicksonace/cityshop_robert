@@ -27,24 +27,67 @@ class WithdrawalRequestedNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $amount = NotificationPrivacy::money((float) $this->withdrawal->amount);
-        $destination = NotificationPrivacy::maskAccount($this->withdrawal->momo_number);
+        $amount = NotificationPrivacy::money($this->debitedAmount());
         $when = NotificationPrivacy::stamp($this->withdrawal->created_at);
+        $ghs = $this->availableBalanceGhs($notifiable);
+        $ref = $this->reference();
 
-        return (new MailMessage)
-            ->subject("Withdrawal requested: {$amount}")
+        $mail = (new MailMessage)
+            ->subject("{$amount} debited from your CityShop wallet")
             ->greeting('Hello '.(filled($notifiable->name ?? null) ? $notifiable->name : 'there').'!')
-            ->line("Your CityShop withdrawal of {$amount} to {$destination} has been requested.")
-            ->line('Usually processed within 15 minutes and sometimes instant.')
+            ->line("{$amount} has been debited from your CityShop wallet.")
+            ->line("Available Balance: GHS {$ghs}");
+
+        if ($ref) {
+            $mail->line('Ref: '.$ref);
+        }
+
+        return $mail
             ->line("Date: {$when}")
             ->action('View wallet', url('/wallet'));
     }
 
     public function toSms(object $notifiable): string
     {
-        $amount = NotificationPrivacy::money((float) $this->withdrawal->amount);
-        $destination = NotificationPrivacy::maskAccount($this->withdrawal->momo_number);
+        $amount = NotificationPrivacy::money($this->debitedAmount());
         $when = NotificationPrivacy::stamp($this->withdrawal->created_at);
+        $ghs = $this->availableBalanceGhs($notifiable);
+        $ref = $this->reference();
+
+        $lines = [
+            "CityShop: {$amount} debited from your wallet.",
+            "Available Balance: GHS {$ghs}",
+        ];
+        if ($ref) {
+            $lines[] = "Ref: {$ref}.";
+        }
+        $lines[] = "Date: {$when}.";
+
+        return implode("\n", $lines);
+    }
+
+    private function debitedAmount(): float
+    {
+        return $this->withdrawal->id
+            ? $this->withdrawal->totalDebited()
+            : (float) $this->withdrawal->amount;
+    }
+
+    private function reference(): ?string
+    {
+        if (filled($this->withdrawal->paystack_reference)) {
+            return (string) $this->withdrawal->paystack_reference;
+        }
+
+        if ($this->withdrawal->id) {
+            return 'WD-'.$this->withdrawal->id;
+        }
+
+        return null;
+    }
+
+    private function availableBalanceGhs(object $notifiable): string
+    {
         $balance = $this->availableBalance;
         if ($balance === null) {
             $balance = (float) ($notifiable->wallet?->available_balance
@@ -52,8 +95,6 @@ class WithdrawalRequestedNotification extends Notification
                 ?? 0);
         }
 
-        $ghs = number_format($balance, 2, '.', '');
-
-        return "CityShop: Your withdrawal of {$amount} to {$destination} has been requested.\nAvailable Balance: GHS {$ghs}\nDate: {$when}";
+        return number_format($balance, 2, '.', '');
     }
 }

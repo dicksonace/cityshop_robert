@@ -41,11 +41,11 @@ class WalletFundedNotification extends Notification implements ShouldQueue
         $ghs = $this->availableBalanceGhs($notifiable);
 
         return (new MailMessage)
-            ->subject("{$amount} added to your CityShop wallet")
+            ->subject("{$amount} credited to your CityShop wallet")
             ->greeting('Hello '.(filled($notifiable->name ?? null) ? $notifiable->name : 'there').'!')
-            ->line("{$amount} has been added to your CityShop wallet via {$method}.")
-            ->line('Reference: '.$this->reference)
+            ->line("{$amount} has been credited to your CityShop wallet via {$method}.")
             ->line("Available Balance: GHS {$ghs}")
+            ->line('Ref: '.$this->reference)
             ->line("Date: {$when}")
             ->action('View wallet', url('/wallet'));
     }
@@ -56,7 +56,7 @@ class WalletFundedNotification extends Notification implements ShouldQueue
         $ghs = $this->availableBalanceGhs($notifiable);
 
         return 'CityShop: '.NotificationPrivacy::money($this->amount)
-            .' added to your wallet. Ref '.$this->reference.".\nAvailable Balance: GHS {$ghs}\nDate: {$when}";
+            ." credited to your wallet.\nAvailable Balance: GHS {$ghs}\nRef: {$this->reference}.\nDate: {$when}.";
     }
 
     private function availableBalanceGhs(object $notifiable): string

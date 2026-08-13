@@ -61,7 +61,7 @@ class ApiWalletTransactionTest extends TestCase
             ->assertJsonPath('data.0.amount', -100)
             ->assertJsonPath('data.0.balance_before', 300)
             ->assertJsonPath('data.0.balance_after', 200)
-            ->assertJsonPath('data.1.type_label', 'Funds Added')
+            ->assertJsonPath('data.1.type_label', 'Funds Credited')
             ->assertJsonPath('data.1.reference', 'TOP-ABC123')
             ->assertJsonPath('data.1.balance_before', 0)
             ->assertJsonPath('data.1.balance_after', 300);
