@@ -6,6 +6,7 @@ use App\Enums\WalletTransactionType;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Notifications\AdminWalletDepositNotification;
 use App\Notifications\WalletFundedNotification;
 use App\Notifications\WalletTransferReceivedNotification;
 use Illuminate\Support\Facades\DB;
@@ -120,10 +121,25 @@ class WalletService
         });
 
         if ($ok) {
+            $user = User::query()->find($userId);
             try {
-                User::query()->find($userId)?->notify(new WalletFundedNotification($amount, $method, $reference));
+                $user?->notify(new WalletFundedNotification($amount, $method, $reference));
             } catch (\Throwable $e) {
                 report($e);
+            }
+
+            if (strtolower($method) !== 'admin') {
+                try {
+                    AdminNotifier::notify(new AdminWalletDepositNotification(
+                        userName: (string) ($user?->name ?? 'A user'),
+                        userRole: (string) ($user?->role?->value ?? 'user'),
+                        amount: $amount,
+                        method: $method,
+                        reference: $reference,
+                    ));
+                } catch (\Throwable $e) {
+                    report($e);
+                }
             }
         }
 

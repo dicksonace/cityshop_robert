@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\UserRole;
 use App\Enums\WalletTopUpStatus;
 use App\Models\WalletTopUpRequest;
+use App\Services\AdminNotifier;
 use App\Services\PlatformSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -85,6 +86,12 @@ class WalletManualTopUpController extends Controller
             'user_note' => $validated['user_note'] ?? null,
             'status' => WalletTopUpStatus::Pending,
         ]);
+
+        try {
+            AdminNotifier::depositProof($user, $topUp);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         $redirect = $user->isSeller()
             ? redirect()->route('seller.wallet.manual-top-up.show', $topUp)

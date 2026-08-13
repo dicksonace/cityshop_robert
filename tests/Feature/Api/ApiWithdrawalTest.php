@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Notifications\AdminWithdrawalRequestedNotification;
 use App\Notifications\WithdrawalRequestedNotification;
 use App\Services\PaymentPinService;
 use App\Services\WalletService;
@@ -55,6 +56,8 @@ class ApiWithdrawalTest extends TestCase
     public function test_a_request_debits_the_available_balance_and_writes_the_ledger(): void
     {
         Notification::fake();
+        $adminA = User::factory()->create(['role' => UserRole::Admin, 'name' => 'Admin One']);
+        $adminB = User::factory()->create(['role' => UserRole::Admin, 'name' => 'Admin Two']);
         $buyer = $this->buyerWithBalance(500);
 
         Sanctum::actingAs($buyer);
@@ -83,6 +86,11 @@ class ApiWithdrawalTest extends TestCase
         $this->assertSame("WD-{$withdrawal->id}", $entry->reference);
 
         Notification::assertSentTo($buyer, WithdrawalRequestedNotification::class);
+        Notification::assertSentTo($adminA, AdminWithdrawalRequestedNotification::class);
+        Notification::assertSentTo($adminB, AdminWithdrawalRequestedNotification::class);
+        Notification::assertSentTo($adminA, AdminWithdrawalRequestedNotification::class, function ($notification, $channels) {
+            return $channels === ['mail'];
+        });
     }
 
     public function test_bank_withdrawal_is_accepted(): void

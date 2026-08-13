@@ -10,6 +10,7 @@ use App\Models\Wallet;
 use App\Models\WalletTopUpRequest;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\AdminNotifier;
 use App\Services\PaystackService;
 use App\Services\PaymentPinService;
 use App\Services\PlatformSettings;
@@ -488,6 +489,12 @@ class WalletController extends Controller
             'user_note' => $validated['user_note'] ?? null,
             'status' => WalletTopUpStatus::Pending,
         ]);
+
+        try {
+            AdminNotifier::depositProof($user, $topUp);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json([
             'message' => 'Payment proof submitted for verification.',

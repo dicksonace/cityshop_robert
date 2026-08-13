@@ -6,6 +6,7 @@ use App\Enums\WithdrawalStatus;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
+use App\Notifications\AdminWithdrawalRequestedNotification;
 use App\Notifications\WithdrawalRequestedNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -76,6 +77,14 @@ class WithdrawalRequestService
 
         try {
             $user->notify(new WithdrawalRequestedNotification($result['withdrawal']));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            AdminNotifier::notify(new AdminWithdrawalRequestedNotification(
+                $result['withdrawal']->loadMissing('user'),
+            ));
         } catch (\Throwable $e) {
             report($e);
         }
