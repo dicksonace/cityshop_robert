@@ -6,6 +6,8 @@ use App\Enums\WithdrawalStatus;
 use App\Models\SellerPayoutMethod;
 use App\Models\User;
 use App\Models\Withdrawal;
+use App\Notifications\WithdrawalPaidNotification;
+use App\Notifications\WithdrawalRejectedNotification;
 use App\Support\GhanaBanks;
 use Illuminate\Support\Facades\DB;
 
@@ -141,6 +143,13 @@ class WithdrawalPayoutService
         $withdrawal->user->wallet?->increment('withdrawn_amount', $withdrawal->amount);
 
         WalletTransactionService::recordWithdrawalCompleted($withdrawal);
+
+        try {
+            $withdrawal->loadMissing('user');
+            $withdrawal->user?->notify(new WithdrawalPaidNotification($withdrawal));
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function startProcessing(Withdrawal $withdrawal, User $admin): void
@@ -173,6 +182,13 @@ class WithdrawalPayoutService
         $withdrawal->user->wallet?->increment('available_balance', $withdrawal->totalDebited());
 
         WalletTransactionService::recordWithdrawalRefunded($withdrawal);
+
+        try {
+            $withdrawal->loadMissing('user');
+            $withdrawal->user?->notify(new WithdrawalRejectedNotification($withdrawal->fresh() ?? $withdrawal));
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function handleTransferWebhook(array $data): void

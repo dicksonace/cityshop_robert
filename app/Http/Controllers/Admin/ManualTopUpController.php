@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\WalletTopUpStatus;
 use App\Http\Controllers\Controller;
 use App\Models\WalletTopUpRequest;
+use App\Notifications\WalletTopUpRejectedNotification;
 use App\Services\WalletService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -154,6 +155,13 @@ class ManualTopUpController extends Controller
             'reviewed_by' => $request->user()->id,
             'reviewed_at' => now(),
         ]);
+
+        try {
+            $topUp->loadMissing('user');
+            $topUp->user?->notify(new WalletTopUpRejectedNotification((float) $topUp->amount));
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return back()->with('success', 'Top-up request rejected.');
     }

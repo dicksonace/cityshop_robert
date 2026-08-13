@@ -28,11 +28,12 @@ class PasswordResetCodeNotification extends Notification implements ShouldQueue
     {
         return (new MailMessage)
             ->subject('Your CityShop password reset code')
-            ->greeting('Hello '.$notifiable->name.'!')
-            ->line('Use this code to reset your CityShop login password:')
-            ->line('**'.$this->code.'**')
-            ->line('This code expires in 30 minutes. If you did not request a password reset, you can ignore this email.')
-            ->line('Never share this code with anyone.');
+            ->markdown('mail.security-code', [
+                'name' => filled($notifiable->name ?? null) ? $notifiable->name : 'there',
+                'code' => $this->code,
+                'purpose' => 'reset your CityShop password',
+                'expiresMinutes' => 30,
+            ]);
     }
 
     public function toSms(object $notifiable): string

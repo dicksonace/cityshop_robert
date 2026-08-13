@@ -6,6 +6,8 @@ use App\Enums\WalletTransactionType;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Notifications\WalletFundedNotification;
+use App\Notifications\WalletTransferReceivedNotification;
 use Illuminate\Support\Facades\DB;
 
 class WalletService
@@ -25,7 +27,7 @@ class WalletService
 
     public static function adminCredit(User $target, float $amount, User $admin, ?string $note = null): WalletTransaction
     {
-        return DB::transaction(function () use ($target, $amount, $admin, $note) {
+        $tx = DB::transaction(function () use ($target, $amount, $admin, $note) {
             $wallet = Wallet::where('user_id', $target->id)->lockForUpdate()->first()
                 ?? static::ensure($target);
 
@@ -33,6 +35,18 @@ class WalletService
 
             return WalletTransactionService::recordAdminCredit($target->id, $amount, $admin->id, $note);
         });
+
+        try {
+            $target->notify(new WalletFundedNotification(
+                $amount,
+                'admin',
+                'ADMIN-'.$tx->id,
+            ));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $tx;
     }
 
     /**
@@ -82,7 +96,7 @@ class WalletService
 
     public static function creditFromVerifiedTopUp(int $userId, float $amount, string $reference, string $method): bool
     {
-        return (bool) DB::transaction(function () use ($userId, $amount, $reference, $method) {
+        $ok = (bool) DB::transaction(function () use ($userId, $amount, $reference, $method) {
             if (WalletTransaction::where('reference', $reference)->exists()) {
                 return false;
             }
@@ -104,6 +118,16 @@ class WalletService
 
             return true;
         });
+
+        if ($ok) {
+            try {
+                User::query()->find($userId)?->notify(new WalletFundedNotification($amount, $method, $reference));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $ok;
     }
 
     /**
@@ -139,7 +163,7 @@ class WalletService
             throw new \RuntimeException('Note must be 120 characters or fewer.');
         }
 
-        return DB::transaction(function () use ($from, $to, $amount, $note) {
+        $result = DB::transaction(function () use ($from, $to, $amount, $note) {
             static::ensure($from);
             static::ensure($to);
 
@@ -199,6 +223,19 @@ class WalletService
                 'currency' => 'GHS',
             ];
         });
+
+        try {
+            $to->notify(new WalletTransferReceivedNotification(
+                $from,
+                (float) $result['amount'],
+                $result['reference'],
+                $result['note'],
+            ));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return $result;
     }
 
     /** Name plus Tel line for ledger / statement details, e.g. "Robert Asare Tel 0248620718". */

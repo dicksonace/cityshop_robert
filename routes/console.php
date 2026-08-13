@@ -20,6 +20,19 @@ Artisan::command('sms:send {phone} {message}', function () {
     return self::FAILURE;
 })->purpose('Send a test SMS via Formula DC / configured driver');
 
+Artisan::command('mail:test {email}', function () {
+    $email = (string) $this->argument('email');
+    \Illuminate\Support\Facades\Mail::html(
+        '<p style="font-family:Segoe UI,Arial,sans-serif;font-size:16px;color:#111827;">'
+        .'CityShop SMTP is working. This mailbox is temporary until we switch to CityShop mail.'
+        .'</p>',
+        function ($message) use ($email) {
+            $message->to($email)->subject('CityShop mail test');
+        },
+    );
+    $this->info("Test email sent to {$email}");
+})->purpose('Send a test email via the configured SMTP mailbox');
+
 Schedule::command('orders:auto-confirm-deliveries')->hourly();
 
 Schedule::call(function () {
