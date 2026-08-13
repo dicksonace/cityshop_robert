@@ -52,7 +52,7 @@ declare global {
     }
 }
 
-export default function Payment({ checkout, marketplaceTotal, paystackFee = 0, paystackCharge, directOrders, paystackPublicKey, paystackConfigured }: PaymentProps) {
+export default function Payment({ checkout, marketplaceTotal, paystackCharge, directOrders, paystackPublicKey, paystackConfigured }: PaymentProps) {
     const totalDue = paystackCharge && paystackCharge > 0 ? paystackCharge : marketplaceTotal;
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -120,18 +120,6 @@ export default function Payment({ checkout, marketplaceTotal, paystackFee = 0, p
                     {marketplaceTotal > 0 && (
                         <div className="mt-6 rounded-xl border border-orange-100 bg-orange-50 p-4">
                             <p className="font-semibold text-gray-900">CityShop payment</p>
-                            {paystackFee > 0 ? (
-                                <div className="mt-2 space-y-1 text-sm text-gray-600">
-                                    <div className="flex justify-between">
-                                        <span>Order</span>
-                                        <span>{formatPrice(marketplaceTotal)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Paystack fee</span>
-                                        <span>{formatPrice(paystackFee)}</span>
-                                    </div>
-                                </div>
-                            ) : null}
                             <p className="mt-2 text-2xl font-bold text-orange-500">{formatPrice(totalDue)}</p>
                             <p className="mt-1 text-sm text-gray-500">Pay securely via Paystack for marketplace sellers.</p>
                             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
