@@ -210,7 +210,7 @@ class OrderService
                     'reference' => $order->payment_reference,
                 ]);
 
-                if ($paymentMethod !== 'cash' && $channel !== PaymentChannel::Direct) {
+                if ($paymentMethod !== 'cash' && $paymentMethod !== 'wallet' && $channel !== PaymentChannel::Direct) {
                     $order->seller->notify(new PaymentConfirmedNotification($order->load('items'), $order->items->first(), pendingOrder: true));
                     if ($order->seller) {
                         AppNotificationService::notifySellerNewOrder(

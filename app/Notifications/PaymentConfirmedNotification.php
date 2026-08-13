@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\SmsChannel;
 use App\Enums\PaymentChannel;
+use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Services\AppNotificationService;
@@ -32,24 +33,18 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         if ($this->orderItem) {
+            $awaiting = $this->isAwaitingPayment();
             $subject = AppNotificationService::sellerNewOrderTitle(
                 $this->order,
-                $this->pendingOrder,
+                $awaiting,
                 $this->cashOnDelivery,
                 $this->paymentClaim,
             );
-            $line = match (true) {
-                $this->cashOnDelivery => "New Order (Cash on Delivery): {$this->orderItem->product_name}",
-                $this->paymentClaim => "Buyer submitted payment for: {$this->orderItem->product_name}",
-                $this->pendingOrder => "You have a new order awaiting payment: {$this->orderItem->product_name}",
-                $this->order->payment_channel === PaymentChannel::Direct => "New order received (Paid to seller): {$this->orderItem->product_name}",
-                default => "New order received (Paid · CityShop secured): {$this->orderItem->product_name}",
-            };
 
             return (new MailMessage)
                 ->subject($subject)
                 ->greeting('Hello '.$notifiable->name.'!')
-                ->line($line)
+                ->line($this->sellerIntroLine())
                 ->line("Order: {$this->order->order_number}")
                 ->when($this->cashOnDelivery, fn (MailMessage $mail) => $mail
                     ->line('The buyer will pay cash when you deliver. Call them to confirm, then pack and send the order.')
@@ -59,11 +54,11 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
                     fn (MailMessage $mail) => $mail->line('Open the order and confirm only if you received the money.')
                 )
                 ->when(
-                    ! $this->cashOnDelivery && ! $this->pendingOrder && ! $this->paymentClaim && $this->order->payment_channel === PaymentChannel::Direct,
+                    ! $this->cashOnDelivery && ! $awaiting && ! $this->paymentClaim && $this->order->payment_channel === PaymentChannel::Direct,
                     fn (MailMessage $mail) => $mail->line('Buyer paid you directly. Confirm only if you received the money.')
                 )
                 ->when(
-                    ! $this->cashOnDelivery && ! $this->pendingOrder && ! $this->paymentClaim && $this->order->payment_channel !== PaymentChannel::Direct,
+                    ! $this->cashOnDelivery && ! $awaiting && ! $this->paymentClaim && $this->order->payment_channel !== PaymentChannel::Direct,
                     fn (MailMessage $mail) => $mail->line('Buyer paid via CityShop secured. Funds settle through your seller wallet.')
                 )
                 ->action(
@@ -96,7 +91,7 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
                 return "CityShop: Buyer submitted payment for {$this->order->order_number} — {$this->orderItem->product_name}. Confirm only if received.";
             }
 
-            if ($this->pendingOrder) {
+            if ($this->isAwaitingPayment()) {
                 return "CityShop: New order awaiting payment {$this->order->order_number} — {$this->orderItem->product_name}.";
             }
 
@@ -104,9 +99,34 @@ class PaymentConfirmedNotification extends Notification implements ShouldQueue
                 return "CityShop: New order received (Paid to seller) {$this->order->order_number} — {$this->orderItem->product_name}.";
             }
 
-            return "CityShop: New order received (Paid · CityShop secured) {$this->order->order_number} — {$this->orderItem->product_name}.";
+            return "CityShop: Payment complete for {$this->order->order_number} — {$this->orderItem->product_name}.";
         }
 
         return "CityShop: Payment confirmed for order {$this->order->order_number}.";
+    }
+
+    public function sellerIntroLine(): string
+    {
+        $name = $this->orderItem?->product_name ?? 'an item';
+
+        return match (true) {
+            $this->cashOnDelivery => "New Order (Cash on Delivery): {$name}",
+            $this->paymentClaim => "Buyer submitted payment for: {$name}",
+            $this->isAwaitingPayment() => "You have a new order awaiting payment: {$name}",
+            $this->order->payment_channel === PaymentChannel::Direct => "New order received (Paid to seller): {$name}",
+            default => "You have a new order. Payment complete: {$name}",
+        };
+    }
+
+    public function isAwaitingPayment(): bool
+    {
+        if ($this->cashOnDelivery || $this->paymentClaim || ! $this->pendingOrder) {
+            return false;
+        }
+
+        $status = $this->order->payment_status;
+        $value = $status instanceof \BackedEnum ? $status->value : $status;
+
+        return strtolower((string) $value) !== PaymentStatus::Paid->value;
     }
 }

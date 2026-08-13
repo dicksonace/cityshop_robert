@@ -7,6 +7,7 @@ use App\Enums\InvoiceType;
 use App\Enums\PaymentStatus;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\User;
 use App\Notifications\InvoiceSentNotification;
 use App\Notifications\OrderPlacedNotification;
@@ -79,5 +80,25 @@ class BuyerOrderSmsTest extends TestCase
             'to confirm',
             (new OrderPlacedNotification($paid))->buyerIntroLine(),
         );
+    }
+
+    public function test_seller_paid_order_email_says_payment_complete(): void
+    {
+        $item = new OrderItem(['product_name' => 'HP 1040G8 i5']);
+        $paid = new Order([
+            'order_number' => 'CS202608138208B7',
+            'payment_status' => PaymentStatus::Paid,
+        ]);
+        $pending = new Order([
+            'order_number' => 'CS202608138208B7',
+            'payment_status' => PaymentStatus::Pending,
+        ]);
+
+        $paidMail = (new PaymentConfirmedNotification($paid, $item, pendingOrder: true))->sellerIntroLine();
+        $pendingMail = (new PaymentConfirmedNotification($pending, $item, pendingOrder: true))->sellerIntroLine();
+
+        $this->assertSame('You have a new order. Payment complete: HP 1040G8 i5', $paidMail);
+        $this->assertStringNotContainsString('awaiting payment', $paidMail);
+        $this->assertSame('You have a new order awaiting payment: HP 1040G8 i5', $pendingMail);
     }
 }
