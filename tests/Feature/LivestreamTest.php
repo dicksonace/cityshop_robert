@@ -56,6 +56,27 @@ class LivestreamTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_seller_web_end_live_returns_inertia_redirect_not_json(): void
+    {
+        [$seller] = $this->approvedSeller();
+        $this->actingAs($seller)->post(route('seller.livestream.start'), ['title' => 'Web live'])->assertRedirect();
+
+        $this->actingAs($seller)
+            ->from(route('seller.livestream'))
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Requested-With' => 'XMLHttpRequest',
+            ])
+            ->post(route('seller.livestream.end'))
+            ->assertRedirect(route('seller.livestream'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('livestreams', [
+            'seller_id' => $seller->id,
+            'status' => LivestreamStatus::Ended->value,
+        ]);
+    }
+
     public function test_ending_live_hides_the_store_from_live_now(): void
     {
         [$seller] = $this->approvedSeller();

@@ -49,7 +49,13 @@ class LivestreamController extends Controller
     {
         LiveStreamService::end($request->user());
 
-        if ($request->wantsJson() || $request->ajax()) {
+        // Inertia visits also send X-Requested-With, so do not treat them as AJAX JSON.
+        // Fetch/beacon clients (page close) still get {"ok":true}.
+        if ($request->header('X-Inertia')) {
+            return back()->with('success', 'Live ended.');
+        }
+
+        if ($request->wantsJson()) {
             return response()->json(['ok' => true]);
         }
 
