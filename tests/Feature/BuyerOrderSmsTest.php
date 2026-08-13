@@ -55,12 +55,24 @@ class BuyerOrderSmsTest extends TestCase
         );
     }
 
-    public function test_buyer_still_has_order_and_payment_sms(): void
+    public function test_buyer_and_seller_alerts_are_one_mail_and_one_sms(): void
     {
         $buyer = User::factory()->create(['mobile' => '0249998887']);
+        $seller = User::factory()->create(['mobile' => '0241112223']);
+        $item = new OrderItem(['product_name' => 'HP 1040G8 i5']);
+        $order = new Order([
+            'order_number' => 'CS202608138208B7',
+            'payment_status' => PaymentStatus::Paid,
+        ]);
 
-        $this->assertContains(SmsChannel::class, (new OrderPlacedNotification(new Order))->via($buyer));
-        $this->assertContains(SmsChannel::class, (new PaymentConfirmedNotification(new Order))->via($buyer));
+        $this->assertSame(
+            ['mail', SmsChannel::class],
+            (new OrderPlacedNotification($order))->via($buyer),
+        );
+        $this->assertSame(
+            ['mail', SmsChannel::class],
+            (new PaymentConfirmedNotification($order, $item))->via($seller),
+        );
     }
 
     public function test_order_email_says_payment_complete_not_to_confirm(): void

@@ -210,17 +210,6 @@ class OrderService
                     'reference' => $order->payment_reference,
                 ]);
 
-                if ($paymentMethod !== 'cash' && $paymentMethod !== 'wallet' && $channel !== PaymentChannel::Direct) {
-                    $order->seller->notify(new PaymentConfirmedNotification($order->load('items'), $order->items->first(), pendingOrder: true));
-                    if ($order->seller) {
-                        AppNotificationService::notifySellerNewOrder(
-                            $order->seller,
-                            $order,
-                            $order->items->first(),
-                            pendingOrder: true,
-                        );
-                    }
-                }
             }
 
             $checkout->update([
@@ -232,16 +221,7 @@ class OrderService
 
             CartItem::where('user_id', $buyer->id)->delete();
 
-            $checkout = $checkout->load('orders.items.seller');
-            if ($paymentMethod !== 'cash' && $paymentMethod !== 'wallet') {
-                $firstOrder = $checkout->orders->first();
-                $buyer->notify(new OrderPlacedNotification($firstOrder, checkout: $checkout));
-                if ($firstOrder) {
-                    AppNotificationService::notifyBuyerOrderPlaced($buyer, $firstOrder);
-                }
-            }
-
-            return $checkout;
+            return $checkout->load('orders.items.seller');
         });
     }
 
@@ -622,12 +602,9 @@ class OrderService
                     'paid_at' => now(),
                 ]);
 
-            $locked->refresh();
-            $locked->buyer->notify(new PaymentConfirmedNotification($locked->orders->first()));
-            if ($locked->buyer && $locked->orders->first()) {
-                AppNotificationService::notifyBuyerPaymentConfirmed($locked->buyer, $locked->orders->first());
-            }
-            $this->invoices->sendInvoices($locked);
+            $locked->refresh()->load(['buyer', 'orders']);
+            $this->notifyBuyerOrderPaid($locked);
+            $this->invoices->generateForCheckout($locked);
 
             return $locked;
         });
@@ -654,9 +631,8 @@ class OrderService
         }
 
         $reference = 'WAL-'.$checkout->checkout_number;
-        $alreadyPaid = WalletTransaction::where('reference', $reference)->exists();
 
-        $paid = DB::transaction(function () use ($checkout, $buyer, $marketplaceTotal, $reference) {
+        return DB::transaction(function () use ($checkout, $buyer, $marketplaceTotal, $reference) {
             $wallet = Wallet::where('user_id', $buyer->id)->lockForUpdate()->first()
                 ?? WalletService::ensure($buyer);
 
@@ -681,17 +657,6 @@ class OrderService
 
             return $this->fulfillPaidCheckout($checkout, $reference);
         });
-
-        if (! $alreadyPaid) {
-            $paid = $paid->fresh(['buyer', 'orders']) ?? $paid;
-            $firstOrder = $paid->orders->first();
-            if ($paid->buyer && $firstOrder) {
-                $paid->buyer->notify(new OrderPlacedNotification($firstOrder, checkout: $paid));
-                AppNotificationService::notifyBuyerOrderPlaced($paid->buyer, $firstOrder, paymentComplete: true);
-            }
-        }
-
-        return $paid;
     }
 
     public function fulfillPaidOrder(Order $order, string $paystackReference, bool $skipCheckoutUpdate = false, bool $skipBuyerNotify = false): Order
@@ -733,21 +698,16 @@ class OrderService
 
                 $seller = User::find($item->seller_id);
                 $seller?->sellerProfile?->increment('total_sales');
-                $seller?->notify(new PaymentConfirmedNotification($locked, $item));
-                if ($seller) {
-                    AppNotificationService::notifySellerNewOrder($seller, $locked, $item);
-                }
             }
+
+            $this->notifySellersOfPaidOrder($locked);
 
             if ($locked->payment_channel === PaymentChannel::Marketplace && (float) $locked->shipping_cost > 0) {
                 $this->creditSellerShippingPending($locked);
             }
 
             if (! $skipBuyerNotify) {
-                $locked->buyer->notify(new PaymentConfirmedNotification($locked));
-                if ($locked->buyer) {
-                    AppNotificationService::notifyBuyerPaymentConfirmed($locked->buyer, $locked);
-                }
+                $this->notifyBuyerOrderPaid($locked);
             }
 
             Payment::where('order_id', $locked->id)->update([
@@ -762,6 +722,48 @@ class OrderService
 
             return $locked->fresh('items');
         });
+    }
+
+    private function notifyBuyerOrderPaid(Checkout|Order $source): void
+    {
+        if ($source instanceof Checkout) {
+            $buyer = $source->buyer;
+            $order = $source->orders->first();
+            $checkout = $source;
+        } else {
+            $buyer = $source->buyer;
+            $order = $source;
+            $checkout = $source->checkout;
+        }
+
+        if (! $buyer || ! $order) {
+            return;
+        }
+
+        $buyer->notify(new OrderPlacedNotification($order, checkout: $checkout));
+        AppNotificationService::notifyBuyerOrderPlaced($buyer, $order, paymentComplete: true);
+    }
+
+    private function notifySellersOfPaidOrder(Order $order, bool $cashOnDelivery = false): void
+    {
+        $order->loadMissing('items');
+        $notified = [];
+
+        foreach ($order->items as $item) {
+            $sellerId = (int) $item->seller_id;
+            if ($sellerId < 1 || isset($notified[$sellerId])) {
+                continue;
+            }
+
+            $seller = $item->seller ?? User::find($sellerId);
+            if (! $seller) {
+                continue;
+            }
+
+            $notified[$sellerId] = true;
+            $seller->notify(new PaymentConfirmedNotification($order, $item, cashOnDelivery: $cashOnDelivery));
+            AppNotificationService::notifySellerNewOrder($seller, $order, $item, cashOnDelivery: $cashOnDelivery);
+        }
     }
 
     public function submitDirectPaymentReference(Order $order, ?string $reference, ?string $proofPath = null): Order
@@ -854,18 +856,11 @@ class OrderService
                 $this->syncCheckoutPaymentStatus($order->checkout);
                 $checkout = $order->checkout->fresh('orders');
                 if ($checkout->isFullyPaid()) {
-                    $this->invoices->sendInvoices($checkout);
+                    $this->invoices->generateForCheckout($checkout);
                 }
             }
 
-            $order->buyer->notify(new PaymentConfirmedNotification($order));
-            if ($order->buyer) {
-                AppNotificationService::notifyBuyerPaymentConfirmed($order->buyer, $order);
-            }
-            $order->seller?->notify(new PaymentConfirmedNotification($order, $order->items->first()));
-            if ($order->seller) {
-                AppNotificationService::notifySellerNewOrder($order->seller, $order, $order->items->first());
-            }
+            $this->notifySellersOfPaidOrder($order->load('items'));
 
             return $order->fresh('items');
         });
@@ -968,17 +963,7 @@ class OrderService
         }
 
         foreach ($checkout->orders as $order) {
-            foreach ($order->items as $item) {
-                $item->seller->notify(new PaymentConfirmedNotification($order, $item, cashOnDelivery: true));
-                if ($item->seller) {
-                    AppNotificationService::notifySellerNewOrder(
-                        $item->seller,
-                        $order,
-                        $item,
-                        cashOnDelivery: true,
-                    );
-                }
-            }
+            $this->notifySellersOfPaidOrder($order, cashOnDelivery: true);
         }
 
         return $checkout;

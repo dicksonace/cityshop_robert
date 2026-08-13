@@ -6,7 +6,6 @@ use App\Enums\InvoiceType;
 use App\Models\Checkout;
 use App\Models\Invoice;
 use App\Models\Order;
-use App\Notifications\InvoiceSentNotification;
 use Illuminate\Support\Collection;
 
 class InvoiceService
@@ -95,12 +94,7 @@ class InvoiceService
 
     public function sendInvoices(Checkout $checkout): void
     {
-        $invoices = $this->generateForCheckout($checkout);
-
-        foreach ($invoices as $invoice) {
-            $invoice->user->notify(new InvoiceSentNotification($invoice));
-            $invoice->update(['sent_at' => now()]);
-        }
+        $this->generateForCheckout($checkout);
     }
 
     private function createInvoice(
