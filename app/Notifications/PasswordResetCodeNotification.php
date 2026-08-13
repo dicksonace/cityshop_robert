@@ -12,16 +12,16 @@ class PasswordResetCodeNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public string $code) {}
+    public function __construct(
+        public string $code,
+        public string $channel = 'email',
+    ) {}
 
     public function via(object $notifiable): array
     {
-        $channels = ['mail'];
-        if (filled($notifiable->mobile ?? null)) {
-            $channels[] = SmsChannel::class;
-        }
-
-        return $channels;
+        return $this->channel === 'sms'
+            ? [SmsChannel::class]
+            : ['mail'];
     }
 
     public function toMail(object $notifiable): MailMessage

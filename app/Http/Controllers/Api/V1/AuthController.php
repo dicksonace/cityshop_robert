@@ -126,14 +126,20 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'login' => ['required', 'string', 'max:255'],
+            'via' => ['nullable', 'in:email,sms'],
         ]);
 
-        $result = PasswordResetService::sendCode(trim($validated['login']));
+        $via = \App\Support\ResetChannel::parse($validated['via'] ?? 'email');
+        $result = PasswordResetService::sendCode(trim($validated['login']), $via);
+
+        $destination = $via === 'sms' ? 'phone' : 'email';
 
         return response()->json([
             'message' => $result['sent']
-                ? 'A reset code was sent to your email.'
-                : 'If that account exists, a reset code was sent to the email on file.',
+                ? "A reset code was sent to your {$destination}."
+                : "If that account exists, a reset code was sent to the {$destination} on file.",
+            'via' => $result['via'],
+            'hint' => $result['hint'],
             'email_hint' => $result['email_hint'],
         ]);
     }

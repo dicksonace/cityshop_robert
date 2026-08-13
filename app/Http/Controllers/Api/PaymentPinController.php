@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Services\PaymentPinService;
+use App\Support\ResetChannel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -59,11 +60,21 @@ class PaymentPinController extends Controller
             ], 422);
         }
 
-        PaymentPinService::sendResetCode($user);
+        $validated = $request->validate([
+            'via' => ['nullable', 'in:email,sms'],
+        ]);
+
+        $via = ResetChannel::parse($validated['via'] ?? ResetChannel::EMAIL);
+        PaymentPinService::sendResetCode($user, $via);
+
+        $hint = ResetChannel::hint($via, $user->email, $user->mobile);
+        $destination = $via === ResetChannel::SMS ? 'phone' : 'email';
 
         return response()->json([
-            'message' => 'A reset code was sent to your email.',
-            'email_hint' => static::maskEmail($user->email),
+            'message' => "A reset code was sent to your {$destination}.",
+            'via' => $via,
+            'hint' => $hint,
+            'email_hint' => $via === ResetChannel::EMAIL ? $hint : null,
         ]);
     }
 
@@ -81,19 +92,5 @@ class PaymentPinController extends Controller
             'message' => 'Payment PIN reset successfully.',
             'user' => new UserResource($request->user()->fresh()),
         ]);
-    }
-
-    private static function maskEmail(string $email): string
-    {
-        $parts = explode('@', $email, 2);
-        if (count($parts) !== 2) {
-            return '***';
-        }
-
-        $local = $parts[0];
-        $domain = $parts[1];
-        $visible = max(1, (int) floor(strlen($local) / 3));
-
-        return substr($local, 0, $visible).str_repeat('*', max(3, strlen($local) - $visible)).'@'.$domain;
     }
 }

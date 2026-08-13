@@ -19,12 +19,26 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type PageProps = {
     hasPaymentPin: boolean;
+    hasEmail?: boolean;
+    hasMobile?: boolean;
     status?: string;
     emailHint?: string;
+    hint?: string;
+    via?: 'email' | 'sms';
 };
 
-export default function PaymentPin({ hasPaymentPin, status, emailHint }: PageProps) {
+export default function PaymentPin({
+    hasPaymentPin,
+    hasEmail = true,
+    hasMobile = false,
+    status,
+    emailHint,
+    hint,
+    via,
+}: PageProps) {
     const [mode, setMode] = useState<'manage' | 'reset'>('manage');
+    const destinationHint = hint || emailHint;
+    const sentVia = via === 'sms' ? 'SMS' : 'email';
 
     const setForm = useForm({
         pin: '',
@@ -43,7 +57,9 @@ export default function PaymentPin({ hasPaymentPin, status, emailHint }: PagePro
         pin_confirmation: '',
     });
 
-    const forgotForm = useForm({});
+    const forgotForm = useForm({
+        via: 'email',
+    });
 
     const submitSet: FormEventHandler = (e) => {
         e.preventDefault();
@@ -61,12 +77,13 @@ export default function PaymentPin({ hasPaymentPin, status, emailHint }: PagePro
         });
     };
 
-    const submitForgot: FormEventHandler = (e) => {
-        e.preventDefault();
-        forgotForm.post(route('payment-pin.forgot'), {
-            preserveScroll: true,
-            onSuccess: () => setMode('reset'),
-        });
+    const sendForgot = (channel: 'email' | 'sms') => {
+        forgotForm
+            .transform(() => ({ via: channel }))
+            .post(route('payment-pin.forgot'), {
+                preserveScroll: true,
+                onSuccess: () => setMode('reset'),
+            });
     };
 
     const submitReset: FormEventHandler = (e) => {
@@ -195,24 +212,43 @@ export default function PaymentPin({ hasPaymentPin, status, emailHint }: PagePro
                                 </div>
                             </form>
 
-                            <form onSubmit={submitForgot} className="border-t pt-4">
-                                <Button type="submit" variant="outline" disabled={forgotForm.processing}>
-                                    Forgot PIN? Email me a reset code
-                                </Button>
-                                <InputError message={forgotForm.errors.email} className="mt-2" />
-                            </form>
+                            <div className="space-y-3 border-t pt-4">
+                                <p className="text-sm font-medium text-gray-800">Forgot PIN? Send a reset code via</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={forgotForm.processing || !hasEmail}
+                                        onClick={() => sendForgot('email')}
+                                    >
+                                        Email
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={forgotForm.processing || !hasMobile}
+                                        onClick={() => sendForgot('sms')}
+                                    >
+                                        SMS
+                                    </Button>
+                                </div>
+                                {!hasMobile && (
+                                    <p className="text-xs text-muted-foreground">Add a mobile number to your profile to use SMS.</p>
+                                )}
+                                <InputError message={forgotForm.errors.via || forgotForm.errors.email} className="mt-2" />
+                            </div>
                         </>
                     )}
 
                     {mode === 'reset' && (
                         <form onSubmit={submitReset} className="space-y-4">
                             <p className="text-sm text-muted-foreground">
-                                {emailHint
-                                    ? `Enter the 6-digit code sent to ${emailHint}, then choose a new PIN.`
-                                    : 'Enter the 6-digit code from your email, then choose a new PIN.'}
+                                {destinationHint
+                                    ? `Enter the 6-digit code sent to ${destinationHint} via ${sentVia}, then choose a new PIN.`
+                                    : `Enter the 6-digit ${sentVia} code, then choose a new PIN.`}
                             </p>
                             <div className="grid gap-2">
-                                <Label htmlFor="code">Email code</Label>
+                                <Label htmlFor="code">Reset code</Label>
                                 <Input
                                     id="code"
                                     inputMode="numeric"

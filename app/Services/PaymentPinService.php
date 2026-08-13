@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Notifications\PaymentPinResetCodeNotification;
+use App\Support\ResetChannel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -74,42 +75,60 @@ class PaymentPinService
         static::set($user, $newPin);
     }
 
-    public static function sendResetCode(User $user): void
+    public static function sendResetCode(User $user, string $via = ResetChannel::EMAIL): string
     {
-        if (! filled($user->email)) {
+        $via = ResetChannel::parse($via);
+
+        if ($via === ResetChannel::SMS && ! filled($user->mobile)) {
             throw ValidationException::withMessages([
-                'email' => ['Add an email on your account before resetting your payment PIN.'],
+                'via' => ['Add a mobile number on your account before resetting your PIN by SMS.'],
             ]);
         }
 
-        $key = 'payment-pin-reset-send:'.$user->id;
+        if ($via === ResetChannel::EMAIL && ! filled($user->email)) {
+            throw ValidationException::withMessages([
+                'via' => ['Add an email on your account before resetting your PIN by email.'],
+            ]);
+        }
+
+        $tokenKey = filled($user->email)
+            ? strtolower((string) $user->email)
+            : 'u:'.$user->id;
+
+        $key = 'payment-pin-reset-send:'.$user->id.':'.$via;
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $seconds = RateLimiter::availableIn($key);
             throw ValidationException::withMessages([
-                'email' => ["Please wait {$seconds} seconds before requesting another code."],
+                'via' => ["Please wait {$seconds} seconds before requesting another code."],
             ]);
         }
 
         $code = (string) random_int(100000, 999999);
 
         DB::table('payment_pin_reset_tokens')->updateOrInsert(
-            ['email' => strtolower($user->email)],
+            ['email' => $tokenKey],
             [
                 'token' => Hash::make($code),
                 'created_at' => now(),
             ],
         );
 
-        $user->notify(new PaymentPinResetCodeNotification($code));
+        $user->notify(new PaymentPinResetCodeNotification($code, $via));
         RateLimiter::hit($key, 60);
+
+        return $via;
     }
 
     public static function resetWithCode(User $user, string $code, string $newPin): void
     {
         static::assertValidPin($newPin);
 
+        $tokenKey = filled($user->email)
+            ? strtolower((string) $user->email)
+            : 'u:'.$user->id;
+
         $row = DB::table('payment_pin_reset_tokens')
-            ->where('email', strtolower($user->email))
+            ->where('email', $tokenKey)
             ->first();
 
         if (! $row || ! Hash::check($code, (string) $row->token)) {
@@ -119,14 +138,14 @@ class PaymentPinService
         }
 
         if ($row->created_at && \Illuminate\Support\Carbon::parse($row->created_at)->lt(now()->subMinutes(30))) {
-            DB::table('payment_pin_reset_tokens')->where('email', strtolower($user->email))->delete();
+            DB::table('payment_pin_reset_tokens')->where('email', $tokenKey)->delete();
             throw ValidationException::withMessages([
                 'code' => ['That reset code has expired. Request a new one.'],
             ]);
         }
 
         static::set($user, $newPin);
-        DB::table('payment_pin_reset_tokens')->where('email', strtolower($user->email))->delete();
+        DB::table('payment_pin_reset_tokens')->where('email', $tokenKey)->delete();
         RateLimiter::clear('payment-pin:'.$user->id);
     }
 

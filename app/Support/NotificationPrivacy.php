@@ -9,6 +9,21 @@ class NotificationPrivacy
         return 'GH₵'.number_format($amount, 2);
     }
 
+    public static function maskEmail(?string $email): string
+    {
+        $email = strtolower(trim((string) $email));
+        $parts = explode('@', $email, 2);
+        if (count($parts) !== 2 || $parts[0] === '' || $parts[1] === '') {
+            return '***';
+        }
+
+        $local = $parts[0];
+        $domain = $parts[1];
+        $visible = max(1, (int) floor(strlen($local) / 3));
+
+        return substr($local, 0, $visible).str_repeat('*', max(3, strlen($local) - $visible)).'@'.$domain;
+    }
+
     public static function maskAccount(?string $value): string
     {
         $digits = preg_replace('/\D+/', '', (string) $value) ?? '';

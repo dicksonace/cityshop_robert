@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Services\PaymentPinService;
+use App\Support\ResetChannel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,8 +16,12 @@ class PaymentPinController extends Controller
     {
         return Inertia::render('settings/payment-pin', [
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
+            'hasEmail' => filled($request->user()->email),
+            'hasMobile' => filled($request->user()->mobile),
             'status' => $request->session()->get('status'),
             'emailHint' => $request->session()->get('email_hint'),
+            'hint' => $request->session()->get('hint'),
+            'via' => $request->session()->get('via'),
         ]);
     }
 
@@ -52,20 +57,25 @@ class PaymentPinController extends Controller
     public function forgot(Request $request): RedirectResponse
     {
         if (! PaymentPinService::hasPin($request->user())) {
-            return back()->withErrors(['email' => 'No payment PIN is set yet.']);
+            return back()->withErrors(['via' => 'No payment PIN is set yet.']);
         }
 
-        PaymentPinService::sendResetCode($request->user());
+        $validated = $request->validate([
+            'via' => ['nullable', 'in:email,sms'],
+        ]);
 
-        $email = $request->user()->email;
-        $parts = explode('@', $email, 2);
-        $hint = count($parts) === 2
-            ? substr($parts[0], 0, max(1, (int) floor(strlen($parts[0]) / 3))).'***@'.$parts[1]
-            : '***';
+        $via = ResetChannel::parse($validated['via'] ?? ResetChannel::EMAIL);
+        PaymentPinService::sendResetCode($request->user(), $via);
+
+        $user = $request->user();
+        $hint = ResetChannel::hint($via, $user->email, $user->mobile);
+        $destination = $via === ResetChannel::SMS ? 'phone' : 'email';
 
         return back()->with([
-            'status' => 'A reset code was sent to your email.',
-            'email_hint' => $hint,
+            'status' => "A reset code was sent to your {$destination}.",
+            'hint' => $hint,
+            'via' => $via,
+            'email_hint' => $via === ResetChannel::EMAIL ? $hint : null,
         ]);
     }
 
