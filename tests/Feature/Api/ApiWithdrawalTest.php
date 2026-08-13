@@ -9,9 +9,11 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Notifications\WithdrawalRequestedNotification;
 use App\Services\PaymentPinService;
 use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -52,6 +54,7 @@ class ApiWithdrawalTest extends TestCase
 
     public function test_a_request_debits_the_available_balance_and_writes_the_ledger(): void
     {
+        Notification::fake();
         $buyer = $this->buyerWithBalance(500);
 
         Sanctum::actingAs($buyer);
@@ -78,6 +81,8 @@ class ApiWithdrawalTest extends TestCase
         $this->assertSame(WalletTransactionType::Withdrawal, $entry->type);
         $this->assertSame(-120.0, (float) $entry->amount);
         $this->assertSame("WD-{$withdrawal->id}", $entry->reference);
+
+        Notification::assertSentTo($buyer, WithdrawalRequestedNotification::class);
     }
 
     public function test_bank_withdrawal_is_accepted(): void

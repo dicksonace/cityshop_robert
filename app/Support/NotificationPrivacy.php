@@ -2,11 +2,19 @@
 
 namespace App\Support;
 
+use Carbon\CarbonInterface;
+
 class NotificationPrivacy
 {
     public static function money(float $amount): string
     {
         return 'GH₵'.number_format($amount, 2);
+    }
+
+    /** Ghana-local date and time for SMS, e.g. 13 Aug 2026, 1:27 PM */
+    public static function stamp(?CarbonInterface $at = null): string
+    {
+        return ($at ?? now())->copy()->timezone('Africa/Accra')->format('j M Y, g:i A');
     }
 
     public static function maskEmail(?string $email): string

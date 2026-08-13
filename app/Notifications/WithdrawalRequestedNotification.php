@@ -5,15 +5,11 @@ namespace App\Notifications;
 use App\Channels\SmsChannel;
 use App\Models\Withdrawal;
 use App\Support\NotificationPrivacy;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class WithdrawalPaidNotification extends Notification implements ShouldQueue
+class WithdrawalRequestedNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(public Withdrawal $withdrawal) {}
 
     public function via(object $notifiable): array
@@ -30,15 +26,13 @@ class WithdrawalPaidNotification extends Notification implements ShouldQueue
     {
         $amount = NotificationPrivacy::money((float) $this->withdrawal->amount);
         $destination = NotificationPrivacy::maskAccount($this->withdrawal->momo_number);
-        $network = trim((string) ($this->withdrawal->network ?? ''));
-
-        $when = NotificationPrivacy::stamp($this->withdrawal->processed_at ?? $this->withdrawal->created_at);
+        $when = NotificationPrivacy::stamp($this->withdrawal->created_at);
 
         return (new MailMessage)
-            ->subject("Withdrawal paid: {$amount}")
+            ->subject("Withdrawal requested: {$amount}")
             ->greeting('Hello '.(filled($notifiable->name ?? null) ? $notifiable->name : 'there').'!')
-            ->line("Your CityShop withdrawal of {$amount} has been paid.")
-            ->line($network !== '' ? "Sent to {$destination} ({$network})." : "Sent to {$destination}.")
+            ->line("Your CityShop withdrawal of {$amount} to {$destination} has been requested.")
+            ->line('Usually processed within 15 minutes and sometimes instant.')
             ->line("Date: {$when}")
             ->action('View wallet', url('/wallet'));
     }
@@ -47,8 +41,8 @@ class WithdrawalPaidNotification extends Notification implements ShouldQueue
     {
         $amount = NotificationPrivacy::money((float) $this->withdrawal->amount);
         $destination = NotificationPrivacy::maskAccount($this->withdrawal->momo_number);
-        $when = NotificationPrivacy::stamp($this->withdrawal->processed_at ?? $this->withdrawal->created_at);
+        $when = NotificationPrivacy::stamp($this->withdrawal->created_at);
 
-        return "CityShop: Your withdrawal of {$amount} to {$destination} has been paid. Date: {$when}";
+        return "CityShop: Your withdrawal of {$amount} to {$destination} has been requested. Usually within 15 minutes. Date: {$when}";
     }
 }
