@@ -15,7 +15,7 @@ class QrPaymentService
     /**
      * Build a signed receive payload for the user's My QR screen.
      *
-     * @return array{payload: string, user: array<string, mixed>, amount: float|null, reason: string|null, expires_at: string}
+     * @return array{payload: string, user: array<string, mixed>, amount: float|null, reason: string|null, expires_at: string|null}
      */
     public static function receiveCode(User $user, ?float $amount = null, ?string $reason = null): array
     {
@@ -36,12 +36,11 @@ class QrPaymentService
             ]);
         }
 
-        $expiresAt = now()->addHours(24);
+        // My QR stays valid — no expiry. Printed / saved namecards keep working.
         $body = [
             'v' => 1,
             'u' => $user->id,
             'n' => $user->name,
-            'e' => $expiresAt->getTimestamp(),
         ];
         if ($amount !== null) {
             $body['a'] = $amount;
@@ -60,7 +59,7 @@ class QrPaymentService
             'user' => self::publicUser($user),
             'amount' => $amount,
             'reason' => $reason,
-            'expires_at' => $expiresAt->toIso8601String(),
+            'expires_at' => null,
         ];
     }
 
@@ -100,12 +99,6 @@ class QrPaymentService
         if (! is_array($data) || empty($data['u'])) {
             throw ValidationException::withMessages([
                 'payload' => ['This payment QR code is corrupted.'],
-            ]);
-        }
-
-        if (! empty($data['e']) && (int) $data['e'] < time()) {
-            throw ValidationException::withMessages([
-                'payload' => ['This payment QR code has expired. Ask them to refresh My QR.'],
             ]);
         }
 

@@ -91,6 +91,27 @@ class ApiQrPaymentTest extends TestCase
         ]);
     }
 
+    public function test_old_expired_qr_still_resolves(): void
+    {
+        $payer = User::factory()->create(['role' => UserRole::Buyer]);
+        $payee = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Payee']);
+        Sanctum::actingAs($payer);
+
+        $body = json_encode([
+            'v' => 1,
+            'u' => $payee->id,
+            'n' => $payee->name,
+            'e' => now()->subDays(30)->getTimestamp(),
+        ], JSON_UNESCAPED_UNICODE);
+        $encoded = rtrim(strtr(base64_encode((string) $body), '+/', '-_'), '=');
+        $sig = hash_hmac('sha256', $encoded, (string) config('app.key'));
+        $payload = QrPaymentService::PREFIX.'.'.$encoded.'.'.$sig;
+
+        $this->postJson('/api/v1/wallet/qr/resolve', ['payload' => $payload])
+            ->assertOk()
+            ->assertJsonPath('data.user.id', $payee->id);
+    }
+
     public function test_invalid_payload_is_rejected(): void
     {
         $user = User::factory()->create(['role' => UserRole::Buyer]);
