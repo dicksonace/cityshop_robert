@@ -65,8 +65,9 @@ return [
     ],
 
     'livestream' => [
-        // Public Jitsi room host used for seller Go Live / buyer watch.
-        'jitsi_domain' => env('JITSI_DOMAIN', 'meet.jit.si'),
+        // meet.jit.si embeds force a moderator lobby ("no moderator have yet arrived").
+        // FFMUC still allows anonymous rooms for seller Go Live / buyer watch.
+        'jitsi_domain' => env('JITSI_DOMAIN', 'meet.ffmuc.net'),
     ],
 
     'webrtc' => [

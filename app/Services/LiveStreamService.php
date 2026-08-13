@@ -66,6 +66,7 @@ class LiveStreamService
             'status' => LivestreamStatus::Live,
             'started_at' => now(),
             'last_heartbeat_at' => now(),
+            'host_joined_at' => null,
         ]);
     }
 
@@ -76,7 +77,10 @@ class LiveStreamService
             return null;
         }
 
-        $live->forceFill(['last_heartbeat_at' => now()])->save();
+        $live->forceFill([
+            'last_heartbeat_at' => now(),
+            'host_joined_at' => $live->host_joined_at ?? now(),
+        ])->save();
 
         return $live;
     }
@@ -122,7 +126,7 @@ class LiveStreamService
     /**
      * @return array<string, mixed>|null
      */
-    public static function card(Livestream $live, bool $withRoom = false): ?array
+    public static function card(Livestream $live, bool $withRoom = false, bool $requireHostJoined = false): ?array
     {
         $profile = $live->seller?->sellerProfile;
         if (! $profile || $profile->status !== SellerStatus::Approved) {
@@ -140,6 +144,8 @@ class LiveStreamService
             $photoUrl = url($photoUrl);
         }
 
+        $hostJoined = $live->host_joined_at !== null;
+
         $payload = [
             'id' => $live->id,
             'seller_id' => $live->seller_id,
@@ -148,9 +154,10 @@ class LiveStreamService
             'store_slug' => $profile->slug,
             'shop_photo' => $photoUrl,
             'started_at' => $live->started_at?->toIso8601String(),
+            'host_joined' => $hostJoined,
         ];
 
-        if ($withRoom) {
+        if ($withRoom && (! $requireHostJoined || $hostJoined)) {
             $payload['room'] = static::roomPayload($live);
         }
 
@@ -164,7 +171,7 @@ class LiveStreamService
     {
         return [
             'provider' => $live->provider ?: 'jitsi',
-            'domain' => (string) config('services.livestream.jitsi_domain', 'meet.jit.si'),
+            'domain' => (string) config('services.livestream.jitsi_domain', 'meet.ffmuc.net'),
             'room_name' => $live->room_name,
         ];
     }

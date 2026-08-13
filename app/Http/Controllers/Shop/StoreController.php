@@ -84,7 +84,7 @@ class StoreController extends Controller
 
         return Inertia::render('shop/store', [
             'store' => $store,
-            'livestream' => $live ? LiveStreamService::card($live, withRoom: true) : null,
+            'livestream' => $live ? LiveStreamService::card($live, withRoom: true, requireHostJoined: true) : null,
             'customization' => $settings,
             'sections' => $sections,
             'products' => $products,

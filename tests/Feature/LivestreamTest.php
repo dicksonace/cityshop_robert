@@ -35,11 +35,24 @@ class LivestreamTest extends TestCase
         $this->getJson('/api/v1/livestreams')
             ->assertOk()
             ->assertJsonPath('data.0.store_slug', $seller->sellerProfile->slug)
-            ->assertJsonPath('data.0.title', 'Evening deals');
+            ->assertJsonPath('data.0.title', 'Evening deals')
+            ->assertJsonPath('data.0.host_joined', false);
 
-        $this->getJson('/api/v1/livestreams/'.$seller->sellerProfile->slug)
+        $waiting = $this->getJson('/api/v1/livestreams/'.$seller->sellerProfile->slug)->assertOk();
+        $this->assertFalse($waiting->json('data.host_joined'));
+        $this->assertNull($waiting->json('data.room'));
+
+        $this->getJson('/api/v1/stores/'.$seller->sellerProfile->slug)
             ->assertOk()
-            ->assertJsonPath('data.room.room_name', Livestream::query()->first()->room_name);
+            ->assertJsonPath('data.is_live', true)
+            ->assertJsonMissingPath('data.livestream.room');
+
+        $this->postJson('/api/v1/livestreams/heartbeat')->assertOk()->assertJsonPath('ok', true);
+
+        $ready = $this->getJson('/api/v1/livestreams/'.$seller->sellerProfile->slug)->assertOk();
+        $this->assertTrue($ready->json('data.host_joined'));
+        $this->assertSame(Livestream::query()->first()->room_name, $ready->json('data.room.room_name'));
+        $this->assertSame('meet.ffmuc.net', $ready->json('data.room.domain'));
 
         $this->getJson('/api/v1/stores/'.$seller->sellerProfile->slug)
             ->assertOk()

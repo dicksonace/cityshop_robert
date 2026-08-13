@@ -17,6 +17,7 @@ class Livestream extends Model
         'viewer_count',
         'started_at',
         'last_heartbeat_at',
+        'host_joined_at',
         'ended_at',
     ];
 
@@ -26,6 +27,7 @@ class Livestream extends Model
             'status' => LivestreamStatus::class,
             'started_at' => 'datetime',
             'last_heartbeat_at' => 'datetime',
+            'host_joined_at' => 'datetime',
             'ended_at' => 'datetime',
         ];
     }

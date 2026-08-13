@@ -106,7 +106,7 @@ class StoreController extends Controller
                 'digital_address' => $user?->digital_address,
                 'residential_address' => $user?->residential_address,
                 'is_live' => $live !== null,
-                'livestream' => $live ? LiveStreamService::card($live, withRoom: true) : null,
+                'livestream' => $live ? LiveStreamService::card($live, withRoom: true, requireHostJoined: true) : null,
             ],
             'products' => [
                 'data' => ProductResource::collection($products->getCollection())->resolve(),

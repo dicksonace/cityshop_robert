@@ -28,7 +28,7 @@ class LivestreamController extends Controller
         $live = LiveStreamService::currentForStore($store);
 
         return response()->json([
-            'data' => $live ? LiveStreamService::card($live, withRoom: true) : null,
+            'data' => $live ? LiveStreamService::card($live, withRoom: true, requireHostJoined: true) : null,
         ]);
     }
 

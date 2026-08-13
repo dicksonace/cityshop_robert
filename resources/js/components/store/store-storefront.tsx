@@ -36,6 +36,7 @@ type StoreLivestream = {
     title?: string | null;
     store_name: string;
     shop_photo?: string | null;
+    host_joined?: boolean;
     room?: { domain: string; room_name: string };
 } | null;
 
@@ -117,14 +118,14 @@ export default function StoreStorefront({
 
         const tick = window.setInterval(() => {
             void check();
-        }, 8000);
+        }, activeLive.room ? 8000 : 3000);
         void check();
 
         return () => {
             cancelled = true;
             window.clearInterval(tick);
         };
-    }, [activeLive?.id, previewMode, store.slug]);
+    }, [activeLive?.id, activeLive?.room, previewMode, store.slug]);
 
     const [profileOpen, setProfileOpen] = useState(false);
     const storeName = store.business_name ?? store.store_name ?? 'Store';
@@ -348,6 +349,14 @@ export default function StoreStorefront({
                             title={activeLive.title ?? storeName}
                             href="#store-live-player"
                         />
+                    </div>
+                </div>
+            )}
+
+            {activeLive && !activeLive.room && !previewMode && currentUserId !== store.user_id && (
+                <div id="store-live-player" className="border-b border-red-100 bg-black scroll-mt-4">
+                    <div className="mx-auto max-w-7xl px-4 py-10 text-center text-sm text-white/80 sm:px-6">
+                        {storeName} is going live. The stream will appear here in a few seconds…
                     </div>
                 </div>
             )}

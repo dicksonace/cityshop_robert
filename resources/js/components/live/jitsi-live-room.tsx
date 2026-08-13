@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
 
-export interface JitsiRoom {
-    domain: string;
-    room_name: string;
-}
+import {
+    jitsiConfigOverwrite,
+    jitsiInterfaceConfigOverwrite,
+    jitsiScriptUrl,
+    type JitsiRoom,
+} from '@/lib/jitsi';
 
 interface JitsiLiveRoomProps {
     room: JitsiRoom;
@@ -11,6 +13,7 @@ interface JitsiLiveRoomProps {
     isHost: boolean;
     /** Host-only shop avatar. Avoid for shoppers — it replaces the face when video is muted. */
     avatarUrl?: string | null;
+    onJoined?: () => void;
     onHangup?: () => void;
 }
 
@@ -26,39 +29,50 @@ declare global {
     }
 }
 
-function loadJitsiScript(): Promise<void> {
-    if (window.JitsiMeetExternalAPI) {
+function loadJitsiScript(domain: string): Promise<void> {
+    const src = jitsiScriptUrl(domain);
+    const existing = document.querySelector<HTMLScriptElement>('script[data-jitsi-api]');
+    if (window.JitsiMeetExternalAPI && existing?.dataset.jitsiSrc === src) {
         return Promise.resolve();
     }
 
     return new Promise((resolve, reject) => {
-        const existing = document.querySelector<HTMLScriptElement>('script[data-jitsi-api]');
-        if (existing) {
+        if (existing && existing.dataset.jitsiSrc === src) {
             existing.addEventListener('load', () => resolve());
             existing.addEventListener('error', () => reject(new Error('Could not load live video.')));
             return;
         }
         const script = document.createElement('script');
-        script.src = 'https://meet.jit.si/external_api.js';
+        script.src = src;
         script.async = true;
         script.dataset.jitsiApi = 'true';
+        script.dataset.jitsiSrc = src;
         script.onload = () => resolve();
         script.onerror = () => reject(new Error('Could not load live video.'));
         document.body.appendChild(script);
     });
 }
 
-export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, onHangup }: JitsiLiveRoomProps) {
+export default function JitsiLiveRoom({
+    room,
+    displayName,
+    isHost,
+    avatarUrl,
+    onJoined,
+    onHangup,
+}: JitsiLiveRoomProps) {
     const wrapRef = useRef<HTMLDivElement>(null);
     const hangupRef = useRef(onHangup);
+    const joinedRef = useRef(onJoined);
     hangupRef.current = onHangup;
+    joinedRef.current = onJoined;
 
     useEffect(() => {
         let api: JitsiApi | null = null;
         let cancelled = false;
         let leftHandled = false;
 
-        void loadJitsiScript()
+        void loadJitsiScript(room.domain)
             .then(() => {
                 if (cancelled || !wrapRef.current || !window.JitsiMeetExternalAPI) return;
                 wrapRef.current.innerHTML = '';
@@ -69,39 +83,26 @@ export default function JitsiLiveRoom({ room, displayName, isHost, avatarUrl, on
                 if (isHost && avatarUrl && /^https?:\/\//i.test(avatarUrl)) {
                     userInfo.avatarURL = avatarUrl;
                 }
-                api = new window.JitsiMeetExternalAPI(room.domain || 'meet.jit.si', {
+                api = new window.JitsiMeetExternalAPI(room.domain || 'meet.ffmuc.net', {
                     roomName: room.room_name,
                     parentNode: wrapRef.current,
                     width: '100%',
                     height: '100%',
                     userInfo,
-                    configOverwrite: {
-                        prejoinPageEnabled: false,
-                        // Everyone starts with camera+mic on so faces show (browser still prompts for permission).
-                        startWithAudioMuted: false,
-                        startWithVideoMuted: false,
-                        disableDeepLinking: true,
-                        disableInviteFunctions: true,
-                        enableWelcomePage: false,
-                    },
-                    interfaceConfigOverwrite: {
-                        SHOW_JITSI_WATERMARK: false,
-                        SHOW_WATERMARK_FOR_GUESTS: false,
-                        TOOLBAR_BUTTONS: isHost
-                            ? ['microphone', 'camera', 'hangup', 'tileview', 'fullscreen']
-                            : ['microphone', 'camera', 'tileview', 'fullscreen'],
-                    },
+                    configOverwrite: jitsiConfigOverwrite(isHost),
+                    interfaceConfigOverwrite: jitsiInterfaceConfigOverwrite(isHost),
                 });
 
                 api.addListener('videoConferenceJoined', () => {
                     if (!api) return;
                     try {
-                        api.executeCommand('setVideoMute', false);
-                        api.executeCommand('setAudioMute', false);
+                        api.executeCommand('setVideoMute', !isHost);
+                        api.executeCommand('setAudioMute', !isHost);
                         api.executeCommand('setTileView', true);
                     } catch {
                         // browser may still prompt for permission
                     }
+                    joinedRef.current?.();
                 });
 
                 api.addListener('videoConferenceLeft', () => {

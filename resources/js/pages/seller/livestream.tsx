@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Radio, Store, Video } from 'lucide-react';
-import { FormEvent, useCallback, useEffect } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import JitsiLiveRoom from '@/components/live/jitsi-live-room';
 import SellerLayout from '@/layouts/seller-layout';
@@ -32,6 +32,7 @@ interface PageProps {
 export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
     const { auth, flash } = usePage<SharedData>().props;
     const form = useForm({ title: livestream?.title ?? '' });
+    const [hostReady, setHostReady] = useState(false);
 
     const start = (e: FormEvent) => {
         e.preventDefault();
@@ -43,8 +44,13 @@ export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
     }, []);
 
     useEffect(() => {
-        if (!livestream) return;
-        const tick = window.setInterval(() => {
+        setHostReady(false);
+    }, [livestream?.id]);
+
+    useEffect(() => {
+        if (!livestream || !hostReady) return;
+
+        const ping = () => {
             void fetch(route('seller.livestream.heartbeat'), {
                 method: 'POST',
                 headers: {
@@ -64,9 +70,12 @@ export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
                     // ignore parse errors
                 }
             });
-        }, 25000);
+        };
+
+        ping();
+        const tick = window.setInterval(ping, 25000);
         return () => window.clearInterval(tick);
-    }, [livestream?.id]);
+    }, [livestream?.id, hostReady]);
 
     // End the session if the host closes/navigates away from Go Live (so buyer pages stop showing LIVE).
     useEffect(() => {
@@ -151,11 +160,12 @@ export default function SellerLivestream({ livestream, storeUrl }: PageProps) {
                         displayName={livestream.store_name || auth.user?.name || 'Store'}
                         avatarUrl={livestream.shop_photo}
                         isHost
+                        onJoined={() => setHostReady(true)}
                         onHangup={endLive}
                     />
                     <p className="text-xs text-gray-500">
-                        Allow camera and microphone. Keep this page open while you are live — closing or leaving this
-                        page ends the stream for shoppers.
+                        Allow camera and microphone. Shoppers join after your camera connects. Keep this page open while
+                        you are live — closing or leaving this page ends the stream.
                     </p>
                 </div>
             ) : (
