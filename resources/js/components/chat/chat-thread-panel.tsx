@@ -24,6 +24,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import OnlineIndicator from '@/components/shop/online-indicator';
 import ChatCallLogItem from '@/components/chat/chat-call-log-item';
+import { ChatEmojiPicker, ChatQuickReactions } from '@/components/chat/chat-emoji-picker';
 import ChatFileBubble from '@/components/chat/chat-file-bubble';
 import ChatLinkedText from '@/components/chat/chat-linked-text';
 import ChatSettingsSheet from '@/components/chat/chat-settings-sheet';
@@ -90,6 +91,7 @@ export default function ChatThreadPanel() {
     const [showTransfer, setShowTransfer] = useState(false);
     const [other, setOther] = useState(activeConversation?.other);
     const [menuMessageId, setMenuMessageId] = useState<number | null>(null);
+    const [emojiPickerMessageId, setEmojiPickerMessageId] = useState<number | null>(null);
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
     const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
     const [showSettings, setShowSettings] = useState(false);
@@ -108,6 +110,7 @@ export default function ChatThreadPanel() {
     const voiceStartedAtRef = useRef<number>(0);
     const voiceTimerRef = useRef<number | null>(null);
     const lastIdRef = useRef(messages.at(-1)?.id ?? 0);
+    const updatedAfterRef = useRef(new Date().toISOString());
     const announcedSoundIdsRef = useRef<Set<number>>(new Set());
     const lastScrolledConversationId = useRef<number | null>(null);
     const pinnedToBottomRef = useRef(true);
@@ -195,8 +198,10 @@ export default function ChatThreadPanel() {
             let receivedNew = false;
             let receivedMoney = false;
             setMessages((prev) => {
-                const ids = new Set(prev.map((m) => m.id));
+                const next = [...prev];
+                const indexById = new Map(prev.map((m, index) => [m.id, index]));
                 for (const msg of incoming) {
+                    const existingIndex = indexById.get(msg.id);
                     const isChatContent =
                         msg.type === 'text' ||
                         msg.type === 'image' ||
@@ -207,9 +212,9 @@ export default function ChatThreadPanel() {
                         msg.type === 'file';
                     if (
                         playSound &&
+                        existingIndex === undefined &&
                         isChatContent &&
                         msg.sender_id !== auth.user?.id &&
-                        !ids.has(msg.id) &&
                         !announcedSoundIdsRef.current.has(msg.id)
                     ) {
                         receivedNew = true;
@@ -218,8 +223,14 @@ export default function ChatThreadPanel() {
                         }
                         announcedSoundIdsRef.current.add(msg.id);
                     }
+                    if (existingIndex !== undefined) {
+                        next[existingIndex] = { ...next[existingIndex], ...msg };
+                    } else {
+                        indexById.set(msg.id, next.length);
+                        next.push(msg);
+                    }
                 }
-                return [...prev, ...incoming.filter((m) => !ids.has(m.id))];
+                return next;
             });
 
             if (receivedMoney) {
@@ -243,7 +254,11 @@ export default function ChatThreadPanel() {
 
         const poll = async () => {
             try {
-                const data = await chatApi.pollConversation(conversationId, lastIdRef.current);
+                const data = await chatApi.pollConversation(
+                    conversationId,
+                    lastIdRef.current,
+                    updatedAfterRef.current,
+                );
                 if (data.other) {
                     setOther(data.other);
                     setActiveConversation((prev) =>
@@ -268,9 +283,13 @@ export default function ChatThreadPanel() {
                         ),
                     );
                 }
+                if (data.updated?.length) {
+                    await ingestMessages(data.updated, { playSound: false });
+                }
                 if (data.messages?.length) {
                     await ingestMessages(data.messages, { playSound: !realtimeLive });
                 }
+                updatedAfterRef.current = new Date().toISOString();
             } catch {
                 // ignore poll errors
             }
@@ -296,8 +315,28 @@ export default function ChatThreadPanel() {
         setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
     };
 
+    const handleReact = async (msg: ChatMessage, emoji: string) => {
+        if (!activeConversation || msg.is_deleted) return;
+        setMenuMessageId(null);
+        setEmojiPickerMessageId(null);
+        try {
+            const updated = await chatApi.reactToChatMessage(activeConversation.id, msg.id, emoji);
+            replaceMessage(updated);
+        } catch (err) {
+            toast?.error(err instanceof Error ? err.message : 'Could not add emoji');
+        }
+    };
+
+    const reactionIsMine = (msg: ChatMessage, emoji: string): boolean => {
+        const reaction = (msg.reactions ?? []).find((item) => item.emoji === emoji);
+        if (!reaction) return false;
+        if (reaction.mine) return true;
+        return Boolean(auth.user?.id && reaction.user_ids?.includes(auth.user.id));
+    };
+
     const startReply = (msg: ChatMessage) => {
         setMenuMessageId(null);
+        setEmojiPickerMessageId(null);
         setEditingMessage(null);
         setReplyingTo(msg);
         inputRef.current?.focus();
@@ -353,6 +392,7 @@ export default function ChatThreadPanel() {
 
     const startEdit = (msg: ChatMessage) => {
         setMenuMessageId(null);
+        setEmojiPickerMessageId(null);
         setReplyingTo(null);
         setEditingMessage(msg);
         setBody(msg.body ?? '');
@@ -1241,17 +1281,53 @@ export default function ChatThreadPanel() {
                                                 </span>
                                             )}
                                         </div>
+                                        {(msg.reactions?.length ?? 0) > 0 && !msg.is_deleted && (
+                                            <div className={cn('flex flex-wrap gap-1 pb-1', isImage || isVideo || isProduct || isTransfer || isFile ? 'px-2' : '')}>
+                                                {msg.reactions!.map((reaction) => (
+                                                    <button
+                                                        key={reaction.emoji}
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            void handleReact(msg, reaction.emoji);
+                                                        }}
+                                                        className={cn(
+                                                            'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px]',
+                                                            reactionIsMine(msg, reaction.emoji)
+                                                                ? 'border-orange-300 bg-orange-50 text-orange-800'
+                                                                : 'border-gray-200 bg-white text-gray-700',
+                                                        )}
+                                                    >
+                                                        <span>{reaction.emoji}</span>
+                                                        <span>{reaction.count}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
 
-                                    {showMenu &&
-                                        ['text', 'image', 'video', 'voice', 'product', 'file'].includes(msg.type) &&
+                                    {(showMenu || emojiPickerMessageId === msg.id) &&
+                                        ['text', 'image', 'video', 'voice', 'product', 'file', 'transfer'].includes(msg.type) &&
                                         !msg.is_deleted && (
                                         <div
                                             className={cn(
-                                                'absolute z-10 mt-1 min-w-[7rem] overflow-hidden rounded-lg border border-gray-100 bg-white py-1 shadow-lg',
-                                                mine ? 'right-0' : 'left-0',
+                                                'absolute z-20 mt-1 flex flex-col gap-1',
+                                                mine ? 'right-0 items-end' : 'left-0 items-start',
                                             )}
                                             onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <ChatQuickReactions
+                                                onPick={(emoji) => void handleReact(msg, emoji)}
+                                                onMore={() =>
+                                                    setEmojiPickerMessageId((current) => (current === msg.id ? null : msg.id))
+                                                }
+                                            />
+                                            {emojiPickerMessageId === msg.id && (
+                                                <ChatEmojiPicker onPick={(emoji) => void handleReact(msg, emoji)} />
+                                            )}
+                                            {showMenu && (
+                                        <div
+                                            className="min-w-[7rem] overflow-hidden rounded-lg border border-gray-100 bg-white py-1 shadow-lg"
                                         >
                                             <button
                                                 type="button"
@@ -1297,6 +1373,8 @@ export default function ChatThreadPanel() {
                                                 </button>
                                             )}
                                         </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
 
@@ -1305,6 +1383,7 @@ export default function ChatThreadPanel() {
                                         type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
+                                            setEmojiPickerMessageId(null);
                                             setMenuMessageId(showMenu ? null : msg.id);
                                         }}
                                         className={cn(

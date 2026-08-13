@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Enums\MessageType;
 use App\Events\ChatMessageSent;
+use App\Events\ChatMessageUpdated;
 use App\Events\UserPresenceChanged;
 use App\Models\AppNotification;
 use App\Models\Conversation;
 use App\Models\ConversationParticipant;
 use App\Models\Message;
+use App\Models\MessageReaction;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -658,10 +660,29 @@ class ChatService
 
     public static function canEditMessage(Message $message, User $user): bool
     {
-        return $message->sender_id === $user->id
-            && $message->type === MessageType::Text
-            && $message->read_at === null
-            && empty($message->metadata['deleted_at']);
+        if ($message->sender_id !== $user->id
+            || $message->type !== MessageType::Text
+            || ! empty($message->metadata['deleted_at'])) {
+            return false;
+        }
+
+        $created = $message->created_at ?? now();
+
+        return $created->gt(now()->subMinutes(15));
+    }
+
+    public static function canReactToMessage(Message $message): bool
+    {
+        return empty($message->metadata['deleted_at'])
+            && in_array($message->type, [
+                MessageType::Text,
+                MessageType::Image,
+                MessageType::Video,
+                MessageType::Voice,
+                MessageType::Product,
+                MessageType::Transfer,
+                MessageType::File,
+            ], true);
     }
 
     /** Own chat content (text/photo/video/voice) can be removed before the other person reads it. */
@@ -698,7 +719,10 @@ class ChatService
             'metadata' => $metadata,
         ]);
 
-        return $message->fresh(['sender:id,name']);
+        $fresh = $message->fresh(['sender:id,name', 'reactions']);
+        static::broadcastMessageUpdated($fresh);
+
+        return $fresh;
     }
 
     public static function deleteMessage(Message $message, User $user): Message
@@ -713,7 +737,59 @@ class ChatService
             'metadata' => $metadata,
         ]);
 
-        return $message->fresh(['sender:id,name']);
+        $fresh = $message->fresh(['sender:id,name', 'reactions']);
+        static::broadcastMessageUpdated($fresh);
+
+        return $fresh;
+    }
+
+    public static function reactToMessage(Message $message, User $user, string $emoji): Message
+    {
+        abort_unless(static::canReactToMessage($message), 422, 'You cannot react to this message.');
+
+        $emoji = trim($emoji);
+        if ($emoji === '' || mb_strlen($emoji) > 64) {
+            abort(422, 'Choose an emoji.');
+        }
+
+        $existing = MessageReaction::query()
+            ->where('message_id', $message->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($existing && $existing->emoji === $emoji) {
+            $existing->delete();
+        } else {
+            MessageReaction::updateOrCreate(
+                ['message_id' => $message->id, 'user_id' => $user->id],
+                ['emoji' => $emoji],
+            );
+        }
+
+        $message->touch();
+        $fresh = $message->fresh(['sender:id,name', 'reactions']);
+        static::broadcastMessageUpdated($fresh);
+
+        return $fresh;
+    }
+
+    public static function broadcastMessageUpdated(?Message $message): void
+    {
+        if (! $message) {
+            return;
+        }
+
+        try {
+            if (! $message->relationLoaded('sender')) {
+                $message->load('sender:id,name');
+            }
+            if (! $message->relationLoaded('reactions')) {
+                $message->load('reactions');
+            }
+            broadcast(new ChatMessageUpdated($message))->toOthers();
+        } catch (\Throwable) {
+            // Edit/react still saved; poll will pick it up.
+        }
     }
 
     /**
@@ -892,6 +968,7 @@ class ChatService
             'is_deleted' => $deleted,
             'can_edit' => $viewer ? static::canEditMessage($message, $viewer) : false,
             'can_delete' => $viewer ? static::canDeleteMessage($message, $viewer) : false,
+            'reactions' => $deleted ? [] : static::formatReactions($message, $viewer),
             'created_at' => $message->created_at?->toIso8601String(),
             'sender' => [
                 'id' => $message->sender->id,
@@ -1049,7 +1126,7 @@ class ChatService
     {
         return $conversation->messages()
             ->whereIn('type', static::visibleTypes())
-            ->with('sender:id,name')
+            ->with(['sender:id,name', 'reactions'])
             ->orderByDesc('id')
             ->limit($limit)
             ->get()
@@ -1068,7 +1145,7 @@ class ChatService
     {
         return $conversation->messages()
             ->whereIn('type', static::visibleTypes())
-            ->with('sender:id,name')
+            ->with(['sender:id,name', 'reactions'])
             ->where(function ($q) use ($afterId, $viewer) {
                 if ($afterId > 0) {
                     $q->where('id', '>', $afterId);
@@ -1086,6 +1163,56 @@ class ChatService
             ->orderBy('id')
             ->limit(100)
             ->get();
+    }
+
+    /**
+     * Already-seen rows that were edited or reacted to after $since.
+     *
+     * @return Collection<int, Message>
+     */
+    public static function pollUpdatedMessages(Conversation $conversation, User $viewer, int $afterId, ?\DateTimeInterface $since)
+    {
+        if ($afterId <= 0 || ! $since) {
+            return collect();
+        }
+
+        return $conversation->messages()
+            ->whereIn('type', static::visibleTypes())
+            ->with(['sender:id,name', 'reactions'])
+            ->where('id', '<=', $afterId)
+            ->where('updated_at', '>', $since)
+            ->orderBy('id')
+            ->limit(100)
+            ->get();
+    }
+
+    /**
+     * @return list<array{emoji: string, count: int, mine: bool, user_ids: list<int>}>
+     */
+    public static function formatReactions(Message $message, ?User $viewer = null): array
+    {
+        $reactions = $message->relationLoaded('reactions')
+            ? $message->reactions
+            : $message->reactions()->get();
+
+        if ($reactions->isEmpty()) {
+            return [];
+        }
+
+        return $reactions
+            ->groupBy('emoji')
+            ->map(function ($group, $emoji) use ($viewer) {
+                $userIds = $group->pluck('user_id')->map(fn ($id) => (int) $id)->values()->all();
+
+                return [
+                    'emoji' => (string) $emoji,
+                    'count' => $group->count(),
+                    'mine' => $viewer ? in_array((int) $viewer->id, $userIds, true) : false,
+                    'user_ids' => $userIds,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

@@ -147,6 +147,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/messages/{conversation}/file', [MessageController::class, 'uploadFile']);
         Route::post('/messages/{conversation}/signal', [MessageController::class, 'signal']);
         Route::get('/messages/{conversation}/poll', [MessageController::class, 'poll']);
+        Route::patch('/messages/{conversation}/messages/{message}', [MessageController::class, 'update']);
+        Route::post('/messages/{conversation}/messages/{message}/react', [MessageController::class, 'react']);
         Route::delete('/messages/{conversation}/messages/{message}', [MessageController::class, 'destroy']);
         Route::post('/messages/{conversation}/messages/{message}/forward', [MessageController::class, 'forward']);
 

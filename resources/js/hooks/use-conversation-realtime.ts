@@ -34,14 +34,17 @@ export function useConversationRealtime(
         if (!echo) return;
 
         const channel = echo.private(`conversation.${conversationId}`);
-        channel.listen('.message.sent', (payload: IncomingPayload) => {
+        const handle = (payload: IncomingPayload) => {
             if (payload?.message) {
                 void handlerRef.current(payload.message);
             }
-        });
+        };
+        channel.listen('.message.sent', handle);
+        channel.listen('.message.updated', handle);
 
         return () => {
             channel.stopListening('.message.sent');
+            channel.stopListening('.message.updated');
             leaveConversation(conversationId);
         };
     }, [conversationId, key, host, port, scheme, reverb]);

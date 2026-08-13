@@ -87,6 +87,13 @@ export interface ChatTransfer {
     to_name?: string | null;
 }
 
+export interface ChatReaction {
+    emoji: string;
+    count: number;
+    mine?: boolean;
+    user_ids?: number[];
+}
+
 export interface ChatMessage {
     id: number;
     sender_id: number;
@@ -116,6 +123,7 @@ export interface ChatMessage {
     is_deleted?: boolean;
     can_edit?: boolean;
     can_delete?: boolean;
+    reactions?: ChatReaction[];
     created_at?: string;
     sender: { id: number; name: string };
 }

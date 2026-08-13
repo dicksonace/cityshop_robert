@@ -600,11 +600,22 @@ class MessageController extends Controller
         abort_unless($conversation->involves($request->user()), 403);
 
         $afterId = (int) $request->get('after', 0);
+        $updatedSince = null;
+        $rawUpdated = $request->get('updated_after');
+        if (is_string($rawUpdated) && trim($rawUpdated) !== '') {
+            try {
+                $updatedSince = \Illuminate\Support\Carbon::parse($rawUpdated);
+            } catch (\Throwable) {
+                $updatedSince = null;
+            }
+        }
 
         $polled = ChatService::pollVisibleMessages($conversation, $request->user(), $afterId);
+        $updated = ChatService::pollUpdatedMessages($conversation, $request->user(), $afterId, $updatedSince);
         $signals = ChatService::pollCallSignals($conversation, $afterId);
         $combined = $polled->concat($signals)->unique('id')->sortBy('id')->values();
         $messages = $combined->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
+        $updatedMessages = $updated->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
         if ($polled->isNotEmpty()) {
             ChatService::markMessagesRead(
@@ -619,12 +630,53 @@ class MessageController extends Controller
 
         return response()->json([
             'messages' => $messages,
+            'updated' => $updatedMessages,
             'read_message_ids' => $readMessageIds,
             'other' => [
                 'online' => $presence['online'],
                 'online_count' => $presence['online_count'],
                 'last_seen_at' => $presence['last_seen_at'],
             ],
+        ]);
+    }
+
+    public function update(Request $request, Conversation $conversation, Message $message): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($message->conversation_id === $conversation->id, 404);
+
+        $validated = $request->validate([
+            'body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $message = ChatService::updateMessage($message, $request->user(), $validated['body']);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+        ]);
+    }
+
+    public function react(Request $request, Conversation $conversation, Message $message): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($message->conversation_id === $conversation->id, 404);
+
+        $validated = $request->validate([
+            'emoji' => ['required', 'string', 'max:64'],
+        ]);
+
+        try {
+            $message = ChatService::reactToMessage($message, $request->user(), $validated['emoji']);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
         ]);
     }
 

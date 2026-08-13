@@ -159,11 +159,14 @@ class ConversationController extends Controller
         abort_unless($conversation->involves($request->user()), 403);
 
         $afterId = (int) $request->get('after', 0);
+        $updatedSince = static::parseUpdatedAfter($request->get('updated_after'));
 
         $polled = ChatService::pollVisibleMessages($conversation, $request->user(), $afterId);
+        $updated = ChatService::pollUpdatedMessages($conversation, $request->user(), $afterId, $updatedSince);
         $signals = ChatService::pollCallSignals($conversation, $afterId);
         $combined = $polled->concat($signals)->unique('id')->sortBy('id')->values();
         $messages = $combined->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
+        $updatedMessages = $updated->map(fn ($m) => ChatService::formatMessage($m, $request->user()));
 
         if ($polled->isNotEmpty()) {
             ChatService::markMessagesRead(
@@ -184,6 +187,7 @@ class ConversationController extends Controller
 
         return response()->json([
             'messages' => $messages,
+            'updated' => $updatedMessages,
             'read_message_ids' => $readMessageIds,
             'is_group' => (bool) $conversation->is_group,
             'other' => $other ? [
@@ -346,5 +350,18 @@ class ConversationController extends Controller
             'unread_count' => $unread,
             'last_message_at' => ($latest?->created_at ?? $conversation->last_message_at)?->toIso8601String(),
         ];
+    }
+
+    private static function parseUpdatedAfter(mixed $value): ?\DateTimeInterface
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

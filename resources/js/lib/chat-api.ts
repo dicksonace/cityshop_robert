@@ -249,6 +249,21 @@ export async function updateChatMessage(
     return data.message;
 }
 
+export async function reactToChatMessage(
+    conversationId: number,
+    messageId: number,
+    emoji: string,
+): Promise<ChatMessage> {
+    const res = await fetch(route('chat.messages.react', { conversation: conversationId, message: messageId }), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify({ emoji }),
+    });
+    const data = await parseJsonResponse<{ message: ChatMessage }>(res);
+    return data.message;
+}
+
 export async function deleteChatMessage(conversationId: number, messageId: number): Promise<ChatMessage> {
     const res = await fetch(route('chat.messages.destroy', { conversation: conversationId, message: messageId }), {
         method: 'DELETE',
@@ -288,13 +303,22 @@ export async function fetchForwardTargets(): Promise<ForwardTarget[]> {
     return data.data ?? [];
 }
 
-export async function pollConversation(conversationId: number, after: number): Promise<{
+export async function pollConversation(
+    conversationId: number,
+    after: number,
+    updatedAfter?: string,
+): Promise<{
     messages: ChatMessage[];
+    updated?: ChatMessage[];
     read_message_ids?: number[];
     is_group?: boolean;
     other?: ChatConversation['other'];
 }> {
-    const res = await fetch(route('chat.poll', { conversation: conversationId, after }), {
+    const params = new URLSearchParams({ after: String(after) });
+    if (updatedAfter) {
+        params.set('updated_after', updatedAfter);
+    }
+    const res = await fetch(`${route('chat.poll', conversationId)}?${params.toString()}`, {
         headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         credentials: 'same-origin',
     });

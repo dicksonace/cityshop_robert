@@ -395,6 +395,22 @@ class MessageController extends Controller
         ]);
     }
 
+    public function react(Request $request, Conversation $conversation, Message $message): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($message->conversation_id === $conversation->id, 404);
+
+        $validated = $request->validate([
+            'emoji' => ['required', 'string', 'max:64'],
+        ]);
+
+        $message = ChatService::reactToMessage($message, $request->user(), $validated['emoji']);
+
+        return response()->json([
+            'message' => ChatService::formatMessage($message, $request->user()),
+        ]);
+    }
+
     public function destroy(Request $request, Conversation $conversation, Message $message): JsonResponse
     {
         abort_unless($conversation->involves($request->user()), 403);
