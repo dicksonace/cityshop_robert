@@ -36,7 +36,7 @@ import { useToastOptional } from '@/contexts/toast-context';
 import { useChatVoiceCall } from '@/hooks/use-chat-voice-call';
 import { useConversationRealtime } from '@/hooks/use-conversation-realtime';
 import * as chatApi from '@/lib/chat-api';
-import { playChatReceiveSound, playChatSendSound } from '@/lib/chat-sounds';
+import { playChatReceiveSound, playChatSendSound, playMoneyReceivedSound } from '@/lib/chat-sounds';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/types/chat';
 import { SharedData } from '@/types';
@@ -156,7 +156,7 @@ export default function ChatThreadPanel() {
         if (activeConversation?.is_group) {
             setShowTransfer(false);
         }
-    }, [activeConversation, messages]);
+    }, [activeConversation?.id, activeConversation?.other, activeConversation?.is_group, messages]);
 
     // Jump straight to the latest message — never animate top→bottom on open/refresh.
     useEffect(() => {
@@ -193,6 +193,7 @@ export default function ChatThreadPanel() {
             }
 
             let receivedNew = false;
+            let receivedMoney = false;
             setMessages((prev) => {
                 const ids = new Set(prev.map((m) => m.id));
                 for (const msg of incoming) {
@@ -212,13 +213,18 @@ export default function ChatThreadPanel() {
                         !announcedSoundIdsRef.current.has(msg.id)
                     ) {
                         receivedNew = true;
+                        if (msg.type === 'transfer') {
+                            receivedMoney = true;
+                        }
                         announcedSoundIdsRef.current.add(msg.id);
                     }
                 }
                 return [...prev, ...incoming.filter((m) => !ids.has(m.id))];
             });
 
-            if (receivedNew) {
+            if (receivedMoney) {
+                playMoneyReceivedSound();
+            } else if (receivedNew) {
                 playChatReceiveSound();
             }
             lastIdRef.current = Math.max(lastIdRef.current, maxMessageId(incoming));
@@ -230,12 +236,14 @@ export default function ChatThreadPanel() {
         void ingestMessages([msg], { playSound: true });
     });
 
+    const conversationId = activeConversation?.id;
+
     useEffect(() => {
-        if (!activeConversation) return;
+        if (!conversationId) return;
 
         const poll = async () => {
             try {
-                const data = await chatApi.pollConversation(activeConversation.id, lastIdRef.current);
+                const data = await chatApi.pollConversation(conversationId, lastIdRef.current);
                 if (data.other) {
                     setOther(data.other);
                     setActiveConversation((prev) =>
@@ -276,11 +284,12 @@ export default function ChatThreadPanel() {
         const interval = setInterval(poll, inCall ? 1000 : 2000);
         return () => clearInterval(interval);
     }, [
-        activeConversation,
+        conversationId,
         callState,
         ingestMessages,
         realtimeLive,
         setActiveConversation,
+        auth.user?.id,
     ]);
 
     const replaceMessage = (updated: ChatMessage) => {
@@ -1402,7 +1411,7 @@ export default function ChatThreadPanel() {
                     </div>
                 )}
 
-                <form onSubmit={sendMessage} className="flex items-center gap-2 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:gap-1.5 sm:pb-3">
+                <form onSubmit={sendMessage} className="flex min-w-0 items-center gap-1 p-2.5 sm:gap-1.5 sm:p-3">
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -1421,7 +1430,7 @@ export default function ChatThreadPanel() {
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploadingImage || uploadingFile || uploadingVoice || sending || recordingVoice}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50 sm:h-9 sm:w-9"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50 sm:h-9 sm:w-9"
                         title="Send photo"
                     >
                         <ImagePlus className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -1430,7 +1439,7 @@ export default function ChatThreadPanel() {
                         type="button"
                         onClick={() => docFileInputRef.current?.click()}
                         disabled={uploadingImage || uploadingFile || uploadingVoice || sending || recordingVoice}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50 sm:h-9 sm:w-9"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-orange-500 disabled:opacity-50 sm:h-9 sm:w-9"
                         title="Send file"
                     >
                         <FilePlus className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -1440,7 +1449,7 @@ export default function ChatThreadPanel() {
                         onClick={() => (recordingVoice ? void finishVoiceRecording() : void startVoiceRecording())}
                         disabled={uploadingImage || uploadingFile || uploadingVoice || sending || !activeConversation}
                         className={cn(
-                            'flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 sm:h-9 sm:w-9',
+                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-50 sm:h-9 sm:w-9',
                             recordingVoice
                                 ? 'bg-red-500 text-white hover:bg-red-600'
                                 : 'text-gray-500 hover:bg-gray-100 hover:text-orange-500',
@@ -1454,14 +1463,14 @@ export default function ChatThreadPanel() {
                             type="button"
                             onClick={() => setShowTransfer(true)}
                             disabled={uploadingImage || uploadingFile || uploadingVoice || sending || recordingVoice || !activeConversation}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-emerald-600 disabled:opacity-50 sm:h-9 sm:w-9"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-emerald-600 disabled:opacity-50 sm:h-9 sm:w-9"
                             title="Transfer money"
                         >
                             <ArrowLeftRight className="h-5 w-5 sm:h-4 sm:w-4" />
                         </button>
                     )}
                     {recordingVoice ? (
-                        <div className="flex min-h-11 flex-1 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700">
+                        <div className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
                             <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
                             Recording {Math.floor(voiceSeconds / 60)}:{String(voiceSeconds % 60).padStart(2, '0')}
                             <button
@@ -1473,44 +1482,48 @@ export default function ChatThreadPanel() {
                             </button>
                         </div>
                     ) : (
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={body}
-                        onChange={(e) => setBody(e.target.value)}
-                        placeholder={
-                            uploadingImage
-                                ? 'Uploading photo...'
-                                : uploadingFile
-                                  ? 'Uploading file...'
-                                  : uploadingVoice
-                                    ? 'Sending voice note...'
-                                    : editingMessage
-                                      ? 'Edit your message...'
-                                      : replyingTo
-                                        ? 'Write a reply...'
-                                        : 'Type a message...'
-                        }
-                        className="min-h-11 flex-1 rounded-full border border-gray-200 px-4 py-2.5 text-base focus:border-orange-300 focus:outline-none focus:ring-1 focus:ring-orange-300 sm:min-h-0 sm:py-2 sm:text-sm"
-                        maxLength={2000}
-                        disabled={uploadingImage || uploadingFile || uploadingVoice}
-                    />
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                value={body}
+                                onChange={(e) => setBody(e.target.value)}
+                                placeholder={
+                                    uploadingImage
+                                        ? 'Uploading photo...'
+                                        : uploadingFile
+                                          ? 'Uploading file...'
+                                          : uploadingVoice
+                                            ? 'Sending voice note...'
+                                            : editingMessage
+                                              ? 'Edit your message...'
+                                              : replyingTo
+                                                ? 'Write a reply...'
+                                                : 'Type a message...'
+                                }
+                                className="min-h-10 min-w-0 flex-1 rounded-full border border-gray-200 px-3 py-2 text-base focus:border-orange-300 focus:outline-none focus:ring-1 focus:ring-orange-300 sm:min-h-0 sm:px-4 sm:py-2 sm:text-sm"
+                                maxLength={2000}
+                                disabled={uploadingImage || uploadingFile || uploadingVoice}
+                            />
+                            <button
+                                type="submit"
+                                disabled={!body.trim() || sending || uploadingImage || uploadingFile || uploadingVoice}
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:bg-orange-400 disabled:opacity-100 sm:h-9 sm:w-9"
+                                title="Send"
+                                aria-label="Send"
+                            >
+                                <Send className="h-5 w-5 sm:h-4 sm:w-4" />
+                            </button>
+                        </div>
                     )}
-                    {recordingVoice ? (
+                    {recordingVoice && (
                         <button
                             type="button"
                             onClick={() => void finishVoiceRecording()}
                             disabled={uploadingVoice}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 sm:h-9 sm:w-9"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 sm:h-9 sm:w-9"
                             title="Send voice note"
-                        >
-                            <Send className="h-5 w-5 sm:h-4 sm:w-4" />
-                        </button>
-                    ) : (
-                        <button
-                            type="submit"
-                            disabled={!body.trim() || sending || uploadingImage || uploadingFile || uploadingVoice}
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 sm:h-9 sm:w-9"
+                            aria-label="Send voice note"
                         >
                             <Send className="h-5 w-5 sm:h-4 sm:w-4" />
                         </button>

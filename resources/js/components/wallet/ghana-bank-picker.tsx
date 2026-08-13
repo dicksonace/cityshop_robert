@@ -5,13 +5,14 @@ interface GhanaBankPickerProps {
     value: string;
     onChange: (bankId: string) => void;
     className?: string;
+    hideHeading?: boolean;
 }
 
 /** Radio-style Ghana bank list for withdraw / payout forms. */
-export default function GhanaBankPicker({ value, onChange, className }: GhanaBankPickerProps) {
+export default function GhanaBankPicker({ value, onChange, className, hideHeading = false }: GhanaBankPickerProps) {
     return (
         <div className={cn('space-y-2', className)}>
-            <p className="text-sm font-semibold text-gray-900">Select Bank</p>
+            {!hideHeading && <p className="text-sm font-semibold text-gray-900">Select Bank</p>}
             <div className="max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white">
                 {GHANA_BANKS.map((bank, index) => {
                     const selected = value === bank.id;

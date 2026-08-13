@@ -22,19 +22,7 @@ const appName = import.meta.env.VITE_APP_NAME || 'CityShop';
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) =>
-        resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')).then((module) => {
-            const Page = module.default as ComponentType;
-            return function PageWithChat(props: Record<string, unknown>) {
-                return (
-                    <>
-                        <FlashToastListener />
-                        <ChatSoundListener />
-                        <Page {...props} />
-                        <FloatingChatWidget />
-                    </>
-                );
-            };
-        }),
+        resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
     setup({ el, App, props }) {
         const root = createRoot(el);
         const initialToken = (props.initialPage.props as { csrfToken?: string }).csrfToken;
@@ -42,10 +30,29 @@ createInertiaApp({
             setCsrfToken(initialToken);
         }
 
+        // Chat lives beside the page, not inside it — dashboard reload / Inertia
+        // visits used to remount a new page wrapper and the messenger flashed black.
         root.render(
             <ChatProvider>
                 <ToastProvider>
-                    <App {...props} />
+                    <App {...props}>
+                        {({
+                            Component,
+                            props: pageProps,
+                            key,
+                        }: {
+                            Component: ComponentType<Record<string, unknown>>;
+                            props: Record<string, unknown>;
+                            key: number | string | null;
+                        }) => (
+                            <>
+                                <FlashToastListener />
+                                <ChatSoundListener />
+                                <Component key={key ?? undefined} {...pageProps} />
+                                <FloatingChatWidget />
+                            </>
+                        )}
+                    </App>
                 </ToastProvider>
             </ChatProvider>,
         );

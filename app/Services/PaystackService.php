@@ -22,6 +22,79 @@ class PaystackService
         return ! empty($this->secretKey) && ! empty(config('services.paystack.public_key'));
     }
 
+    /**
+     * Ghana local collection fee (MoMo + local cards).
+     *
+     * @return array{percent: float, flat: float}
+     */
+    public function rechargeFeePayload(): array
+    {
+        return [
+            'percent' => max(0, round((float) config('services.paystack.local_percent', 1.95), 4)),
+            'flat' => max(0, round((float) config('services.paystack.local_flat', 0), 2)),
+        ];
+    }
+
+    /**
+     * Charge enough that after Paystack's cut, settlement covers the wallet credit.
+     *
+     * @return array{credit: float, fee: float, charge: float, percent: float, flat: float}
+     */
+    public function rechargeQuote(float $creditGhs, string $method = 'momo'): array
+    {
+        $credit = round(max(0, $creditGhs), 2);
+        $percent = (float) config('services.paystack.local_percent', 1.95);
+        $flat = (float) config('services.paystack.local_flat', 0);
+
+        if ($method === 'card_international') {
+            $percent = (float) config('services.paystack.international_percent', 3.9);
+            $flat = (float) config('services.paystack.international_flat', 0.20);
+        }
+
+        $percent = max(0, $percent);
+        $flat = max(0, round($flat, 2));
+        $rate = $percent / 100;
+
+        if ($credit <= 0) {
+            return [
+                'credit' => 0.0,
+                'fee' => 0.0,
+                'charge' => 0.0,
+                'percent' => $percent,
+                'flat' => $flat,
+            ];
+        }
+
+        $charge = $rate >= 1
+            ? round($credit + $flat, 2)
+            : round(($credit + $flat) / (1 - $rate), 2);
+
+        return [
+            'credit' => $credit,
+            'fee' => round($charge - $credit, 2),
+            'charge' => $charge,
+            'percent' => $percent,
+            'flat' => $flat,
+        ];
+    }
+
+    /**
+     * Wallet credit after a verified Paystack top-up (legacy charges credit the paid amount).
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    public function topUpCreditFromMetadata(array $metadata, float $paidGhs): float
+    {
+        if (isset($metadata['wallet_credit']) && is_numeric($metadata['wallet_credit'])) {
+            $credit = round((float) $metadata['wallet_credit'], 2);
+            if ($credit > 0 && $credit <= $paidGhs + 0.05) {
+                return $credit;
+            }
+        }
+
+        return round($paidGhs, 2);
+    }
+
     public function initializeTransaction(string $email, float $amountGhs, string $reference, array $metadata = [], ?string $callbackUrl = null): array
     {
         $response = Http::withToken($this->secretKey)

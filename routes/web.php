@@ -25,6 +25,7 @@ use App\Http\Controllers\Chat\ConversationController as ChatConversationControll
 use App\Http\Controllers\Chat\MessageController as ChatMessageController;
 use App\Http\Controllers\Chat\NotificationController as ChatNotificationController;
 use App\Http\Controllers\PaystackWebhookController;
+use App\Http\Controllers\FormulaDcWebhookController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Seller\AccountController as SellerAccountController;
 use App\Http\Controllers\Seller\CouponController as SellerCouponController;
@@ -81,6 +82,7 @@ Route::post('/contact', [ContactController::class, 'store'])->name('contact.stor
 Route::get('/faq', [FaqController::class, 'show'])->name('faq');
 
 Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle']);
+Route::post('/webhooks/formula-dc', [FormulaDcWebhookController::class, 'handle']);
 
 Route::middleware(['auth'])->group(function () {
     Route::post('/sellers/report', [SellerReportController::class, 'store'])->name('sellers.report');
@@ -133,6 +135,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/wallet', [BuyerWalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet/add-funds', [BuyerWalletController::class, 'addFunds'])->name('wallet.add-funds');
     Route::get('/wallet/callback', [BuyerWalletController::class, 'callback'])->name('wallet.callback');
+    Route::get('/wallet/withdraw', [BuyerWalletController::class, 'createWithdraw'])->name('wallet.withdraw.create');
     Route::post('/wallet/withdraw', [BuyerWalletController::class, 'withdraw'])->name('wallet.withdraw');
     Route::get('/wallet/manual-top-up', [WalletManualTopUpController::class, 'show'])->name('wallet.manual-top-up');
     Route::post('/wallet/manual-top-up', [WalletManualTopUpController::class, 'store'])->name('wallet.manual-top-up.store');
@@ -198,7 +201,6 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::get('/products/{product}/edit', [SellerProductController::class, 'edit'])->name('products.edit');
             Route::put('/products/{product}', [SellerProductController::class, 'update'])->name('products.update');
             Route::delete('/products/{product}', [SellerProductController::class, 'destroy'])->name('products.destroy');
-            Route::post('/products/{product}/restore', [SellerProductController::class, 'restore'])->name('products.restore');
             Route::post('/products/{product}/duplicate', [SellerProductController::class, 'duplicate'])->name('products.duplicate');
             Route::patch('/products/{product}/visibility', [SellerProductController::class, 'toggleVisibility'])->name('products.visibility');
             Route::get('/products/{product}/analytics', [SellerProductController::class, 'analytics'])->name('products.analytics');

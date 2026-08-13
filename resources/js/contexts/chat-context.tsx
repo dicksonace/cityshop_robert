@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import * as chatApi from '@/lib/chat-api';
 import type { ChatAttachProduct } from '@/lib/chat-api';
@@ -32,7 +32,10 @@ interface ChatContextValue {
 const ChatContext = createContext<ChatContextValue | null>(null);
 
 export function ChatProvider({ children }: { children: ReactNode }) {
-    const saved = loadChatState();
+    const savedRef = useRef(loadChatState());
+    const saved = savedRef.current;
+    const activeIdRef = useRef<number | null>(null);
+    const messagesLengthRef = useRef(0);
 
     const [isOpen, setIsOpen] = useState(saved.isOpen && !saved.isMinimized);
     const [isMinimized, setIsMinimized] = useState(saved.isMinimized);
@@ -41,8 +44,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [attachProduct, setAttachProduct] = useState<ChatAttachProduct | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(
+        () => Boolean((saved.isOpen || saved.isMinimized) && saved.activeConversationId),
+    );
     const [restored, setRestored] = useState(false);
+
+    useEffect(() => {
+        activeIdRef.current = activeConversation?.id ?? null;
+    }, [activeConversation?.id]);
+
+    useEffect(() => {
+        messagesLengthRef.current = messages.length;
+    }, [messages.length]);
 
     const refreshConversations = useCallback(async () => {
         const list = await chatApi.fetchConversations();
@@ -50,9 +63,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const loadConversation = useCallback(async (conversationId: number) => {
-        setLoading(true);
         setView('thread');
         setAttachProduct(null);
+        // Keep the current thread on screen — blanking it is the black/loading flash.
+        if (activeIdRef.current == null) {
+            setLoading(true);
+        }
         try {
             const data = await chatApi.fetchConversation(conversationId);
             setActiveConversation(data.conversation);
@@ -76,25 +92,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 }
             } catch {
                 saveChatState({
-                    activeConversationId: null,
-                    view: 'list',
-                    isMinimized: false,
-                    isOpen: false,
+                    activeConversationId: saved.activeConversationId,
+                    view: saved.view,
+                    isMinimized: saved.isMinimized,
+                    isOpen: saved.isOpen,
                 });
             } finally {
                 setRestored(true);
+                setLoading(false);
             }
         };
 
         void restore();
-    }, [
-        loadConversation,
-        refreshConversations,
-        restored,
-        saved.activeConversationId,
-        saved.isMinimized,
-        saved.isOpen,
-    ]);
+    }, [loadConversation, refreshConversations, restored, saved]);
 
     useEffect(() => {
         saveChatState({
@@ -108,13 +118,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const openWidget = useCallback(async () => {
         setIsOpen(true);
         setIsMinimized(false);
-        setLoading(true);
         try {
             await refreshConversations();
-            if (activeConversation) {
+            const currentId = activeIdRef.current;
+            if (currentId) {
                 setView('thread');
-                if (messages.length === 0) {
-                    await loadConversation(activeConversation.id);
+                if (messagesLengthRef.current === 0) {
+                    await loadConversation(currentId);
                 }
             } else if (saved.activeConversationId) {
                 await loadConversation(saved.activeConversationId);
@@ -122,13 +132,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 setView('list');
             }
         } catch {
-            setView('list');
-            setActiveConversation(null);
-            setMessages([]);
-        } finally {
-            setLoading(false);
+            if (!activeIdRef.current) {
+                setView('list');
+            }
         }
-    }, [activeConversation, loadConversation, messages.length, refreshConversations, saved.activeConversationId]);
+    }, [loadConversation, refreshConversations, saved.activeConversationId]);
 
     const closeWidget = useCallback(() => {
         setIsOpen(false);

@@ -7,7 +7,7 @@ import {
     showBrowserNotification,
 } from '@/lib/browser-notifications';
 import * as chatApi from '@/lib/chat-api';
-import { playChatReceiveSound } from '@/lib/chat-sounds';
+import { playChatReceiveSound, playMoneyReceivedSound } from '@/lib/chat-sounds';
 import { SharedData } from '@/types';
 import type { ChatConversation } from '@/types/chat';
 
@@ -94,7 +94,12 @@ export default function ChatSoundListener() {
 
                 if (Date.now() - lastSoundAtRef.current > 1200) {
                     lastSoundAtRef.current = Date.now();
-                    playChatReceiveSound();
+                    const moneyIn = toAlert.some((c) => (c.latest_message?.type || '') === 'transfer');
+                    if (moneyIn) {
+                        playMoneyReceivedSound();
+                    } else {
+                        playChatReceiveSound();
+                    }
                 }
 
                 await ensureBrowserNotifications();

@@ -12,6 +12,8 @@ interface ShopLayoutProps {
     hideChrome?: boolean;
     /** For pages that show the failure next to the action the buyer just took. */
     hideFlashError?: boolean;
+    /** Skip layout flash banners when the page already shows its own (avoids pushing content down). */
+    hideFlash?: boolean;
 }
 
 export default function ShopLayout({
@@ -19,6 +21,7 @@ export default function ShopLayout({
     hideHeaderSearch = false,
     hideChrome = false,
     hideFlashError = false,
+    hideFlash = false,
 }: ShopLayoutProps) {
     const page = usePage<SharedData>();
     const { auth, flash } = page.props;
@@ -27,7 +30,7 @@ export default function ShopLayout({
     const hasValidationErrors = Object.keys(page.props.errors ?? {}).length > 0;
     // Auth/forms already show errors next to the fields — don't duplicate as a top banner.
     const showLayoutError =
-        Boolean(flash?.error) && !hideFlashError && !hasValidationErrors && !component.startsWith('auth/');
+        Boolean(flash?.error) && !hideFlash && !hideFlashError && !hasValidationErrors && !component.startsWith('auth/');
 
     // Prevent a stuck horizontal scroll offset (looks like content "shifted" with empty space on one side).
     useEffect(() => {
@@ -51,7 +54,7 @@ export default function ShopLayout({
                     <ShopHeader hideSearch={hideHeaderSearch} />
                 </div>
             )}
-            {!hideChrome && flash?.success && (
+            {!hideChrome && !hideFlash && flash?.success && (
                 <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-800 print:hidden">
                     {flash.success}
                 </div>

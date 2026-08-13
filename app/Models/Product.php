@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Product extends Model
@@ -84,12 +85,23 @@ class Product extends Model
         });
 
         static::deleting(function (Product $product) {
-            if ($product->isForceDeleting()) {
+            CartItem::where('product_id', $product->id)->get()->each->delete();
+            Wishlist::where('product_id', $product->id)->get()->each->delete();
+
+            if (! $product->isForceDeleting()) {
                 return;
             }
 
-            CartItem::where('product_id', $product->id)->get()->each->delete();
-            Wishlist::where('product_id', $product->id)->get()->each->delete();
+            foreach ($product->images()->withTrashed()->get() as $image) {
+                if ($image->path) {
+                    Storage::disk('public')->delete($image->path);
+                }
+                $image->forceDelete();
+            }
+
+            if ($product->video_path) {
+                Storage::disk('public')->delete($product->video_path);
+            }
         });
     }
 
@@ -193,7 +205,6 @@ class Product extends Model
     {
         $query = request()->routeIs(
             'admin.stores.products.*',
-            'seller.products.restore',
             'admin.stores.products.restore',
         ) ? static::withTrashed() : static::query();
 

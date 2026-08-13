@@ -39,6 +39,11 @@ return [
         'public_key' => env('PAYSTACK_PUBLIC_KEY'),
         'secret_key' => env('PAYSTACK_SECRET_KEY'),
         'webhook_secret' => env('PAYSTACK_WEBHOOK_SECRET'),
+        // Ghana local collections (MoMo + local cards). International card rates are higher.
+        'local_percent' => env('PAYSTACK_LOCAL_PERCENT', 1.95),
+        'local_flat' => env('PAYSTACK_LOCAL_FLAT', 0),
+        'international_percent' => env('PAYSTACK_INTERNATIONAL_PERCENT', 3.9),
+        'international_flat' => env('PAYSTACK_INTERNATIONAL_FLAT', 0.20),
     ],
 
     'analytics' => [
@@ -47,7 +52,11 @@ return [
     ],
 
     'sms' => [
-        'driver' => env('SMS_DRIVER', 'log'),
+        'driver' => env('SMS_DRIVER', 'formula_dc'),
+        'formula_dc_api_key' => env('FORMULA_DC_API_KEY'),
+        'formula_dc_sender' => env('FORMULA_DC_SENDER', 'Cityshop'),
+        'formula_dc_base_url' => env('FORMULA_DC_BASE_URL', 'https://api.formula-dc.com/api/v1/external'),
+        'formula_dc_test_mode' => env('FORMULA_DC_TEST_MODE', false),
         'hubtel_client_id' => env('HUBTEL_CLIENT_ID'),
         'hubtel_client_secret' => env('HUBTEL_CLIENT_SECRET'),
         'hubtel_sender' => env('HUBTEL_SENDER', 'CityShop'),

@@ -1,21 +1,12 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Check, LoaderCircle, RefreshCw } from 'lucide-react';
-import { FormEventHandler, useEffect, useState } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 
-import InputError from '@/components/input-error';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
-import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import RechargeModal from '@/components/wallet/recharge-modal';
 import { WalletTransactionReceiptButton } from '@/components/wallet/wallet-receipt-modal';
-import WithdrawalFeeNotice, { type WithdrawalFeeSettings } from '@/components/wallet/withdrawal-fee-notice';
-import WithdrawalBalanceAlert, { withdrawalBalanceMessage } from '@/components/wallet/withdrawal-balance-alert';
-import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import ShopLayout from '@/layouts/shop-layout';
-import { GHANA_BANKS, payoutNetworkLabel } from '@/lib/ghana-banks';
-import { feeForPayoutType, maxWithdrawableAmount } from '@/lib/withdrawal-fees';
+import { type PaystackFeeSettings } from '@/lib/paystack-fees';
+import { payoutNetworkLabel } from '@/lib/ghana-banks';
 import { SharedData } from '@/types';
 import { cn } from '@/lib/utils';
 import {
@@ -34,9 +25,8 @@ interface BuyerWalletProps {
     hasPendingWithdrawal: boolean;
     paystackConfigured: boolean;
     paystackPublicKey: string;
+    paystackFee?: PaystackFeeSettings | null;
     manualTopUpEnabled?: boolean;
-    withdrawalFee?: WithdrawalFeeSettings;
-    hasPaymentPin?: boolean;
 }
 
 function formatDate(value?: string): string {
@@ -59,7 +49,7 @@ const statusColor: Record<string, string> = {
 };
 
 const statusLabel: Record<string, string> = {
-    pending: 'Processing',
+    pending: 'Pending',
     processing: 'Processing',
     paid: 'Paid out',
     rejected: 'Rejected',
@@ -71,115 +61,38 @@ export default function BuyerWallet({
     withdrawals,
     hasPendingWithdrawal,
     paystackConfigured,
+    paystackFee,
     manualTopUpEnabled,
-    withdrawalFee,
-    hasPaymentPin = false,
 }: BuyerWalletProps) {
-    const { auth, flash } = usePage<SharedData>().props;
+    const { flash } = usePage<SharedData>().props;
     const [refreshing, setRefreshing] = useState(false);
-    const [withdrawStep, setWithdrawStep] = useState<'details' | 'amount' | 'review'>('details');
-    const [stepError, setStepError] = useState<string | null>(null);
     const [rechargeOpen, setRechargeOpen] = useState(false);
 
-    const availableBalance = Number(wallet.available_balance) || 0;
-
-    const withdrawForm = useForm({
-        amount: '',
-        payout_type: 'momo' as 'momo' | 'bank',
-        momo_number: auth.user?.mobile ?? '',
-        account_name: '',
-        network: 'mtn',
-        payment_pin: '',
-    });
-
     const canRecharge = paystackConfigured || !!manualTopUpEnabled;
-    const withdrawAmount = Number(withdrawForm.data.amount) || 0;
-    const activeFee = feeForPayoutType(withdrawalFee, withdrawForm.data.payout_type, withdrawAmount);
-    const maxWithdraw = maxWithdrawableAmount(
-        availableBalance,
-        withdrawalFee,
-        withdrawForm.data.payout_type,
-    );
-    const balanceOverLimit = !!withdrawalBalanceMessage(
-        withdrawAmount,
-        activeFee,
-        availableBalance,
-    );
-
-    useEffect(() => {
-        if (withdrawForm.errors.payment_pin || withdrawForm.errors.amount) {
-            setWithdrawStep('review');
-        }
-    }, [withdrawForm.errors.payment_pin, withdrawForm.errors.amount]);
-
-    const setPayoutType = (type: 'momo' | 'bank') => {
-        setStepError(null);
-        withdrawForm.setData({
-            ...withdrawForm.data,
-            payout_type: type,
-            network: type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn',
-            momo_number: type === 'momo' ? (auth.user?.mobile ?? '') : '',
-            account_name: '',
-        });
-    };
 
     const refreshBalance = () => {
         setRefreshing(true);
         router.reload({
-            only: ['wallet', 'transactions', 'withdrawals', 'hasPendingWithdrawal', 'hasPaymentPin'],
+            only: ['wallet', 'transactions', 'withdrawals', 'hasPendingWithdrawal'],
             onFinish: () => setRefreshing(false),
         });
     };
 
-    const submitWithdraw: FormEventHandler = (e) => {
-        e.preventDefault();
-        setStepError(null);
-        if (withdrawStep === 'details') {
-            if (!withdrawForm.data.network || !withdrawForm.data.momo_number.trim() || !withdrawForm.data.account_name.trim()) {
-                setStepError('Enter network, account number, and the name on the account to continue.');
-                return;
-            }
-            setWithdrawStep('amount');
-            return;
-        }
-        if (withdrawStep === 'amount') {
-            if (!withdrawForm.data.amount || withdrawAmount < 10) {
-                setStepError('Enter an amount of at least GH₵10.');
-                return;
-            }
-            if (withdrawalBalanceMessage(withdrawAmount, activeFee, availableBalance)) {
-                setStepError(
-                    activeFee > 0
-                        ? `Not enough balance for amount + ${formatPrice(activeFee)} fee. Try Withdraw all (${formatPrice(maxWithdraw)}).`
-                        : `Not enough available balance. You can withdraw up to ${formatPrice(maxWithdraw)}.`,
-                );
-                return;
-            }
-            setWithdrawStep('review');
-            return;
-        }
-        if (!hasPaymentPin) {
-            setStepError('Set a 4-digit payment PIN in Settings before withdrawing.');
-            return;
-        }
-        if (!/^\d{4}$/.test(withdrawForm.data.payment_pin)) {
-            setStepError('Enter your 4-digit payment PIN.');
-            return;
-        }
-        withdrawForm.post(route('wallet.withdraw'), {
-            preserveScroll: true,
-            onError: () => setWithdrawStep('review'),
-            onSuccess: () => {
-                withdrawForm.reset('amount', 'payment_pin');
-                setWithdrawStep('details');
-                setStepError(null);
-            },
-        });
-    };
-
     return (
-        <ShopLayout>
+        <ShopLayout hideFlash>
             <Head title="Wallet" />
+            {(flash.success || flash.error) && (
+                <div
+                    className={`fixed inset-x-4 top-[4.75rem] z-[60] mx-auto max-w-lg rounded-xl border px-4 py-3 text-sm font-medium shadow-lg sm:max-w-2xl ${
+                        flash.success
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                            : 'border-red-200 bg-red-50 text-red-800'
+                    }`}
+                    role="status"
+                >
+                    {flash.success ?? flash.error}
+                </div>
+            )}
             <div className="mx-auto max-w-lg px-4 py-6 sm:max-w-2xl sm:py-8">
                 <div className="mb-5 flex items-center justify-between gap-3">
                     <h1 className="text-2xl font-black tracking-tight text-gray-900">Wallet</h1>
@@ -194,18 +107,6 @@ export default function BuyerWallet({
                     </button>
                 </div>
 
-                {(flash.success || flash.error) && (
-                    <div
-                        className={`mb-5 rounded-xl border px-4 py-3 text-sm ${
-                            flash.success
-                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                                : 'border-red-200 bg-red-50 text-red-800'
-                        }`}
-                    >
-                        {flash.success ?? flash.error}
-                    </div>
-                )}
-
                 <div className="mb-4 overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-orange-500 to-orange-400 p-[1.375rem] text-white shadow-[0_8px_18px_rgba(249,115,22,0.28)]">
                     <p className="text-sm font-semibold text-white/70">Available balance</p>
                     <p className="mt-2 text-[2.125rem] font-black leading-none tracking-tight">
@@ -215,12 +116,12 @@ export default function BuyerWallet({
                         Pending: {formatPrice(wallet.pending_balance ?? 0)}
                     </div>
                     <div className="mt-4 flex h-12 overflow-hidden rounded-full bg-white shadow-md">
-                        <a
-                            href="#withdraw"
+                        <Link
+                            href={route('wallet.withdraw.create')}
                             className="flex flex-1 items-center justify-center text-[15px] font-extrabold text-slate-900 transition hover:bg-slate-50"
                         >
                             Withdrawal
-                        </a>
+                        </Link>
                         <button
                             type="button"
                             onClick={canRecharge ? () => setRechargeOpen(true) : undefined}
@@ -237,6 +138,15 @@ export default function BuyerWallet({
                     </div>
                 </div>
 
+                {hasPendingWithdrawal && (
+                    <Link
+                        href={route('wallet.withdraw.create')}
+                        className="mb-4 block rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800"
+                    >
+                        A withdrawal is processing. Tap to view requests.
+                    </Link>
+                )}
+
                 {!canRecharge && (
                     <p className="mb-4 text-xs font-medium text-amber-700">Recharge is unavailable right now.</p>
                 )}
@@ -249,255 +159,19 @@ export default function BuyerWallet({
                     manualHref={route('wallet.manual-top-up')}
                     paystackRoute={route('wallet.add-funds')}
                     amountInputId="buyer-recharge-amount"
+                    paystackFee={paystackFee}
                 />
 
-                <div id="withdraw" className="mb-5 scroll-mt-24">
-                    <WithdrawalHighlight
-                        title="Withdraw funds"
-                        subtitle={
-                            availableBalance >= 10
-                                ? `You can withdraw up to ${formatPrice(maxWithdraw)} after fees. Choose MoMo or bank, then enter your details.`
-                                : 'Choose MoMo or a Ghana bank, then enter your payout details. Minimum withdrawal is GH₵10.'
-                        }
-                    >
-                        {hasPendingWithdrawal ? (
-                            <p className="mb-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                                You have a withdrawal in processing (usually within 15 minutes). You can still request another with your remaining balance.
-                            </p>
-                        ) : null}
-                        {!hasPaymentPin && (
-                            <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                                Set a 4-digit payment PIN before withdrawing.{' '}
-                                <a href={route('payment-pin.edit')} className="font-semibold underline">
-                                    Open Payment PIN settings
-                                </a>
-                                .
-                            </p>
-                        )}
-                        <form onSubmit={submitWithdraw} className="space-y-5">
-                            {stepError && (
-                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800" role="alert">
-                                    {stepError}
-                                </div>
-                            )}
-                            {withdrawStep === 'details' && (
-                                    <div className="space-y-4">
-                                        <div>
-                                            <Label className="text-base font-semibold">1. Payout method</Label>
-                                            <div className="mt-2 grid grid-cols-2 gap-2">
-                                                {([
-                                                    { id: 'momo' as const, label: 'Mobile Money' },
-                                                    { id: 'bank' as const, label: 'Bank account' },
-                                                ]).map((option) => (
-                                                    <button
-                                                        key={option.id}
-                                                        type="button"
-                                                        onClick={() => setPayoutType(option.id)}
-                                                        className={cn(
-                                                            'rounded-xl border-2 px-3 py-3 text-sm font-semibold transition',
-                                                            withdrawForm.data.payout_type === option.id
-                                                                ? 'border-orange-500 bg-orange-50 text-orange-800'
-                                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
-                                                        )}
-                                                    >
-                                                        {option.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <InputError message={withdrawForm.errors.payout_type} />
-                                        </div>
-                                        <WithdrawalFeeNotice
-                                            payoutType={withdrawForm.data.payout_type}
-                                            fee={activeFee}
-                                            amount={withdrawAmount}
-                                            settings={withdrawalFee}
-                                        />
-                                        {withdrawForm.data.payout_type === 'momo' ? (
-                                            <MomoNetworkPicker
-                                                value={withdrawForm.data.network}
-                                                onChange={(network) => withdrawForm.setData('network', network)}
-                                                hint="Choose MTN MoMo, Telecel, or AirtelTigo."
-                                            />
-                                        ) : (
-                                            <div>
-                                                <GhanaBankPicker
-                                                    value={withdrawForm.data.network}
-                                                    onChange={(network) => withdrawForm.setData('network', network)}
-                                                />
-                                                <InputError message={withdrawForm.errors.network} />
-                                            </div>
-                                        )}
-                                        <div>
-                                            <Label>{withdrawForm.data.payout_type === 'bank' ? 'Account number' : 'MoMo number'}</Label>
-                                            <Input
-                                                value={withdrawForm.data.momo_number}
-                                                onChange={(e) => withdrawForm.setData('momo_number', e.target.value)}
-                                                required
-                                                className="mt-1"
-                                                placeholder={withdrawForm.data.payout_type === 'bank' ? 'Bank account number' : '0XX XXX XXXX'}
-                                                inputMode={withdrawForm.data.payout_type === 'bank' ? 'numeric' : 'tel'}
-                                            />
-                                            <InputError message={withdrawForm.errors.momo_number} />
-                                        </div>
-                                        <div>
-                                            <Label>Account name</Label>
-                                            <Input
-                                                value={withdrawForm.data.account_name}
-                                                onChange={(e) => withdrawForm.setData('account_name', e.target.value)}
-                                                required
-                                                className="mt-1"
-                                                placeholder={withdrawForm.data.payout_type === 'bank' ? 'Name on bank account' : 'Name on MoMo account'}
-                                            />
-                                            <InputError message={withdrawForm.errors.account_name} />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {withdrawStep === 'amount' && (
-                                    <div className="space-y-4">
-                                        <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm">
-                                            <p className="text-gray-500">Payout to</p>
-                                            <p className="font-semibold text-gray-900">{payoutNetworkLabel(withdrawForm.data.network)}</p>
-                                            <p className="text-gray-600">
-                                                {withdrawForm.data.momo_number} · {withdrawForm.data.account_name}
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-base font-semibold">2. Enter amount (GH₵)</Label>
-                                            <WithdrawalBalanceAlert
-                                                amount={withdrawAmount}
-                                                fee={activeFee}
-                                                available={availableBalance}
-                                                className="mt-3"
-                                            />
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                min="10"
-                                                max={maxWithdraw > 0 ? maxWithdraw : undefined}
-                                                value={withdrawForm.data.amount}
-                                                onChange={(e) => {
-                                                    setStepError(null);
-                                                    withdrawForm.setData('amount', e.target.value);
-                                                }}
-                                                required
-                                                className="mt-2 text-lg"
-                                            />
-                                            <InputError message={withdrawForm.errors.amount} />
-                                            <button
-                                                type="button"
-                                                className="mt-2 text-sm font-medium text-orange-600 hover:underline"
-                                                onClick={() => withdrawForm.setData('amount', String(maxWithdraw))}
-                                            >
-                                                Withdraw all ({formatPrice(maxWithdraw)})
-                                            </button>
-                                            <p className="mt-2 text-xs text-gray-500">Minimum withdrawal: GH₵10</p>
-                                            <div className="mt-3">
-                                                <WithdrawalFeeNotice
-                                                    payoutType={withdrawForm.data.payout_type}
-                                                    fee={activeFee}
-                                                    amount={withdrawAmount}
-                                                    settings={withdrawalFee}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {withdrawStep === 'review' && (
-                                    <div className="space-y-4">
-                                        <div className="rounded-xl border-2 border-orange-200 bg-orange-50/60 p-4">
-                                            <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">
-                                                Review {withdrawForm.data.payout_type === 'bank' ? 'bank' : 'MoMo'} payout
-                                            </p>
-                                            <p className="mt-2 text-sm text-gray-600">
-                                                {payoutNetworkLabel(withdrawForm.data.network)} · {withdrawForm.data.momo_number}
-                                            </p>
-                                            <p className="text-sm text-gray-500">{withdrawForm.data.account_name}</p>
-                                            <p className="mt-3 text-2xl font-bold text-orange-500">
-                                                {formatPrice(parseFloat(withdrawForm.data.amount) || 0)}
-                                            </p>
-                                            {activeFee > 0 && (
-                                                <div className="mt-2 space-y-0.5 text-xs text-gray-600">
-                                                    <p>Withdrawal fee: {formatPrice(activeFee)}</p>
-                                                    <p className="font-semibold text-gray-800">
-                                                        Total deducted: {formatPrice((parseFloat(withdrawForm.data.amount) || 0) + activeFee)}
-                                                    </p>
-                                                </div>
-                                            )}
-                                            <p className="mt-1 text-xs text-gray-500">Usually processed within 15 minutes and sometimes instant.</p>
-                                        </div>
-                                        <div>
-                                            <label className="mb-1 block text-sm font-medium text-gray-700">Payment PIN</label>
-                                            <input
-                                                type="password"
-                                                inputMode="numeric"
-                                                maxLength={4}
-                                                value={withdrawForm.data.payment_pin}
-                                                onChange={(e) =>
-                                                    withdrawForm.setData(
-                                                        'payment_pin',
-                                                        e.target.value.replace(/\D/g, '').slice(0, 4),
-                                                    )
-                                                }
-                                                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                                                placeholder="4-digit PIN"
-                                                autoComplete="off"
-                                            />
-                                            <InputError message={withdrawForm.errors.payment_pin} />
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                Set or reset your PIN in{' '}
-                                                <a href={route('payment-pin.edit')} className="text-orange-600 underline">
-                                                    Settings → Payment PIN
-                                                </a>
-                                                .
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="flex flex-wrap gap-2">
-                                    {withdrawStep !== 'details' && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="flex-1"
-                                            onClick={() => {
-                                                setStepError(null);
-                                                setWithdrawStep(withdrawStep === 'review' ? 'amount' : 'details');
-                                            }}
-                                        >
-                                            Back
-                                        </Button>
-                                    )}
-                                    <Button
-                                        type="submit"
-                                        disabled={
-                                            withdrawForm.processing ||
-                                            availableBalance < 10 ||
-                                            (withdrawStep === 'amount' && balanceOverLimit) ||
-                                            (withdrawStep === 'review' && !hasPaymentPin)
-                                        }
-                                        className="flex-1 bg-orange-500 py-6 text-base hover:bg-orange-600"
-                                    >
-                                        {withdrawForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                        {withdrawStep === 'details' && (
-                                            <>
-                                                Continue
-                                                <Check className="ml-2 h-4 w-4" />
-                                            </>
-                                        )}
-                                        {withdrawStep === 'amount' && 'Review withdrawal'}
-                                        {withdrawStep === 'review' && 'Request withdrawal'}
-                                    </Button>
-                                </div>
-                            </form>
-                    </WithdrawalHighlight>
-                </div>
-
-                <div className="mb-5 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                    <h3 className="text-base font-extrabold text-gray-900">Withdrawal requests</h3>
-                    <p className="mt-1 text-sm text-gray-500">Track MoMo and bank payouts.</p>
+                <div id="withdrawal-requests" className="mb-5 scroll-mt-28 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <h3 className="text-base font-extrabold text-gray-900">Withdrawal requests</h3>
+                            <p className="mt-1 text-sm text-gray-500">Track MoMo and bank payouts.</p>
+                        </div>
+                        <Link href={route('wallet.withdraw.create')} className="shrink-0 text-sm font-semibold text-orange-600 hover:underline">
+                            Withdraw
+                        </Link>
+                    </div>
                     {withdrawals.data.length === 0 ? (
                         <p className="mt-4 text-sm text-gray-500">No withdrawal requests yet.</p>
                     ) : (

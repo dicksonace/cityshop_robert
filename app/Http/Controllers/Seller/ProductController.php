@@ -26,9 +26,7 @@ class ProductController extends Controller
             ->where('seller_id', $request->user()->id);
 
         $status = $request->string('status')->toString();
-        if ($status === 'deleted') {
-            $query->onlyTrashed();
-        } elseif ($status && in_array($status, ['approved', 'pending', 'rejected', 'draft'], true)) {
+        if ($status && in_array($status, ['approved', 'pending', 'rejected', 'draft'], true)) {
             $query->where('status', $status);
         } elseif ($status === 'sold_out') {
             $query->where('quantity', 0)->where('is_preorder', false);
@@ -238,19 +236,9 @@ class ProductController extends Controller
     {
         abort_unless($product->seller_id === $request->user()->id, 403);
 
-        $product->delete();
+        $this->permanentlyRemove($product);
 
-        return back()->with('success', 'Product moved to trash. You can restore it from the Deleted tab.');
-    }
-
-    public function restore(Request $request, Product $product): RedirectResponse
-    {
-        abort_unless($product->seller_id === $request->user()->id, 403);
-        abort_unless($product->trashed(), 404);
-
-        $product->restore();
-
-        return back()->with('success', 'Product restored.');
+        return back()->with('success', 'Product deleted permanently.');
     }
 
     public function duplicate(Request $request, Product $product): RedirectResponse
@@ -315,8 +303,7 @@ class ProductController extends Controller
             'category_id' => ['nullable', 'exists:categories,id'],
         ]);
 
-        $products = Product::withTrashed()
-            ->where('seller_id', $request->user()->id)
+        $products = Product::where('seller_id', $request->user()->id)
             ->whereIn('id', $validated['product_ids'])
             ->get();
 
@@ -327,15 +314,8 @@ class ProductController extends Controller
         $count = 0;
         foreach ($products as $product) {
             if ($validated['action'] === 'delete') {
-                if (! $product->trashed()) {
-                    $product->delete();
-                    $count++;
-                }
-
-                continue;
-            }
-
-            if ($product->trashed()) {
+                $this->permanentlyRemove($product);
+                $count++;
                 continue;
             }
 
@@ -346,7 +326,11 @@ class ProductController extends Controller
             $count++;
         }
 
-        return back()->with('success', "{$count} product(s) updated.");
+        $message = $validated['action'] === 'delete'
+            ? "{$count} product(s) deleted permanently."
+            : "{$count} product(s) updated.";
+
+        return back()->with('success', $message);
     }
 
     public function reviews(Request $request, Product $product): Response
@@ -363,6 +347,21 @@ class ProductController extends Controller
             'product' => $product->only(['id', 'name', 'slug', 'rating', 'review_count']),
             'reviews' => $reviews,
         ]);
+    }
+
+    /**
+     * Seller delete is permanent (no trash / restore). Products that already
+     * appear on orders stay soft-deleted so order history is kept.
+     */
+    private function permanentlyRemove(Product $product): void
+    {
+        if ($product->orderItems()->exists()) {
+            $product->delete();
+
+            return;
+        }
+
+        $product->forceDelete();
     }
 
     private function validateProduct(Request $request, bool $creating): array

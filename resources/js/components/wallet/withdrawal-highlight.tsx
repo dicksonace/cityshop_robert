@@ -19,11 +19,11 @@ export default function WithdrawalHighlight({
     return (
         <section
             className={cn(
-                'overflow-hidden rounded-2xl border-2 border-orange-200 bg-gradient-to-br from-orange-50 via-white to-amber-50 shadow-md ring-1 ring-orange-100',
+                'rounded-2xl border-2 border-orange-200 bg-gradient-to-br from-orange-50 via-white to-amber-50 shadow-md ring-1 ring-orange-100',
                 className,
             )}
         >
-            <div className="border-b border-orange-100 bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-4 text-white sm:px-6">
+            <div className="overflow-hidden rounded-t-2xl border-b border-orange-100 bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-4 text-white sm:px-6">
                 <div className="flex items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
                         <ArrowDownToLine className="h-6 w-6" />

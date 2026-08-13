@@ -44,6 +44,7 @@ class WalletController extends Controller
                 'total_earnings' => (float) $wallet->total_earnings,
                 'withdrawn_amount' => (float) $wallet->withdrawn_amount,
                 'paystack_configured' => $this->paystack->isConfigured(),
+                'paystack_fee' => $this->paystack->rechargeFeePayload(),
                 'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             ],
         ]);
@@ -345,20 +346,23 @@ class WalletController extends Controller
             return response()->json(['message' => 'Online top-up is not available. Contact support.'], 503);
         }
 
-        $amount = (float) $validated['amount'];
+        $quote = $this->paystack->rechargeQuote((float) $validated['amount'], $validated['method']);
         $reference = 'TOP-'.strtoupper(uniqid());
         $callbackUrl = url('/api/v1/paystack/mobile-return');
 
         try {
             $data = $this->paystack->initializeTransaction(
                 $user->billingEmail(),
-                $amount,
+                $quote['charge'],
                 $reference,
                 [
                     'type' => 'wallet_topup',
                     'user_id' => $user->id,
                     'method' => $validated['method'],
                     'source' => 'mobile_app',
+                    'wallet_credit' => $quote['credit'],
+                    'paystack_fee' => $quote['fee'],
+                    'expected_amount' => $quote['charge'],
                 ],
                 $callbackUrl,
             );
@@ -370,7 +374,9 @@ class WalletController extends Controller
                 'access_code' => $data['access_code'] ?? null,
                 'reference' => $paystackReference,
                 'callback_url' => $callbackUrl,
-                'amount' => $amount,
+                'amount' => $quote['credit'],
+                'fee' => $quote['fee'],
+                'charge' => $quote['charge'],
                 'currency' => 'GHS',
             ]);
         } catch (\Throwable $e) {
@@ -407,20 +413,26 @@ class WalletController extends Controller
                 return response()->json(['message' => 'Payment does not belong to your account.'], 403);
             }
 
-            $amount = round(((int) ($data['amount'] ?? 0)) / 100, 2);
-            if ($amount < 5) {
+            $paid = round(((int) ($data['amount'] ?? 0)) / 100, 2);
+            $credit = $this->paystack->topUpCreditFromMetadata($metadata, $paid);
+            if ($credit < 5) {
                 return response()->json(['message' => 'Invalid payment amount.'], 422);
             }
 
+            $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
+            if ($expected !== null && ! $this->paystack->amountsMatch($paid, $expected)) {
+                return response()->json(['message' => 'Payment amount could not be verified.'], 422);
+            }
+
             $method = (string) ($metadata['method'] ?? 'momo');
-            $credited = WalletService::creditFromVerifiedTopUp($user->id, $amount, $reference, $method);
+            $credited = WalletService::creditFromVerifiedTopUp($user->id, $credit, $reference, $method);
             $wallet = WalletService::ensure($user);
 
             return response()->json([
                 'message' => $credited
-                    ? 'GH₵'.number_format($amount, 2).' added to your wallet.'
+                    ? 'GH₵'.number_format($credit, 2).' added to your wallet.'
                     : 'Payment already credited.',
-                'amount' => $amount,
+                'amount' => $credit,
                 'reference' => $reference,
                 'already_credited' => ! $credited,
                 'wallet' => [
@@ -428,6 +440,9 @@ class WalletController extends Controller
                     'pending_balance' => (float) $wallet->pending_balance,
                     'total_earnings' => (float) $wallet->total_earnings,
                     'withdrawn_amount' => (float) $wallet->withdrawn_amount,
+                    'paystack_configured' => $this->paystack->isConfigured(),
+                    'paystack_fee' => $this->paystack->rechargeFeePayload(),
+                    'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,
                 ],
             ]);
         } catch (\Throwable $e) {

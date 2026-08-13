@@ -46,6 +46,7 @@ class DashboardController extends Controller
                 : null,
             'orderPipelineCounts' => $this->dashboard->orderPipelineCounts($seller),
             'paystackConfigured' => $this->paystack->isConfigured(),
+            'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'isLive' => LiveStreamService::currentForSeller($seller) !== null,
         ]);

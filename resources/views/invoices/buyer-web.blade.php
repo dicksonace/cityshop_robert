@@ -64,6 +64,19 @@
             gap: 16px;
             align-items: flex-start;
         }
+        .brand-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+            text-align: left;
+        }
+        .brand-logo {
+            width: 52px;
+            height: 52px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
         .brand {
             font-size: 26px;
             font-weight: 800;
@@ -142,8 +155,9 @@
         .items thead th.qty,
         .items tbody td.qty { text-align: center; width: 11%; }
         .items thead th.img,
-        .items tbody td.img { width: 14%; text-align: center; }
-        .items thead th.item { width: 42%; }
+        .items tbody td.img { width: 14%; text-align: left; }
+        .items thead th.item,
+        .items tbody td.item { width: 42%; text-align: left; }
         .items thead th.unit,
         .items thead th.total { width: 16.5%; }
         .items tbody td {
@@ -159,12 +173,12 @@
             border: 1px solid #e5e7eb;
             border-radius: 8px;
             background: #fff;
-            display: inline-block;
+            display: block;
         }
         .thumb-empty {
             width: 44px;
             height: 44px;
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
             border: 1px dashed #d1d5db;
@@ -173,8 +187,10 @@
             font-size: 11px;
             background: #fff;
         }
-        .item-name { font-weight: 700; color: #111827; word-wrap: break-word; }
-        .item-seller { color: #6b7280; font-size: 12px; margin-top: 2px; }
+        .item-copy { min-width: 0; text-align: left; }
+        .item-name { font-weight: 700; color: #111827; word-wrap: break-word; text-align: left; }
+        .item-seller,
+        .item-status { color: #6b7280; font-size: 12px; margin-top: 2px; text-align: left; }
         .totals-wrap {
             display: flex;
             justify-content: flex-end;
@@ -282,9 +298,12 @@
     <div class="page">
         <article class="sheet">
             <header class="header">
-                <div>
-                    <div class="brand">City<span>Shop</span></div>
-                    <div class="site">cityunlock.net</div>
+                <div class="brand-row">
+                    <img class="brand-logo" src="{{ asset('images/branding/cityshop-mark.png') }}" alt="CityShop">
+                    <div>
+                        <div class="brand">City<span>Shop</span></div>
+                        <div class="site">cityunlock.net</div>
+                    </div>
                 </div>
                 <div class="invoice-meta">
                     <div class="invoice-no">{{ $invoice->invoice_number }}</div>
@@ -363,6 +382,9 @@
                             if (is_string($src) && $src !== '' && ! str_starts_with($src, 'http')) {
                                 $src = asset(ltrim($src, '/'));
                             }
+                            $status = isset($line['status']) && is_string($line['status']) && $line['status'] !== ''
+                                ? ucfirst(str_replace('_', ' ', $line['status']))
+                                : null;
                         @endphp
                         <tr>
                             <td class="img">
@@ -372,11 +394,16 @@
                                     <span class="thumb-empty">—</span>
                                 @endif
                             </td>
-                            <td>
-                                <div class="item-name">{{ $line['product_name'] ?? 'Item' }}</div>
-                                @if (!empty($line['seller']))
-                                    <div class="item-seller">{{ $line['seller'] }}</div>
-                                @endif
+                            <td class="item">
+                                <div class="item-copy">
+                                    <div class="item-name">{{ $line['product_name'] ?? 'Item' }}</div>
+                                    @if ($status)
+                                        <div class="item-status">{{ $status }}</div>
+                                    @endif
+                                    @if (!empty($line['seller']))
+                                        <div class="item-seller">{{ $line['seller'] }}</div>
+                                    @endif
+                                </div>
                             </td>
                             <td class="qty">{{ $line['quantity'] ?? 1 }}</td>
                             <td class="num">

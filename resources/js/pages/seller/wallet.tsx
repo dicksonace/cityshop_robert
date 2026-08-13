@@ -15,6 +15,7 @@ import WalletBalanceCard from '@/components/seller/wallet-balance-card';
 import SellerLayout from '@/layouts/seller-layout';
 import { GHANA_BANKS, isGhanaBank, payoutNetworkLabel } from '@/lib/ghana-banks';
 import { momoNetworkMeta } from '@/lib/momo-networks';
+import { type PaystackFeeSettings } from '@/lib/paystack-fees';
 import { feeForPayoutType, maxWithdrawableAmount } from '@/lib/withdrawal-fees';
 import { cn } from '@/lib/utils';
 import { SharedData } from '@/types';
@@ -44,6 +45,7 @@ interface WalletProps {
     hasPendingWithdrawal: boolean;
     paystackConfigured?: boolean;
     manualTopUpEnabled?: boolean;
+    paystackFee?: PaystackFeeSettings | null;
     withdrawalFee?: WithdrawalFeeSettings;
     hasPaymentPin?: boolean;
 }
@@ -71,6 +73,7 @@ export default function SellerWallet({
     hasPendingWithdrawal,
     paystackConfigured = false,
     manualTopUpEnabled = false,
+    paystackFee,
     withdrawalFee,
     hasPaymentPin = false,
 }: WalletProps) {
@@ -258,6 +261,7 @@ export default function SellerWallet({
                     refreshing={refreshing}
                     paystackConfigured={paystackConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
+                    paystackFee={paystackFee}
                 />
             </div>
 

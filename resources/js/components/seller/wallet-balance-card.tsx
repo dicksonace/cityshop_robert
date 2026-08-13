@@ -3,6 +3,7 @@ import { History, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
 import RechargeModal from '@/components/wallet/recharge-modal';
+import { type PaystackFeeSettings } from '@/lib/paystack-fees';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/types/marketplace';
 
@@ -17,6 +18,7 @@ interface WalletBalanceCardProps {
     countdownSec?: number;
     paystackConfigured?: boolean;
     manualTopUpEnabled?: boolean;
+    paystackFee?: PaystackFeeSettings | null;
 }
 
 export default function WalletBalanceCard({
@@ -30,6 +32,7 @@ export default function WalletBalanceCard({
     countdownSec,
     paystackConfigured = false,
     manualTopUpEnabled = false,
+    paystackFee,
 }: WalletBalanceCardProps) {
     const canRecharge = paystackConfigured || manualTopUpEnabled;
     const [rechargeOpen, setRechargeOpen] = useState(false);
@@ -118,6 +121,7 @@ export default function WalletBalanceCard({
                 manualHref={route('seller.wallet.manual-top-up')}
                 paystackRoute={route('seller.wallet.add-funds')}
                 amountInputId="seller-recharge-amount"
+                paystackFee={paystackFee}
             />
         </>
     );

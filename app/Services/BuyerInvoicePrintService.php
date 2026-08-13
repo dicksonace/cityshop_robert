@@ -183,6 +183,7 @@ class BuyerInvoicePrintService
 
                 $line['image'] = $path ? '/storage/'.ltrim(str_replace('\\', '/', $path), '/') : null;
                 $line['product_id'] = $match->product_id;
+                $line['status'] = $match->status?->value ?? (is_string($match->status) ? $match->status : null);
 
                 if ($forPdf) {
                     $line['pdf_image'] = $this->productImageSrc($match);

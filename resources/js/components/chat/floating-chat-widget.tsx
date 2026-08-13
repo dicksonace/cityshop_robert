@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { ChevronDown, MessageCircle, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import ChatListPanel from '@/components/chat/chat-list-panel';
 import ChatThreadPanel from '@/components/chat/chat-thread-panel';
@@ -21,14 +21,12 @@ export default function FloatingChatWidget() {
         closeWidget,
         minimizeWidget,
     } = useChat();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => setMounted(true), []);
+    const openedFromFlash = useRef(false);
 
     useEffect(() => {
-        if (flash?.openChat) {
-            openWidget();
-        }
+        if (!flash?.openChat || openedFromFlash.current) return;
+        openedFromFlash.current = true;
+        void openWidget();
     }, [flash?.openChat, openWidget]);
 
     useEffect(() => {
@@ -54,7 +52,7 @@ export default function FloatingChatWidget() {
         };
     }, [isOpen]);
 
-    if (!mounted || !auth.user) return null;
+    if (!auth.user) return null;
 
     const unread = unreadMessages ?? 0;
     const isBuyer = auth.user.role === 'buyer';
@@ -92,9 +90,9 @@ export default function FloatingChatWidget() {
                 <div
                     className={cn(
                         'flex w-full flex-col overflow-hidden border-gray-200 bg-white',
-                        'animate-in fade-in duration-200',
-                        // Mobile: fill available width + height (edge to edge).
-                        'h-full max-h-full border-0 shadow-none sm:animate-in sm:slide-in-from-bottom-4',
+                        // Mobile: fill available width + height (edge to edge). No fade —
+                        // fade-in + page remount looked like the chat flashing black.
+                        'h-full max-h-full border-0 shadow-none',
                         // Desktop: floating messenger card — explicit size so it never collapses.
                         'sm:h-[min(560px,calc(100vh-6rem))] sm:max-h-[calc(100vh-6rem)] sm:w-[min(100vw-2rem,400px)] sm:rounded-2xl sm:border sm:shadow-2xl',
                     )}

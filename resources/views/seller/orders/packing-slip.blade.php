@@ -168,14 +168,21 @@
 @endphp
 
 {{-- Header: brand logo + name | packing slip meta --}}
+@php
+    $logoSrc = $brandLogoSrc ?? null;
+    if (! $logoSrc) {
+        $fallbackLogo = public_path('images/branding/cityshop-mark.png');
+        $logoSrc = is_file($fallbackLogo) ? str_replace('\\', '/', $fallbackLogo) : null;
+    }
+@endphp
 <table>
     <tr>
         <td class="top wrap" width="55%">
             <table>
                 <tr>
-                    @if(! empty($brandLogoSrc))
+                    @if(! empty($logoSrc))
                         <td class="mid" width="42" style="padding-right:6pt;">
-                            <img class="brand-logo" src="{{ $brandLogoSrc }}" width="36" height="36" alt="CityShop">
+                            <img class="brand-logo" src="{{ $logoSrc }}" width="36" height="36" alt="CityShop">
                         </td>
                     @endif
                     <td class="mid wrap">
@@ -245,7 +252,7 @@
     <thead>
         <tr>
             <th width="8%" class="center">#</th>
-            <th width="48%">Product</th>
+            <th width="48%" style="text-align:left;">Product</th>
             <th width="10%" class="center">Qty</th>
             <th width="17%" class="right">Unit</th>
             <th width="17%" class="right">Line</th>
@@ -256,14 +263,22 @@
             @php $imageSrc = $itemImages[$item->id] ?? null; @endphp
             <tr>
                 <td class="center mid" width="8%">{{ $index + 1 }}</td>
-                <td class="wrap mid" width="48%">
-                    @if($imageSrc)
-                        <img class="thumb" src="{{ $imageSrc }}" width="36" height="36" alt="" style="float:left; margin-right:6pt; margin-bottom:2pt;">
-                    @endif
-                    <div class="pname">{{ $item->product_name }}</div>
-                    @if($item->status)
-                        <div class="pstatus">{{ str_replace('_', ' ', ucfirst($item->status->value ?? (string) $item->status)) }}</div>
-                    @endif
+                <td class="wrap mid" width="48%" style="text-align:left;">
+                    <table>
+                        <tr>
+                            @if($imageSrc)
+                                <td class="mid" width="42" style="padding:0 6pt 0 0; text-align:left;">
+                                    <img class="thumb" src="{{ $imageSrc }}" width="36" height="36" alt="">
+                                </td>
+                            @endif
+                            <td class="mid wrap" style="text-align:left;">
+                                <div class="pname">{{ $item->product_name }}</div>
+                                @if($item->status)
+                                    <div class="pstatus">{{ str_replace('_', ' ', ucfirst($item->status->value ?? (string) $item->status)) }}</div>
+                                @endif
+                            </td>
+                        </tr>
+                    </table>
                 </td>
                 <td class="center mid" width="10%">{{ $item->quantity }}</td>
                 <td class="right mid" width="17%">{{ $money((float) $item->unit_price) }}</td>

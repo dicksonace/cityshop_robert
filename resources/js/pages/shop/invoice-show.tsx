@@ -3,6 +3,7 @@ import { Download, Printer } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
+import { APP_LOGO_ALT, APP_LOGO_SRC } from '@/lib/brand';
 import { formatPrice, productImageUrl } from '@/types/marketplace';
 
 interface InvoiceLine {
@@ -12,6 +13,7 @@ interface InvoiceLine {
     unit_price?: number;
     total?: number;
     image?: string | null;
+    status?: string | null;
 }
 
 interface SellerContact {
@@ -127,11 +129,14 @@ export default function InvoiceShow({
 
                 <article className="bg-white p-0 sm:rounded-xl sm:border sm:border-gray-100 sm:p-8 sm:shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-4">
-                        <div>
-                            <p className="text-2xl font-bold text-gray-900">
-                                City<span className="text-orange-500">Shop</span>
-                            </p>
-                            <p className="mt-0.5 text-sm text-gray-500">cityunlock.net</p>
+                        <div className="flex items-center gap-2.5 text-left">
+                            <img src={APP_LOGO_SRC} alt={APP_LOGO_ALT} className="h-12 w-12 shrink-0 object-contain" />
+                            <div>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    City<span className="text-orange-500">Shop</span>
+                                </p>
+                                <p className="mt-0.5 text-sm text-gray-500">cityunlock.net</p>
+                            </div>
                         </div>
                         <div className="text-right">
                             <p className="text-lg font-bold text-gray-900">{invoice.invoice_number}</p>
@@ -259,7 +264,7 @@ export default function InvoiceShow({
                             const src = lineImageSrc(line.image);
 
                             return (
-                                <div key={i} className="flex gap-3 py-3">
+                                <div key={i} className="flex items-start justify-start gap-3 py-3 text-left">
                                     {src ? (
                                         <img
                                             src={src}
@@ -271,8 +276,13 @@ export default function InvoiceShow({
                                             —
                                         </div>
                                     )}
-                                    <div className="min-w-0 flex-1">
+                                    <div className="min-w-0 flex-1 text-left">
                                         <p className="font-medium leading-snug text-gray-900">{line.product_name}</p>
+                                        {line.status && (
+                                            <p className="mt-0.5 text-xs capitalize text-gray-500">
+                                                {line.status.replaceAll('_', ' ')}
+                                            </p>
+                                        )}
                                         {line.seller && <p className="text-xs text-gray-400">{line.seller}</p>}
                                         <p className="mt-0.5 text-xs text-gray-500">
                                             Qty {line.quantity ?? 1}

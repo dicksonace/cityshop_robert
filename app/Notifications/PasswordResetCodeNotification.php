@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\SmsChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -15,7 +16,12 @@ class PasswordResetCodeNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        $channels = ['mail'];
+        if (filled($notifiable->mobile ?? null)) {
+            $channels[] = SmsChannel::class;
+        }
+
+        return $channels;
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -27,5 +33,10 @@ class PasswordResetCodeNotification extends Notification implements ShouldQueue
             ->line('**'.$this->code.'**')
             ->line('This code expires in 30 minutes. If you did not request a password reset, you can ignore this email.')
             ->line('Never share this code with anyone.');
+    }
+
+    public function toSms(object $notifiable): string
+    {
+        return "CityShop code: {$this->code}. Expires in 30 min. Do not share.";
     }
 }

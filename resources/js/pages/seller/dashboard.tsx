@@ -17,7 +17,9 @@ import RevenueChart from '@/components/seller/revenue-chart';
 import OrderPipelineCards from '@/components/seller/order-pipeline-cards';
 import StoreShareCard from '@/components/seller/store-share-card';
 import WalletBalanceCard from '@/components/seller/wallet-balance-card';
+import { useChatOptional } from '@/contexts/chat-context';
 import SellerLayout from '@/layouts/seller-layout';
+import { type PaystackFeeSettings } from '@/lib/paystack-fees';
 import { sellerOrdersStageHref } from '@/lib/seller-order-stages';
 import { formatPrice, formatOrderStatus, OrderItem, SellerProfile } from '@/types/marketplace';
 import { SharedData } from '@/types';
@@ -64,6 +66,7 @@ interface DashboardProps {
     orderPipelineCounts: Record<string, number>;
     paystackConfigured?: boolean;
     manualTopUpEnabled?: boolean;
+    paystackFee?: PaystackFeeSettings | null;
     isLive?: boolean;
 }
 
@@ -79,9 +82,12 @@ export default function SellerDashboard({
     orderPipelineCounts,
     paystackConfigured = false,
     manualTopUpEnabled = false,
+    paystackFee,
     isLive = false,
 }: DashboardProps) {
     const livestreamEnabled = usePage<SharedData>().props.livestreamEnabled === true;
+    const chat = useChatOptional();
+    const chatOpen = Boolean(chat?.isOpen);
     const [secondsLeft, setSecondsLeft] = useState(AUTO_REFRESH_SECONDS);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -97,7 +103,7 @@ export default function SellerDashboard({
     }, []);
 
     useEffect(() => {
-        if (refreshing) {
+        if (refreshing || chatOpen) {
             return;
         }
 
@@ -111,7 +117,7 @@ export default function SellerDashboard({
         }, 1000);
 
         return () => window.clearTimeout(timer);
-    }, [secondsLeft, refreshing, refreshDashboard]);
+    }, [secondsLeft, refreshing, refreshDashboard, chatOpen]);
 
     const newOrdersCount = orderPipelineCounts.pending ?? stats.pending_orders ?? 0;
 
@@ -182,6 +188,7 @@ export default function SellerDashboard({
                     countdownSec={secondsLeft}
                     paystackConfigured={paystackConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
+                    paystackFee={paystackFee}
                 />
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:col-span-3 lg:grid-cols-2">

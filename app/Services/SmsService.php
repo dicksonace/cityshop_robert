@@ -7,37 +7,142 @@ use Illuminate\Support\Facades\Log;
 
 class SmsService
 {
-    public function send(?string $phone, string $message): void
+    public function send(?string $phone, string $message): bool
     {
-        if (! $phone) {
-            return;
+        if (! $phone || trim($message) === '') {
+            return false;
+        }
+
+        $msisdn = $this->normalizeGhanaMsisdn($phone);
+        if (! $msisdn) {
+            Log::warning('SMS skipped: invalid Ghana number.', ['phone' => $phone]);
+
+            return false;
         }
 
         $driver = config('services.sms.driver', 'log');
 
-        match ($driver) {
-            'hubtel' => $this->sendViaHubtel($phone, $message),
-            default => Log::channel('single')->info("SMS to {$phone}: {$message}"),
+        return match ($driver) {
+            'formula_dc', 'formula' => $this->sendViaFormulaDc($msisdn, $message),
+            'hubtel' => $this->sendViaHubtel($msisdn, $message),
+            default => tap(true, fn () => Log::channel('single')->info("SMS to {$msisdn}: {$message}")),
         };
     }
 
-    private function sendViaHubtel(string $phone, string $message): void
+    /**
+     * Formula DC requires 233 + 9 digits, no + prefix.
+     */
+    public function normalizeGhanaMsisdn(string $phone): ?string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        if (str_starts_with($digits, '00233')) {
+            $digits = substr($digits, 2);
+        }
+
+        if (str_starts_with($digits, '233') && strlen($digits) === 12) {
+            return $digits;
+        }
+
+        if (str_starts_with($digits, '0') && strlen($digits) === 10) {
+            return '233'.substr($digits, 1);
+        }
+
+        if (strlen($digits) === 9) {
+            return '233'.$digits;
+        }
+
+        return null;
+    }
+
+    private function sendViaFormulaDc(string $msisdn, string $message): bool
+    {
+        $apiKey = (string) config('services.sms.formula_dc_api_key', '');
+        $sender = (string) config('services.sms.formula_dc_sender', 'Cityshop');
+        $baseUrl = rtrim((string) config('services.sms.formula_dc_base_url', 'https://api.formula-dc.com/api/v1/external'), '/');
+        $testMode = (bool) config('services.sms.formula_dc_test_mode', false);
+
+        if ($apiKey === '') {
+            Log::warning('Formula DC SMS not configured, logging instead.', ['phone' => $msisdn, 'message' => $message]);
+
+            return false;
+        }
+
+        $headers = [
+            'Authorization' => 'Bearer '.$apiKey,
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ];
+
+        if ($testMode) {
+            $headers['x-test-mode'] = 'true';
+        }
+
+        try {
+            $response = Http::withHeaders($headers)
+                ->timeout(20)
+                ->post("{$baseUrl}/sms/send", [
+                    'to' => $msisdn,
+                    'message' => $message,
+                    'sender_id' => $sender,
+                ]);
+        } catch (\Throwable $e) {
+            Log::error('Formula DC SMS request failed', [
+                'phone' => $msisdn,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        if (! $response->successful() || $response->json('success') === false) {
+            Log::error('Formula DC SMS send failed', [
+                'phone' => $msisdn,
+                'status' => $response->status(),
+                'body' => $response->json() ?? $response->body(),
+            ]);
+
+            return false;
+        }
+
+        Log::info('Formula DC SMS sent', [
+            'phone' => $msisdn,
+            'message_id' => $response->json('data.message_id'),
+            'test_mode' => $testMode,
+        ]);
+
+        return true;
+    }
+
+    private function sendViaHubtel(string $msisdn, string $message): bool
     {
         $clientId = config('services.sms.hubtel_client_id');
         $clientSecret = config('services.sms.hubtel_client_secret');
         $sender = config('services.sms.hubtel_sender', 'CityShop');
 
         if (! $clientId || ! $clientSecret) {
-            Log::warning('Hubtel SMS not configured, logging instead.', compact('phone', 'message'));
+            Log::warning('Hubtel SMS not configured, logging instead.', ['phone' => $msisdn, 'message' => $message]);
 
-            return;
+            return false;
         }
 
-        Http::withBasicAuth($clientId, $clientSecret)
-            ->post('https://smsc.hubtel.com/v1/messages/send', [
-                'From' => $sender,
-                'To' => $phone,
-                'Content' => $message,
+        try {
+            $response = Http::withBasicAuth($clientId, $clientSecret)
+                ->timeout(20)
+                ->post('https://smsc.hubtel.com/v1/messages/send', [
+                    'From' => $sender,
+                    'To' => $msisdn,
+                    'Content' => $message,
+                ]);
+        } catch (\Throwable $e) {
+            Log::error('Hubtel SMS request failed', [
+                'phone' => $msisdn,
+                'error' => $e->getMessage(),
             ]);
+
+            return false;
+        }
+
+        return $response->successful();
     }
 }

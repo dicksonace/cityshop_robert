@@ -6,6 +6,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { paystackRechargeQuote, type PaystackFeeSettings } from '@/lib/paystack-fees';
 import { cn } from '@/lib/utils';
 
 interface RechargeModalProps {
@@ -17,6 +18,7 @@ interface RechargeModalProps {
     paystackRoute: string;
     chooseHint?: string;
     amountInputId?: string;
+    paystackFee?: PaystackFeeSettings | null;
 }
 
 /**
@@ -32,6 +34,7 @@ export default function RechargeModal({
     paystackRoute,
     chooseHint = 'Choose how you want to add funds.',
     amountInputId = 'recharge-amount',
+    paystackFee,
 }: RechargeModalProps) {
     const [step, setStep] = useState<'choose' | 'paystack'>('choose');
     const form = useForm({
@@ -78,6 +81,7 @@ export default function RechargeModal({
     };
 
     const showChooser = paystackConfigured && manualTopUpEnabled && step === 'choose';
+    const quote = paystackRechargeQuote(Number(form.data.amount) || 0, paystackFee);
 
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 pt-14 sm:items-start sm:pt-20">
@@ -169,6 +173,22 @@ export default function RechargeModal({
                             </div>
                             <InputError message={form.errors.method} />
                         </div>
+                        {quote.credit >= 5 && (
+                            <div className="rounded-xl bg-orange-50 px-3 py-2.5 text-xs text-orange-900">
+                                <div className="flex justify-between gap-3">
+                                    <span>Wallet credit</span>
+                                    <span className="font-semibold">GH₵{quote.credit.toFixed(2)}</span>
+                                </div>
+                                <div className="mt-1 flex justify-between gap-3">
+                                    <span>Paystack fee ({quote.percent}%)</span>
+                                    <span className="font-semibold">GH₵{quote.fee.toFixed(2)}</span>
+                                </div>
+                                <div className="mt-1.5 flex justify-between gap-3 border-t border-orange-200 pt-1.5 text-sm font-bold">
+                                    <span>You pay</span>
+                                    <span>GH₵{quote.charge.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        )}
                         <div className="flex gap-2 pt-0.5">
                             {paystackConfigured && manualTopUpEnabled ? (
                                 <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setStep('choose')}>

@@ -66,6 +66,7 @@ class WalletController extends Controller
                 ->exists(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'paystackConfigured' => $this->paystack->isConfigured(),
+            'paystackFee' => $this->paystack->rechargeFeePayload(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($user),
         ]);
@@ -278,21 +279,23 @@ class WalletController extends Controller
             return back()->with('error', 'Online top-up is not available. Use manual top-up or contact support.');
         }
 
-        $amount = (float) $validated['amount'];
+        $quote = $this->paystack->rechargeQuote((float) $validated['amount'], $validated['method']);
         $reference = 'STOP-'.strtoupper(uniqid());
         $email = $request->user()->billingEmail();
 
         try {
             $data = $this->paystack->initializeTransaction(
                 $email,
-                $amount,
+                $quote['charge'],
                 $reference,
                 [
                     'type' => 'wallet_topup',
                     'user_id' => $request->user()->id,
                     'method' => $validated['method'],
                     'role' => 'seller',
-                    'expected_amount' => $amount,
+                    'wallet_credit' => $quote['credit'],
+                    'paystack_fee' => $quote['fee'],
+                    'expected_amount' => $quote['charge'],
                 ],
                 route('seller.wallet.callback'),
             );
@@ -329,24 +332,25 @@ class WalletController extends Controller
                 return redirect()->route('seller.wallet')->with('error', 'Payment does not belong to your account.');
             }
 
-            $amount = round(((int) ($data['amount'] ?? 0)) / 100, 2);
+            $paid = round(((int) ($data['amount'] ?? 0)) / 100, 2);
             $method = (string) ($metadata['method'] ?? 'momo');
             $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
+            $credit = $this->paystack->topUpCreditFromMetadata($metadata, $paid);
 
-            if ($expected !== null && ! $this->paystack->amountsMatch($amount, $expected)) {
+            if ($expected !== null && ! $this->paystack->amountsMatch($paid, $expected)) {
                 Log::warning('Seller wallet top-up amount mismatch', [
                     'reference' => $reference,
-                    'paid' => $amount,
+                    'paid' => $paid,
                     'expected' => $expected,
                 ]);
 
                 return redirect()->route('seller.wallet')->with('error', 'Payment amount could not be verified.');
             }
 
-            WalletService::creditFromVerifiedTopUp($request->user()->id, $amount, $reference, $method);
+            WalletService::creditFromVerifiedTopUp($request->user()->id, $credit, $reference, $method);
 
             return redirect()->route('seller.dashboard')
-                ->with('success', 'GH₵'.number_format($amount, 2).' added to your wallet. You can cancel Pay-to-seller orders and refund buyers.');
+                ->with('success', 'GH₵'.number_format($credit, 2).' added to your wallet. You can cancel Pay-to-seller orders and refund buyers.');
         } catch (\Throwable $e) {
             Log::error('Seller wallet callback error', ['error' => $e->getMessage()]);
 

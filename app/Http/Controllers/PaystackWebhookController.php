@@ -54,6 +54,7 @@ class PaystackWebhookController extends Controller
                     $userId = (int) ($metadata['user_id'] ?? 0);
                     $method = (string) ($metadata['method'] ?? 'momo');
                     $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
+                    $credit = $this->paystack->topUpCreditFromMetadata(is_array($metadata) ? $metadata : [], $paidAmount);
 
                     if ($expected !== null && ! $this->paystack->amountsMatch($paidAmount, $expected)) {
                         Log::warning('Paystack wallet top-up amount mismatch', [
@@ -65,8 +66,8 @@ class PaystackWebhookController extends Controller
                         return response('OK', 200);
                     }
 
-                    if ($userId > 0 && $paidAmount > 0) {
-                        WalletService::creditFromVerifiedTopUp($userId, $paidAmount, $data['reference'], $method);
+                    if ($userId > 0 && $credit > 0) {
+                        WalletService::creditFromVerifiedTopUp($userId, $credit, $data['reference'], $method);
                     }
 
                     return response('OK', 200);

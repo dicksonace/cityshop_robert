@@ -56,6 +56,34 @@ export function playChatSendSound(): void {
     }
 }
 
+/** Cash ding when money lands (QR / chat transfer). */
+let lastMoneySoundAt = 0;
+
+export function playMoneyReceivedSound(): void {
+    try {
+        const nowMs = Date.now();
+        if (nowMs - lastMoneySoundAt < 1400) {
+            return;
+        }
+        lastMoneySoundAt = nowMs;
+
+        unlockChatSounds();
+        const audio = new Audio('/sounds/money_received.wav');
+        audio.volume = 0.9;
+        void audio.play().catch(() => {
+            const ctx = getContext();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            playTone(1046, now, 0.22, 0.22);
+            playTone(1568, now, 0.18, 0.12);
+            playTone(1318, now + 0.16, 0.28, 0.24);
+            playTone(2093, now + 0.16, 0.22, 0.14);
+        });
+    } catch {
+        // Audio not available
+    }
+}
+
 /** Pleasant two-note chime when a reply arrives (once — never loop). */
 let lastReceiveSoundAt = 0;
 

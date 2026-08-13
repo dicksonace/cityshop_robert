@@ -60,7 +60,31 @@ class WalletController extends Controller
             'hasPendingWithdrawal' => $hasPendingWithdrawal,
             'paystackConfigured' => $this->paystack->isConfigured(),
             'paystackPublicKey' => config('services.paystack.public_key'),
+            'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
+        ]);
+    }
+
+    public function createWithdraw(Request $request): Response
+    {
+        abort_unless($request->user()->isBuyer(), 403);
+
+        $userId = $request->user()->id;
+        $wallet = WalletService::ensure($request->user());
+
+        $withdrawals = Withdrawal::where('user_id', $userId)
+            ->latest()
+            ->paginate(10, ['*'], 'withdrawals_page')
+            ->withQueryString();
+
+        $hasPendingWithdrawal = Withdrawal::where('user_id', $userId)
+            ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
+            ->exists();
+
+        return Inertia::render('shop/wallet-withdraw', [
+            'wallet' => $wallet->toFrontendArray(),
+            'withdrawals' => $withdrawals,
+            'hasPendingWithdrawal' => $hasPendingWithdrawal,
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
         ]);
@@ -79,19 +103,21 @@ class WalletController extends Controller
             return back()->with('error', 'Online top-up is not available. Contact support.');
         }
 
-        $amount = (float) $validated['amount'];
+        $quote = $this->paystack->rechargeQuote((float) $validated['amount'], $validated['method']);
         $reference = 'TOP-'.strtoupper(uniqid());
 
         try {
             $data = $this->paystack->initializeTransaction(
                 $request->user()->billingEmail(),
-                $amount,
+                $quote['charge'],
                 $reference,
                 [
                     'type' => 'wallet_topup',
                     'user_id' => $request->user()->id,
                     'method' => $validated['method'],
-                    'expected_amount' => $amount,
+                    'wallet_credit' => $quote['credit'],
+                    'paystack_fee' => $quote['fee'],
+                    'expected_amount' => $quote['charge'],
                 ],
                 route('wallet.callback'),
             );
@@ -130,24 +156,25 @@ class WalletController extends Controller
                 return redirect()->route('wallet.index')->with('error', 'Payment does not belong to your account.');
             }
 
-            $amount = round(((int) ($data['amount'] ?? 0)) / 100, 2);
+            $paid = round(((int) ($data['amount'] ?? 0)) / 100, 2);
             $method = (string) ($metadata['method'] ?? 'momo');
             $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
+            $credit = $this->paystack->topUpCreditFromMetadata($metadata, $paid);
 
-            if ($expected !== null && ! $this->paystack->amountsMatch($amount, $expected)) {
+            if ($expected !== null && ! $this->paystack->amountsMatch($paid, $expected)) {
                 Log::warning('Wallet top-up amount mismatch', [
                     'reference' => $reference,
-                    'paid' => $amount,
+                    'paid' => $paid,
                     'expected' => $expected,
                 ]);
 
                 return redirect()->route('wallet.index')->with('error', 'Payment amount could not be verified.');
             }
 
-            WalletService::creditFromVerifiedTopUp($request->user()->id, $amount, $reference, $method);
+            WalletService::creditFromVerifiedTopUp($request->user()->id, $credit, $reference, $method);
 
             return redirect()->route('wallet.index')
-                ->with('success', 'GH₵'.number_format($amount, 2).' added to your wallet.');
+                ->with('success', 'GH₵'.number_format($credit, 2).' added to your wallet.');
         } catch (\Throwable $e) {
             Log::error('Wallet callback error', ['error' => $e->getMessage()]);
 
@@ -192,6 +219,6 @@ class WalletController extends Controller
             ]);
         }
 
-        return back()->with('success', $result['message']);
+        return redirect()->route('wallet.withdraw.create')->with('success', $result['message']);
     }
 }
