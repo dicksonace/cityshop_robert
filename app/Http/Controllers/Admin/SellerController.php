@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\SellerStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateAccountProfileRequest;
 use App\Models\SellerPaymentMethod;
 use App\Models\SellerProfile;
 use App\Notifications\SellerApprovedNotification;
@@ -81,6 +82,15 @@ class SellerController extends Controller
             'paymentMethodsLockedBy' => $seller->paymentMethodsLockedBy?->only(['id', 'name']),
             'paymentMethodsLockedAt' => $seller->payment_methods_locked_at?->toIso8601String(),
         ]);
+    }
+
+    public function updateProfile(UpdateAccountProfileRequest $request, SellerProfile $seller): RedirectResponse
+    {
+        $seller->loadMissing('user');
+        $validated = $request->validated();
+        $seller->user->updateAccountDetails($validated['name'], $validated['email'], $validated['mobile']);
+
+        return back()->with('success', 'Seller account details updated.');
     }
 
     public function approve(Request $request, SellerProfile $seller, StoreCustomizationService $customizations): RedirectResponse

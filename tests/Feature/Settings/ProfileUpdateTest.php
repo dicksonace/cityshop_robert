@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Settings;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -21,44 +22,105 @@ class ProfileUpdateTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_profile_information_can_be_updated()
+    public function test_seller_profile_page_shows_phone_number()
     {
-        $user = User::factory()->create();
+        $seller = User::factory()->create([
+            'role' => UserRole::Seller,
+            'mobile' => '0532700209',
+        ]);
+
+        $this->actingAs($seller)
+            ->get('/settings/profile')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('settings/profile')
+                ->where('auth.user.role', 'seller')
+                ->where('auth.user.mobile', '0532700209')
+            );
+    }
+
+    public function test_buyers_cannot_update_profile_details()
+    {
+        $buyer = User::factory()->create([
+            'name' => 'Kofi Buyer',
+            'email' => 'kofi@example.com',
+        ]);
+
+        $this->actingAs($buyer)
+            ->patch('/settings/profile', [
+                'name' => 'Hacked Name',
+                'email' => 'hacked@example.com',
+            ])
+            ->assertForbidden();
+
+        $buyer->refresh();
+        $this->assertSame('Kofi Buyer', $buyer->name);
+        $this->assertSame('kofi@example.com', $buyer->email);
+    }
+
+    public function test_sellers_cannot_update_profile_details()
+    {
+        $seller = User::factory()->create([
+            'role' => UserRole::Seller,
+            'name' => 'Asare Kwame',
+            'email' => 'eskimlitcenter1@gmail.com',
+            'mobile' => '0241112223',
+        ]);
+
+        $this->actingAs($seller)
+            ->patch('/settings/profile', [
+                'name' => 'Hacked Seller',
+                'email' => 'hacked.seller@example.com',
+            ])
+            ->assertForbidden();
+
+        $seller->refresh();
+        $this->assertSame('Asare Kwame', $seller->name);
+        $this->assertSame('eskimlitcenter1@gmail.com', $seller->email);
+        $this->assertSame('0241112223', $seller->mobile);
+    }
+
+    public function test_admin_can_update_own_profile_information()
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+            'email_verified_at' => now(),
+        ]);
 
         $response = $this
-            ->actingAs($user)
+            ->actingAs($admin)
             ->patch('/settings/profile', [
-                'name' => 'Test User',
-                'email' => 'test@example.com',
+                'name' => 'Test Admin',
+                'email' => 'admin.test@example.com',
             ]);
 
         $response
             ->assertSessionHasNoErrors()
             ->assertRedirect('/settings/profile');
 
-        $user->refresh();
+        $admin->refresh();
 
-        $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
-        $this->assertNull($user->email_verified_at);
+        $this->assertSame('Test Admin', $admin->name);
+        $this->assertSame('admin.test@example.com', $admin->email);
+        $this->assertNull($admin->email_verified_at);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged()
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
 
         $response = $this
-            ->actingAs($user)
+            ->actingAs($admin)
             ->patch('/settings/profile', [
-                'name' => 'Test User',
-                'email' => $user->email,
+                'name' => 'Test Admin',
+                'email' => $admin->email,
             ]);
 
         $response
             ->assertSessionHasNoErrors()
             ->assertRedirect('/settings/profile');
 
-        $this->assertNotNull($user->refresh()->email_verified_at);
+        $this->assertNotNull($admin->refresh()->email_verified_at);
     }
 
     public function test_user_can_delete_their_account()
@@ -99,7 +161,7 @@ class ProfileUpdateTest extends TestCase
 
     public function test_sellers_cannot_delete_their_account()
     {
-        $seller = User::factory()->create(['role' => \App\Enums\UserRole::Seller]);
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
 
         $response = $this
             ->actingAs($seller)
@@ -118,7 +180,7 @@ class ProfileUpdateTest extends TestCase
 
     public function test_seller_profile_page_hides_delete_account()
     {
-        $seller = User::factory()->create(['role' => \App\Enums\UserRole::Seller]);
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
 
         $this->actingAs($seller)
             ->get('/settings/profile')

@@ -257,6 +257,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/sellers', [AdminSellerController::class, 'index'])->name('sellers.index');
     Route::get('/sellers/{seller}', [AdminSellerController::class, 'show'])->name('sellers.show');
+    Route::patch('/sellers/{seller}/profile', [AdminSellerController::class, 'updateProfile'])->name('sellers.update-profile');
     Route::post('/sellers/{seller}/approve', [AdminSellerController::class, 'approve'])->name('sellers.approve');
     Route::post('/sellers/{seller}/reject', [AdminSellerController::class, 'reject'])->name('sellers.reject');
     Route::post('/sellers/{seller}/block', [AdminSellerController::class, 'block'])->name('sellers.block');
@@ -330,6 +331,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/buyers', [AdminBuyerController::class, 'index'])->name('buyers.index');
     Route::get('/buyers/{buyer}', [AdminBuyerController::class, 'show'])->name('buyers.show');
+    Route::patch('/buyers/{buyer}', [AdminBuyerController::class, 'update'])->name('buyers.update');
 
     Route::get('/chats', [AdminChatOversightController::class, 'index'])->name('chats.index');
     Route::get('/chats/{conversation}', [AdminChatOversightController::class, 'show'])->name('chats.show');

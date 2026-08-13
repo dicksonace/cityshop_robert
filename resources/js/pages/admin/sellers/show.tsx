@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Check, Copy, ShieldBan, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 
+import AccountProfileForm from '@/components/admin/account-profile-form';
 import SellerAccountActions from '@/components/admin/seller-account-actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -141,13 +142,17 @@ export default function SellerShow({
             <div className="grid gap-6 lg:grid-cols-2">
                 <div className="rounded-xl bg-white p-6 shadow-sm">
                     <h3 className="font-semibold text-gray-900">Personal Information</h3>
-                    <dl className="mt-4 space-y-2 text-sm">
-                        <div><dt className="text-gray-500">Name</dt><dd className="font-medium">{seller.user.name}</dd></div>
-                        <div><dt className="text-gray-500">Email</dt><dd>{seller.user.email}</dd></div>
-                        <div><dt className="text-gray-500">Mobile</dt><dd>{seller.user.mobile}</dd></div>
-                        <div><dt className="text-gray-500">Ghana Card</dt><dd>{seller.user.ghana_card_number}</dd></div>
-                        <div><dt className="text-gray-500">Location</dt><dd>{seller.user.city}, {seller.user.region}</dd></div>
-                        <div><dt className="text-gray-500">Address</dt><dd>{seller.user.residential_address}</dd></div>
+                    <p className="mt-1 text-sm text-gray-500">Only admin can change seller name, email, or phone.</p>
+                    <AccountProfileForm
+                        updateUrl={route('admin.sellers.update-profile', seller.id)}
+                        name={seller.user.name}
+                        email={seller.user.email}
+                        mobile={seller.user.mobile}
+                    />
+                    <dl className="mt-6 space-y-2 border-t border-gray-100 pt-4 text-sm">
+                        <div><dt className="text-gray-500">Ghana Card</dt><dd>{seller.user.ghana_card_number || '—'}</dd></div>
+                        <div><dt className="text-gray-500">Location</dt><dd>{[seller.user.city, seller.user.region].filter(Boolean).join(', ') || '—'}</dd></div>
+                        <div><dt className="text-gray-500">Address</dt><dd>{seller.user.residential_address || '—'}</dd></div>
                     </dl>
                 </div>
 

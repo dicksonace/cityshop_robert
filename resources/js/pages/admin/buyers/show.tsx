@@ -1,7 +1,9 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 
+import AccountProfileForm from '@/components/admin/account-profile-form';
 import AdminLayout from '@/layouts/admin-layout';
+import { SharedData } from '@/types';
 import { formatPrice, formatWalletTransactionType, Paginated, Wallet, WalletTransaction } from '@/types/marketplace';
 
 interface BuyerShowProps {
@@ -48,6 +50,8 @@ function formatDate(value?: string): string {
 }
 
 export default function AdminBuyerShow({ buyer, orders, conversations, wallet, transactions }: BuyerShowProps) {
+    const { flash } = usePage<SharedData>().props;
+
     return (
         <AdminLayout title={buyer.name} active="buyers">
             <Head title={`${buyer.name} — Buyer`} />
@@ -57,13 +61,24 @@ export default function AdminBuyerShow({ buyer, orders, conversations, wallet, t
                 Back to buyers
             </Link>
 
+            {flash.success && (
+                <div className="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-700">{flash.success}</div>
+            )}
+            {flash.error && (
+                <div className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{flash.error}</div>
+            )}
+
             <div className="grid gap-6 lg:grid-cols-3">
                 <div className="rounded-xl bg-white p-6 shadow-sm">
                     <h3 className="font-semibold text-gray-900">Profile</h3>
-                    <dl className="mt-4 space-y-2 text-sm">
-                        <div><dt className="text-gray-500">Name</dt><dd className="font-medium">{buyer.name}</dd></div>
-                        <div><dt className="text-gray-500">Email</dt><dd>{buyer.email}</dd></div>
-                        <div><dt className="text-gray-500">Mobile</dt><dd>{buyer.mobile ?? '—'}</dd></div>
+                    <p className="mt-1 text-sm text-gray-500">Only admin can change buyer name, email, or phone.</p>
+                    <AccountProfileForm
+                        updateUrl={route('admin.buyers.update', buyer.id)}
+                        name={buyer.name}
+                        email={buyer.email}
+                        mobile={buyer.mobile}
+                    />
+                    <dl className="mt-6 space-y-2 border-t border-gray-100 pt-4 text-sm">
                         <div><dt className="text-gray-500">Location</dt><dd>{[buyer.city, buyer.region].filter(Boolean).join(', ') || '—'}</dd></div>
                         <div><dt className="text-gray-500">Address</dt><dd>{buyer.residential_address ?? '—'}</dd></div>
                         <div><dt className="text-gray-500">Orders</dt><dd>{buyer.orders_count}</dd></div>

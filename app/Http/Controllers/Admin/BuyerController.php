@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateAccountProfileRequest;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Services\WalletService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -71,5 +73,15 @@ class BuyerController extends Controller
             'orders' => $orders,
             'conversations' => $conversations,
         ]);
+    }
+
+    public function update(UpdateAccountProfileRequest $request, User $buyer): RedirectResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+
+        $validated = $request->validated();
+        $buyer->updateAccountDetails($validated['name'], $validated['email'], $validated['mobile']);
+
+        return back()->with('success', 'Buyer account details updated.');
     }
 }

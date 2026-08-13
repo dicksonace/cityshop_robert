@@ -113,6 +113,21 @@ class User extends Authenticatable
         return $this->role === UserRole::Buyer;
     }
 
+    public function updateAccountDetails(string $name, string $email, string $mobile): void
+    {
+        $this->fill([
+            'name' => $name,
+            'email' => $email,
+            'mobile' => $mobile,
+        ]);
+
+        if ($this->isDirty('email')) {
+            $this->email_verified_at = null;
+        }
+
+        $this->save();
+    }
+
     public function defaultRedirectRoute(): string
     {
         if ($this->isSeller()) {
