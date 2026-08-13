@@ -5,7 +5,6 @@ import { FormEventHandler, useEffect, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import ChinaTransferChannels from '@/components/wallet/china-transfer-channels';
 import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import WithdrawalBalanceAlert, { withdrawalBalanceMessage } from '@/components/wallet/withdrawal-balance-alert';
@@ -66,7 +65,7 @@ export default function BuyerWithdraw({
 
     const form = useForm({
         amount: '',
-        payout_type: 'momo' as 'momo' | 'bank' | 'china',
+        payout_type: 'momo' as 'momo' | 'bank',
         momo_number: auth.user?.mobile ?? '',
         account_name: '',
         network: 'mtn',
@@ -74,12 +73,10 @@ export default function BuyerWithdraw({
     });
 
     const amount = Number(form.data.amount) || 0;
-    const ghanaPayout = form.data.payout_type === 'china' ? 'momo' : form.data.payout_type;
-    const activeFee = feeForPayoutType(withdrawalFee, ghanaPayout, amount);
-    const maxWithdraw = maxWithdrawableAmount(availableBalance, withdrawalFee, ghanaPayout);
+    const activeFee = feeForPayoutType(withdrawalFee, form.data.payout_type, amount);
+    const maxWithdraw = maxWithdrawableAmount(availableBalance, withdrawalFee, form.data.payout_type);
     const tooSmall = availableBalance < 10;
     const balanceOverLimit = !!withdrawalBalanceMessage(amount, activeFee, availableBalance);
-    const isChina = form.data.payout_type === 'china';
 
     useEffect(() => {
         if (form.errors.payment_pin || form.errors.amount) {
@@ -87,7 +84,7 @@ export default function BuyerWithdraw({
         }
     }, [form.errors.payment_pin, form.errors.amount]);
 
-    const setPayoutType = (type: 'momo' | 'bank' | 'china') => {
+    const setPayoutType = (type: 'momo' | 'bank') => {
         setStepError(null);
         form.setData({
             ...form.data,
@@ -103,10 +100,6 @@ export default function BuyerWithdraw({
         setStepError(null);
 
         if (step === 'form') {
-            if (isChina) {
-                setStepError('Transfer to China is currently not available. Choose Mobile Money or Bank.');
-                return;
-            }
             if (!form.data.network || !form.data.momo_number.trim() || !form.data.account_name.trim()) {
                 setStepError('Enter network, account number, and the name on the account to continue.');
                 return;
@@ -245,24 +238,10 @@ export default function BuyerWithdraw({
                                             </button>
                                         ))}
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setPayoutType('china')}
-                                        className={cn(
-                                            'mt-2 w-full rounded-xl border px-3 py-3 text-[13px] font-extrabold transition',
-                                            isChina
-                                                ? 'border-2 border-orange-500 bg-orange-50 text-orange-600'
-                                                : 'border-[1.4px] border-gray-200 bg-white text-gray-500 hover:border-gray-300',
-                                        )}
-                                    >
-                                        Transfer to China
-                                    </button>
                                     <InputError message={form.errors.payout_type} />
                                 </div>
 
-                                {isChina ? (
-                                    <ChinaTransferChannels />
-                                ) : form.data.payout_type === 'momo' ? (
+                                {form.data.payout_type === 'momo' ? (
                                     <MomoNetworkPicker
                                         variant="list"
                                         label="Choose your network"
@@ -287,8 +266,6 @@ export default function BuyerWithdraw({
                                     </div>
                                 )}
 
-                                {!isChina && (
-                                <>
                                 <div className="space-y-3">
                                     <p className="text-[15px] font-extrabold text-gray-900">2. Where should the money go?</p>
                                     <div>
@@ -348,15 +325,13 @@ export default function BuyerWithdraw({
                                     </p>
                                     <div className="mt-3">
                                         <WithdrawalFeeNotice
-                                            payoutType={ghanaPayout}
+                                            payoutType={form.data.payout_type}
                                             fee={activeFee}
                                             amount={amount}
                                             settings={withdrawalFee}
                                         />
                                     </div>
                                 </div>
-                                </>
-                                )}
                             </div>
                         )}
 
@@ -410,7 +385,6 @@ export default function BuyerWithdraw({
                             </div>
                         )}
 
-                        {!isChina && (
                         <div className="sticky bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-20 mt-5 flex gap-2 bg-white py-3 sm:static sm:bottom-auto sm:py-0">
                             {step === 'review' && (
                                 <Button
@@ -434,7 +408,6 @@ export default function BuyerWithdraw({
                                 {step === 'form' ? 'Review withdrawal' : 'Request withdrawal'}
                             </Button>
                         </div>
-                        )}
                     </form>
                 )}
 

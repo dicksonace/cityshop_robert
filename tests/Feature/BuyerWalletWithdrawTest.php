@@ -130,4 +130,46 @@ class BuyerWalletWithdrawTest extends TestCase
                 ->where('wallet.available_balance', 80)
                 ->where('hasPaymentPin', false));
     }
+
+    public function test_buyer_withdraw_page_does_not_offer_china_transfer(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        Wallet::create([
+            'user_id' => $buyer->id,
+            'available_balance' => 80,
+            'pending_balance' => 0,
+            'total_earnings' => 0,
+            'withdrawn_amount' => 0,
+        ]);
+
+        $this->actingAs($buyer)
+            ->get(route('wallet.withdraw.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('shop/wallet-withdraw'));
+    }
+
+    public function test_buyer_cannot_submit_china_payout(): void
+    {
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        PaymentPinService::set($buyer, '2468');
+        Wallet::create([
+            'user_id' => $buyer->id,
+            'available_balance' => 150,
+            'pending_balance' => 0,
+            'total_earnings' => 0,
+            'withdrawn_amount' => 0,
+        ]);
+
+        $this->actingAs($buyer)
+            ->from(route('wallet.withdraw.create'))
+            ->post(route('wallet.withdraw'), [
+                'amount' => 50,
+                'payout_type' => 'china',
+                'momo_number' => '0244111222',
+                'account_name' => 'Kofi Buyer',
+                'network' => 'alipay',
+                'payment_pin' => '2468',
+            ])
+            ->assertSessionHasErrors('payout_type');
+    }
 }
