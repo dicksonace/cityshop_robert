@@ -6,15 +6,11 @@ use App\Channels\SmsChannel;
 use App\Enums\PaymentStatus;
 use App\Models\Checkout;
 use App\Models\Order;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class OrderPlacedNotification extends Notification implements ShouldQueue
+class OrderPlacedNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(
         public Order $order,
         public bool $cashOnDelivery = false,
@@ -23,7 +19,15 @@ class OrderPlacedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', SmsChannel::class];
+        $channels = [];
+        if (filled($notifiable->email ?? null)) {
+            $channels[] = 'mail';
+        }
+        if (filled($notifiable->mobile ?? null)) {
+            $channels[] = SmsChannel::class;
+        }
+
+        return $channels !== [] ? $channels : ['mail'];
     }
 
     public function toMail(object $notifiable): MailMessage

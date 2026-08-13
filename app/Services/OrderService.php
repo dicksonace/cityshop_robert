@@ -556,9 +556,11 @@ class OrderService
         return $checkout->orders->first();
     }
 
-    public function fulfillPaidCheckout(Checkout $checkout, string $paystackReference, ?float $paidAmountGhs = null): Checkout
+    public function fulfillPaidCheckout(Checkout $checkout, string $paystackReference, ?float $paidAmountGhs = null, bool $notify = true): Checkout
     {
-        return DB::transaction(function () use ($checkout, $paystackReference, $paidAmountGhs) {
+        $wasPaid = $checkout->payment_status === PaymentStatus::Paid;
+
+        $locked = DB::transaction(function () use ($checkout, $paystackReference, $paidAmountGhs) {
             $locked = Checkout::query()->whereKey($checkout->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->payment_status === PaymentStatus::Paid) {
@@ -602,12 +604,17 @@ class OrderService
                     'paid_at' => now(),
                 ]);
 
-            $locked->refresh()->load(['buyer', 'orders']);
-            $this->notifyBuyerOrderPaid($locked);
+            $locked->refresh()->load(['buyer', 'orders.items.seller']);
             $this->invoices->generateForCheckout($locked);
 
             return $locked;
         });
+
+        if ($notify && ! $wasPaid && $locked->payment_status === PaymentStatus::Paid) {
+            $this->notifyPaidCheckout($locked);
+        }
+
+        return $locked;
     }
 
     public function payCheckoutWithWallet(Checkout $checkout, User $buyer): Checkout
@@ -632,7 +639,7 @@ class OrderService
 
         $reference = 'WAL-'.$checkout->checkout_number;
 
-        return DB::transaction(function () use ($checkout, $buyer, $marketplaceTotal, $reference) {
+        $paid = DB::transaction(function () use ($checkout, $buyer, $marketplaceTotal, $reference) {
             $wallet = Wallet::where('user_id', $buyer->id)->lockForUpdate()->first()
                 ?? WalletService::ensure($buyer);
 
@@ -643,7 +650,7 @@ class OrderService
             }
 
             if (WalletTransaction::where('reference', $reference)->exists()) {
-                return $this->fulfillPaidCheckout($checkout, $reference);
+                return $this->fulfillPaidCheckout($checkout, $reference, notify: false);
             }
 
             $wallet->decrement('available_balance', $marketplaceTotal);
@@ -655,8 +662,14 @@ class OrderService
                 $reference,
             );
 
-            return $this->fulfillPaidCheckout($checkout, $reference);
+            return $this->fulfillPaidCheckout($checkout, $reference, notify: false);
         });
+
+        if ($paid->payment_status === PaymentStatus::Paid) {
+            $this->notifyPaidCheckout($paid->fresh(['buyer', 'orders.items.seller']) ?? $paid);
+        }
+
+        return $paid;
     }
 
     public function fulfillPaidOrder(Order $order, string $paystackReference, bool $skipCheckoutUpdate = false, bool $skipBuyerNotify = false): Order
@@ -700,14 +713,8 @@ class OrderService
                 $seller?->sellerProfile?->increment('total_sales');
             }
 
-            $this->notifySellersOfPaidOrder($locked);
-
             if ($locked->payment_channel === PaymentChannel::Marketplace && (float) $locked->shipping_cost > 0) {
                 $this->creditSellerShippingPending($locked);
-            }
-
-            if (! $skipBuyerNotify) {
-                $this->notifyBuyerOrderPaid($locked);
             }
 
             Payment::where('order_id', $locked->id)->update([
@@ -722,6 +729,20 @@ class OrderService
 
             return $locked->fresh('items');
         });
+    }
+
+    private function notifyPaidCheckout(Checkout $checkout): void
+    {
+        $checkout->loadMissing(['buyer', 'orders.items.seller']);
+
+        foreach ($checkout->orders as $order) {
+            if ($order->payment_channel === PaymentChannel::Direct) {
+                continue;
+            }
+            $this->notifySellersOfPaidOrder($order);
+        }
+
+        $this->notifyBuyerOrderPaid($checkout);
     }
 
     private function notifyBuyerOrderPaid(Checkout|Order $source): void
@@ -740,13 +761,22 @@ class OrderService
             return;
         }
 
-        $buyer->notify(new OrderPlacedNotification($order, checkout: $checkout));
-        AppNotificationService::notifyBuyerOrderPlaced($buyer, $order, paymentComplete: true);
+        try {
+            $buyer->notify(new OrderPlacedNotification($order, checkout: $checkout));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            AppNotificationService::notifyBuyerOrderPlaced($buyer, $order, paymentComplete: true);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function notifySellersOfPaidOrder(Order $order, bool $cashOnDelivery = false): void
     {
-        $order->loadMissing('items');
+        $order->loadMissing('items.seller');
         $notified = [];
 
         foreach ($order->items as $item) {
@@ -755,14 +785,28 @@ class OrderService
                 continue;
             }
 
-            $seller = $item->seller ?? User::find($sellerId);
-            if (! $seller) {
+            $seller = $item->seller ?? User::query()->withTrashed()->find($sellerId);
+            if (! $seller || $seller->trashed()) {
+                Log::warning('Seller new-order alert skipped: seller missing', [
+                    'order_id' => $order->id,
+                    'seller_id' => $sellerId,
+                ]);
                 continue;
             }
 
             $notified[$sellerId] = true;
-            $seller->notify(new PaymentConfirmedNotification($order, $item, cashOnDelivery: $cashOnDelivery));
-            AppNotificationService::notifySellerNewOrder($seller, $order, $item, cashOnDelivery: $cashOnDelivery);
+
+            try {
+                $seller->notify(new PaymentConfirmedNotification($order, $item, cashOnDelivery: $cashOnDelivery));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
+            try {
+                AppNotificationService::notifySellerNewOrder($seller, $order, $item, cashOnDelivery: $cashOnDelivery);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
     }
 
