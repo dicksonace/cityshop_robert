@@ -8,8 +8,11 @@ use App\Enums\WalletTransactionType;
 use App\Models\Message;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Notifications\WalletTransferReceivedNotification;
 use App\Services\PaymentPinService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Notifications\Messages\MailMessage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -108,6 +111,33 @@ class ApiFriendChatTransferTest extends TestCase
                 ->where('type', MessageType::Transfer)
                 ->exists()
         );
+    }
+
+    public function test_transfer_received_sms_and_email_include_available_balance_and_date(): void
+    {
+        $sender = User::factory()->create(['name' => 'Kofi amoah']);
+        $recipient = User::factory()->create(['mobile' => '0248620718']);
+        $at = Carbon::parse('2026-08-13 17:12:00', 'Africa/Accra');
+
+        $notification = new WalletTransferReceivedNotification(
+            $sender,
+            20,
+            'TRF-E774EF3F9AAC',
+            null,
+            6445,
+            $at,
+        );
+
+        $sms = $notification->toSms($recipient);
+        $this->assertStringContainsString('You received GH₵20.00 from Kofi amoah. Ref TRF-E774EF3F9AAC.', $sms);
+        $this->assertStringContainsString('Available Balance: GHS 6445.00', $sms);
+        $this->assertStringContainsString('Date: 13 Aug 2026, 5:12 PM', $sms);
+
+        $mail = $notification->toMail($recipient);
+        $this->assertInstanceOf(MailMessage::class, $mail);
+        $rendered = implode("\n", $mail->introLines);
+        $this->assertStringContainsString('Available Balance: GHS 6445.00', $rendered);
+        $this->assertStringContainsString('Date: 13 Aug 2026, 5:12 PM', $rendered);
     }
 
     public function test_transfer_requires_payment_pin(): void

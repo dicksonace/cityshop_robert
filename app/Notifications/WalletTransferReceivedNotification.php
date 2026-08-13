@@ -4,7 +4,9 @@ namespace App\Notifications;
 
 use App\Channels\SmsChannel;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Support\NotificationPrivacy;
+use Carbon\CarbonInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -19,6 +21,8 @@ class WalletTransferReceivedNotification extends Notification implements ShouldQ
         public float $amount,
         public string $reference,
         public ?string $note = null,
+        public ?float $availableBalance = null,
+        public ?CarbonInterface $receivedAt = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -35,6 +39,8 @@ class WalletTransferReceivedNotification extends Notification implements ShouldQ
     {
         $amount = NotificationPrivacy::money($this->amount);
         $from = trim((string) $this->sender->name) ?: 'a CityShop user';
+        $when = NotificationPrivacy::stamp($this->receivedAt);
+        $ghs = $this->availableBalanceGhs($notifiable);
 
         $message = (new MailMessage)
             ->subject("You received {$amount} on CityShop")
@@ -47,14 +53,30 @@ class WalletTransferReceivedNotification extends Notification implements ShouldQ
 
         return $message
             ->line('Reference: '.$this->reference)
+            ->line("Available Balance: GHS {$ghs}")
+            ->line("Date: {$when}")
             ->action('View wallet', url('/wallet'));
     }
 
     public function toSms(object $notifiable): string
     {
         $from = trim((string) $this->sender->name) ?: 'a CityShop user';
+        $when = NotificationPrivacy::stamp($this->receivedAt);
+        $ghs = $this->availableBalanceGhs($notifiable);
 
         return 'CityShop: You received '.NotificationPrivacy::money($this->amount)
-            ." from {$from}. Ref {$this->reference}.";
+            ." from {$from}. Ref {$this->reference}.\nAvailable Balance: GHS {$ghs}\nDate: {$when}";
+    }
+
+    private function availableBalanceGhs(object $notifiable): string
+    {
+        $balance = $this->availableBalance;
+        if ($balance === null) {
+            $balance = (float) ($notifiable->wallet?->available_balance
+                ?? Wallet::query()->where('user_id', $notifiable->id)->value('available_balance')
+                ?? 0);
+        }
+
+        return number_format($balance, 2, '.', '');
     }
 }

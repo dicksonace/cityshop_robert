@@ -221,6 +221,7 @@ class WalletService
 
             $senderWallet->decrement('available_balance', $amount);
             $recipientWallet->increment('available_balance', $amount);
+            $recipientAvailable = (float) ($recipientWallet->fresh()?->available_balance ?? 0);
 
             $noteSuffix = $note ? " — {$note}" : '';
 
@@ -245,6 +246,7 @@ class WalletService
                 'amount' => round($amount, 2),
                 'note' => $note,
                 'currency' => 'GHS',
+                'recipient_available' => $recipientAvailable,
             ];
         });
 
@@ -254,6 +256,8 @@ class WalletService
                 (float) $result['amount'],
                 $result['reference'],
                 $result['note'],
+                (float) $result['recipient_available'],
+                now('Africa/Accra'),
             ));
         } catch (\Throwable $e) {
             report($e);
