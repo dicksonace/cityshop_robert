@@ -10,7 +10,10 @@ use Illuminate\Notifications\Notification;
 
 class WithdrawalRequestedNotification extends Notification
 {
-    public function __construct(public Withdrawal $withdrawal) {}
+    public function __construct(
+        public Withdrawal $withdrawal,
+        public ?float $availableBalance = null,
+    ) {}
 
     public function via(object $notifiable): array
     {
@@ -42,7 +45,15 @@ class WithdrawalRequestedNotification extends Notification
         $amount = NotificationPrivacy::money((float) $this->withdrawal->amount);
         $destination = NotificationPrivacy::maskAccount($this->withdrawal->momo_number);
         $when = NotificationPrivacy::stamp($this->withdrawal->created_at);
+        $balance = $this->availableBalance;
+        if ($balance === null) {
+            $balance = (float) ($notifiable->wallet?->available_balance
+                ?? \App\Models\Wallet::query()->where('user_id', $notifiable->id)->value('available_balance')
+                ?? 0);
+        }
 
-        return "CityShop: Your withdrawal of {$amount} to {$destination} has been requested. Usually within 15 minutes. Date: {$when}";
+        $ghs = number_format($balance, 2, '.', '');
+
+        return "CityShop: Your withdrawal of {$amount} to {$destination} has been requested.\nAvailable Balance: GHS {$ghs}\nDate: {$when}";
     }
 }

@@ -7,7 +7,9 @@ use App\Enums\WithdrawalStatus;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
+use App\Notifications\WithdrawalRequestedNotification;
 use App\Services\PaymentPinService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -171,5 +173,25 @@ class BuyerWalletWithdrawTest extends TestCase
                 'payment_pin' => '2468',
             ])
             ->assertSessionHasErrors('payout_type');
+    }
+
+    public function test_withdrawal_sms_includes_available_balance_without_usually(): void
+    {
+        $buyer = User::factory()->create(['mobile' => '0241234718']);
+        $withdrawal = new Withdrawal([
+            'amount' => 10,
+            'momo_number' => '0241234718',
+        ]);
+        $withdrawal->created_at = Carbon::parse('2026-08-13 14:51:00', 'Africa/Accra');
+
+        $sms = (new WithdrawalRequestedNotification($withdrawal, 6445))->toSms($buyer);
+
+        $this->assertStringContainsString(
+            'Your withdrawal of GH₵10.00 to 024****718 has been requested.',
+            $sms,
+        );
+        $this->assertStringContainsString('Available Balance: GHS 6445.00', $sms);
+        $this->assertStringContainsString('Date: 13 Aug 2026, 2:51 PM', $sms);
+        $this->assertStringNotContainsStringIgnoringCase('usually', $sms);
     }
 }

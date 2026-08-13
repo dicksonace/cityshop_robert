@@ -76,7 +76,10 @@ class WithdrawalRequestService
             : 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.';
 
         try {
-            $user->notify(new WithdrawalRequestedNotification($result['withdrawal']));
+            $user->notify(new WithdrawalRequestedNotification(
+                $result['withdrawal'],
+                (float) $result['wallet']->available_balance,
+            ));
         } catch (\Throwable $e) {
             report($e);
         }
