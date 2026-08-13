@@ -34,6 +34,14 @@ class AdminAccountProfileTest extends TestCase
                 'name' => 'Asare Kwame',
                 'email' => 'eskimlitcenter1@gmail.com',
                 'mobile' => '0532700209',
+                'ghana_card_number' => 'GHA123445677',
+                'region' => 'Western North',
+                'city' => 'Sefwi Bekwai',
+                'residential_address' => 'Sefwi Bekwai HFC',
+                'store_name' => 'City Unlock',
+                'is_business_registered' => false,
+                'accept_marketplace_payments' => true,
+                'accept_direct_payments' => true,
             ])
             ->assertRedirect()
             ->assertSessionHas('success');
@@ -42,6 +50,16 @@ class AdminAccountProfileTest extends TestCase
         $this->assertSame('Asare Kwame', $seller->name);
         $this->assertSame('eskimlitcenter1@gmail.com', $seller->email);
         $this->assertSame('0532700209', $seller->mobile);
+        $this->assertSame('GHA123445677', $seller->ghana_card_number);
+        $this->assertSame('Western North', $seller->region);
+        $this->assertSame('Sefwi Bekwai', $seller->city);
+        $this->assertSame('Sefwi Bekwai HFC', $seller->residential_address);
+
+        $profile->refresh();
+        $this->assertSame('City Unlock', $profile->store_name);
+        $this->assertFalse($profile->is_business_registered);
+        $this->assertTrue($profile->accept_marketplace_payments);
+        $this->assertTrue($profile->accept_direct_payments);
     }
 
     public function test_admin_can_update_buyer_name_email_and_phone(): void

@@ -113,12 +113,16 @@ class User extends Authenticatable
         return $this->role === UserRole::Buyer;
     }
 
-    public function updateAccountDetails(string $name, string $email, string $mobile): void
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    public function updateAccountDetails(string $name, string $email, string $mobile, array $extra = []): void
     {
         $this->fill([
             'name' => $name,
             'email' => $email,
             'mobile' => $mobile,
+            ...$extra,
         ]);
 
         if ($this->isDirty('email')) {

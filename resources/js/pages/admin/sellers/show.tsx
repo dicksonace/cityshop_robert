@@ -2,8 +2,8 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Check, Copy, ShieldBan, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 
-import AccountProfileForm from '@/components/admin/account-profile-form';
 import SellerAccountActions from '@/components/admin/seller-account-actions';
+import SellerInformationForm from '@/components/admin/seller-information-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AdminLayout from '@/layouts/admin-layout';
@@ -46,6 +46,8 @@ interface SellerShowProps {
         form_a?: string;
         form_b?: string;
         business_certificate?: string;
+        is_business_registered?: boolean;
+        business_registration_number?: string | null;
         accept_marketplace_payments?: boolean;
         accept_direct_payments?: boolean;
     };
@@ -139,41 +141,25 @@ export default function SellerShow({
                 </div>
             )}
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-4">
+                <SellerInformationForm
+                    updateUrl={route('admin.sellers.update-profile', seller.id)}
+                    name={seller.user.name}
+                    email={seller.user.email}
+                    mobile={seller.user.mobile}
+                    ghanaCardNumber={seller.user.ghana_card_number}
+                    region={seller.user.region}
+                    city={seller.user.city}
+                    residentialAddress={seller.user.residential_address}
+                    storeName={seller.store_name ?? seller.business_name ?? storeName}
+                    isBusinessRegistered={!!seller.is_business_registered}
+                    businessName={seller.business_name}
+                    businessRegistrationNumber={seller.business_registration_number}
+                    acceptMarketplacePayments={seller.accept_marketplace_payments !== false}
+                    acceptDirectPayments={!!seller.accept_direct_payments}
+                />
                 <div className="rounded-xl bg-white p-6 shadow-sm">
-                    <h3 className="font-semibold text-gray-900">Personal Information</h3>
-                    <p className="mt-1 text-sm text-gray-500">Only admin can change seller name, email, or phone.</p>
-                    <AccountProfileForm
-                        updateUrl={route('admin.sellers.update-profile', seller.id)}
-                        name={seller.user.name}
-                        email={seller.user.email}
-                        mobile={seller.user.mobile}
-                    />
-                    <dl className="mt-6 space-y-2 border-t border-gray-100 pt-4 text-sm">
-                        <div><dt className="text-gray-500">Ghana Card</dt><dd>{seller.user.ghana_card_number || '—'}</dd></div>
-                        <div><dt className="text-gray-500">Location</dt><dd>{[seller.user.city, seller.user.region].filter(Boolean).join(', ') || '—'}</dd></div>
-                        <div><dt className="text-gray-500">Address</dt><dd>{seller.user.residential_address || '—'}</dd></div>
-                    </dl>
-                </div>
-
-                <div className="rounded-xl bg-white p-6 shadow-sm">
-                    <h3 className="font-semibold text-gray-900">Business Information</h3>
-                    <dl className="mt-4 space-y-2 text-sm">
-                        <div><dt className="text-gray-500">Registered</dt><dd>{seller.is_business_registered ? 'Yes' : 'No'}</dd></div>
-                        <div><dt className="text-gray-500">Name</dt><dd className="font-medium">{storeName}</dd></div>
-                        {seller.business_registration_number && (
-                            <div><dt className="text-gray-500">Reg. Number</dt><dd>{seller.business_registration_number}</dd></div>
-                        )}
-                        <div>
-                            <dt className="text-gray-500">Buyer payment modes</dt>
-                            <dd>
-                                {seller.accept_marketplace_payments ? 'Marketplace' : null}
-                                {seller.accept_marketplace_payments && seller.accept_direct_payments ? ' · ' : null}
-                                {seller.accept_direct_payments ? 'Direct to seller' : null}
-                                {!seller.accept_marketplace_payments && !seller.accept_direct_payments ? 'None' : null}
-                            </dd>
-                        </div>
-                    </dl>
+                    <h3 className="font-semibold text-gray-900">Documents</h3>
                     <div className="mt-4 flex flex-wrap gap-3">
                         <DocLink path={seller.shop_photo} label="Shop Photo" />
                         <DocLink path={seller.id_card_front} label="ID Front" />

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\SellerStatus;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\UpdateAccountProfileRequest;
+use App\Http\Requests\Admin\UpdateSellerInformationRequest;
 use App\Models\SellerPaymentMethod;
 use App\Models\SellerProfile;
 use App\Notifications\SellerApprovedNotification;
@@ -84,13 +84,36 @@ class SellerController extends Controller
         ]);
     }
 
-    public function updateProfile(UpdateAccountProfileRequest $request, SellerProfile $seller): RedirectResponse
+    public function updateProfile(UpdateSellerInformationRequest $request, SellerProfile $seller): RedirectResponse
     {
         $seller->loadMissing('user');
         $validated = $request->validated();
-        $seller->user->updateAccountDetails($validated['name'], $validated['email'], $validated['mobile']);
 
-        return back()->with('success', 'Seller account details updated.');
+        $seller->user->updateAccountDetails(
+            $validated['name'],
+            $validated['email'],
+            $validated['mobile'],
+            [
+                'ghana_card_number' => $validated['ghana_card_number'] ?: null,
+                'region' => $validated['region'] ?: null,
+                'city' => $validated['city'] ?: null,
+                'residential_address' => $validated['residential_address'] ?: null,
+            ],
+        );
+
+        $storeName = $validated['store_name'];
+        $registered = (bool) $validated['is_business_registered'];
+
+        $seller->update([
+            'store_name' => $storeName,
+            'is_business_registered' => $registered,
+            'business_name' => $registered ? ($validated['business_name'] ?: $storeName) : $seller->business_name,
+            'business_registration_number' => $registered ? ($validated['business_registration_number'] ?: null) : null,
+            'accept_marketplace_payments' => (bool) $validated['accept_marketplace_payments'],
+            'accept_direct_payments' => (bool) $validated['accept_direct_payments'],
+        ]);
+
+        return back()->with('success', 'Seller information updated.');
     }
 
     public function approve(Request $request, SellerProfile $seller, StoreCustomizationService $customizations): RedirectResponse
