@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\WalletFundingController as AdminWalletFundingCont
 use App\Http\Controllers\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\Admin\WithdrawalFeeSettingsController;
 use App\Http\Controllers\Admin\PaystackFeeSettingsController;
+use App\Http\Controllers\Admin\SmsSettingsController;
 use App\Http\Controllers\WalletManualTopUpController;
 use App\Http\Controllers\Chat\ConversationController as ChatConversationController;
 use App\Http\Controllers\Chat\MessageController as ChatMessageController;
@@ -309,6 +310,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/withdrawal-fees/settings', [WithdrawalFeeSettingsController::class, 'update'])->name('withdrawal-fees.settings.update');
     Route::get('/paystack-fees/settings', [PaystackFeeSettingsController::class, 'edit'])->name('paystack-fees.settings');
     Route::post('/paystack-fees/settings', [PaystackFeeSettingsController::class, 'update'])->name('paystack-fees.settings.update');
+    Route::get('/sms/settings', [SmsSettingsController::class, 'edit'])->name('sms.settings');
+    Route::post('/sms/settings', [SmsSettingsController::class, 'update'])->name('sms.settings.update');
     Route::get('/manual-funding/settings', [AdminManualFundingSettingsController::class, 'edit'])->name('manual-funding.settings');
     Route::post('/manual-funding/settings', [AdminManualFundingSettingsController::class, 'update'])->name('manual-funding.settings.update');
     Route::get('/manual-top-ups', [AdminManualTopUpController::class, 'index'])->name('manual-top-ups.index');

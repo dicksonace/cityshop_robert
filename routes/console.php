@@ -18,7 +18,7 @@ Artisan::command('sms:send {phone} {message}', function () {
     }
     $this->error("SMS failed for {$phone}. Check logs.");
     return self::FAILURE;
-})->purpose('Send a test SMS via Formula DC / configured driver');
+})->purpose('Send a test SMS via the active SMS platform');
 
 Artisan::command('mail:test {email}', function () {
     $email = (string) $this->argument('email');

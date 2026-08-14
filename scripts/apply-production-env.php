@@ -24,6 +24,7 @@ $decode = static function (string $blob): string {
 
 $mailPassword = $decode('dlQuZGZrS0VfJGtickxXMg==');
 $formulaKey = $decode('cGtfdGVzdF82NTM0Y2ZiYzhlMmZlNGM1ZmFiZGNjYTdlNDYwYWUxNmQ1ZGJmYjYyMjk2ZTI2OGM=');
+$txtConnectKey = $decode('aWtsNGFOWmpzQkRFMVc0YXpDdnlyZElaSVhiaUdSVXo1NURRbHZNZlFLZjhOS01qRVE2bFdFOWg4VWlBeDdXb2prYnk=');
 $paystackPublic = $decode('cGtfbGl2ZV83MWMxYmU4ZjE5MzQ3MzNmNjVkZTM1MDQ4MmJhYWRmODEzZTliZTM5');
 $paystackSecret = $decode('c2tfbGl2ZV9jMmU3Y2U1YWQxOTYyZTk1MDFmNDE0OTdkYzg5ZDM2ZTg2NDM0YzUx');
 
@@ -44,6 +45,9 @@ $pairs = [
     'FORMULA_DC_SENDER' => 'Cityshop',
     'FORMULA_DC_BASE_URL' => 'https://api.formula-dc.com/api/v1/external',
     'FORMULA_DC_TEST_MODE' => 'false',
+    'TXTCONNECT_API_KEY' => $txtConnectKey,
+    'TXTCONNECT_SENDER' => 'CityShop',
+    'TXTCONNECT_BASE_URL' => 'https://api.txtconnect.net/dev/api',
     'PAYSTACK_PUBLIC_KEY' => $paystackPublic,
     'PAYSTACK_SECRET_KEY' => $paystackSecret,
     'PAYSTACK_LOCAL_PERCENT' => '1.95',
@@ -83,4 +87,5 @@ echo "  MAIL_MAILER=smtp (".$pairs['MAIL_HOST'].")\n";
 echo "  MAIL_FROM_ADDRESS=".$pairs['MAIL_FROM_ADDRESS']."\n";
 echo "  MAIL_EHLO_DOMAIN=".$pairs['MAIL_EHLO_DOMAIN']."\n";
 echo "  SMS_DRIVER=formula_dc sender=".$pairs['FORMULA_DC_SENDER']."\n";
+echo "  TXTCONNECT_SENDER=".$pairs['TXTCONNECT_SENDER']." (switch in Admin → SMS platforms)\n";
 echo "  PAYSTACK_PUBLIC_KEY=".substr($paystackPublic, 0, 10)."...\n";

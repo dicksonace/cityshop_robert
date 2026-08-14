@@ -20,10 +20,27 @@ class SmsService
             return false;
         }
 
-        $driver = config('services.sms.driver', 'log');
+        $driver = PlatformSettings::smsDriver();
+        $ok = $this->sendViaDriver($driver, $msisdn, $message);
 
+        if (! $ok && PlatformSettings::smsFailoverEnabled()) {
+            $fallback = $driver === 'txtconnect' ? 'formula_dc' : 'txtconnect';
+            Log::warning('SMS primary driver failed, trying fallback.', [
+                'phone' => $msisdn,
+                'primary' => $driver,
+                'fallback' => $fallback,
+            ]);
+            $ok = $this->sendViaDriver($fallback, $msisdn, $message);
+        }
+
+        return $ok;
+    }
+
+    private function sendViaDriver(string $driver, string $msisdn, string $message): bool
+    {
         return match ($driver) {
             'formula_dc', 'formula' => $this->sendViaFormulaDc($msisdn, $message),
+            'txtconnect', 'txt_connect' => $this->sendViaTxtConnect($msisdn, $message),
             'hubtel' => $this->sendViaHubtel($msisdn, $message),
             default => tap(true, fn () => Log::channel('single')->info("SMS to {$msisdn}: {$message}")),
         };
@@ -109,6 +126,62 @@ class SmsService
             'phone' => $msisdn,
             'message_id' => $response->json('data.message_id'),
             'test_mode' => $testMode,
+        ]);
+
+        return true;
+    }
+
+    private function sendViaTxtConnect(string $msisdn, string $message): bool
+    {
+        $apiKey = (string) config('services.sms.txtconnect_api_key', '');
+        $sender = (string) config('services.sms.txtconnect_sender', 'CityShop');
+        $baseUrl = rtrim((string) config('services.sms.txtconnect_base_url', 'https://api.txtconnect.net/dev/api'), '/');
+
+        if ($apiKey === '') {
+            Log::warning('TxtConnect SMS not configured, logging instead.', ['phone' => $msisdn, 'message' => $message]);
+
+            return false;
+        }
+
+        $unicode = preg_match('/[^\x00-\x7F]/', $message) ? 'unicode' : 'regular';
+
+        try {
+            $response = Http::withToken($apiKey)
+                ->acceptJson()
+                ->asJson()
+                ->timeout(20)
+                ->post("{$baseUrl}/sms/send", [
+                    'to' => $msisdn,
+                    'from' => $sender,
+                    'unicode' => $unicode,
+                    'sms' => $message,
+                ]);
+        } catch (\Throwable $e) {
+            Log::error('TxtConnect SMS request failed', [
+                'phone' => $msisdn,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        $body = $response->json();
+        $inError = is_array($body) ? (bool) data_get($body, 'data.in_error', false) : true;
+        $statusCode = is_array($body) ? (string) data_get($body, 'data.status_code', '') : '';
+
+        if (! $response->successful() || $inError || ($statusCode !== '' && $statusCode !== '000')) {
+            Log::error('TxtConnect SMS send failed', [
+                'phone' => $msisdn,
+                'status' => $response->status(),
+                'body' => $body ?? $response->body(),
+            ]);
+
+            return false;
+        }
+
+        Log::info('TxtConnect SMS sent', [
+            'phone' => $msisdn,
+            'message_id' => data_get($body, 'messageId'),
         ]);
 
         return true;

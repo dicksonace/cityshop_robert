@@ -15,6 +15,8 @@ class PlatformSettings
 
     public const PAYSTACK_FEE_KEY = 'paystack_collection_fee';
 
+    public const SMS_KEY = 'sms_provider';
+
     public static function get(string $key, mixed $default = null): mixed
     {
         return Cache::remember("platform_setting.{$key}", 3600, function () use ($key, $default) {
@@ -663,5 +665,53 @@ class PlatformSettings
     public static function paystackFeePayload(): array
     {
         return static::paystackFeeSettings();
+    }
+
+    /**
+     * @return array{driver: string, failover: bool}
+     */
+    public static function smsSettings(): array
+    {
+        $raw = static::get(self::SMS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        $envDriver = (string) config('services.sms.driver', 'formula_dc');
+        $driver = is_array($decoded) ? (string) ($decoded['driver'] ?? $envDriver) : $envDriver;
+        if (! in_array($driver, ['formula_dc', 'txtconnect'], true)) {
+            $driver = 'formula_dc';
+        }
+
+        return [
+            'driver' => $driver,
+            'failover' => is_array($decoded) ? (bool) ($decoded['failover'] ?? false) : false,
+        ];
+    }
+
+    /**
+     * @param  array{driver?: string, failover?: bool}  $data
+     */
+    public static function saveSmsSettings(array $data): void
+    {
+        $driver = (string) ($data['driver'] ?? 'formula_dc');
+        if (! in_array($driver, ['formula_dc', 'txtconnect'], true)) {
+            $driver = 'formula_dc';
+        }
+
+        static::set(self::SMS_KEY, [
+            'driver' => $driver,
+            'failover' => (bool) ($data['failover'] ?? false),
+        ]);
+    }
+
+    public static function smsDriver(): string
+    {
+        return static::smsSettings()['driver'];
+    }
+
+    public static function smsFailoverEnabled(): bool
+    {
+        return static::smsSettings()['failover'];
     }
 }

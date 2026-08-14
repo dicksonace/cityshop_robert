@@ -26,6 +26,7 @@ export type AdminNavKey =
     | 'withdrawals'
     | 'withdrawal-fees'
     | 'paystack-fees'
+    | 'sms'
     | 'wallet-funding'
     | 'transactions'
     | 'manual-funding-settings'
@@ -54,6 +55,7 @@ const sectionMap: Record<AdminNavKey, string> = {
     withdrawals: 'finance',
     'withdrawal-fees': 'finance',
     'paystack-fees': 'finance',
+    sms: 'support',
     'wallet-funding': 'finance',
     transactions: 'finance',
     'manual-funding-settings': 'finance',
@@ -182,6 +184,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'buyer-announcements', label: 'Message Buyers', href: route('admin.buyer-announcements.index') },
                 { key: 'seller-reports', label: 'Seller Reports', href: route('admin.seller-reports.index'), badgeKey: 'open_seller_reports' },
                 { key: 'messages', label: 'Contact Messages', href: route('admin.contact-messages.index'), badgeKey: 'unread_messages' },
+                { key: 'sms', label: 'SMS platforms', href: route('admin.sms.settings') },
             ],
         },
     ];
