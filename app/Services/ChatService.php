@@ -269,11 +269,6 @@ class ChatService
         DB::transaction(function () use ($conversation, $user) {
             $remaining = $conversation->participantRows()->where('user_id', '!=', $user->id)->count();
 
-            ConversationParticipant::query()
-                ->where('conversation_id', $conversation->id)
-                ->where('user_id', $user->id)
-                ->delete();
-
             if ($remaining > 0) {
                 static::sendMessage(
                     $conversation,
@@ -283,10 +278,21 @@ class ChatService
                     ['system' => 'member_left', 'user_id' => $user->id],
                 );
             }
+
+            ConversationParticipant::query()
+                ->where('conversation_id', $conversation->id)
+                ->where('user_id', $user->id)
+                ->delete();
         });
     }
 
-    /** Remove another member (any current member can remove others except themselves via leave). */
+    /** Whether this user created the group (group admin). */
+    public static function isGroupAdmin(Conversation $conversation, User $user): bool
+    {
+        return $conversation->is_group && (int) $conversation->created_by === (int) $user->id;
+    }
+
+    /** Remove another member (group admin only; members leave via leaveGroup). */
     public static function removeGroupMember(Conversation $conversation, User $actor, User $target): Conversation
     {
         abort_unless($conversation->is_group, 422, 'Only group chats have members to remove.');
@@ -298,7 +304,9 @@ class ChatService
             return $conversation->fresh(['participants', 'latestVisibleMessage']) ?? $conversation;
         }
 
+        abort_unless(static::isGroupAdmin($conversation, $actor), 403, 'Only the group admin can remove members.');
         abort_unless($conversation->involves($target), 422, 'That person is not in this group.');
+        abort_if(static::isGroupAdmin($conversation, $target), 422, 'The group admin cannot be removed.');
 
         return DB::transaction(function () use ($conversation, $actor, $target) {
             ConversationParticipant::query()

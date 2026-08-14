@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\MessageType;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
@@ -10,6 +11,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Services\ChatService;
 use App\Services\PaymentPinService;
+use App\Services\UserBlockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -80,7 +82,7 @@ class MessageController extends Controller
 
         $conversation = ChatService::addGroupMembers($conversation, $request->user(), $validated['member_ids']);
         $conversation->load([
-            'participants:id,name,avatar,mobile,last_seen_at',
+            'participants:id,name,avatar,mobile,last_seen_at,role',
             'latestVisibleMessage.sender:id,name',
         ]);
 
@@ -120,12 +122,38 @@ class MessageController extends Controller
 
         $conversation = ChatService::removeGroupMember($conversation, $request->user(), $user);
         $conversation->load([
-            'participants:id,name,avatar,mobile,last_seen_at',
+            'participants:id,name,avatar,mobile,last_seen_at,role',
             'latestVisibleMessage.sender:id,name',
         ]);
 
         return response()->json([
             'message' => 'Member removed.',
+            'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
+        ]);
+    }
+
+    public function blockMember(Request $request, Conversation $conversation, User $user): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($conversation->is_group, 422);
+        abort_unless(ChatService::isGroupAdmin($conversation, $request->user()), 403, 'Only the group admin can block members.');
+        abort_if($request->user()->id === $user->id, 422, 'You cannot block yourself.');
+        abort_unless($user->role === UserRole::Buyer, 422, 'Only buyers can be blocked from a group.');
+        abort_if(ChatService::isGroupAdmin($conversation, $user), 422, 'The group admin cannot be blocked.');
+
+        UserBlockService::block($request->user(), $user);
+
+        if ($conversation->involves($user)) {
+            $conversation = ChatService::removeGroupMember($conversation, $request->user(), $user);
+        } else {
+            $conversation->load([
+                'participants:id,name,avatar,mobile,last_seen_at,role',
+                'latestVisibleMessage.sender:id,name',
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Buyer blocked and removed from the group.',
             'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
         ]);
     }
@@ -146,7 +174,7 @@ class MessageController extends Controller
         $path = $request->file('avatar')->store('group-avatars', 'public');
         $conversation = ChatService::updateGroupAvatar($conversation, $request->user(), $path);
         $conversation->load([
-            'participants:id,name,avatar,mobile,last_seen_at',
+            'participants:id,name,avatar,mobile,last_seen_at,role',
             'latestVisibleMessage.sender:id,name',
         ]);
 
@@ -163,7 +191,7 @@ class MessageController extends Controller
 
         $conversation = ChatService::clearGroupAvatar($conversation, $request->user());
         $conversation->load([
-            'participants:id,name,avatar,mobile,last_seen_at',
+            'participants:id,name,avatar,mobile,last_seen_at,role',
             'latestVisibleMessage.sender:id,name',
         ]);
 
@@ -224,7 +252,7 @@ class MessageController extends Controller
             'buyer:id,name,avatar,city,region,last_seen_at',
             'seller:id,name,avatar,city,region,last_seen_at',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
-            'participants:id,name,avatar,mobile,last_seen_at',
+            'participants:id,name,avatar,mobile,last_seen_at,role',
             'product:id,name,slug,price,discount_price',
             'product.images',
         ]);
@@ -835,6 +863,7 @@ class MessageController extends Controller
                 'name' => $conversation->name,
                 'avatar' => $groupAvatar,
                 'created_by' => $conversation->created_by,
+                'is_group_admin' => ChatService::isGroupAdmin($conversation, $user),
                 'buyer_id' => $conversation->buyer_id,
                 'seller_id' => null,
                 'can_complain' => false,
@@ -849,6 +878,7 @@ class MessageController extends Controller
                     'online' => ChatService::isOnline($member),
                     'last_seen_at' => $member->last_seen_at?->toIso8601String(),
                     'is_creator' => (int) $conversation->created_by === (int) $member->id,
+                    'role' => $member->role?->value,
                 ])->values(),
                 'other' => [
                     'id' => null,

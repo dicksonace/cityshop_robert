@@ -135,6 +135,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/messages/{conversation}/members', [MessageController::class, 'addMembers']);
         Route::post('/messages/{conversation}/leave', [MessageController::class, 'leaveGroup']);
         Route::delete('/messages/{conversation}/members/{user}', [MessageController::class, 'removeMember']);
+        Route::post('/messages/{conversation}/members/{user}/block', [MessageController::class, 'blockMember']);
         Route::post('/messages/{conversation}/avatar', [MessageController::class, 'updateGroupAvatar']);
         Route::delete('/messages/{conversation}/avatar', [MessageController::class, 'destroyGroupAvatar']);
         Route::get('/messages/{conversation}/search', [MessageController::class, 'search']);
