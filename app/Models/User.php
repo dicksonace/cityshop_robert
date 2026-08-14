@@ -197,19 +197,45 @@ class User extends Authenticatable
     }
 
     /**
-     * Email for Paystack / payment gateways. Falls back to a synthetic
-     * address from mobile when the shopper skipped email at signup.
-     * Paystack rejects `.local` and invalid addresses, which aborts initialize.
+     * Unique Paystack customer email — one per CityShop account.
+     * Never send a shared Gmail here; Paystack keeps one name per email.
      */
     public function billingEmail(): string
+    {
+        return 'cs'.$this->id.'@pay.cityunlock.net';
+    }
+
+    /**
+     * Real account email for receipts / admin (not sent to Paystack as customer key).
+     */
+    public function contactEmail(): ?string
     {
         $email = strtolower(trim((string) $this->email));
         if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && ! str_ends_with($email, '.local')) {
             return $email;
         }
 
-        $digits = preg_replace('/\D+/', '', (string) $this->mobile) ?: ('user'.$this->id);
+        return null;
+    }
 
-        return $digits.'@pay.cityunlock.net';
+    /**
+     * @return array{first_name: string, last_name: string}
+     */
+    public function paystackNameParts(): array
+    {
+        $full = trim($this->full_name);
+        if ($full === '') {
+            return ['first_name' => 'CityShop', 'last_name' => 'User'];
+        }
+
+        $parts = preg_split('/\s+/u', $full, 2) ?: [];
+        $first = trim((string) ($parts[0] ?? ''));
+        $last = trim((string) ($parts[1] ?? ''));
+
+        if ($last === '') {
+            return ['first_name' => $first, 'last_name' => 'User'];
+        }
+
+        return ['first_name' => $first, 'last_name' => $last];
     }
 }

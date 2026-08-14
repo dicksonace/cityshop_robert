@@ -174,6 +174,7 @@ class PaystackService
                 'expected_amount' => $quote['charge'],
             ], $extraMetadata),
             $callbackUrl,
+            $user,
         );
 
         return [
@@ -187,9 +188,20 @@ class PaystackService
         ];
     }
 
-    public function initializeTransaction(string $email, float $amountGhs, string $reference, array $metadata = [], ?string $callbackUrl = null): array
-    {
+    public function initializeTransaction(
+        string $email,
+        float $amountGhs,
+        string $reference,
+        array $metadata = [],
+        ?string $callbackUrl = null,
+        ?User $customer = null,
+    ): array {
         $email = $this->paystackEmail($email);
+        if ($customer) {
+            $this->syncCustomer($customer, $email);
+            $metadata = $this->enrichMetadata($customer, $metadata);
+        }
+
         $amountPesewas = (int) round(max(0, $amountGhs) * 100);
         if ($amountPesewas < 100) {
             throw new \RuntimeException('Amount is too small to start payment.');
@@ -240,6 +252,102 @@ class PaystackService
         }
 
         return $data;
+    }
+
+    /**
+     * Keep Paystack customer name in sync with the CityShop account.
+     */
+    public function syncCustomer(User $user, string $paystackEmail): void
+    {
+        if (! $this->isConfigured()) {
+            return;
+        }
+
+        $paystackEmail = $this->paystackEmail($paystackEmail);
+        $name = $user->paystackNameParts();
+        $payload = [
+            'email' => $paystackEmail,
+            'first_name' => $name['first_name'],
+            'last_name' => $name['last_name'],
+        ];
+
+        if (filled($user->mobile)) {
+            $payload['phone'] = $this->normalizeGhanaPhone((string) $user->mobile);
+        }
+
+        try {
+            $existing = Http::withToken($this->secretKey)
+                ->acceptJson()
+                ->timeout(15)
+                ->get("{$this->baseUrl}/customer/{$paystackEmail}");
+
+            $response = $existing->successful()
+                ? Http::withToken($this->secretKey)->acceptJson()->asJson()->timeout(15)
+                    ->put("{$this->baseUrl}/customer/{$paystackEmail}", $payload)
+                : Http::withToken($this->secretKey)->acceptJson()->asJson()->timeout(15)
+                    ->post("{$this->baseUrl}/customer", $payload);
+
+            if (! $response->successful()) {
+                Log::warning('Paystack customer sync failed', [
+                    'user_id' => $user->id,
+                    'email' => $paystackEmail,
+                    'body' => $response->json(),
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Paystack customer sync error', [
+                'user_id' => $user->id,
+                'email' => $paystackEmail,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
+    private function enrichMetadata(User $user, array $metadata): array
+    {
+        $customFields = $metadata['custom_fields'] ?? [];
+        if (! is_array($customFields)) {
+            $customFields = [];
+        }
+
+        $customFields[] = [
+            'display_name' => 'Account name',
+            'variable_name' => 'account_name',
+            'value' => $user->full_name,
+        ];
+
+        if ($contact = $user->contactEmail()) {
+            $customFields[] = [
+                'display_name' => 'Account email',
+                'variable_name' => 'account_email',
+                'value' => $contact,
+            ];
+            $metadata['account_email'] = $contact;
+        }
+
+        if (filled($user->mobile)) {
+            $customFields[] = [
+                'display_name' => 'Mobile',
+                'variable_name' => 'mobile',
+                'value' => (string) $user->mobile,
+            ];
+        }
+
+        $customFields[] = [
+            'display_name' => 'CityShop ID',
+            'variable_name' => 'cityshop_user_id',
+            'value' => (string) $user->id,
+        ];
+
+        $metadata['custom_fields'] = $customFields;
+        $metadata['account_name'] = $user->full_name;
+        $metadata['cityshop_user_id'] = $user->id;
+
+        return $metadata;
     }
 
     private function paystackEmail(string $email): string
