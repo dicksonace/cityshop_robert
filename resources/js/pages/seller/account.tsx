@@ -1,7 +1,12 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ChevronRight, KeyRound, LogOut, Store, User, Users } from 'lucide-react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { ChevronRight, KeyRound, LogOut, Smartphone, Store, User, Users } from 'lucide-react';
+import { FormEventHandler } from 'react';
 
+import InputError from '@/components/input-error';
 import ProfileAvatarUpload from '@/components/profile-avatar-upload';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import SellerLayout from '@/layouts/seller-layout';
 import { SharedData } from '@/types';
 
@@ -10,7 +15,10 @@ type Props = {
         business_name?: string | null;
         store_name?: string | null;
         shop_photo?: string | null;
+        order_sms_mobile_1?: string | null;
+        order_sms_mobile_2?: string | null;
     } | null;
+    accountMobile?: string | null;
 };
 
 const links = [
@@ -20,9 +28,18 @@ const links = [
     { label: 'Change password', href: route('password.edit'), icon: KeyRound, hint: 'Account security' },
 ];
 
-export default function SellerAccount({ profile }: Props) {
+export default function SellerAccount({ profile, accountMobile }: Props) {
     const { flash } = usePage<SharedData>().props;
     const storeName = profile?.business_name ?? profile?.store_name ?? 'Your store';
+    const smsForm = useForm({
+        order_sms_mobile_1: profile?.order_sms_mobile_1 || accountMobile || '',
+        order_sms_mobile_2: profile?.order_sms_mobile_2 || '',
+    });
+
+    const saveSms: FormEventHandler = (e) => {
+        e.preventDefault();
+        smsForm.post(route('seller.account.order-sms'), { preserveScroll: true });
+    };
 
     return (
         <SellerLayout title="Account" active="account">
@@ -41,6 +58,47 @@ export default function SellerAccount({ profile }: Props) {
                         Your profile picture appears in Messenger. Your store photo is set under Customize store.
                     </p>
                 </div>
+
+                <form onSubmit={saveSms} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+                    <div className="flex items-start gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-50 text-orange-600">
+                            <Smartphone className="h-4 w-4" />
+                        </span>
+                        <div>
+                            <h2 className="font-semibold text-gray-900">New order SMS</h2>
+                            <p className="mt-0.5 text-xs text-gray-500">
+                                Up to two Ghana numbers get the “you received new order” SMS. You can change them anytime.
+                            </p>
+                        </div>
+                    </div>
+                    <div>
+                        <Label htmlFor="order_sms_mobile_1">Number 1</Label>
+                        <Input
+                            id="order_sms_mobile_1"
+                            className="mt-1"
+                            inputMode="tel"
+                            placeholder="024XXXXXXX"
+                            value={smsForm.data.order_sms_mobile_1}
+                            onChange={(e) => smsForm.setData('order_sms_mobile_1', e.target.value)}
+                        />
+                        <InputError message={smsForm.errors.order_sms_mobile_1} />
+                    </div>
+                    <div>
+                        <Label htmlFor="order_sms_mobile_2">Number 2 (optional)</Label>
+                        <Input
+                            id="order_sms_mobile_2"
+                            className="mt-1"
+                            inputMode="tel"
+                            placeholder="020XXXXXXX"
+                            value={smsForm.data.order_sms_mobile_2}
+                            onChange={(e) => smsForm.setData('order_sms_mobile_2', e.target.value)}
+                        />
+                        <InputError message={smsForm.errors.order_sms_mobile_2} />
+                    </div>
+                    <Button disabled={smsForm.processing} className="w-full bg-orange-500 hover:bg-orange-600">
+                        {smsForm.processing ? 'Saving…' : 'Save SMS numbers'}
+                    </Button>
+                </form>
 
                 <ul className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
                     {links.map((item) => {

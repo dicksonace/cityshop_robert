@@ -7,6 +7,7 @@ use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\User;
 use App\Services\AppNotificationService;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -27,11 +28,23 @@ class PaymentConfirmedNotification extends Notification
         if (filled($notifiable->email ?? null)) {
             $channels[] = 'mail';
         }
-        if (filled($notifiable->mobile ?? null)) {
+        if ($this->smsRecipients($notifiable) !== []) {
             $channels[] = SmsChannel::class;
         }
 
         return $channels !== [] ? $channels : ['mail'];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function smsRecipients(object $notifiable): array
+    {
+        if ($this->orderItem && $notifiable instanceof User) {
+            return $notifiable->newOrderSmsNumbers();
+        }
+
+        return filled($notifiable->mobile ?? null) ? [(string) $notifiable->mobile] : [];
     }
 
     public function toMail(object $notifiable): MailMessage

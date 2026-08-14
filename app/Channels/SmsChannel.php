@@ -17,8 +17,27 @@ class SmsChannel
 
         $message = $notification->toSms($notifiable);
 
-        if ($message) {
-            $this->sms->send($notifiable->mobile ?? $notifiable->phone ?? null, $message);
+        if (! $message) {
+            return;
+        }
+
+        $phones = method_exists($notification, 'smsRecipients')
+            ? $notification->smsRecipients($notifiable)
+            : [$notifiable->mobile ?? $notifiable->phone ?? null];
+
+        $sent = [];
+        foreach ($phones as $phone) {
+            if (! is_string($phone) || trim($phone) === '') {
+                continue;
+            }
+
+            $msisdn = $this->sms->normalizeGhanaMsisdn($phone);
+            if (! $msisdn || isset($sent[$msisdn])) {
+                continue;
+            }
+
+            $sent[$msisdn] = true;
+            $this->sms->send($phone, $message);
         }
     }
 }

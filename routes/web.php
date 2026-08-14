@@ -203,6 +203,7 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::get('/activation', [\App\Http\Controllers\Seller\ActivationController::class, 'show'])->name('activation.show');
             Route::post('/activation/pay', [\App\Http\Controllers\Seller\ActivationController::class, 'pay'])->name('activation.pay');
             Route::get('/account', [SellerAccountController::class, 'index'])->name('account');
+            Route::post('/account/order-sms', [SellerAccountController::class, 'updateOrderSms'])->name('account.order-sms');
             Route::get('/livestream', [\App\Http\Controllers\Seller\LivestreamController::class, 'show'])->name('livestream');
             Route::post('/livestream/start', [\App\Http\Controllers\Seller\LivestreamController::class, 'start'])->name('livestream.start');
             Route::post('/livestream/heartbeat', [\App\Http\Controllers\Seller\LivestreamController::class, 'heartbeat'])->name('livestream.heartbeat');

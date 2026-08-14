@@ -114,6 +114,23 @@ class User extends Authenticatable
     }
 
     /**
+     * Destinations for new-order SMS. Sellers can set two numbers; otherwise
+     * the account mobile is used.
+     *
+     * @return list<string>
+     */
+    public function newOrderSmsNumbers(): array
+    {
+        $this->loadMissing('sellerProfile');
+
+        if ($this->isSeller() && $this->sellerProfile) {
+            return $this->sellerProfile->orderSmsMobiles($this->mobile);
+        }
+
+        return filled($this->mobile) ? [(string) $this->mobile] : [];
+    }
+
+    /**
      * @param  array<string, mixed>  $extra
      */
     public function updateAccountDetails(string $name, string $email, string $mobile, array $extra = []): void

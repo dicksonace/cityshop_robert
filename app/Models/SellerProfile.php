@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\SellerStatus;
+use App\Services\SmsService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -37,6 +38,8 @@ class SellerProfile extends Model
         'accept_marketplace_payments',
         'accept_direct_payments',
         'cash_on_delivery_enabled',
+        'order_sms_mobile_1',
+        'order_sms_mobile_2',
         'activation_fee_amount',
         'activation_prompted_at',
         'activation_paid_at',
@@ -187,5 +190,38 @@ class SellerProfile extends Model
     public function displayName(): string
     {
         return $this->business_name ?? $this->store_name ?? 'Store';
+    }
+
+    /**
+     * Numbers that should receive new-order SMS. Falls back to the seller's
+     * account mobile when neither extra number is set.
+     *
+     * @return list<string>
+     */
+    public function orderSmsMobiles(?string $fallbackMobile = null): array
+    {
+        $raw = array_values(array_filter(
+            [$this->order_sms_mobile_1, $this->order_sms_mobile_2],
+            fn ($number) => filled($number),
+        ));
+
+        if ($raw === [] && filled($fallbackMobile)) {
+            $raw[] = $fallbackMobile;
+        }
+
+        $unique = [];
+        $seen = [];
+        $sms = app(SmsService::class);
+
+        foreach ($raw as $number) {
+            $msisdn = $sms->normalizeGhanaMsisdn((string) $number);
+            if (! $msisdn || isset($seen[$msisdn])) {
+                continue;
+            }
+            $seen[$msisdn] = true;
+            $unique[] = (string) $number;
+        }
+
+        return $unique;
     }
 }
