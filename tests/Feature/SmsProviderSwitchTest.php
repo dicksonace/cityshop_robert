@@ -64,6 +64,22 @@ class SmsProviderSwitchTest extends TestCase
         $this->assertTrue(PlatformSettings::smsFailoverEnabled());
     }
 
+    public function test_admin_can_save_finance_alert_numbers(): void
+    {
+        $admin = \App\Models\User::factory()->create(['role' => \App\Enums\UserRole::Admin]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.sms.settings.update'), [
+                'driver' => 'formula_dc',
+                'failover' => false,
+                'alert_mobile_1' => '0248620718',
+                'alert_mobile_2' => '0539790093',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(['0248620718', '0539790093'], PlatformSettings::adminAlertNumbers());
+    }
+
     public function test_failover_uses_the_other_platform(): void
     {
         config([

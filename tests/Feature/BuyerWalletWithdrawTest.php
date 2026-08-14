@@ -43,7 +43,7 @@ class BuyerWalletWithdrawTest extends TestCase
                 'network' => 'mtn',
                 'payment_pin' => '2468',
             ])
-            ->assertRedirect()
+            ->assertRedirect(route('wallet.index'))
             ->assertSessionHas('success');
 
         $this->assertDatabaseHas('withdrawals', [
@@ -84,7 +84,7 @@ class BuyerWalletWithdrawTest extends TestCase
                 'network' => 'ecobank',
                 'payment_pin' => '2468',
             ])
-            ->assertRedirect()
+            ->assertRedirect(route('wallet.index'))
             ->assertSessionHas('success');
 
         $this->assertDatabaseHas('withdrawals', [

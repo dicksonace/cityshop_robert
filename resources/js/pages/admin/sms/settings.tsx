@@ -18,6 +18,8 @@ interface Props {
     settings: {
         driver: 'formula_dc' | 'txtconnect';
         failover: boolean;
+        alert_mobile_1?: string;
+        alert_mobile_2?: string;
     };
     providers: Provider[];
 }
@@ -27,6 +29,8 @@ export default function SmsSettings({ settings, providers }: Props) {
     const form = useForm({
         driver: settings.driver,
         failover: settings.failover,
+        alert_mobile_1: settings.alert_mobile_1 ?? '',
+        alert_mobile_2: settings.alert_mobile_2 ?? '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -94,6 +98,37 @@ export default function SmsSettings({ settings, providers }: Props) {
                             </span>
                         </span>
                     </label>
+
+                    <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-4">
+                        <div>
+                            <p className="font-semibold text-gray-900">Admin alert numbers</p>
+                            <p className="mt-0.5 text-xs text-gray-500">
+                                These numbers get SMS when a buyer submits a withdrawal, a pending manual deposit, or a Transfer to China.
+                            </p>
+                        </div>
+                        <div>
+                            <Label>Alert number 1</Label>
+                            <input
+                                type="tel"
+                                value={form.data.alert_mobile_1}
+                                onChange={(e) => form.setData('alert_mobile_1', e.target.value)}
+                                placeholder="0XX XXX XXXX"
+                                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                            />
+                            <InputError message={form.errors.alert_mobile_1} />
+                        </div>
+                        <div>
+                            <Label>Alert number 2</Label>
+                            <input
+                                type="tel"
+                                value={form.data.alert_mobile_2}
+                                onChange={(e) => form.setData('alert_mobile_2', e.target.value)}
+                                placeholder="0XX XXX XXXX"
+                                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                            />
+                            <InputError message={form.errors.alert_mobile_2} />
+                        </div>
+                    </div>
 
                     <Button type="submit" disabled={form.processing}>
                         {form.processing ? 'Saving…' : 'Save SMS platform'}

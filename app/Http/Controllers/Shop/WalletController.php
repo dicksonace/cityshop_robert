@@ -231,6 +231,6 @@ class WalletController extends Controller
             ]);
         }
 
-        return redirect()->route('wallet.withdraw.create')->with('success', $result['message']);
+        return redirect()->route('wallet.index')->with('success', $result['message']);
     }
 }

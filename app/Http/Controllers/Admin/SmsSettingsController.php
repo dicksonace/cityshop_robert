@@ -39,11 +39,15 @@ class SmsSettingsController extends Controller
         $validated = $request->validate([
             'driver' => ['required', 'in:formula_dc,txtconnect'],
             'failover' => ['required', 'boolean'],
+            'alert_mobile_1' => ['nullable', 'string', 'max:20'],
+            'alert_mobile_2' => ['nullable', 'string', 'max:20'],
         ]);
 
         PlatformSettings::saveSmsSettings([
             'driver' => $validated['driver'],
             'failover' => (bool) $validated['failover'],
+            'alert_mobile_1' => $validated['alert_mobile_1'] ?? '',
+            'alert_mobile_2' => $validated['alert_mobile_2'] ?? '',
         ]);
 
         return back()->with('success', 'SMS platform saved.');

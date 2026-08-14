@@ -22,7 +22,7 @@ class ChinaTransferSetting extends Model
     public static function current(): self
     {
         return static::query()->first() ?? static::create([
-            'enabled' => false,
+            'enabled' => true,
             'channel' => 'alipay',
             'instructions' => null,
         ]);

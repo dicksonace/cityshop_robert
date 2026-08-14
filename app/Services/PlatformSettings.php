@@ -701,7 +701,7 @@ class PlatformSettings
     }
 
     /**
-     * @return array{driver: string, failover: bool}
+     * @return array{driver: string, failover: bool, alert_mobile_1: string, alert_mobile_2: string}
      */
     public static function smsSettings(): array
     {
@@ -719,11 +719,13 @@ class PlatformSettings
         return [
             'driver' => $driver,
             'failover' => is_array($decoded) ? (bool) ($decoded['failover'] ?? false) : false,
+            'alert_mobile_1' => is_array($decoded) ? (string) ($decoded['alert_mobile_1'] ?? '') : '',
+            'alert_mobile_2' => is_array($decoded) ? (string) ($decoded['alert_mobile_2'] ?? '') : '',
         ];
     }
 
     /**
-     * @param  array{driver?: string, failover?: bool}  $data
+     * @param  array{driver?: string, failover?: bool, alert_mobile_1?: string, alert_mobile_2?: string}  $data
      */
     public static function saveSmsSettings(array $data): void
     {
@@ -732,10 +734,29 @@ class PlatformSettings
             $driver = 'formula_dc';
         }
 
+        $current = static::smsSettings();
+
         static::set(self::SMS_KEY, [
             'driver' => $driver,
             'failover' => (bool) ($data['failover'] ?? false),
+            'alert_mobile_1' => array_key_exists('alert_mobile_1', $data)
+                ? trim((string) $data['alert_mobile_1'])
+                : $current['alert_mobile_1'],
+            'alert_mobile_2' => array_key_exists('alert_mobile_2', $data)
+                ? trim((string) $data['alert_mobile_2'])
+                : $current['alert_mobile_2'],
         ]);
+    }
+
+    /** Extra Ghana numbers that always get finance SMS (withdrawal, deposit, China transfer). */
+    public static function adminAlertNumbers(): array
+    {
+        $settings = static::smsSettings();
+
+        return array_values(array_filter([
+            $settings['alert_mobile_1'],
+            $settings['alert_mobile_2'],
+        ], fn ($phone) => is_string($phone) && trim($phone) !== ''));
     }
 
     public static function smsDriver(): string
