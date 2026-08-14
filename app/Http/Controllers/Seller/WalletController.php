@@ -290,7 +290,7 @@ class WalletController extends Controller
                 (float) $validated['amount'],
                 $validated['method'],
                 route('seller.wallet.callback'),
-                'STOP',
+                'TOP',
                 ['role' => 'seller'],
             );
 
