@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\MessageType;
 use App\Enums\UserRole;
-use App\Http\Controllers\Api\V1\UserLookupController;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -16,7 +15,7 @@ class QrPaymentService
     /**
      * Build a signed receive payload for the user's My QR screen.
      *
-     * @return array{payload: string, code: string, user: array<string, mixed>, amount: float|null, reason: string|null, expires_at: string|null}
+     * @return array{payload: string, user: array<string, mixed>, amount: float|null, reason: string|null, expires_at: string|null}
      */
     public static function receiveCode(User $user, ?float $amount = null, ?string $reason = null): array
     {
@@ -57,17 +56,11 @@ class QrPaymentService
 
         return [
             'payload' => $payload,
-            'code' => self::shortCode($user),
             'user' => self::publicUser($user),
             'amount' => $amount,
             'reason' => $reason,
             'expires_at' => null,
         ];
-    }
-
-    public static function shortCode(User $user): string
-    {
-        return 'CS-'.$user->id;
     }
 
     /**
@@ -84,16 +77,6 @@ class QrPaymentService
 
         if (preg_match('#(?:cityshop://pay|https?://[^/]+/pay)\?c=([A-Za-z0-9\-_\.]+)#i', $raw, $m)) {
             $raw = $m[1];
-        }
-
-        $compact = strtoupper((string) preg_replace('/\s+/', '', $raw));
-        if (! str_contains($compact, '.') && preg_match('/^CS-?(\d+)$/', $compact, $short)) {
-            return self::resolvedUser((int) $short[1], $payer);
-        }
-
-        $digits = preg_replace('/\D+/', '', $raw) ?? '';
-        if (! str_contains($raw, '.') && strlen($digits) >= 9 && strlen($digits) <= 15) {
-            return self::resolveMobile($raw, $payer);
         }
 
         $parts = explode('.', $raw);
@@ -239,70 +222,6 @@ class QrPaymentService
             'mobile' => $user->mobile,
             'role' => $user->role?->value,
             'avatar' => $avatarUrl,
-        ];
-    }
-
-    /**
-     * @return array{user: array<string, mixed>, amount: null, reason: null, expires_at: null}
-     */
-    private static function resolvedUser(int $userId, ?User $payer): array
-    {
-        $user = User::query()
-            ->whereKey($userId)
-            ->where('role', '!=', UserRole::Admin)
-            ->first();
-
-        if (! $user) {
-            throw ValidationException::withMessages([
-                'payload' => ['No CityShop account found for that code.'],
-            ]);
-        }
-
-        return self::resolvedPublicUser($user, $payer);
-    }
-
-    /**
-     * @return array{user: array<string, mixed>, amount: null, reason: null, expires_at: null}
-     */
-    private static function resolveMobile(string $raw, ?User $payer): array
-    {
-        $candidates = UserLookupController::mobileCandidates($raw);
-        if ($candidates === []) {
-            throw ValidationException::withMessages([
-                'payload' => ['Enter a valid CityShop code or mobile number.'],
-            ]);
-        }
-
-        $user = User::query()
-            ->whereIn('mobile', $candidates)
-            ->where('role', '!=', UserRole::Admin)
-            ->first();
-
-        if (! $user) {
-            throw ValidationException::withMessages([
-                'payload' => ['No CityShop account found for that code.'],
-            ]);
-        }
-
-        return self::resolvedPublicUser($user, $payer);
-    }
-
-    /**
-     * @return array{user: array<string, mixed>, amount: null, reason: null, expires_at: null}
-     */
-    private static function resolvedPublicUser(User $user, ?User $payer): array
-    {
-        if ($payer && $payer->id === $user->id) {
-            throw ValidationException::withMessages([
-                'payload' => ['That is your own CityShop code.'],
-            ]);
-        }
-
-        return [
-            'user' => self::publicUser($user),
-            'amount' => null,
-            'reason' => null,
-            'expires_at' => null,
         ];
     }
 
