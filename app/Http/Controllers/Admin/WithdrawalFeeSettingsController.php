@@ -24,6 +24,7 @@ class WithdrawalFeeSettingsController extends Controller
         $validated = $request->validate([
             'enabled' => ['required', 'boolean'],
             'amount' => ['required', 'numeric', 'min:0', 'max:500'],
+            'momo_amount' => ['required', 'numeric', 'min:0', 'max:500'],
             'applies_to' => ['required', 'in:bank,momo,all,none'],
             'bank_tiers' => ['nullable', 'array', 'max:10'],
             'bank_tiers.*.min' => ['required_with:bank_tiers', 'numeric', 'min:0', 'max:1000000'],
@@ -36,6 +37,7 @@ class WithdrawalFeeSettingsController extends Controller
         PlatformSettings::saveWithdrawalFeeSettings([
             'enabled' => (bool) $validated['enabled'],
             'amount' => (float) $validated['amount'],
+            'momo_amount' => (float) $validated['momo_amount'],
             'applies_to' => $validated['applies_to'],
             'bank_tiers' => $validated['bank_tiers'] ?? PlatformSettings::defaultBankFeeTiers(),
         ]);

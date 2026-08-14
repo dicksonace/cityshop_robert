@@ -3,6 +3,7 @@ import { formatPrice } from '@/types/marketplace';
 export type WithdrawalFeeSettings = {
     enabled: boolean;
     amount: number;
+    momo_amount?: number;
     percent?: number;
     mode?: 'flat' | 'percent';
     applies_to: 'bank' | 'momo' | 'all' | 'none';
@@ -59,7 +60,9 @@ export default function WithdrawalFeeNotice({
         );
     }
 
-    const applies = settings.applies_to === 'all' || settings.applies_to === payoutType;
+    const applies = payoutType === 'momo'
+        ? (settings.momo_amount ?? 0) > 0 || fee > 0
+        : settings.applies_to === 'all' || settings.applies_to === payoutType;
     if (!applies) {
         return null;
     }
@@ -81,11 +84,11 @@ export default function WithdrawalFeeNotice({
         );
     }
 
-    if (fee <= 0 && (settings.amount ?? 0) <= 0) {
+    if (fee <= 0 && (settings.momo_amount ?? 0) <= 0 && (settings.amount ?? 0) <= 0) {
         return null;
     }
 
-    const shown = amount > 0 ? fee : settings.amount;
+    const shown = amount > 0 ? fee : (settings.momo_amount ?? settings.amount);
 
     return (
         <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-950">

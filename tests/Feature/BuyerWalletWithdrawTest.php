@@ -126,11 +126,7 @@ class BuyerWalletWithdrawTest extends TestCase
                 ->component('shop/wallet')
                 ->where('hasPendingWithdrawal', true)
                 ->has('withdrawals.data', 1)
-                ->has('withdrawalFee')
-                ->where('withdrawalFee.applies_to', 'bank')
-                ->where('withdrawalFee.amount', 10)
-                ->where('wallet.available_balance', 80)
-                ->where('hasPaymentPin', false));
+                ->where('wallet.available_balance', 80));
     }
 
     public function test_buyer_withdraw_page_does_not_offer_china_transfer(): void
@@ -147,7 +143,12 @@ class BuyerWalletWithdrawTest extends TestCase
         $this->actingAs($buyer)
             ->get(route('wallet.withdraw.create'))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('shop/wallet-withdraw'));
+            ->assertInertia(fn ($page) => $page
+                ->component('shop/wallet-withdraw')
+                ->has('withdrawalFee')
+                ->where('withdrawalFee.applies_to', 'bank')
+                ->where('withdrawalFee.amount', 10)
+                ->where('withdrawalFee.momo_amount', 0));
     }
 
     public function test_buyer_cannot_submit_china_payout(): void

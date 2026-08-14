@@ -20,6 +20,16 @@ function feeFromBankTiers(amount: number, tiers: BankFeeTiers, fallback = 0): nu
     return Number(tiers[tiers.length - 1].fee) || 0;
 }
 
+function momoFeeAmount(settings: WithdrawalFeeSettings): number {
+    if (settings.momo_amount != null && settings.momo_amount !== undefined) {
+        return Number(settings.momo_amount) || 0;
+    }
+    if (settings.applies_to === 'momo' || settings.applies_to === 'all') {
+        return Number(settings.amount) || 0;
+    }
+    return 0;
+}
+
 /** Match server PlatformSettings::feeForWithdrawal / feeForPayoutType. */
 export function feeForPayoutType(
     settings: WithdrawalFeeSettings | undefined,
@@ -33,8 +43,12 @@ export function feeForPayoutType(
         return percent > 0 ? Math.round(amt * (percent / 100) * 100) / 100 : 0;
     }
     if (settings.applies_to === 'none') return 0;
-    if (!(settings.applies_to === 'all' || settings.applies_to === payoutType)) return 0;
-    if (payoutType === 'bank' && (settings.bank_tiers?.length ?? 0) > 0) {
+    if (payoutType === 'momo') {
+        const momo = momoFeeAmount(settings);
+        return momo > 0 ? momo : 0;
+    }
+    if (!(settings.applies_to === 'all' || settings.applies_to === 'bank')) return 0;
+    if ((settings.bank_tiers?.length ?? 0) > 0) {
         return feeFromBankTiers(amt, settings.bank_tiers!, Number(settings.amount) || 0);
     }
     return Number(settings.amount) > 0 ? Number(settings.amount) : 0;

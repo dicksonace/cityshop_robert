@@ -7,7 +7,9 @@ use App\Enums\UserRole;
 use App\Enums\WalletTopUpStatus;
 use App\Models\User;
 use App\Models\WalletTopUpRequest;
+use App\Models\Withdrawal;
 use App\Notifications\AdminWalletDepositNotification;
+use App\Notifications\AdminWithdrawalRequestedNotification;
 use App\Notifications\WalletFundedNotification;
 use App\Services\AdminNotifier;
 use App\Services\WalletService;
@@ -104,5 +106,31 @@ class AdminWalletAlertTest extends TestCase
         $this->assertStringContainsString('Available Balance: GHS 2303.50', $sms);
         $this->assertStringContainsString('Ref: TOP-6A7DE77468CE0.', $sms);
         $this->assertStringContainsString('Date: 13 Aug 2026, 3:49 PM.', $sms);
+    }
+
+    public function test_withdrawal_request_emails_and_sms_all_system_admins(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create(['role' => UserRole::Admin, 'name' => 'Admin One']);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Kofi Amoah']);
+        $withdrawal = new Withdrawal([
+            'amount' => 75,
+            'momo_number' => '0244111222',
+            'payout_channel' => 'momo',
+        ]);
+        $withdrawal->setRelation('user', $buyer);
+        $withdrawal->created_at = Carbon::parse('2026-08-14 11:13:00', 'Africa/Accra');
+
+        AdminNotifier::notify(new AdminWithdrawalRequestedNotification($withdrawal));
+
+        Notification::assertSentTo($admin, AdminWithdrawalRequestedNotification::class, function ($notification, $channels) {
+            return in_array('mail', $channels, true)
+                && in_array(SmsChannel::class, $channels, true);
+        });
+
+        $sms = (new AdminWithdrawalRequestedNotification($withdrawal))->toSms($admin);
+        $this->assertStringContainsString('Kofi Amoah requested a GH₵75.00 MoMo withdrawal', $sms);
+        $this->assertStringContainsString('Review in admin', $sms);
     }
 }

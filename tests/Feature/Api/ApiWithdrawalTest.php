@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Channels\SmsChannel;
 use App\Notifications\AdminWithdrawalRequestedNotification;
 use App\Notifications\WithdrawalRequestedNotification;
 use App\Services\PaymentPinService;
@@ -43,6 +44,7 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('summary.default_account_name', null)
             ->assertJsonPath('summary.banks.0.id', 'absa')
             ->assertJsonPath('summary.withdrawal_fee.amount', 10)
+            ->assertJsonPath('summary.withdrawal_fee.momo_amount', 0)
             ->assertJsonPath('summary.withdrawal_fee.applies_to', 'bank')
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.min', 10)
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.0.max', 999.99)
@@ -89,7 +91,8 @@ class ApiWithdrawalTest extends TestCase
         Notification::assertSentTo($adminA, AdminWithdrawalRequestedNotification::class);
         Notification::assertSentTo($adminB, AdminWithdrawalRequestedNotification::class);
         Notification::assertSentTo($adminA, AdminWithdrawalRequestedNotification::class, function ($notification, $channels) {
-            return $channels === ['mail'];
+            return in_array('mail', $channels, true)
+                && in_array(SmsChannel::class, $channels, true);
         });
     }
 

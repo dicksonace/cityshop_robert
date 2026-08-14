@@ -29,6 +29,75 @@ class BankWithdrawalFeeTest extends TestCase
         $this->assertSame(0.0, PlatformSettings::feeForPayoutType('momo', 1500));
     }
 
+    public function test_momo_fee_defaults_to_zero_until_admin_sets_it(): void
+    {
+        $this->assertSame(0.0, PlatformSettings::withdrawalFeeSettings()['momo_amount']);
+        $this->assertSame(0.0, PlatformSettings::feeForPayoutType('momo', 200));
+
+        PlatformSettings::saveWithdrawalFeeSettings([
+            'enabled' => true,
+            'amount' => 10,
+            'momo_amount' => 2.5,
+            'applies_to' => 'bank',
+            'bank_tiers' => PlatformSettings::defaultBankFeeTiers(),
+        ]);
+
+        $this->assertSame(2.5, PlatformSettings::feeForPayoutType('momo', 200));
+        $this->assertSame(10.0, PlatformSettings::feeForPayoutType('bank', 500));
+        $this->assertSame(20.0, PlatformSettings::feeForPayoutType('bank', 1500));
+    }
+
+    public function test_legacy_all_channel_flat_amount_still_applies_to_momo(): void
+    {
+        PlatformSetting::updateOrCreate(
+            ['key' => PlatformSettings::WITHDRAWAL_FEE_KEY],
+            ['value' => json_encode([
+                'enabled' => true,
+                'amount' => 8,
+                'applies_to' => 'all',
+                'bank_tiers' => PlatformSettings::defaultBankFeeTiers(),
+            ])],
+        );
+        Cache::forget('platform_setting.'.PlatformSettings::WITHDRAWAL_FEE_KEY);
+
+        $this->assertSame(8.0, PlatformSettings::feeForPayoutType('momo', 200));
+        $this->assertSame(10.0, PlatformSettings::feeForPayoutType('bank', 500));
+    }
+
+    public function test_admin_can_save_momo_withdrawal_fee(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.withdrawal-fees.settings.update'), [
+                'enabled' => true,
+                'amount' => 10,
+                'momo_amount' => 0,
+                'applies_to' => 'bank',
+                'bank_tiers' => PlatformSettings::defaultBankFeeTiers(),
+                'auto_paystack_enabled' => false,
+                'auto_paystack_fee_percent' => 2,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(0.0, PlatformSettings::withdrawalFeeSettings()['momo_amount']);
+
+        $this->actingAs($admin)
+            ->post(route('admin.withdrawal-fees.settings.update'), [
+                'enabled' => true,
+                'amount' => 10,
+                'momo_amount' => 3,
+                'applies_to' => 'bank',
+                'bank_tiers' => PlatformSettings::defaultBankFeeTiers(),
+                'auto_paystack_enabled' => false,
+                'auto_paystack_fee_percent' => 2,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(3.0, PlatformSettings::withdrawalFeeSettings()['momo_amount']);
+        $this->assertSame(3.0, PlatformSettings::feeForPayoutType('momo', 80));
+    }
+
     public function test_old_single_ten_cedi_band_upgrades_from_one_thousand(): void
     {
         $this->putRawBankFeeTiers([

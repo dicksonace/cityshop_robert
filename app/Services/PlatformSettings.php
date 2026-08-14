@@ -47,6 +47,7 @@ class PlatformSettings
      * @return array{
      *   enabled: bool,
      *   amount: float,
+     *   momo_amount: float,
      *   applies_to: string,
      *   bank_tiers: list<array{min: float, max: float|null, fee: float}>
      * }
@@ -62,6 +63,7 @@ class PlatformSettings
             return [
                 'enabled' => true,
                 'amount' => 10.0,
+                'momo_amount' => 0.0,
                 'applies_to' => 'bank',
                 'bank_tiers' => static::defaultBankFeeTiers(),
             ];
@@ -72,12 +74,34 @@ class PlatformSettings
             $appliesTo = 'bank';
         }
 
+        $amount = max(0, round((float) ($decoded['amount'] ?? 10), 2));
+
         return [
             'enabled' => (bool) ($decoded['enabled'] ?? true),
-            'amount' => max(0, round((float) ($decoded['amount'] ?? 10), 2)),
+            'amount' => $amount,
+            'momo_amount' => static::resolveMomoFeeAmount($decoded, $appliesTo, $amount),
             'applies_to' => $appliesTo,
             'bank_tiers' => static::normalizeBankFeeTiers($decoded['bank_tiers'] ?? null),
         ];
+    }
+
+    /**
+     * MoMo fee is 0 unless admin sets it. Legacy rows that applied the flat
+     * `amount` to MoMo (applies_to momo/all) keep that amount until saved again.
+     *
+     * @param  array<string, mixed>  $decoded
+     */
+    private static function resolveMomoFeeAmount(array $decoded, string $appliesTo, float $amount): float
+    {
+        if (array_key_exists('momo_amount', $decoded) && $decoded['momo_amount'] !== null && $decoded['momo_amount'] !== '') {
+            return max(0, round((float) $decoded['momo_amount'], 2));
+        }
+
+        if (in_array($appliesTo, ['momo', 'all'], true)) {
+            return $amount;
+        }
+
+        return 0.0;
     }
 
     /**
@@ -204,6 +228,7 @@ class PlatformSettings
      * @param  array{
      *   enabled?: bool,
      *   amount?: float|int|string,
+     *   momo_amount?: float|int|string,
      *   applies_to?: string,
      *   bank_tiers?: list<array{min?: float|int|string, max?: float|int|string|null, fee?: float|int|string}>
      * }  $data
@@ -218,6 +243,7 @@ class PlatformSettings
         static::set(self::WITHDRAWAL_FEE_KEY, [
             'enabled' => (bool) ($data['enabled'] ?? false),
             'amount' => max(0, round((float) ($data['amount'] ?? 0), 2)),
+            'momo_amount' => max(0, round((float) ($data['momo_amount'] ?? 0), 2)),
             'applies_to' => $appliesTo,
             'bank_tiers' => static::normalizeBankFeeTiers($data['bank_tiers'] ?? null),
         ]);
@@ -273,12 +299,16 @@ class PlatformSettings
         }
 
         $type = $payoutType === 'bank' ? 'bank' : 'momo';
+        if ($type === 'momo') {
+            return (float) $settings['momo_amount'] > 0 ? (float) $settings['momo_amount'] : 0.0;
+        }
+
         $applies = $settings['applies_to'];
-        if (! ($applies === 'all' || $applies === $type)) {
+        if (! ($applies === 'all' || $applies === 'bank')) {
             return 0.0;
         }
 
-        if ($type === 'bank' && $settings['bank_tiers'] !== []) {
+        if ($settings['bank_tiers'] !== []) {
             return static::feeFromBankTiers($amount, $settings['bank_tiers'], (float) $settings['amount']);
         }
 
@@ -303,6 +333,7 @@ class PlatformSettings
      *   mode: string,
      *   enabled: bool,
      *   amount: float,
+     *   momo_amount: float,
      *   percent: float,
      *   applies_to: string,
      *   auto_paystack: bool,
@@ -317,6 +348,7 @@ class PlatformSettings
                 'mode' => 'percent',
                 'enabled' => $auto['fee_percent'] > 0,
                 'amount' => 0.0,
+                'momo_amount' => 0.0,
                 'percent' => $auto['fee_percent'],
                 'applies_to' => 'all',
                 'auto_paystack' => true,
@@ -330,6 +362,7 @@ class PlatformSettings
             'mode' => 'flat',
             'enabled' => $flat['enabled'],
             'amount' => $flat['amount'],
+            'momo_amount' => $flat['momo_amount'],
             'percent' => 0.0,
             'applies_to' => $flat['applies_to'],
             'auto_paystack' => false,

@@ -15,6 +15,7 @@ interface Props {
     settings: {
         enabled: boolean;
         amount: number;
+        momo_amount?: number;
         applies_to: 'bank' | 'momo' | 'all' | 'none';
         bank_tiers?: { min: number; max: number | null; fee: number }[];
     };
@@ -43,7 +44,8 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
     const form = useForm({
         enabled: settings.enabled,
         amount: String(settings.amount ?? 10),
-        applies_to: settings.applies_to ?? 'bank',
+        momo_amount: String(settings.momo_amount ?? 0),
+        applies_to: settings.applies_to === 'all' ? 'bank' : (settings.applies_to ?? 'bank'),
         bank_tiers: tiersFromSettings(settings),
         auto_paystack_enabled: autoPaystack?.enabled ?? false,
         auto_paystack_fee_percent: String(autoPaystack?.fee_percent ?? 2),
@@ -75,7 +77,8 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                 <div>
                     <h1 className="text-xl font-bold text-gray-900">Withdrawal settings</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Control Paystack auto-payouts and bank fee bands when auto payout is off.
+                        Control Paystack auto-payouts, bank fee bands, and MoMo withdrawal fees. MoMo is free unless you
+                        add a fee here.
                     </p>
                 </div>
 
@@ -146,18 +149,39 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                     </label>
                     <InputError message={form.errors.enabled} />
 
+                    <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50/50 p-4">
+                        <div>
+                            <p className="text-sm font-semibold text-gray-900">MoMo withdrawal fee (GH₵)</p>
+                            <p className="mt-0.5 text-xs text-gray-600">
+                                Default is GH₵0 (free). Enter an amount only if you want to charge MoMo withdrawals.
+                            </p>
+                        </div>
+                        <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={form.data.momo_amount}
+                            onChange={(e) => form.setData('momo_amount', e.target.value)}
+                            className="mt-1 bg-white"
+                            required
+                        />
+                        <InputError message={form.errors.momo_amount} />
+                    </div>
+
                     <div>
-                        <Label>Apply fees to</Label>
+                        <Label>Apply bank fees to</Label>
                         <select
                             value={form.data.applies_to}
                             onChange={(e) => form.setData('applies_to', e.target.value as Props['settings']['applies_to'])}
                             className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
                         >
-                            <option value="bank">Bank withdrawals only</option>
-                            <option value="momo">Mobile Money only</option>
-                            <option value="all">All withdrawals</option>
-                            <option value="none">None (disable by channel)</option>
+                            <option value="bank">Charge bank fee bands</option>
+                            <option value="momo">Do not charge bank fees</option>
+                            <option value="none">Disable all flat fees (bank and MoMo)</option>
                         </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                            MoMo always uses the MoMo fee field. This dropdown only turns bank bands on or off.
+                        </p>
                         <InputError message={form.errors.applies_to} />
                     </div>
 
@@ -243,7 +267,7 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                     </div>
 
                     <div>
-                        <Label>Fallback / MoMo fee (GH₵)</Label>
+                        <Label>Bank fallback fee (GH₵)</Label>
                         <Input
                             type="number"
                             min="0"
@@ -254,7 +278,7 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                             required
                         />
                         <p className="mt-1 text-xs text-gray-500">
-                            Used for MoMo (when MoMo fees apply) or if a bank amount has no matching band.
+                            Used only if a bank amount has no matching band. MoMo uses the MoMo fee above.
                         </p>
                         <InputError message={form.errors.amount} />
                     </div>
