@@ -834,9 +834,9 @@ export default function ChatThreadPanel() {
                 </div>
             )}
 
-            <div className="flex items-center gap-2 border-b border-gray-100 bg-white px-3 py-2.5">
-                <button type="button" onClick={showList} className="rounded-lg p-1.5 hover:bg-gray-100">
-                    <ArrowLeft className="h-4 w-4 text-gray-600" />
+            <div className="flex items-center gap-2 border-b border-[#005C4B] bg-[#008069] px-3 py-2.5 text-white">
+                <button type="button" onClick={showList} className="rounded-lg p-1.5 hover:bg-white/10">
+                    <ArrowLeft className="h-4 w-4 text-white" />
                 </button>
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-orange-500 text-sm font-bold text-white">
                     {other?.avatar ? (
@@ -850,13 +850,13 @@ export default function ChatThreadPanel() {
                         <button
                             type="button"
                             onClick={openStore}
-                            className="block w-full truncate text-left text-sm font-semibold text-gray-900 hover:text-orange-600"
+                            className="block w-full truncate text-left text-sm font-semibold text-white hover:text-emerald-100"
                             title="View store"
                         >
                             {otherName}
                         </button>
                     ) : (
-                        <p className="truncate text-sm font-semibold text-gray-900">{otherName}</p>
+                        <p className="truncate text-sm font-semibold text-white">{otherName}</p>
                     )}
                     <div className="flex items-center gap-1.5">
                         {other && (
@@ -869,7 +869,7 @@ export default function ChatThreadPanel() {
                             />
                         )}
                         {location && (
-                            <span className="flex items-center gap-0.5 truncate text-[10px] text-gray-400">
+                            <span className="flex items-center gap-0.5 truncate text-[10px] text-emerald-100">
                                 <MapPin className="h-2.5 w-2.5" />
                                 {location}
                             </span>
@@ -882,7 +882,7 @@ export default function ChatThreadPanel() {
                             <button
                                 type="button"
                                 onClick={openStore}
-                                className="rounded-lg p-1.5 text-orange-600 hover:bg-orange-50"
+                                className="rounded-lg p-1.5 text-white hover:bg-white/10"
                                 title="View store"
                             >
                                 <Store className="h-4 w-4" />
@@ -893,7 +893,7 @@ export default function ChatThreadPanel() {
                                 <button
                                     type="button"
                                     onClick={() => handleStartCall('voice')}
-                                    className="rounded-lg p-1.5 text-green-600 hover:bg-green-50"
+                                    className="rounded-lg p-1.5 text-white hover:bg-white/10"
                                     title="Audio call"
                                 >
                                     <Phone className="h-4 w-4" />
@@ -901,7 +901,7 @@ export default function ChatThreadPanel() {
                                 <button
                                     type="button"
                                     onClick={() => handleStartCall('video')}
-                                    className="rounded-lg p-1.5 text-sky-600 hover:bg-sky-50"
+                                    className="rounded-lg p-1.5 text-white hover:bg-white/10"
                                     title="Video call"
                                 >
                                     <Video className="h-4 w-4" />
@@ -911,7 +911,7 @@ export default function ChatThreadPanel() {
                         <button
                             type="button"
                             onClick={() => setShowSettings(true)}
-                            className="rounded-lg p-1.5 text-gray-600 hover:bg-gray-100"
+                            className="rounded-lg p-1.5 text-white hover:bg-white/10"
                             title="Chat settings"
                         >
                             <MoreVertical className="h-4 w-4" />
@@ -1028,7 +1028,14 @@ export default function ChatThreadPanel() {
 
             <div
                 ref={messagesScrollRef}
-                className="flex-1 overflow-y-auto bg-gray-50 px-3 py-3"
+                className="flex-1 overflow-y-auto px-3 py-3"
+                style={{
+                    backgroundColor: '#ECE5DD',
+                    backgroundImage:
+                        'radial-gradient(#d5ccc4 0.7px, transparent 0.7px), radial-gradient(#d5ccc4 0.7px, transparent 0.7px)',
+                    backgroundSize: '28px 28px',
+                    backgroundPosition: '0 0, 14px 14px',
+                }}
                 onScroll={onMessagesScroll}
                 onClick={() => setMenuMessageId(null)}
             >
@@ -1099,8 +1106,8 @@ export default function ChatThreadPanel() {
                                                   : isProduct
                                                     ? 'border border-orange-100 bg-white text-gray-900 shadow-sm'
                                                     : mine
-                                                      ? 'bg-orange-500 text-white'
-                                                      : 'bg-white text-gray-900 shadow-sm',
+                                                      ? 'bg-[#DCF8C6] text-[#111B21] shadow-sm'
+                                                      : 'bg-white text-[#111B21] shadow-sm',
                                             msg.is_deleted && 'px-3 py-2 italic opacity-70',
                                         )}
                                     >
@@ -1109,8 +1116,8 @@ export default function ChatThreadPanel() {
                                                 className={cn(
                                                     'mb-1.5 rounded-lg border-l-2 px-2 py-1 text-[11px]',
                                                     mine
-                                                        ? 'border-orange-200 bg-orange-600/40 text-orange-50'
-                                                        : 'border-orange-300 bg-orange-50 text-gray-600',
+                                                        ? 'border-[#06CF9C] bg-[#c9e9b6] text-[#111B21]'
+                                                        : 'border-sky-400 bg-sky-50 text-gray-600',
                                                     (isImage || isVideo) && 'mx-1 mt-1',
                                                 )}
                                             >
@@ -1262,7 +1269,7 @@ export default function ChatThreadPanel() {
                                                     : 'mt-0.5',
                                                 isProduct || isTransfer || isFile || !mine
                                                     ? 'text-gray-400'
-                                                    : 'text-orange-100',
+                                                    : 'text-[#667781]',
                                             )}
                                         >
                                             <span>{formatTime(msg.created_at)}</span>
@@ -1275,11 +1282,11 @@ export default function ChatThreadPanel() {
                                                         'inline-flex items-center',
                                                         msg.read_at
                                                             ? isProduct || isTransfer || isFile || !mine
-                                                                ? 'text-sky-500'
-                                                                : 'text-sky-100'
+                                                            ? 'text-sky-500'
+                                                            : 'text-[#53BDEB]'
                                                             : isProduct || isTransfer || isFile || !mine
                                                               ? 'text-gray-400'
-                                                              : 'text-orange-200',
+                                                              : 'text-[#8696A0]',
                                                     )}
                                                     title={msg.read_at ? 'Read' : 'Sent'}
                                                 >
@@ -1409,7 +1416,7 @@ export default function ChatThreadPanel() {
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="border-t border-gray-100 bg-white">
+            <div className="border-t border-[#d5ccc4] bg-[#F0EFEA]">
                 {attachProduct && (
                     <div className="flex items-center gap-2.5 border-b border-orange-100 bg-orange-50/90 px-3 py-3">
                         {attachProduct.image_url ? (
@@ -1496,7 +1503,7 @@ export default function ChatThreadPanel() {
                     </div>
                 )}
 
-                <form onSubmit={sendMessage} className="flex min-w-0 items-center gap-1 p-2.5 sm:gap-1.5 sm:p-3">
+                <form onSubmit={sendMessage} className="flex min-w-0 items-center gap-1 bg-[#F0EFEA] p-2.5 sm:gap-1.5 sm:p-3">
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -1593,7 +1600,7 @@ export default function ChatThreadPanel() {
                             <button
                                 type="submit"
                                 disabled={!body.trim() || sending || uploadingImage || uploadingFile || uploadingVoice}
-                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:bg-orange-400 disabled:opacity-100 sm:h-9 sm:w-9"
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5d] disabled:bg-[#8ee2b0] disabled:opacity-100 sm:h-9 sm:w-9"
                                 title="Send"
                                 aria-label="Send"
                             >

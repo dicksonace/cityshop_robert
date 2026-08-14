@@ -29,7 +29,7 @@ export default function ChatLinkedText({ text, mine = false, onOpenCityShop, onC
                             <button
                                 key={index}
                                 type="button"
-                                className={cn('font-semibold underline', mine ? 'text-white' : 'text-orange-600')}
+                                className={cn('font-semibold underline', 'text-[#027EB5]')}
                                 onClick={() => onCopy?.(segment.text.replace(/[\s-]/g, ''), 'Number')}
                             >
                                 {segment.text}
@@ -43,7 +43,7 @@ export default function ChatLinkedText({ text, mine = false, onOpenCityShop, onC
                             <button
                                 key={index}
                                 type="button"
-                                className={cn('font-semibold underline', mine ? 'text-white' : 'text-orange-600')}
+                                className={cn('font-semibold underline', 'text-[#027EB5]')}
                                 onClick={() => onOpenCityShop?.(city.path)}
                             >
                                 {segment.text}
@@ -58,7 +58,7 @@ export default function ChatLinkedText({ text, mine = false, onOpenCityShop, onC
                             href={href}
                             target="_blank"
                             rel="noreferrer"
-                            className={cn('font-semibold underline', mine ? 'text-white' : 'text-orange-600')}
+                            className={cn('font-semibold underline', 'text-[#027EB5]')}
                         >
                             {segment.text}
                         </a>

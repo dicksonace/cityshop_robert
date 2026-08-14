@@ -82,7 +82,7 @@ export default function ChatVoiceBubble({ src, durationSeconds, mine = false }: 
                 onClick={() => void toggle()}
                 className={cn(
                     'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
-                    mine ? 'bg-white text-orange-500' : 'bg-orange-500 text-white',
+                    'bg-[#25D366] text-white',
                 )}
                 aria-label={playing ? 'Pause voice note' : 'Play voice note'}
             >
@@ -102,15 +102,14 @@ export default function ChatVoiceBubble({ src, durationSeconds, mine = false }: 
                         setPosition(next);
                     }}
                     className={cn(
-                        'h-1.5 w-full cursor-pointer appearance-none rounded-full',
-                        mine ? 'bg-orange-300' : 'bg-gray-200',
+                        'h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[#c5c9c6]',
                     )}
                 />
-                <div className={cn('mt-1 flex items-center justify-between text-[11px] font-semibold', mine ? 'text-orange-50' : 'text-gray-500')}>
+                <div className="mt-1 flex items-center justify-between text-[11px] font-semibold text-[#667781]">
                     <span>
                         {clock(position)} / {clock(duration)}
                     </span>
-                    <button type="button" onClick={cycleSpeed} className={cn('font-extrabold', mine ? 'text-white' : 'text-gray-800')}>
+                    <button type="button" onClick={cycleSpeed} className="font-extrabold text-[#111B21]">
                         {speed === 1 ? '1' : speed === 1.5 ? '1.5' : '2'}x
                     </button>
                 </div>
