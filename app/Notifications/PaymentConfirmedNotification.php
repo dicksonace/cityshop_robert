@@ -103,7 +103,8 @@ class PaymentConfirmedNotification extends Notification
                 return "CityShop: New order received (Paid to seller) {$this->order->order_number} — {$this->orderItem->product_name}.";
             }
 
-            return "CityShop: Payment complete for {$this->order->order_number} — {$this->orderItem->product_name}.";
+            return 'CityShop: '.$notifiable->name.' you Received new order '.$this->order->order_number
+                .' — '.$this->orderItem->product_name.'. payment Completed';
         }
 
         return "CityShop: Payment confirmed for order {$this->order->order_number}.";

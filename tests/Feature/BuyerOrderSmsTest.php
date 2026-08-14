@@ -97,6 +97,7 @@ class BuyerOrderSmsTest extends TestCase
 
     public function test_seller_paid_order_email_says_payment_complete(): void
     {
+        $seller = User::factory()->create(['name' => 'Asare kwame']);
         $item = new OrderItem(['product_name' => 'HP 1040G8 i5']);
         $paid = new Order([
             'order_number' => 'CS202608138208B7',
@@ -113,6 +114,12 @@ class BuyerOrderSmsTest extends TestCase
         $this->assertSame('You have a new order. Payment complete: HP 1040G8 i5', $paidMail);
         $this->assertStringNotContainsString('awaiting payment', $paidMail);
         $this->assertSame('You have a new order awaiting payment: HP 1040G8 i5', $pendingMail);
+
+        $paidSms = (new PaymentConfirmedNotification($paid, $item))->toSms($seller);
+        $this->assertSame(
+            'CityShop: '.$seller->name.' you Received new order CS202608138208B7 — HP 1040G8 i5. payment Completed',
+            $paidSms,
+        );
     }
 
     public function test_order_status_sms_only_for_confirm_receipt_and_cancel(): void
