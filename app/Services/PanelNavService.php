@@ -48,6 +48,7 @@ class PanelNavService
                 ->whereHas('user', fn ($q) => $q->where('role', UserRole::Seller))
                 ->count(),
             'pending_manual_top_ups' => WalletTopUpRequest::where('status', WalletTopUpStatus::Pending)->count(),
+            'pending_china_transfers' => app(ChinaTransferService::class)->pendingAdminCount(),
             'pending_fund_releases' => app(OrderService::class)->pendingFundReleaseItemsQuery()->count(),
             'stale_unprocessed_orders' => app(OrderService::class)->staleUnprocessedItemsQuery(24)->count(),
             'awaiting_direct_payments' => app(OrderService::class)->awaitingDirectPaymentOrdersQuery('all')->count(),

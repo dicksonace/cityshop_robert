@@ -32,6 +32,8 @@ export type AdminNavKey =
     | 'manual-funding-settings'
     | 'manual-top-ups'
     | 'pending-funds'
+    | 'china-transfers'
+    | 'china-transfer-settings'
     | 'disputes'
     | 'messages'
     | 'chats'
@@ -61,6 +63,8 @@ const sectionMap: Record<AdminNavKey, string> = {
     'manual-funding-settings': 'finance',
     'manual-top-ups': 'finance',
     'pending-funds': 'finance',
+    'china-transfers': 'finance',
+    'china-transfer-settings': 'finance',
     disputes: 'support',
     messages: 'support',
     chats: 'support',
@@ -166,6 +170,8 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'paystack-fees', label: 'Paystack Fees', href: route('admin.paystack-fees.settings') },
                 { key: 'manual-top-ups', label: 'Manual Top-ups', href: route('admin.manual-top-ups.index'), badgeKey: 'pending_manual_top_ups', defaultOnPath: true },
                 { key: 'pending-funds', label: 'Pending Funds', href: route('admin.pending-funds.index'), badgeKey: 'pending_fund_releases', defaultOnPath: true },
+                { key: 'china-transfers', label: 'China Transfer', href: route('admin.china-transfers.index'), badgeKey: 'pending_china_transfers', defaultOnPath: true },
+                { key: 'china-transfer-settings', label: 'China Transfer Settings', href: route('admin.china-transfer.settings') },
                 { key: 'transactions', label: 'Transactions', href: route('admin.transactions.index'), defaultOnPath: true },
                 { key: 'manual-funding-settings', label: 'Receive Accounts', href: route('admin.manual-funding.settings') },
                 { key: 'wallet-funding', label: 'Add Funds to Wallet', href: route('admin.wallet-funding.index'), defaultOnPath: true },

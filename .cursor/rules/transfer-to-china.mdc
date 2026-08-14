@@ -1,0 +1,20 @@
+---
+description: Buyer Transfer to China is Alipay-only with admin-configured rates and forms
+alwaysApply: true
+---
+
+# Transfer to China
+
+**Buyers only.** Entry is the **Transfer to China** pill on the top-right of the orange wallet balance card (web + app). Do not put this on Withdrawal.
+
+**Alipay only.** Do not add WeChat Pay to this flow.
+
+Admin configures:
+- GHS → RMB rate (stored as GHS per 1 RMB, with history and rate lock on each transfer)
+- Fees, min/max, daily/monthly limits
+- GHS payment methods (MoMo / bank)
+- Dynamic form fields (recipient + payment proof)
+
+User flow: see rate → enter Alipay details → pay GHS to admin → upload proof → track status → receive RMB proof.
+
+Completed financial values are immutable. Completing requires RMB transfer proof from admin.
