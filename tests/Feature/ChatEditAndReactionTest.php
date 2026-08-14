@@ -15,7 +15,7 @@ class ChatEditAndReactionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_sender_can_edit_own_text_within_15_minutes(): void
+    public function test_sender_can_edit_own_text_within_two_minutes(): void
     {
         [$buyer, $seller, $conversation, $message] = $this->directText();
 
@@ -28,6 +28,19 @@ class ChatEditAndReactionTest extends TestCase
             ->assertJsonPath('message.can_edit', true);
 
         $this->assertNotNull($message->fresh()->metadata['edited_at'] ?? null);
+    }
+
+    public function test_sender_can_edit_text_just_before_two_minutes(): void
+    {
+        [$buyer, , $conversation, $message] = $this->directText();
+        $message->forceFill(['created_at' => now()->subSeconds(110)])->save();
+
+        $this->actingAs($buyer)
+            ->patchJson(route('chat.messages.update', [$conversation, $message]), [
+                'body' => 'Still in the window',
+            ])
+            ->assertOk()
+            ->assertJsonPath('message.body', 'Still in the window');
     }
 
     public function test_read_text_can_still_be_edited_within_window(): void
@@ -43,16 +56,17 @@ class ChatEditAndReactionTest extends TestCase
             ->assertJsonPath('message.body', 'Still editable after read');
     }
 
-    public function test_old_text_cannot_be_edited(): void
+    public function test_old_text_cannot_be_edited_after_two_minutes(): void
     {
         [$buyer, , $conversation, $message] = $this->directText();
-        $message->forceFill(['created_at' => now()->subMinutes(20)])->save();
+        $message->forceFill(['created_at' => now()->subMinutes(2)->subSecond()])->save();
 
         $this->actingAs($buyer)
             ->patchJson(route('chat.messages.update', [$conversation, $message]), [
                 'body' => 'Too late',
             ])
-            ->assertStatus(422);
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'You can only edit a message within 2 minutes of sending.');
     }
 
     public function test_anyone_in_chat_can_react_with_any_emoji(): void

@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ChatService
 {
+    public const EDIT_WINDOW_MINUTES = 2;
+
     /**
      * WebRTC signalling rows live in the same table as real messages, so every
      * thread, preview and unread tally has to skip them.
@@ -676,7 +678,7 @@ class ChatService
 
         $created = $message->created_at ?? now();
 
-        return $created->gt(now()->subMinutes(15));
+        return $created->gt(now()->subMinutes(static::EDIT_WINDOW_MINUTES));
     }
 
     public static function canReactToMessage(Message $message): bool
@@ -717,7 +719,11 @@ class ChatService
 
     public static function updateMessage(Message $message, User $user, string $body): Message
     {
-        abort_unless(static::canEditMessage($message, $user), 422, 'This message can no longer be edited.');
+        abort_unless(
+            static::canEditMessage($message, $user),
+            422,
+            'You can only edit a message within 2 minutes of sending.',
+        );
 
         $metadata = $message->metadata ?? [];
         $metadata['edited_at'] = now()->toIso8601String();

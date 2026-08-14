@@ -39,7 +39,7 @@ import { useConversationRealtime } from '@/hooks/use-conversation-realtime';
 import * as chatApi from '@/lib/chat-api';
 import { playChatReceiveSound, playChatSendSound, playMoneyReceivedSound } from '@/lib/chat-sounds';
 import { cn } from '@/lib/utils';
-import type { ChatMessage } from '@/types/chat';
+import { canEditChatMessage, type ChatMessage } from '@/types/chat';
 import { SharedData } from '@/types';
 import { productImageUrl } from '@/types/marketplace';
 
@@ -391,6 +391,7 @@ export default function ChatThreadPanel() {
     };
 
     const startEdit = (msg: ChatMessage) => {
+        if (!canEditChatMessage(msg, true)) return;
         setMenuMessageId(null);
         setEmojiPickerMessageId(null);
         setReplyingTo(null);
@@ -424,6 +425,11 @@ export default function ChatThreadPanel() {
         setSending(true);
         try {
             if (editingMessage) {
+                if (!canEditChatMessage(editingMessage, true)) {
+                    toast?.error('You can only edit a message within 2 minutes of sending.');
+                    cancelComposerExtras();
+                    return;
+                }
                 const updated = await chatApi.updateChatMessage(activeConversation.id, editingMessage.id, body.trim());
                 replaceMessage(updated);
                 cancelComposerExtras();
@@ -1352,7 +1358,7 @@ export default function ChatThreadPanel() {
                                                     </span>
                                                 )}
                                             </button>
-                                            {mine && msg.can_edit && msg.type === 'text' && (
+                                            {mine && canEditChatMessage(msg, mine) && (
                                                 <button
                                                     type="button"
                                                     onClick={() => startEdit(msg)}

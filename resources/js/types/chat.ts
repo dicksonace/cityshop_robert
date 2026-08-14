@@ -127,3 +127,19 @@ export interface ChatMessage {
     created_at?: string;
     sender: { id: number; name: string };
 }
+
+export const CHAT_EDIT_WINDOW_MS = 2 * 60 * 1000;
+
+export function canEditChatMessage(msg: ChatMessage, mine: boolean): boolean {
+    if (!mine || msg.type !== 'text' || msg.is_deleted) {
+        return false;
+    }
+    if (!msg.created_at) {
+        return Boolean(msg.can_edit);
+    }
+    const created = Date.parse(msg.created_at);
+    if (Number.isNaN(created)) {
+        return Boolean(msg.can_edit);
+    }
+    return Date.now() - created < CHAT_EDIT_WINDOW_MS;
+}
