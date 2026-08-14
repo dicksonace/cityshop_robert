@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Channels\SmsChannel;
 use App\Models\Withdrawal;
 use App\Support\NotificationPrivacy;
+use App\Support\PayoutNetwork;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -33,9 +34,9 @@ class WithdrawalRequestedNotification extends Notification
         $ref = $this->reference();
 
         $mail = (new MailMessage)
-            ->subject("{$amount} debited from your CityShop wallet")
+            ->subject("{$amount} debited for withdrawal")
             ->greeting('Hello '.(filled($notifiable->name ?? null) ? $notifiable->name : 'there').'!')
-            ->line("{$amount} has been debited from your CityShop wallet.")
+            ->line("{$amount} has been debited from your CityShop wallet{$this->withdrawalReason()}.")
             ->line("Available Balance: GHS {$ghs}");
 
         if ($ref) {
@@ -55,7 +56,7 @@ class WithdrawalRequestedNotification extends Notification
         $ref = $this->reference();
 
         $lines = [
-            "CityShop: {$amount} debited from your wallet.",
+            "CityShop: {$amount} debited from your wallet for withdrawal{$this->withdrawalDestination()}.",
             "Available Balance: GHS {$ghs}",
         ];
         if ($ref) {
@@ -96,5 +97,27 @@ class WithdrawalRequestedNotification extends Notification
         }
 
         return number_format($balance, 2, '.', '');
+    }
+
+    private function withdrawalReason(): string
+    {
+        $destination = $this->withdrawalDestination();
+
+        return $destination !== '' ? ' for withdrawal'.$destination : ' for withdrawal';
+    }
+
+    private function withdrawalDestination(): string
+    {
+        $account = trim((string) ($this->withdrawal->momo_number ?? ''));
+        if ($account === '') {
+            return '';
+        }
+
+        $masked = NotificationPrivacy::maskAccount($account);
+        $network = PayoutNetwork::label($this->withdrawal->network);
+
+        return $network !== ''
+            ? " to {$masked} via {$network}"
+            : " to {$masked}";
     }
 }

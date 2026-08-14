@@ -181,12 +181,15 @@ class BuyerWalletWithdrawTest extends TestCase
         $withdrawal = new Withdrawal([
             'amount' => 10,
             'momo_number' => '0241234718',
+            'network' => 'mtn',
         ]);
         $withdrawal->created_at = Carbon::parse('2026-08-13 14:51:00', 'Africa/Accra');
 
         $sms = (new WithdrawalRequestedNotification($withdrawal, 6445))->toSms($buyer);
 
-        $this->assertStringContainsString('GH₵10.00 debited from your wallet.', $sms);
+        $this->assertStringContainsString('GH₵10.00 debited from your wallet for withdrawal', $sms);
+        $this->assertStringContainsString('024****718', $sms);
+        $this->assertStringContainsString('MTN Mobile Money', $sms);
         $this->assertStringContainsString('Available Balance: GHS 6445.00', $sms);
         $this->assertStringContainsString('Date: 13 Aug 2026, 2:51 PM.', $sms);
         $this->assertStringNotContainsStringIgnoringCase('usually', $sms);
