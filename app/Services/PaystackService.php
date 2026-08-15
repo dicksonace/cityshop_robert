@@ -24,6 +24,26 @@ class PaystackService
     }
 
     /**
+     * Keys are present and admin has not locked Paystack collections.
+     * Use this for starting checkout / wallet top-up. Verification & webhooks
+     * should keep using {@see isConfigured()} so in-flight payments can finish.
+     */
+    public function isAvailable(): bool
+    {
+        return $this->isConfigured() && ! PlatformSettings::paystackPaymentsLocked();
+    }
+
+    /** Buyer-facing reason when {@see isAvailable()} is false. */
+    public function unavailableMessage(): string
+    {
+        if (PlatformSettings::paystackPaymentsLocked()) {
+            return 'Online Paystack payment is temporarily disabled. Please use manual MoMo / bank payment.';
+        }
+
+        return 'Online Paystack payment is not available right now. Please use manual MoMo / bank payment.';
+    }
+
+    /**
      * Ghana local collection fee (MoMo + local cards). Admin-editable.
      *
      * @return array{enabled: bool, mode: string, percent: float, flat: float, tiers: list<array{min: float, max: float|null, fee: float}>}
@@ -153,8 +173,8 @@ class PaystackService
         string $referencePrefix = 'TOP',
         array $extraMetadata = [],
     ): array {
-        if (! $this->isConfigured()) {
-            throw new \RuntimeException('Online top-up is not available. Contact support.');
+        if (! $this->isAvailable()) {
+            throw new \RuntimeException($this->unavailableMessage());
         }
 
         $quote = $this->rechargeQuote($creditGhs, $method);
@@ -196,6 +216,10 @@ class PaystackService
         ?string $callbackUrl = null,
         ?User $customer = null,
     ): array {
+        if (! $this->isAvailable()) {
+            throw new \RuntimeException($this->unavailableMessage());
+        }
+
         $email = $this->paystackEmail($email);
         if ($customer) {
             $this->syncCustomer($customer, $email);

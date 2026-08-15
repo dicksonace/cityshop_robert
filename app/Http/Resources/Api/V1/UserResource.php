@@ -10,6 +10,10 @@ class UserResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $this->loadMissing('sellerProfile');
+
+        $profile = $this->sellerProfile;
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -21,6 +25,12 @@ class UserResource extends JsonResource
             'city' => $this->city,
             'avatar' => $this->publicAvatarUrl(),
             'has_payment_pin' => filled($this->payment_pin),
+            'seller' => $profile ? [
+                'store_name' => $profile->displayName(),
+                'slug' => $profile->slug,
+                'status' => $profile->status?->value,
+                'store_setup_complete' => filled($profile->store_name) || filled($profile->business_name),
+            ] : null,
         ];
     }
 }

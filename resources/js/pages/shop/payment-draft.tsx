@@ -51,7 +51,7 @@ export default function PaymentDraft({
 
     const payWithPaystack = useCallback(async () => {
         if (!paystackConfigured) {
-            setError('Paystack is not configured.');
+            setError('Online Paystack payment is temporarily disabled. Please use manual MoMo / bank payment.');
             return;
         }
 
@@ -107,16 +107,25 @@ export default function PaymentDraft({
                     <div className="mt-6 rounded-xl border border-orange-100 bg-orange-50 p-4">
                         <p className="font-semibold text-gray-900">CityShop secure payment</p>
                         <p className="mt-2 text-2xl font-bold text-orange-500">{formatPrice(totalDue)}</p>
-                        <p className="mt-1 text-sm text-gray-500">Pay securely via Paystack.</p>
-                        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-                        <Button
-                            onClick={payWithPaystack}
-                            disabled={loading}
-                            className="mt-4 w-full bg-orange-500 hover:bg-orange-600"
-                        >
-                            {loading && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                            Pay via CityShop
-                        </Button>
+                        {paystackConfigured ? (
+                            <>
+                                <p className="mt-1 text-sm text-gray-500">Pay securely via Paystack.</p>
+                                {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+                                <Button
+                                    onClick={payWithPaystack}
+                                    disabled={loading}
+                                    className="mt-4 w-full bg-orange-500 hover:bg-orange-600"
+                                >
+                                    {loading && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                    Pay via CityShop
+                                </Button>
+                            </>
+                        ) : (
+                            <p className="mt-2 text-sm text-amber-800">
+                                Online Paystack payment is temporarily disabled. Go back and use manual MoMo / bank
+                                payment if available, or try again later.
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>

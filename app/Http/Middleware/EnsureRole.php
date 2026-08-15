@@ -12,8 +12,13 @@ class EnsureRole
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
+        $wantsJson = $request->expectsJson() || $request->is('api/*');
 
         if (! $user) {
+            if ($wantsJson) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+
             if ($request->is('admin') || $request->is('admin/*')) {
                 return redirect()->route('admin.login');
             }
@@ -28,6 +33,10 @@ class EnsureRole
         $allowed = array_map(fn ($r) => UserRole::from($r), $roles);
 
         if (! in_array($user->role, $allowed, true)) {
+            if ($wantsJson) {
+                abort(403, 'Unauthorized.');
+            }
+
             if (($request->is('seller') || $request->is('seller/*')) && $user->isAdmin()) {
                 return redirect()->route('admin.dashboard');
             }

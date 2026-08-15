@@ -25,6 +25,7 @@ type Config = {
     rate: {
         usd_per_rmb: number;
         ghs_per_usd: number;
+        ghs_per_rmb?: number;
         min_rmb: number;
         max_rmb: number;
         fee_mode: 'flat' | 'percent';
@@ -59,19 +60,22 @@ function formatGhs(n: number) {
 export default function SellRmbHub({ config, transfers }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [rmb, setRmb] = useState(String(config.rate?.min_rmb ?? 1000));
-    const [payoutCurrency, setPayoutCurrency] = useState<'usd' | 'ghs'>('ghs');
+    const payoutCurrency = 'ghs' as const;
 
     const quote = useMemo(() => {
         const amount = Number(rmb);
         if (!config.rate || !Number.isFinite(amount) || amount <= 0) return null;
+        const ghsPerRmb = config.rate.ghs_per_rmb ?? config.rate.usd_per_rmb * config.rate.ghs_per_usd;
         const usdGross = amount * config.rate.usd_per_rmb;
         const fee =
             config.rate.fee_mode === 'percent'
                 ? (usdGross * config.rate.fee_value) / 100
                 : config.rate.fee_value;
+        const ghsGross = amount * ghsPerRmb;
+        const feeGhs = usdGross > 0 ? ghsGross * (fee / usdGross) : 0;
+        const ghsPayout = ghsGross - feeGhs;
         const usdPayout = usdGross - fee;
-        const ghsPayout = usdPayout * config.rate.ghs_per_usd;
-        return { usdGross, fee, usdPayout, ghsPayout };
+        return { usdGross, fee, usdPayout, ghsPayout, ghsPerRmb };
     }, [rmb, config.rate]);
 
     return (
@@ -91,20 +95,21 @@ export default function SellRmbHub({ config, transfers }: Props) {
                     ← China / RMB
                 </Link>
                 <h1 className="mt-3 text-2xl font-black text-gray-900">Sell RMB</h1>
-                <p className="mt-1 text-sm text-gray-500">Send RMB · receive USD or GHS</p>
+                <p className="mt-1 text-sm text-gray-500">
+                    Send RMB to our Alipay QR, upload your screenshot — we pay GHS after verification. No RMB wallet needed.
+                </p>
 
                 <div className="mt-5 rounded-2xl bg-gradient-to-br from-emerald-700 to-emerald-900 p-5 text-white shadow-lg">
                     <p className="text-sm font-semibold text-white/80">We buy your RMB</p>
                     <p className="mt-1 text-xs uppercase tracking-wide text-white/60">Buying rate</p>
                     {config.rate ? (
-                        <>
-                            <p className="mt-4 text-3xl font-black tracking-tight">
-                                1 RMB = ${config.rate.usd_per_rmb.toFixed(4)}
-                            </p>
-                            <p className="mt-2 text-sm text-white/80">
-                                1 USD = GH₵{config.rate.ghs_per_usd.toFixed(4)}
-                            </p>
-                        </>
+                        <p className="mt-4 text-3xl font-black tracking-tight">
+                            1 RMB = GH₵
+                            {(
+                                config.rate.ghs_per_rmb ??
+                                config.rate.usd_per_rmb * config.rate.ghs_per_usd
+                            ).toFixed(4)}
+                        </p>
                     ) : (
                         <p className="mt-4 text-lg font-semibold">Buying rate not published yet.</p>
                     )}
@@ -125,58 +130,21 @@ export default function SellRmbHub({ config, transfers }: Props) {
                             value={rmb}
                             onChange={(e) => setRmb(e.target.value)}
                         />
-                        <p className="mt-4 text-sm font-semibold text-gray-700">Receive payout in</p>
-                        <div className="mt-2 flex gap-2">
-                            {(['ghs', 'usd'] as const).map((currency) => (
-                                <button
-                                    key={currency}
-                                    type="button"
-                                    onClick={() => setPayoutCurrency(currency)}
-                                    className={`flex-1 rounded-xl border px-3 py-2 text-sm font-bold uppercase ${
-                                        payoutCurrency === currency
-                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
-                                            : 'border-gray-200 text-gray-600'
-                                    }`}
-                                >
-                                    {currency}
-                                </button>
-                            ))}
-                        </div>
+                        <p className="mt-4 text-sm font-semibold text-gray-700">You receive (GHS)</p>
                         {quote && (
-                            <dl className="mt-4 space-y-1.5 text-sm">
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">Gross (USD)</dt>
-                                    <dd>{formatUsd(quote.usdGross)}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">Fee</dt>
-                                    <dd>{formatUsd(quote.fee)}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">USD payout</dt>
-                                    <dd>{formatUsd(quote.usdPayout)}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">GHS payout</dt>
-                                    <dd>{formatGhs(quote.ghsPayout)}</dd>
-                                </div>
-                                <div className="flex justify-between border-t pt-2 font-bold">
-                                    <dt>You receive</dt>
-                                    <dd>
-                                        {payoutCurrency === 'ghs'
-                                            ? formatGhs(quote.ghsPayout)
-                                            : formatUsd(quote.usdPayout)}
-                                    </dd>
-                                </div>
-                            </dl>
+                            <div className="mt-3 flex justify-between border-t pt-3 text-sm">
+                                <span className="font-bold text-gray-800">Estimated payout</span>
+                                <span className="font-black text-emerald-700">{formatGhs(quote.ghsPayout)}</span>
+                            </div>
                         )}
                         {config.enabled ? (
                             <Button
                                 className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700"
+                                disabled={!quote}
                                 onClick={() =>
                                     router.get(route('wallet.sell-rmb.create'), {
                                         rmb_amount: rmb,
-                                        payout_currency: payoutCurrency,
+                                        payout_currency: 'ghs',
                                     })
                                 }
                             >

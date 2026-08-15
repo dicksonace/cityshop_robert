@@ -64,20 +64,26 @@ class SellRmbSettingsController extends Controller
             'receive_instructions' => $validated['receive_instructions'] ?? null,
         ]);
 
-        return back()->with('success', 'Sell RMB settings saved.');
+        return back()->with(
+            'success',
+            $validated['enabled']
+                ? 'RMB → GHS set to Live (buyers can sell RMB when rate & method are ready).'
+                : 'RMB → GHS paused. New Sell RMB requests are blocked.',
+        );
     }
 
     public function publishRate(Request $request): RedirectResponse
     {
-        foreach (['daily_max_rmb', 'monthly_max_rmb', 'max_per_day', 'approval_above_rmb', 'effective_from'] as $key) {
+        foreach (['daily_max_rmb', 'monthly_max_rmb', 'max_per_day', 'approval_above_rmb', 'effective_from', 'usd_per_rmb', 'ghs_per_usd'] as $key) {
             if ($request->input($key) === '') {
                 $request->merge([$key => null]);
             }
         }
 
         $validated = $request->validate([
-            'usd_per_rmb' => ['required', 'numeric', 'min:0.000001'],
-            'ghs_per_usd' => ['required', 'numeric', 'min:0.0001'],
+            'ghs_per_rmb' => ['required', 'numeric', 'min:0.0001'],
+            'usd_per_rmb' => ['nullable', 'numeric', 'min:0.000001'],
+            'ghs_per_usd' => ['nullable', 'numeric', 'min:0.0001'],
             'fee_mode' => ['required', 'in:flat,percent'],
             'fee_value' => ['required', 'numeric', 'min:0'],
             'min_rmb' => ['required', 'numeric', 'min:1'],
@@ -91,7 +97,10 @@ class SellRmbSettingsController extends Controller
 
         $this->sellRmb->publishRate($request->user(), $validated);
 
-        return back()->with('success', 'New buying rate published. Existing requests keep their locked rate.');
+        return back()->with(
+            'success',
+            'Buying rate published: 1 RMB = GH₵'.number_format((float) $validated['ghs_per_rmb'], 4).'. Existing requests keep their locked rate.',
+        );
     }
 
     public function storeMethod(Request $request): RedirectResponse

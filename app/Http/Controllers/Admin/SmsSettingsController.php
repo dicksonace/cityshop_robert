@@ -41,6 +41,8 @@ class SmsSettingsController extends Controller
             'failover' => ['required', 'boolean'],
             'alert_mobile_1' => ['nullable', 'string', 'max:20'],
             'alert_mobile_2' => ['nullable', 'string', 'max:20'],
+            'alert_mobile_3' => ['nullable', 'string', 'max:20'],
+            'alert_mobile_4' => ['nullable', 'string', 'max:20'],
         ]);
 
         PlatformSettings::saveSmsSettings([
@@ -48,6 +50,8 @@ class SmsSettingsController extends Controller
             'failover' => (bool) $validated['failover'],
             'alert_mobile_1' => $validated['alert_mobile_1'] ?? '',
             'alert_mobile_2' => $validated['alert_mobile_2'] ?? '',
+            'alert_mobile_3' => $validated['alert_mobile_3'] ?? '',
+            'alert_mobile_4' => $validated['alert_mobile_4'] ?? '',
         ]);
 
         return back()->with('success', 'SMS platform saved.');

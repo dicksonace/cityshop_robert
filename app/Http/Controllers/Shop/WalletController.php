@@ -66,7 +66,7 @@ class WalletController extends Controller
             'transactions' => $transactions,
             'withdrawals' => $withdrawals,
             'hasPendingWithdrawal' => $hasPendingWithdrawal,
-            'paystackConfigured' => $this->paystack->isConfigured(),
+            'paystackConfigured' => $this->paystack->isAvailable(),
             'paystackPublicKey' => config('services.paystack.public_key'),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
@@ -107,8 +107,8 @@ class WalletController extends Controller
             'method' => ['required', 'in:momo,card'],
         ]);
 
-        if (! $this->paystack->isConfigured()) {
-            $message = 'Online top-up is not available. Contact support.';
+        if (! $this->paystack->isAvailable()) {
+            $message = $this->paystack->unavailableMessage();
 
             return $request->expectsJson()
                 ? response()->json(['message' => $message], 503)

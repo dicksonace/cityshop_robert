@@ -45,7 +45,7 @@ class DashboardController extends Controller
                 ? route('store.show', $seller->sellerProfile->slug, absolute: true)
                 : null,
             'orderPipelineCounts' => $this->dashboard->orderPipelineCounts($seller),
-            'paystackConfigured' => $this->paystack->isConfigured(),
+            'paystackConfigured' => $this->paystack->isAvailable(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'isLive' => LiveStreamService::currentForSeller($seller) !== null,

@@ -6,7 +6,6 @@ use App\Enums\WalletTransactionType;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
-use App\Notifications\AdminWalletDepositNotification;
 use App\Notifications\WalletFundedNotification;
 use App\Notifications\WalletTransferReceivedNotification;
 use Illuminate\Support\Facades\DB;
@@ -137,26 +136,8 @@ class WalletService
             }
 
             // Buyer still gets WalletFundedNotification above.
-            // Do not SMS/email admins again after they approve a manual deposit —
-            // they already got the "deposit proof / Review in admin" alert.
-            $methodLower = strtolower(trim($method));
-            $skipAdminCreditAlert = $methodLower === 'admin'
-                || $methodLower === 'manual'
-                || str_contains($methodLower, 'manual');
-
-            if (! $skipAdminCreditAlert) {
-                try {
-                    AdminNotifier::notify(new AdminWalletDepositNotification(
-                        userName: (string) ($user?->name ?? 'A user'),
-                        userRole: (string) ($user?->role?->value ?? 'user'),
-                        amount: $amount,
-                        method: $method,
-                        reference: $reference,
-                    ));
-                } catch (\Throwable $e) {
-                    report($e);
-                }
-            }
+            // No admin SMS/email on successful credits: Paystack MoMo/card auto-pays
+            // were flooding admins; manual deposits already alert via depositProof().
         }
 
         return $available !== null;

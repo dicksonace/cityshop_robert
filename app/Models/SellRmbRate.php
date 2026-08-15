@@ -45,4 +45,10 @@ class SellRmbRate extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    /** Effective Ghana cedi paid per 1 RMB (rmb-wallet style). */
+    public function ghsPerRmb(): float
+    {
+        return round((float) $this->usd_per_rmb * (float) $this->ghs_per_usd, 6);
+    }
 }

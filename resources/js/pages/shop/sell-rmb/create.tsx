@@ -38,6 +38,7 @@ type Config = {
     rate: {
         usd_per_rmb: number;
         ghs_per_usd: number;
+        ghs_per_rmb?: number;
         min_rmb: number;
         max_rmb: number;
         fee_mode: 'flat' | 'percent';
@@ -55,10 +56,6 @@ function fieldKey(id: number) {
     return `fields.${id}`;
 }
 
-function formatUsd(n: number) {
-    return `$${n.toFixed(2)}`;
-}
-
 function formatGhs(n: number) {
     return `GH₵${n.toFixed(2)}`;
 }
@@ -67,11 +64,10 @@ export default function SellRmbCreate({ config }: Props) {
     const { flash } = usePage<SharedData>().props;
     const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
     const initialRmb = params.get('rmb_amount') || String(config.rate?.min_rmb ?? '');
-    const initialPayout = params.get('payout_currency') === 'usd' ? 'usd' : 'ghs';
 
     const form = useForm({
         rmb_amount: initialRmb,
-        payout_currency: initialPayout as 'usd' | 'ghs',
+        payout_currency: 'ghs' as const,
         receive_method_id: String(config.receive_methods[0]?.id ?? ''),
         fields: {} as Record<string, string>,
         files: {} as Record<string, File | null>,
@@ -80,14 +76,17 @@ export default function SellRmbCreate({ config }: Props) {
     const quote = useMemo(() => {
         const amount = Number(form.data.rmb_amount);
         if (!config.rate || !Number.isFinite(amount) || amount <= 0) return null;
+        const ghsPerRmb =
+            config.rate.ghs_per_rmb ?? config.rate.usd_per_rmb * config.rate.ghs_per_usd;
         const usdGross = amount * config.rate.usd_per_rmb;
         const fee =
             config.rate.fee_mode === 'percent'
                 ? (usdGross * config.rate.fee_value) / 100
                 : config.rate.fee_value;
-        const usdPayout = usdGross - fee;
-        const ghsPayout = usdPayout * config.rate.ghs_per_usd;
-        return { usdGross, fee, usdPayout, ghsPayout };
+        const ghsGross = amount * ghsPerRmb;
+        const feeGhs = usdGross > 0 ? ghsGross * (fee / usdGross) : 0;
+        const ghsPayout = ghsGross - feeGhs;
+        return { ghsPerRmb, feeGhs, ghsPayout };
     }, [form.data.rmb_amount, config.rate]);
 
     const method = config.receive_methods.find((m) => String(m.id) === form.data.receive_method_id);
@@ -96,7 +95,7 @@ export default function SellRmbCreate({ config }: Props) {
         e.preventDefault();
         const payload: Record<string, unknown> = {
             rmb_amount: form.data.rmb_amount,
-            payout_currency: form.data.payout_currency,
+            payout_currency: 'ghs',
             receive_method_id: form.data.receive_method_id,
         };
         Object.entries(form.data.fields).forEach(([id, value]) => {
@@ -238,60 +237,18 @@ export default function SellRmbCreate({ config }: Props) {
                             <dl className="mt-4 space-y-1.5 text-sm">
                                 <div className="flex justify-between text-gray-600">
                                     <dt>Buying rate</dt>
-                                    <dd>1 RMB = ${config.rate?.usd_per_rmb.toFixed(4)}</dd>
+                                    <dd>1 RMB = GH₵{quote.ghsPerRmb.toFixed(4)}</dd>
                                 </div>
-                                <div className="flex justify-between">
-                                    <dt>Fee</dt>
-                                    <dd>{formatUsd(quote.fee)}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt>USD payout</dt>
-                                    <dd className="font-semibold">{formatUsd(quote.usdPayout)}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt>GHS payout</dt>
-                                    <dd className="font-semibold">{formatGhs(quote.ghsPayout)}</dd>
+                                <div className="flex justify-between font-semibold text-gray-900">
+                                    <dt>You receive (GHS)</dt>
+                                    <dd>{formatGhs(quote.ghsPayout)}</dd>
                                 </div>
                             </dl>
                         )}
-
-                        <p className="mt-4 text-sm font-semibold text-gray-700">Payout currency</p>
-                        <div className="mt-2 space-y-2">
-                            <label
-                                className={`flex cursor-pointer items-center rounded-xl border px-3 py-3 ${
-                                    form.data.payout_currency === 'ghs'
-                                        ? 'border-emerald-400 bg-emerald-50'
-                                        : 'border-gray-200'
-                                }`}
-                            >
-                                <input
-                                    type="radio"
-                                    className="mr-2"
-                                    checked={form.data.payout_currency === 'ghs'}
-                                    onChange={() => form.setData('payout_currency', 'ghs')}
-                                />
-                                <span className="font-semibold">
-                                    GHS{quote ? ` (${formatGhs(quote.ghsPayout)})` : ''}
-                                </span>
-                            </label>
-                            <label
-                                className={`flex cursor-pointer items-center rounded-xl border px-3 py-3 ${
-                                    form.data.payout_currency === 'usd'
-                                        ? 'border-emerald-400 bg-emerald-50'
-                                        : 'border-gray-200'
-                                }`}
-                            >
-                                <input
-                                    type="radio"
-                                    className="mr-2"
-                                    checked={form.data.payout_currency === 'usd'}
-                                    onChange={() => form.setData('payout_currency', 'usd')}
-                                />
-                                <span className="font-semibold">
-                                    USD{quote ? ` (${formatUsd(quote.usdPayout)})` : ''}
-                                </span>
-                            </label>
-                        </div>
+                        <p className="mt-4 text-sm text-gray-600">
+                            Send RMB to our Alipay QR (no RMB wallet). After you submit with proof, the
+                            request goes to Processing for admin payout.
+                        </p>
                         <InputError message={form.errors.payout_currency} />
                     </section>
 

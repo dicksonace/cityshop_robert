@@ -39,9 +39,8 @@ interface Props {
 
 const filters = [
     { id: 'open', label: 'Open' },
-    { id: 'submitted', label: 'Submitted' },
-    { id: 'rmb_verification', label: 'RMB verification' },
-    { id: 'payout_processing', label: 'Payout processing' },
+    { id: 'payout_processing', label: 'Processing' },
+    { id: 'paid', label: 'Paid' },
     { id: 'completed', label: 'Completed' },
     { id: 'all', label: 'All' },
 ];
@@ -70,7 +69,7 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-bold text-gray-900">Sell RMB</h1>
-                        <p className="text-sm text-gray-500">Buyers sell RMB to CityShop and receive USD or GHS.</p>
+                        <p className="text-sm text-gray-500">Buyers send RMB (Alipay), then admin pays GHS.</p>
                     </div>
                     <Link href={route('admin.sell-rmb.settings')}>
                         <Button variant="outline">Settings</Button>
@@ -83,12 +82,10 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                     {[
                         ['Today', dashboard.today],
                         ['This month', dashboard.this_month],
-                        ['Awaiting verification', dashboard.awaiting_verification],
                         ['Processing', dashboard.processing],
                         ['Completed', dashboard.completed],
                         ['RMB received', `¥${dashboard.rmb_received.toFixed(2)}`],
-                        ['USD paid', `$${dashboard.usd_paid.toFixed(2)}`],
-                        ['Fees (USD)', `$${dashboard.fees_collected.toFixed(2)}`],
+                        ['GHS paid', `GH₵${dashboard.ghs_paid.toFixed(2)}`],
                     ].map(([label, value]) => (
                         <div key={String(label)} className="rounded-2xl border border-gray-200 bg-white p-4">
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</p>

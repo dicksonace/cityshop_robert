@@ -73,7 +73,7 @@ class WalletController extends Controller
                 ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
                 ->exists(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
-            'paystackConfigured' => $this->paystack->isConfigured(),
+            'paystackConfigured' => $this->paystack->isAvailable(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($user),
@@ -298,8 +298,8 @@ class WalletController extends Controller
             'method' => ['required', 'in:momo,card'],
         ]);
 
-        if (! $this->paystack->isConfigured()) {
-            $message = 'Online top-up is not available. Use manual top-up or contact support.';
+        if (! $this->paystack->isAvailable()) {
+            $message = $this->paystack->unavailableMessage();
 
             return $request->expectsJson()
                 ? response()->json(['message' => $message], 503)

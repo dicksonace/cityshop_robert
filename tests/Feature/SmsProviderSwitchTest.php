@@ -74,10 +74,15 @@ class SmsProviderSwitchTest extends TestCase
                 'failover' => false,
                 'alert_mobile_1' => '0248620718',
                 'alert_mobile_2' => '0539790093',
+                'alert_mobile_3' => '0591456140',
+                'alert_mobile_4' => '0273706541',
             ])
             ->assertRedirect();
 
-        $this->assertSame(['0248620718', '0539790093'], PlatformSettings::adminAlertNumbers());
+        $this->assertSame(
+            ['0248620718', '0539790093', '0591456140', '0273706541'],
+            PlatformSettings::adminAlertNumbers(),
+        );
     }
 
     public function test_failover_uses_the_other_platform(): void

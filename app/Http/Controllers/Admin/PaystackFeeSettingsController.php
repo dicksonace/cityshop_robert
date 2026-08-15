@@ -15,6 +15,7 @@ class PaystackFeeSettingsController extends Controller
     {
         return Inertia::render('admin/paystack-fees/settings', [
             'settings' => PlatformSettings::paystackFeeSettings(),
+            'paymentsLocked' => PlatformSettings::paystackPaymentsLocked(),
         ]);
     }
 
@@ -40,5 +41,22 @@ class PaystackFeeSettingsController extends Controller
         ]);
 
         return back()->with('success', 'Paystack fees saved.');
+    }
+
+    public function updateLock(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'locked' => ['required', 'boolean'],
+        ]);
+
+        $locked = (bool) $validated['locked'];
+        PlatformSettings::savePaystackPaymentsSettings(['locked' => $locked]);
+
+        return back()->with(
+            'success',
+            $locked
+                ? 'Paystack disabled. Buyers/sellers should use manual payment / MoMo funding.'
+                : 'Paystack enabled. Checkout and wallet top-up via Paystack are on.',
+        );
     }
 }

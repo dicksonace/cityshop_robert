@@ -1,6 +1,7 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler, useState } from 'react';
 
+import LivePauseControl from '@/components/admin/live-pause-control';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -142,6 +143,15 @@ export default function ChinaTransferSettings({
 
                 {flash?.success && <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{flash.success}</p>}
 
+                <LivePauseControl
+                    title="GHS → RMB (Transfer to China)"
+                    description="Pause to stop new Transfer to China requests. Rates and payment methods stay saved."
+                    enabled={settings.enabled}
+                    open={open}
+                    instructions={settings.instructions ?? ''}
+                    updateUrl={route('admin.china-transfer.settings.update')}
+                />
+
                 <div className="flex gap-2">
                     {(['rate', 'methods', 'fields'] as const).map((id) => (
                         <button
@@ -160,14 +170,6 @@ export default function ChinaTransferSettings({
                 {tab === 'rate' && (
                     <>
                         <form onSubmit={saveSettings} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
-                            <label className="flex items-center gap-2 text-sm font-semibold">
-                                <input
-                                    type="checkbox"
-                                    checked={settingsForm.data.enabled}
-                                    onChange={(e) => settingsForm.setData('enabled', e.target.checked)}
-                                />
-                                Enable Transfer to China for buyers
-                            </label>
                             <div>
                                 <Label>Buyer instructions</Label>
                                 <textarea
@@ -176,7 +178,7 @@ export default function ChinaTransferSettings({
                                     onChange={(e) => settingsForm.setData('instructions', e.target.value)}
                                 />
                             </div>
-                            <Button disabled={settingsForm.processing}>Save availability</Button>
+                            <Button disabled={settingsForm.processing}>Save instructions</Button>
                         </form>
 
                         <form onSubmit={publishRate} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">

@@ -45,7 +45,7 @@ class WalletController extends Controller
                 'pending_balance' => (float) $wallet->pending_balance,
                 'total_earnings' => (float) $wallet->total_earnings,
                 'withdrawn_amount' => (float) $wallet->withdrawn_amount,
-                'paystack_configured' => $this->paystack->isConfigured(),
+                'paystack_configured' => $this->paystack->isAvailable(),
                 'paystack_fee' => $this->paystack->rechargeFeePayload(),
                 'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             ],
@@ -301,7 +301,7 @@ class WalletController extends Controller
             'enabled' => $settings['enabled'],
             'instructions' => $settings['instructions'],
             'accounts' => $settings['accounts'],
-            'paystack_configured' => $this->paystack->isConfigured(),
+            'paystack_configured' => $this->paystack->isAvailable(),
             'requests' => WalletTopUpRequest::where('user_id', $request->user()->id)
                 ->latest()
                 ->limit(20)
@@ -348,8 +348,8 @@ class WalletController extends Controller
             'method' => ['required', 'in:momo,card'],
         ]);
 
-        if (! $this->paystack->isConfigured()) {
-            return response()->json(['message' => 'Online top-up is not available. Contact support.'], 503);
+        if (! $this->paystack->isAvailable()) {
+            return response()->json(['message' => $this->paystack->unavailableMessage()], 503);
         }
 
         $callbackUrl = url('/api/v1/paystack/mobile-return');
@@ -438,7 +438,7 @@ class WalletController extends Controller
                     'pending_balance' => (float) $wallet->pending_balance,
                     'total_earnings' => (float) $wallet->total_earnings,
                     'withdrawn_amount' => (float) $wallet->withdrawn_amount,
-                    'paystack_configured' => $this->paystack->isConfigured(),
+                    'paystack_configured' => $this->paystack->isAvailable(),
                     'paystack_fee' => $this->paystack->rechargeFeePayload(),
                     'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,
                 ],

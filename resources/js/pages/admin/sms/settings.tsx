@@ -20,6 +20,8 @@ interface Props {
         failover: boolean;
         alert_mobile_1?: string;
         alert_mobile_2?: string;
+        alert_mobile_3?: string;
+        alert_mobile_4?: string;
     };
     providers: Provider[];
 }
@@ -31,6 +33,8 @@ export default function SmsSettings({ settings, providers }: Props) {
         failover: settings.failover,
         alert_mobile_1: settings.alert_mobile_1 ?? '',
         alert_mobile_2: settings.alert_mobile_2 ?? '',
+        alert_mobile_3: settings.alert_mobile_3 ?? '',
+        alert_mobile_4: settings.alert_mobile_4 ?? '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -106,28 +110,26 @@ export default function SmsSettings({ settings, providers }: Props) {
                                 These numbers get SMS when a buyer submits a withdrawal, a pending manual deposit, or a Transfer to China.
                             </p>
                         </div>
-                        <div>
-                            <Label>Alert number 1</Label>
-                            <input
-                                type="tel"
-                                value={form.data.alert_mobile_1}
-                                onChange={(e) => form.setData('alert_mobile_1', e.target.value)}
-                                placeholder="0XX XXX XXXX"
-                                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
-                            />
-                            <InputError message={form.errors.alert_mobile_1} />
-                        </div>
-                        <div>
-                            <Label>Alert number 2</Label>
-                            <input
-                                type="tel"
-                                value={form.data.alert_mobile_2}
-                                onChange={(e) => form.setData('alert_mobile_2', e.target.value)}
-                                placeholder="0XX XXX XXXX"
-                                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
-                            />
-                            <InputError message={form.errors.alert_mobile_2} />
-                        </div>
+                        {(
+                            [
+                                ['alert_mobile_1', 'Alert number 1'],
+                                ['alert_mobile_2', 'Alert number 2'],
+                                ['alert_mobile_3', 'Alert number 3'],
+                                ['alert_mobile_4', 'Alert number 4'],
+                            ] as const
+                        ).map(([key, label]) => (
+                            <div key={key}>
+                                <Label>{label}</Label>
+                                <input
+                                    type="tel"
+                                    value={form.data[key]}
+                                    onChange={(e) => form.setData(key, e.target.value)}
+                                    placeholder="0XX XXX XXXX"
+                                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                                />
+                                <InputError message={form.errors[key]} />
+                            </div>
+                        ))}
                     </div>
 
                     <Button type="submit" disabled={form.processing}>

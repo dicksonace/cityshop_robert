@@ -13,6 +13,7 @@ type BuyRate = {
 type SellRate = {
     usd_per_rmb: number;
     ghs_per_usd: number;
+    ghs_per_rmb?: number;
 } | null;
 
 type BuyTransfer = {
@@ -94,12 +95,12 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                     <p className="text-sm font-semibold text-white/80">RMB Rates</p>
                     <p className="mt-3 text-sm font-bold leading-relaxed">
                         {buyRate
-                            ? `GHS → RMB · 1 RMB = GH₵${buyRate.ghs_per_rmb.toFixed(4)}`
+                            ? `GHS → RMB · 1 GHS = ¥${buyRate.rmb_per_ghs.toFixed(3)} RMB`
                             : 'GHS → RMB: not published'}
                     </p>
                     <p className="mt-2 text-sm font-bold leading-relaxed">
                         {sellRate
-                            ? `RMB → GHS · 1 RMB = $${sellRate.usd_per_rmb.toFixed(4)} · 1 USD = GH₵${sellRate.ghs_per_usd.toFixed(2)}`
+                            ? `RMB → GHS · 1 RMB = GH₵${(sellRate.ghs_per_rmb ?? sellRate.usd_per_rmb * sellRate.ghs_per_usd).toFixed(4)}`
                             : 'RMB → GHS: not published'}
                     </p>
                 </div>
@@ -130,8 +131,10 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                             >
                                 Ghana to China
                             </p>
-                            {!buy.config.enabled && (
+                            {!buy.config.enabled ? (
                                 <p className="mt-2 text-[10px] font-bold text-amber-700">Paused</p>
+                            ) : (
+                                <p className="mt-2 text-[10px] font-bold text-emerald-700">Live</p>
                             )}
                         </button>
                         <button
@@ -157,8 +160,10 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                             >
                                 China to Ghana
                             </p>
-                            {!sell.config.enabled && (
+                            {!sell.config.enabled ? (
                                 <p className="mt-2 text-[10px] font-bold text-amber-700">Paused</p>
+                            ) : (
+                                <p className="mt-2 text-[10px] font-bold text-emerald-700">Live</p>
                             )}
                         </button>
                     </div>
@@ -166,9 +171,15 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                         type="button"
                         onClick={continueExchange}
                         disabled={exchangeType === 'buy' ? !buy.config.enabled : !sell.config.enabled}
-                        className="mt-4 w-full rounded-xl bg-teal-700 py-3 text-sm font-extrabold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                        className="mt-4 w-full rounded-xl bg-teal-700 py-3 text-sm font-extrabold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-gray-400"
                     >
-                        {exchangeType === 'buy' ? 'Continue · Buy RMB' : 'Continue · Sell RMB'}
+                        {exchangeType === 'buy'
+                            ? buy.config.enabled
+                                ? 'Continue · Buy RMB'
+                                : 'GHS → RMB is paused'
+                            : sell.config.enabled
+                              ? 'Continue · Sell RMB'
+                              : 'RMB → GHS is paused'}
                     </button>
                 </div>
 

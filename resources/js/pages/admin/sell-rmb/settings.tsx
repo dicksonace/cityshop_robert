@@ -1,6 +1,7 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler, useState } from 'react';
 
+import LivePauseControl from '@/components/admin/live-pause-control';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,7 @@ type Rate = {
     id: number;
     usd_per_rmb: number;
     ghs_per_usd: number;
+    ghs_per_rmb?: number;
     fee_mode: string;
     fee_value: number;
     min_rmb: number;
@@ -80,16 +82,18 @@ export default function SellRmbSettings({
     });
 
     const rateForm = useForm({
-        usd_per_rmb: String(currentRate?.usd_per_rmb ?? '0.14'),
-        ghs_per_usd: String(currentRate?.ghs_per_usd ?? '15.5'),
+        ghs_per_rmb: String(
+            currentRate?.ghs_per_rmb ??
+                (currentRate ? currentRate.usd_per_rmb * currentRate.ghs_per_usd : 1.712),
+        ),
         fee_mode: currentRate?.fee_mode ?? 'flat',
-        fee_value: String(currentRate?.fee_value ?? '1'),
+        fee_value: String(currentRate?.fee_value ?? '0'),
         min_rmb: String(currentRate?.min_rmb ?? '100'),
         max_rmb: String(currentRate?.max_rmb ?? '50000'),
         daily_max_rmb: String(currentRate?.daily_max_rmb ?? ''),
         monthly_max_rmb: String(currentRate?.monthly_max_rmb ?? ''),
         max_per_day: String(currentRate?.max_per_day ?? ''),
-        approval_above_rmb: String(currentRate?.approval_above_rmb ?? '10000'),
+        approval_above_rmb: String(currentRate?.approval_above_rmb ?? ''),
     });
 
     const methodForm = useForm({
@@ -130,15 +134,34 @@ export default function SellRmbSettings({
         <AdminLayout title="Sell RMB settings" active="sell-rmb-settings">
             <Head title="Sell RMB settings" />
             <div className="mx-auto max-w-3xl space-y-6">
-                <div>
-                    <h1 className="text-xl font-bold text-gray-900">Sell RMB settings</h1>
-                    <p className="mt-1 text-sm text-gray-500">
-                        Publish a buying rate, add Alipay/WeChat receive accounts, then enable for buyers.
-                        {open ? ' Service is live.' : ' Not live yet — enable, publish a rate, and add a receive method.'}
-                    </p>
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                        <h1 className="text-xl font-bold text-gray-900">Sell RMB settings</h1>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Like rmb-wallet: buyers send RMB to your Alipay QR (no RMB wallet). Requests go straight to
+                            Processing for admin.
+                            {open ? ' Service is live.' : ' Not live yet — enable, publish a rate, and add Alipay QR.'}
+                        </p>
+                    </div>
+                    <Link
+                        href={route('admin.sell-rmb.index')}
+                        className="text-sm font-semibold text-orange-600 hover:underline"
+                    >
+                        View pending sell requests →
+                    </Link>
                 </div>
 
                 {flash?.success && <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{flash.success}</p>}
+
+                <LivePauseControl
+                    title="RMB → GHS (Sell RMB)"
+                    description="Pause to stop new Sell RMB requests. Rates and receive methods stay saved."
+                    enabled={settings.enabled}
+                    open={open}
+                    instructions={settings.instructions ?? ''}
+                    updateUrl={route('admin.sell-rmb.settings.update')}
+                    extra={{ receive_instructions: settings.receive_instructions ?? '' }}
+                />
 
                 <div className="flex gap-2">
                     {(['rate', 'methods', 'fields'] as const).map((id) => (
@@ -158,14 +181,6 @@ export default function SellRmbSettings({
                 {tab === 'rate' && (
                     <>
                         <form onSubmit={saveSettings} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
-                            <label className="flex items-center gap-2 text-sm font-semibold">
-                                <input
-                                    type="checkbox"
-                                    checked={settingsForm.data.enabled}
-                                    onChange={(e) => settingsForm.setData('enabled', e.target.checked)}
-                                />
-                                Enable Sell RMB for buyers
-                            </label>
                             <div>
                                 <Label>Buyer instructions</Label>
                                 <textarea
@@ -182,31 +197,31 @@ export default function SellRmbSettings({
                                     onChange={(e) => settingsForm.setData('receive_instructions', e.target.value)}
                                 />
                             </div>
-                            <Button disabled={settingsForm.processing}>Save availability</Button>
+                            <Button disabled={settingsForm.processing}>Save instructions</Button>
                         </form>
 
                         <form onSubmit={publishRate} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
                             <h2 className="font-bold">Publish buying rate</h2>
-                            <p className="text-xs text-gray-500">Publishing locks a new rate. Open requests keep the old rate.</p>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <Label>USD per 1 RMB</Label>
-                                    <Input
-                                        className="mt-1"
-                                        value={rateForm.data.usd_per_rmb}
-                                        onChange={(e) => rateForm.setData('usd_per_rmb', e.target.value)}
-                                    />
-                                    <InputError message={rateForm.errors.usd_per_rmb} />
+                            <p className="text-xs text-gray-500">
+                                Same as rmb-wallet: set how much GHS you pay for 1 RMB. Open requests keep their old rate.
+                            </p>
+                            <div className="flex flex-wrap items-end gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                                <div className="text-center">
+                                    <p className="text-2xl font-black text-gray-900">1</p>
+                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">RMB</p>
                                 </div>
-                                <div>
-                                    <Label>GHS per 1 USD</Label>
+                                <p className="pb-2 text-lg font-bold text-gray-400">=</p>
+                                <div className="min-w-[9rem] flex-1">
+                                    <Label>GHS per 1 RMB</Label>
                                     <Input
-                                        className="mt-1"
-                                        value={rateForm.data.ghs_per_usd}
-                                        onChange={(e) => rateForm.setData('ghs_per_usd', e.target.value)}
+                                        className="mt-1 text-lg font-bold"
+                                        value={rateForm.data.ghs_per_rmb}
+                                        onChange={(e) => rateForm.setData('ghs_per_rmb', e.target.value)}
+                                        placeholder="1.712"
                                     />
-                                    <InputError message={rateForm.errors.ghs_per_usd} />
+                                    <InputError message={rateForm.errors.ghs_per_rmb} />
                                 </div>
+                                <p className="pb-2 text-sm font-bold text-gray-600">GHS</p>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
@@ -216,8 +231,8 @@ export default function SellRmbSettings({
                                         value={rateForm.data.fee_mode}
                                         onChange={(e) => rateForm.setData('fee_mode', e.target.value)}
                                     >
-                                        <option value="flat">Fixed USD</option>
-                                        <option value="percent">Percent of USD gross</option>
+                                        <option value="flat">Fixed (USD bridge)</option>
+                                        <option value="percent">Percent</option>
                                     </select>
                                 </div>
                                 <div>
@@ -262,7 +277,7 @@ export default function SellRmbSettings({
                                 </div>
                             </div>
                             <Button disabled={rateForm.processing} className="bg-orange-500 hover:bg-orange-600">
-                                Publish rate
+                                Save RMB sell rate
                             </Button>
                         </form>
 
@@ -271,18 +286,20 @@ export default function SellRmbSettings({
                             <table className="mt-3 w-full text-left text-sm">
                                 <thead>
                                     <tr className="text-gray-500">
-                                        <th className="py-2">USD / RMB</th>
-                                        <th>GHS / USD</th>
+                                        <th className="py-2">1 RMB = GHS</th>
                                         <th>From</th>
+                                        <th>To</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {rates.map((rate) => (
                                         <tr key={rate.id} className="border-t">
-                                            <td className="py-2">${rate.usd_per_rmb.toFixed(6)}</td>
-                                            <td>{rate.ghs_per_usd.toFixed(4)}</td>
+                                            <td className="py-2 font-semibold">
+                                                GH₵{(rate.ghs_per_rmb ?? rate.usd_per_rmb * rate.ghs_per_usd).toFixed(4)}
+                                            </td>
                                             <td>{rate.effective_from ? new Date(rate.effective_from).toLocaleString('en-GH') : '—'}</td>
+                                            <td>{rate.effective_to ? new Date(rate.effective_to).toLocaleString('en-GH') : 'Current'}</td>
                                             <td>{rate.active ? 'Active' : 'Expired'}</td>
                                         </tr>
                                     ))}

@@ -18,17 +18,24 @@ class EnsureApprovedSeller
         }
 
         $profile = $user->sellerProfile;
+        $wantsJson = $request->expectsJson() || $request->is('api/*');
 
         if (! $profile) {
-            return redirect()->route('seller.pending');
+            return $wantsJson
+                ? response()->json(['message' => 'Seller profile not found.'], 403)
+                : redirect()->route('seller.pending');
         }
 
         if ($profile->status === SellerStatus::Suspended) {
-            return redirect()->route('seller.pending');
+            return $wantsJson
+                ? response()->json(['message' => 'Your seller account is suspended.'], 403)
+                : redirect()->route('seller.pending');
         }
 
         if ($profile->status !== SellerStatus::Approved) {
-            return redirect()->route('seller.pending');
+            return $wantsJson
+                ? response()->json(['message' => 'Your seller account is not active yet.'], 403)
+                : redirect()->route('seller.pending');
         }
 
         return $next($request);

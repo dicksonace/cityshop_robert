@@ -1416,7 +1416,7 @@ export default function ChatThreadPanel() {
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="border-t border-[#d5ccc4] bg-[#F0EFEA]">
+            <div className="border-t border-[#d5ccc4] bg-[#F0EFEA] pb-[env(safe-area-inset-bottom,0px)]">
                 {attachProduct && (
                     <div className="flex items-center gap-2.5 border-b border-orange-100 bg-orange-50/90 px-3 py-3">
                         {attachProduct.image_url ? (

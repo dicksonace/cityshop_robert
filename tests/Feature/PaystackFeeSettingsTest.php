@@ -97,6 +97,57 @@ class PaystackFeeSettingsTest extends TestCase
         $this->assertSame(1.5, $saved['flat']);
     }
 
+    public function test_admin_can_lock_and_unlock_paystack_payments(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        config([
+            'services.paystack.secret_key' => 'sk_test_lock',
+            'services.paystack.public_key' => 'pk_test_lock',
+        ]);
+        $this->app->forgetInstance(PaystackService::class);
+
+        $paystack = app(PaystackService::class);
+        $this->assertTrue($paystack->isAvailable());
+        $this->assertFalse(PlatformSettings::paystackPaymentsLocked());
+
+        $this->actingAs($admin)
+            ->post(route('admin.paystack-fees.lock.update'), ['locked' => true])
+            ->assertRedirect();
+
+        $this->assertTrue(PlatformSettings::paystackPaymentsLocked());
+        $this->app->forgetInstance(PaystackService::class);
+        $this->assertFalse(app(PaystackService::class)->isAvailable());
+        $this->assertTrue(app(PaystackService::class)->isConfigured());
+
+        $this->actingAs($admin)
+            ->post(route('admin.paystack-fees.lock.update'), ['locked' => false])
+            ->assertRedirect();
+
+        $this->assertFalse(PlatformSettings::paystackPaymentsLocked());
+        $this->app->forgetInstance(PaystackService::class);
+        $this->assertTrue(app(PaystackService::class)->isAvailable());
+    }
+
+    public function test_locked_paystack_blocks_new_transactions(): void
+    {
+        config([
+            'services.paystack.secret_key' => 'sk_test_lock',
+            'services.paystack.public_key' => 'pk_test_lock',
+        ]);
+        PlatformSettings::savePaystackPaymentsSettings(['locked' => true]);
+        $this->app->forgetInstance(PaystackService::class);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Online Paystack payment is temporarily disabled. Please use manual MoMo / bank payment.');
+
+        app(PaystackService::class)->initializeTransaction(
+            'buyer@example.com',
+            10.0,
+            'TEST-LOCK-REF',
+            ['type' => 'test'],
+        );
+    }
+
     public function test_paid_covers_checkout_with_or_without_fee(): void
     {
         PlatformSettings::savePaystackFeeSettings([

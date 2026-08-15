@@ -22,7 +22,7 @@ class AdminWalletAlertTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_paystack_deposit_emails_and_sms_all_system_admins(): void
+    public function test_paystack_deposit_does_not_alert_admins(): void
     {
         Notification::fake();
 
@@ -39,15 +39,27 @@ class AdminWalletAlertTest extends TestCase
         ));
 
         Notification::assertSentTo($buyer, WalletFundedNotification::class);
-        Notification::assertSentTo($adminA, AdminWalletDepositNotification::class);
-        Notification::assertSentTo($adminB, AdminWalletDepositNotification::class);
-        Notification::assertSentTo($adminA, AdminWalletDepositNotification::class, function ($notification, $channels) {
-            return $notification->amount === 80.0
-                && $notification->pendingProof === false
-                && $notification->reference === 'PSK-TEST-80'
-                && in_array('mail', $channels, true)
-                && in_array(SmsChannel::class, $channels, true);
-        });
+        Notification::assertNotSentTo($adminA, AdminWalletDepositNotification::class);
+        Notification::assertNotSentTo($adminB, AdminWalletDepositNotification::class);
+    }
+
+    public function test_momo_paystack_deposit_does_not_sms_admins(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create(['role' => UserRole::Admin, 'name' => 'Admin One']);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Kofi Amoah']);
+        WalletService::ensure($buyer);
+
+        $this->assertTrue(WalletService::creditFromVerifiedTopUp(
+            $buyer->id,
+            10,
+            'TOP-6A8086D89D973',
+            'momo',
+        ));
+
+        Notification::assertSentTo($buyer, WalletFundedNotification::class);
+        Notification::assertNotSentTo($admin, AdminWalletDepositNotification::class);
     }
 
     public function test_admin_manual_credit_does_not_alert_admins(): void

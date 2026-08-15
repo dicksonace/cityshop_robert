@@ -15,6 +15,9 @@ class PlatformSettings
 
     public const PAYSTACK_FEE_KEY = 'paystack_collection_fee';
 
+    /** When locked, buyers cannot start Paystack checkout or wallet top-up. */
+    public const PAYSTACK_PAYMENTS_KEY = 'paystack_payments';
+
     public const SMS_KEY = 'sms_provider';
 
     public static function get(string $key, mixed $default = null): mixed
@@ -288,6 +291,42 @@ class PlatformSettings
     public static function autoPaystackWithdrawEnabled(): bool
     {
         return static::autoPaystackWithdrawSettings()['enabled'];
+    }
+
+    /**
+     * Admin lock for Paystack collections (checkout + wallet top-up).
+     *
+     * @return array{locked: bool}
+     */
+    public static function paystackPaymentsSettings(): array
+    {
+        $raw = static::get(self::PAYSTACK_PAYMENTS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return ['locked' => false];
+        }
+
+        return [
+            'locked' => (bool) ($decoded['locked'] ?? false),
+        ];
+    }
+
+    public static function paystackPaymentsLocked(): bool
+    {
+        return static::paystackPaymentsSettings()['locked'];
+    }
+
+    /**
+     * @param  array{locked?: bool}  $data
+     */
+    public static function savePaystackPaymentsSettings(array $data): void
+    {
+        static::set(self::PAYSTACK_PAYMENTS_KEY, [
+            'locked' => (bool) ($data['locked'] ?? false),
+        ]);
     }
 
     /** Fee charged for a withdrawal to this payout channel (momo|bank). Flat/tier mode only. */
@@ -721,11 +760,13 @@ class PlatformSettings
             'failover' => is_array($decoded) ? (bool) ($decoded['failover'] ?? false) : false,
             'alert_mobile_1' => is_array($decoded) ? (string) ($decoded['alert_mobile_1'] ?? '') : '',
             'alert_mobile_2' => is_array($decoded) ? (string) ($decoded['alert_mobile_2'] ?? '') : '',
+            'alert_mobile_3' => is_array($decoded) ? (string) ($decoded['alert_mobile_3'] ?? '') : '',
+            'alert_mobile_4' => is_array($decoded) ? (string) ($decoded['alert_mobile_4'] ?? '') : '',
         ];
     }
 
     /**
-     * @param  array{driver?: string, failover?: bool, alert_mobile_1?: string, alert_mobile_2?: string}  $data
+     * @param  array{driver?: string, failover?: bool, alert_mobile_1?: string, alert_mobile_2?: string, alert_mobile_3?: string, alert_mobile_4?: string}  $data
      */
     public static function saveSmsSettings(array $data): void
     {
@@ -745,6 +786,12 @@ class PlatformSettings
             'alert_mobile_2' => array_key_exists('alert_mobile_2', $data)
                 ? trim((string) $data['alert_mobile_2'])
                 : $current['alert_mobile_2'],
+            'alert_mobile_3' => array_key_exists('alert_mobile_3', $data)
+                ? trim((string) $data['alert_mobile_3'])
+                : $current['alert_mobile_3'],
+            'alert_mobile_4' => array_key_exists('alert_mobile_4', $data)
+                ? trim((string) $data['alert_mobile_4'])
+                : $current['alert_mobile_4'],
         ]);
     }
 
@@ -756,6 +803,8 @@ class PlatformSettings
         return array_values(array_filter([
             $settings['alert_mobile_1'],
             $settings['alert_mobile_2'],
+            $settings['alert_mobile_3'],
+            $settings['alert_mobile_4'],
         ], fn ($phone) => is_string($phone) && trim($phone) !== ''));
     }
 

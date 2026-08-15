@@ -186,6 +186,7 @@ export default function SellRmbShow({ transfer }: Props) {
                         )}
 
                         {transfer.status === 'payout_processing' && (
+                            <>
                             <form
                                 className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4"
                                 onSubmit={(e) => {
@@ -194,7 +195,9 @@ export default function SellRmbShow({ transfer }: Props) {
                                 }}
                             >
                                 <h2 className="font-bold">Mark payout paid</h2>
-                                <p className="text-xs text-gray-500">Payout proof is required.</p>
+                                <p className="text-xs text-gray-500">
+                                    Buyer already sent RMB (no wallet). Verify proof, then pay GHS and upload payout proof.
+                                </p>
                                 <div>
                                     <Label>Amount paid</Label>
                                     <Input
@@ -232,6 +235,17 @@ export default function SellRmbShow({ transfer }: Props) {
                                 </div>
                                 <Button className="w-full bg-orange-500 hover:bg-orange-600">Upload proof & mark paid</Button>
                             </form>
+                            <form className="space-y-2" onSubmit={post(route('admin.sell-rmb.reject', transfer.id))}>
+                                <Input
+                                    placeholder="Reject reason"
+                                    value={rejectForm.data.reason}
+                                    onChange={(e) => rejectForm.setData('reason', e.target.value)}
+                                />
+                                <Button variant="outline" className="w-full text-red-700">
+                                    Reject
+                                </Button>
+                            </form>
+                            </>
                         )}
 
                         {transfer.status === 'paid' && (

@@ -331,6 +331,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/withdrawal-fees/settings', [WithdrawalFeeSettingsController::class, 'update'])->name('withdrawal-fees.settings.update');
     Route::get('/paystack-fees/settings', [PaystackFeeSettingsController::class, 'edit'])->name('paystack-fees.settings');
     Route::post('/paystack-fees/settings', [PaystackFeeSettingsController::class, 'update'])->name('paystack-fees.settings.update');
+    Route::post('/paystack-fees/lock', [PaystackFeeSettingsController::class, 'updateLock'])->name('paystack-fees.lock.update');
     Route::get('/china-transfers', [AdminChinaTransferController::class, 'index'])->name('china-transfers.index');
     Route::get('/china-transfers/{chinaTransfer}', [AdminChinaTransferController::class, 'show'])->name('china-transfers.show');
     Route::post('/china-transfers/{chinaTransfer}/verify', [AdminChinaTransferController::class, 'verify'])->name('china-transfers.verify');

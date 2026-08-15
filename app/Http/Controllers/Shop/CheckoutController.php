@@ -347,7 +347,7 @@ class CheckoutController extends Controller
             'paymentMethod' => $draft['payment_method'] ?? 'momo',
             'shipping' => $draft['shipping'] ?? [],
             'paystackPublicKey' => config('services.paystack.public_key'),
-            'paystackConfigured' => $this->paystack->isConfigured(),
+            'paystackConfigured' => $this->paystack->isAvailable(),
         ]);
     }
 
@@ -358,8 +358,8 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'Start checkout again to pay.'], 422);
         }
 
-        if (! $this->paystack->isConfigured()) {
-            return response()->json(['message' => 'Paystack is not configured.'], 503);
+        if (! $this->paystack->isAvailable()) {
+            return response()->json(['message' => $this->paystack->unavailableMessage()], 503);
         }
 
         try {
@@ -453,7 +453,7 @@ class CheckoutController extends Controller
             'paystackCharge' => $quote['charge'],
             'directOrders' => $directOrders,
             'paystackPublicKey' => config('services.paystack.public_key'),
-            'paystackConfigured' => $this->paystack->isConfigured(),
+            'paystackConfigured' => $this->paystack->isAvailable(),
         ]);
     }
 
@@ -541,8 +541,8 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'Already paid'], 422);
         }
 
-        if (! $this->paystack->isConfigured()) {
-            return response()->json(['message' => 'Paystack is not configured. Add PAYSTACK keys to .env'], 503);
+        if (! $this->paystack->isAvailable()) {
+            return response()->json(['message' => $this->paystack->unavailableMessage()], 503);
         }
 
         $amount = $this->paymentVerifier->marketplaceAmountGhs($checkout);

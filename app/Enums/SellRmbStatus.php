@@ -20,7 +20,7 @@ enum SellRmbStatus: string
             self::Submitted => 'Submitted',
             self::RmbVerification => 'RMB Verification',
             self::RmbReceived => 'RMB Received',
-            self::PayoutProcessing => 'Payout Processing',
+            self::PayoutProcessing => 'Processing',
             self::Paid => 'Paid',
             self::Completed => 'Completed',
             self::Rejected => 'Rejected',
@@ -58,10 +58,8 @@ enum SellRmbStatus: string
     /** @return list<self> */
     public static function timeline(): array
     {
+        // rmb-wallet style: submit → Processing → Paid → Completed
         return [
-            self::Submitted,
-            self::RmbVerification,
-            self::RmbReceived,
             self::PayoutProcessing,
             self::Paid,
             self::Completed,

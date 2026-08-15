@@ -16,6 +16,7 @@ type Transfer = {
         rmb_amount: number;
         usd_per_rmb: number;
         ghs_per_usd: number;
+        ghs_per_rmb?: number;
         fee_usd: number;
         usd_payout: number;
         ghs_payout: number;
@@ -110,7 +111,13 @@ export default function SellRmbShow({ transfer: initial }: Props) {
                         </div>
                         <div className="flex justify-between">
                             <dt className="text-gray-500">Buying rate</dt>
-                            <dd>1 RMB = ${transfer.quote.usd_per_rmb.toFixed(4)}</dd>
+                            <dd>
+                                1 RMB = GH₵
+                                {(
+                                    transfer.quote.ghs_per_rmb ??
+                                    transfer.quote.usd_per_rmb * transfer.quote.ghs_per_usd
+                                ).toFixed(4)}
+                            </dd>
                         </div>
                         <div className="flex justify-between">
                             <dt className="text-gray-500">Fee</dt>

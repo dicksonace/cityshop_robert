@@ -63,7 +63,12 @@ class ChinaTransferSettingsController extends Controller
             'instructions' => $validated['instructions'] ?? null,
         ]);
 
-        return back()->with('success', 'China Transfer settings saved. Alipay only — WeChat Pay is off.');
+        return back()->with(
+            'success',
+            $validated['enabled']
+                ? 'GHS → RMB set to Live (buyers can start Transfer to China when rate & method are ready).'
+                : 'GHS → RMB paused. New Transfer to China requests are blocked.',
+        );
     }
 
     public function publishRate(Request $request): RedirectResponse

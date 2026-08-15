@@ -55,7 +55,7 @@ class SellRmbService
     /**
      * @return array<string, mixed>
      */
-    public function quote(float $rmbAmount, string $payoutCurrency = 'usd', ?SellRmbRate $rate = null): array
+    public function quote(float $rmbAmount, string $payoutCurrency = 'ghs', ?SellRmbRate $rate = null): array
     {
         $rate ??= $this->currentRate();
         if (! $rate) {
@@ -74,8 +74,9 @@ class SellRmbService
         $rmb = round($rmbAmount, 2);
         $usdPerRmb = (float) $rate->usd_per_rmb;
         $ghsPerUsd = (float) $rate->ghs_per_usd;
+        $ghsPerRmb = $rate->ghsPerRmb();
 
-        if ($usdPerRmb <= 0 || $ghsPerUsd <= 0) {
+        if ($usdPerRmb <= 0 || $ghsPerUsd <= 0 || $ghsPerRmb <= 0) {
             throw ValidationException::withMessages(['rmb_amount' => 'The published buying rate is invalid.']);
         }
 
@@ -84,9 +85,12 @@ class SellRmbService
             ? round($usdGross * ((float) $rate->fee_value) / 100, 2)
             : round((float) $rate->fee_value, 2);
         $usdPayout = round($usdGross - $feeUsd, 2);
-        $ghsPayout = round($usdPayout * $ghsPerUsd, 2);
+        // rmb-wallet style: GHS payout is RMB × (GHS per RMB), after the same fee share.
+        $ghsGross = round($rmb * $ghsPerRmb, 2);
+        $feeGhs = $usdGross > 0 ? round($ghsGross * ($feeUsd / $usdGross), 2) : 0.0;
+        $ghsPayout = round($ghsGross - $feeGhs, 2);
 
-        if ($usdPayout < 0) {
+        if ($usdPayout < 0 || $ghsPayout < 0) {
             throw ValidationException::withMessages(['rmb_amount' => 'Fee exceeds the estimated payout.']);
         }
 
@@ -94,6 +98,7 @@ class SellRmbService
             'rmb_amount' => $rmb,
             'usd_per_rmb' => $usdPerRmb,
             'ghs_per_usd' => $ghsPerUsd,
+            'ghs_per_rmb' => $ghsPerRmb,
             'usd_gross' => $usdGross,
             'fee_mode' => $rate->fee_mode,
             'fee_value' => (float) $rate->fee_value,
@@ -107,7 +112,7 @@ class SellRmbService
             'max_rmb' => (float) $rate->max_rmb,
             'breakdown' => [
                 'rmb' => '¥'.number_format($rmb, 2),
-                'rate' => '1 RMB = $'.number_format($usdPerRmb, 6),
+                'rate' => '1 RMB = GH₵'.number_format($ghsPerRmb, 4),
                 'usd_gross' => '$'.number_format($usdGross, 2),
                 'fee' => '$'.number_format($feeUsd, 2),
                 'usd_payout' => '$'.number_format($usdPayout, 2),
@@ -128,7 +133,8 @@ class SellRmbService
         $rate = $this->currentRate();
         $validated = $request->validate([
             'rmb_amount' => ['required', 'numeric', 'min:1'],
-            'payout_currency' => ['required', 'in:usd,ghs'],
+            // Sell RMB for GHS (rmb-wallet style). USD kept for older clients.
+            'payout_currency' => ['nullable', 'in:usd,ghs'],
             'receive_method_id' => ['required', 'integer', 'exists:sell_rmb_receive_methods,id'],
         ]);
 
@@ -143,14 +149,16 @@ class SellRmbService
             ]);
         }
 
-        $quote = $this->quote((float) $validated['rmb_amount'], $validated['payout_currency'], $rate);
+        $payoutCurrency = $validated['payout_currency'] ?? 'ghs';
+        $quote = $this->quote((float) $validated['rmb_amount'], $payoutCurrency, $rate);
         $this->assertLimits($user, $quote, $rate);
 
         $fields = $this->activeFields();
         $this->validateFields($request, $fields, $method);
 
         return DB::transaction(function () use ($user, $request, $quote, $rate, $method, $fields) {
-            $status = SellRmbStatus::Submitted;
+            // No RMB wallet — buyer sends RMB to Alipay, then admin processes.
+            $status = SellRmbStatus::PayoutProcessing;
 
             $needsApproval = $rate->approval_above_rmb !== null
                 && $quote['rmb_amount'] >= (float) $rate->approval_above_rmb;
@@ -173,10 +181,11 @@ class SellRmbService
                 'payment_reference' => $this->fieldText($request, $fields, 'payment_reference'),
                 'needs_approval' => $needsApproval,
                 'submitted_at' => now(),
+                'payout_processing_at' => now(),
             ]);
 
             $this->storeFieldValues($transfer, $request, $fields);
-            $this->recordHistory($transfer, null, $status, 'Sell RMB submitted', $user->id);
+            $this->recordHistory($transfer, null, $status, 'Sell RMB submitted — awaiting admin processing', $user->id);
             $this->notifyUser($transfer, $status);
             $this->notifyAdmins($transfer, $status);
 
@@ -193,9 +202,12 @@ class SellRmbService
     {
         $this->assertMutable($transfer);
 
-        if ($actor->id === $transfer->user_id && $transfer->status !== SellRmbStatus::Submitted) {
+        if ($actor->id === $transfer->user_id && ! in_array($transfer->status, [
+            SellRmbStatus::Submitted,
+            SellRmbStatus::PayoutProcessing,
+        ], true)) {
             throw ValidationException::withMessages([
-                'status' => 'You can only cancel while the request is still submitted.',
+                'status' => 'You can only cancel while the request is still processing.',
             ]);
         }
 
@@ -301,6 +313,7 @@ class SellRmbService
         $this->assertAdminAction($transfer, [
             SellRmbStatus::Submitted,
             SellRmbStatus::RmbVerification,
+            SellRmbStatus::PayoutProcessing,
         ]);
 
         return $this->transition($transfer, SellRmbStatus::Rejected, $admin, $reason, [
@@ -342,9 +355,19 @@ class SellRmbService
                     'effective_to' => now(),
                 ]);
 
+            // rmb-wallet style: admin sets 1 RMB = X GHS.
+            // Stored as usd_per_rmb=1 and ghs_per_usd=X so existing columns keep working.
+            if (isset($data['ghs_per_rmb']) && (float) $data['ghs_per_rmb'] > 0) {
+                $usdPerRmb = 1.0;
+                $ghsPerUsd = (float) $data['ghs_per_rmb'];
+            } else {
+                $usdPerRmb = (float) ($data['usd_per_rmb'] ?? 0);
+                $ghsPerUsd = (float) ($data['ghs_per_usd'] ?? 0);
+            }
+
             return SellRmbRate::create([
-                'usd_per_rmb' => $data['usd_per_rmb'],
-                'ghs_per_usd' => $data['ghs_per_usd'],
+                'usd_per_rmb' => $usdPerRmb,
+                'ghs_per_usd' => $ghsPerUsd,
                 'fee_mode' => $data['fee_mode'] ?? 'flat',
                 'fee_value' => $data['fee_value'] ?? 0,
                 'min_rmb' => $data['min_rmb'] ?? 100,
@@ -367,7 +390,7 @@ class SellRmbService
     {
         $settings = $this->settings();
         $rate = $this->currentRate();
-        $quote = $rate ? $this->quote((float) $rate->min_rmb, 'usd', $rate) : null;
+        $quote = $rate ? $this->quote((float) $rate->min_rmb, 'ghs', $rate) : null;
 
         return [
             'enabled' => $this->isOpen(),
@@ -375,6 +398,7 @@ class SellRmbService
             'receive_instructions' => $settings->receive_instructions,
             'rate' => $rate ? $this->ratePayload($rate) : null,
             'sample_quote' => $quote,
+            'default_payout_currency' => 'ghs',
             'receive_methods' => SellRmbReceiveMethod::query()
                 ->where('active', true)
                 ->orderBy('sort_order')
@@ -408,6 +432,7 @@ class SellRmbService
             'rmb_amount' => (float) $transfer->rmb_amount,
             'usd_per_rmb' => (float) $transfer->usd_per_rmb,
             'ghs_per_usd' => (float) $transfer->ghs_per_usd,
+            'ghs_per_rmb' => round((float) $transfer->usd_per_rmb * (float) $transfer->ghs_per_usd, 6),
             'fee_mode' => $transfer->fee_mode,
             'fee_value' => (float) $transfer->fee_value,
             'fee_usd' => (float) $transfer->fee_usd,
@@ -417,7 +442,7 @@ class SellRmbService
             'payout_amount' => $transfer->expectedPayoutAmount(),
             'breakdown' => [
                 'rmb' => '¥'.number_format((float) $transfer->rmb_amount, 2),
-                'rate' => '1 RMB = $'.number_format((float) $transfer->usd_per_rmb, 6),
+                'rate' => '1 RMB = GH₵'.number_format((float) $transfer->usd_per_rmb * (float) $transfer->ghs_per_usd, 4),
                 'fee' => '$'.number_format((float) $transfer->fee_usd, 2),
                 'usd_payout' => '$'.number_format((float) $transfer->usd_payout, 2),
                 'ghs_payout' => 'GH₵'.number_format((float) $transfer->ghs_payout, 2),
@@ -448,7 +473,10 @@ class SellRmbService
             'paid_at' => $transfer->paid_at?->toIso8601String(),
             'completed_at' => $transfer->completed_at?->toIso8601String(),
             'cancelled_at' => $transfer->cancelled_at?->toIso8601String(),
-            'can_cancel' => $transfer->status === SellRmbStatus::Submitted,
+            'can_cancel' => in_array($transfer->status, [
+                SellRmbStatus::Submitted,
+                SellRmbStatus::PayoutProcessing,
+            ], true),
             'timeline' => $this->timelinePayload($transfer),
             'fields' => $transfer->fieldValues->map(fn (SellRmbFieldValue $v) => [
                 'id' => $v->id,
@@ -554,6 +582,7 @@ class SellRmbService
             'id' => $rate->id,
             'usd_per_rmb' => (float) $rate->usd_per_rmb,
             'ghs_per_usd' => (float) $rate->ghs_per_usd,
+            'ghs_per_rmb' => $rate->ghsPerRmb(),
             'fee_mode' => $rate->fee_mode,
             'fee_value' => (float) $rate->fee_value,
             'min_rmb' => (float) $rate->min_rmb,
@@ -959,7 +988,7 @@ class SellRmbService
             SellRmbStatus::Submitted => 'Sell RMB submitted',
             SellRmbStatus::RmbVerification => 'RMB verification',
             SellRmbStatus::RmbReceived => 'RMB received',
-            SellRmbStatus::PayoutProcessing => 'Payout processing',
+            SellRmbStatus::PayoutProcessing => 'Sell RMB processing',
             SellRmbStatus::Paid => 'Payout sent',
             SellRmbStatus::Completed => 'Sell RMB completed',
             SellRmbStatus::Rejected => 'Sell RMB rejected',

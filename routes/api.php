@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\UserBlockController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\ChinaTransferController;
 use App\Http\Controllers\Api\V1\SellRmbController;
+use App\Http\Controllers\Api\V1\Seller\DashboardController as SellerDashboardController;
 use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Broadcasting\BroadcastController;
 use Illuminate\Support\Facades\Route;
@@ -93,6 +94,10 @@ Route::prefix('v1')->group(function () {
         Route::prefix('auth')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::post('/logout', [AuthController::class, 'logout']);
+        });
+
+        Route::middleware(['role:seller', 'seller.approved'])->prefix('seller')->group(function () {
+            Route::get('/dashboard', [SellerDashboardController::class, 'show']);
         });
 
         Route::post('/livestreams/start', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'start']);
