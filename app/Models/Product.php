@@ -105,13 +105,29 @@ class Product extends Model
         });
     }
 
-    public static function generateUniqueSlug(string $name, int $sellerId): string
+    /**
+     * Build a shop URL slug that is unique across ALL products.
+     * Same titles become electric-bike, electric-bike-1, electric-bike-2, …
+     * so shared links never open the wrong item as the catalog grows.
+     *
+     * @param  int  $sellerId  Kept for call-site compatibility (unused).
+     */
+    public static function generateUniqueSlug(string $name, int $sellerId = 0, ?int $ignoreProductId = null): string
     {
         $slug = Str::slug($name);
+        if ($slug === '') {
+            $slug = 'product';
+        }
+
         $original = $slug;
         $count = 1;
 
-        while (static::where('seller_id', $sellerId)->where('slug', $slug)->exists()) {
+        while (
+            static::withTrashed()
+                ->where('slug', $slug)
+                ->when($ignoreProductId, fn ($q) => $q->where('id', '!=', $ignoreProductId))
+                ->exists()
+        ) {
             $slug = "{$original}-{$count}";
             $count++;
         }
