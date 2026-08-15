@@ -109,10 +109,10 @@ export default function BuyerWallet({
 
                 <div className="relative mb-4 overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-orange-500 to-orange-400 p-[1.375rem] text-white shadow-[0_8px_18px_rgba(249,115,22,0.28)]">
                     <Link
-                        href={route('wallet.china-transfer.index')}
+                        href={route('wallet.china-rmb.index')}
                         className="absolute right-3 top-3 rounded-full bg-white/20 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white backdrop-blur-sm hover:bg-white/30"
                     >
-                        Transfer to China
+                        China / RMB
                     </Link>
                     <p className="text-sm font-semibold text-white/70">Available balance</p>
                     <p className="mt-2 text-[2.125rem] font-black leading-none tracking-tight">

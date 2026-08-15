@@ -1,20 +1,28 @@
 ---
-description: Buyer Transfer to China is Alipay-only with admin-configured rates and forms
+description: Buyer China / RMB has Buy RMB (Transfer to China) and Sell RMB with separate rates
 alwaysApply: true
 ---
 
-# Transfer to China
+# China / RMB
 
-**Buyers only.** Entry is the **Transfer to China** pill on the top-right of the orange wallet balance card (web + app). Do not put this on Withdrawal.
+**Buyers only.** Entry is the **China / RMB** pill on the top-right of the orange wallet balance card (web + app). Do not put this on Withdrawal.
 
-**Alipay only.** Do not add WeChat Pay to this flow.
+## Buy RMB (Transfer to China)
+User pays GHS → admin sends RMB to Alipay in China.
+**Alipay only** for receiving in China. Do not add WeChat Pay to the Buy flow.
 
 Admin configures:
-- GHS → RMB rate (stored as GHS per 1 RMB, with history and rate lock on each transfer)
+- GHS → RMB transfer rate (`ghs_per_rmb`, selling/transfer rate to users)
 - Fees, min/max, daily/monthly limits
 - GHS payment methods (MoMo / bank)
 - Dynamic form fields (recipient + payment proof)
 
-User flow: see rate → enter Alipay details → pay GHS to admin → upload proof → track status → receive RMB proof.
+## Sell RMB
+User sells RMB to CityShop → receives USD or GHS.
+Admin configures a separate **buying rate** (`usd_per_rmb` + `ghs_per_usd`), RMB receive methods (Alipay/WeChat), and dynamic form fields (payment + payout).
 
-Completed financial values are immutable. Completing requires RMB transfer proof from admin.
+Statuses: Submitted → RMB Verification → RMB Received → Payout Processing → Paid → Completed.
+Completing requires admin payout proof.
+
+## App hub
+China / RMB → Buy RMB | Sell RMB | recent activity. Keep rates independent so admin can set a spread.

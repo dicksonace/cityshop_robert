@@ -34,6 +34,8 @@ export type AdminNavKey =
     | 'pending-funds'
     | 'china-transfers'
     | 'china-transfer-settings'
+    | 'sell-rmb'
+    | 'sell-rmb-settings'
     | 'disputes'
     | 'messages'
     | 'chats'
@@ -65,6 +67,8 @@ const sectionMap: Record<AdminNavKey, string> = {
     'pending-funds': 'finance',
     'china-transfers': 'finance',
     'china-transfer-settings': 'finance',
+    'sell-rmb': 'finance',
+    'sell-rmb-settings': 'finance',
     disputes: 'support',
     messages: 'support',
     chats: 'support',
@@ -172,6 +176,8 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'pending-funds', label: 'Pending Funds', href: route('admin.pending-funds.index'), badgeKey: 'pending_fund_releases', defaultOnPath: true },
                 { key: 'china-transfers', label: 'China Transfer', href: route('admin.china-transfers.index'), badgeKey: 'pending_china_transfers', defaultOnPath: true },
                 { key: 'china-transfer-settings', label: 'China Transfer Settings', href: route('admin.china-transfer.settings') },
+                { key: 'sell-rmb', label: 'Sell RMB', href: route('admin.sell-rmb.index'), badgeKey: 'pending_sell_rmb', defaultOnPath: true },
+                { key: 'sell-rmb-settings', label: 'Sell RMB Settings', href: route('admin.sell-rmb.settings') },
                 { key: 'transactions', label: 'Transactions', href: route('admin.transactions.index'), defaultOnPath: true },
                 { key: 'manual-funding-settings', label: 'Receive Accounts', href: route('admin.manual-funding.settings') },
                 { key: 'wallet-funding', label: 'Add Funds to Wallet', href: route('admin.wallet-funding.index'), defaultOnPath: true },
