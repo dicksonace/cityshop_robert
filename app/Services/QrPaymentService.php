@@ -151,7 +151,7 @@ class QrPaymentService
 
         $transferNote = trim((string) ($note ?: ($resolved['reason'] ?? '')));
         if ($transferNote === '') {
-            $transferNote = 'QR payment';
+            $transferNote = 'QR Code payment';
         }
 
         $transfer = WalletService::transfer($payer, $recipient, $amount, $transferNote);

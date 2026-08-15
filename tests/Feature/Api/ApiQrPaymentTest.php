@@ -83,12 +83,12 @@ class ApiQrPaymentTest extends TestCase
         $this->assertDatabaseHas('app_notifications', [
             'user_id' => $payee->id,
             'type' => 'payment',
-            'title' => 'QR payment received',
+            'title' => 'QR Code payment received',
         ]);
         $this->assertDatabaseHas('app_notifications', [
             'user_id' => $payer->id,
             'type' => 'payment',
-            'title' => 'QR payment sent',
+            'title' => 'QR Code payment sent',
         ]);
     }
 

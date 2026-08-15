@@ -228,10 +228,10 @@ class AppNotificationService
         $reference = $transfer['reference'] ?? null;
 
         $payeeBody = $note
-            ? "{$payer->name} paid you {$amountLabel} via QR — {$note}"
-            : "{$payer->name} paid you {$amountLabel} via QR";
+            ? "{$payer->name} paid you {$amountLabel} via QR Code — {$note}"
+            : "{$payer->name} paid you {$amountLabel} via QR Code";
 
-        static::send($payee, 'payment', 'QR payment received', $payeeBody, [
+        static::send($payee, 'payment', 'QR Code payment received', $payeeBody, [
             'reference' => $reference,
             'amount' => (float) $transfer['amount'],
             'from_user_id' => $payer->id,
@@ -241,10 +241,10 @@ class AppNotificationService
         ]);
 
         $payerBody = $note
-            ? "You paid {$payee->name} {$amountLabel} via QR — {$note}"
-            : "You paid {$payee->name} {$amountLabel} via QR";
+            ? "You paid {$payee->name} {$amountLabel} via QR Code — {$note}"
+            : "You paid {$payee->name} {$amountLabel} via QR Code";
 
-        static::send($payer, 'payment', 'QR payment sent', $payerBody, [
+        static::send($payer, 'payment', 'QR Code payment sent', $payerBody, [
             'reference' => $reference,
             'amount' => (float) $transfer['amount'],
             'to_user_id' => $payee->id,
