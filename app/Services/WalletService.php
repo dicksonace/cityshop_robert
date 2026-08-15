@@ -136,7 +136,15 @@ class WalletService
                 report($e);
             }
 
-            if (strtolower($method) !== 'admin') {
+            // Buyer still gets WalletFundedNotification above.
+            // Do not SMS/email admins again after they approve a manual deposit —
+            // they already got the "deposit proof / Review in admin" alert.
+            $methodLower = strtolower(trim($method));
+            $skipAdminCreditAlert = $methodLower === 'admin'
+                || $methodLower === 'manual'
+                || str_contains($methodLower, 'manual');
+
+            if (! $skipAdminCreditAlert) {
                 try {
                     AdminNotifier::notify(new AdminWalletDepositNotification(
                         userName: (string) ($user?->name ?? 'A user'),

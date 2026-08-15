@@ -69,6 +69,25 @@ class AdminWalletAlertTest extends TestCase
         Notification::assertNotSentTo($admin, AdminWalletDepositNotification::class);
     }
 
+    public function test_manual_deposit_approval_does_not_sms_admins_again(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create(['role' => UserRole::Admin, 'name' => 'Admin One']);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Kofi Amoah']);
+        WalletService::ensure($buyer);
+
+        $this->assertTrue(WalletService::creditFromVerifiedTopUp(
+            $buyer->id,
+            20,
+            'MANUAL-4-proof',
+            'manual',
+        ));
+
+        Notification::assertSentTo($buyer, WalletFundedNotification::class);
+        Notification::assertNotSentTo($admin, AdminWalletDepositNotification::class);
+    }
+
     public function test_manual_deposit_proof_alerts_all_admins(): void
     {
         Notification::fake();
