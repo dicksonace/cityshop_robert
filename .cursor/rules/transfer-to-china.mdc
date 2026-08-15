@@ -25,4 +25,4 @@ Statuses: Submitted → RMB Verification → RMB Received → Payout Processing 
 Completing requires admin payout proof.
 
 ## App hub
-China / RMB → Buy RMB | Sell RMB | recent activity. Keep rates independent so admin can set a spread.
+China / RMB → **Exchange Type** cards: **GHS → RMB** (Ghana to China) | **RMB → GHS** (China to Ghana), then Continue. Keep rates independent so admin can set a spread.
