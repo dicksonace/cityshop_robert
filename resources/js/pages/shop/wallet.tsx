@@ -51,7 +51,7 @@ const statusColor: Record<string, string> = {
 const statusLabel: Record<string, string> = {
     pending: 'Pending',
     processing: 'Processing',
-    paid: 'Paid out',
+    paid: 'Completed',
     rejected: 'Rejected',
 };
 
@@ -232,7 +232,7 @@ export default function BuyerWallet({
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex flex-wrap items-center gap-1.5">
                                                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-800">
-                                                            {formatWalletTransactionType(tx.type)}
+                                                            {formatWalletTransactionType(tx.type, tx.type_label)}
                                                         </span>
                                                         {tx.reference && (
                                                             <span className="text-[11px] text-gray-400">{tx.reference}</span>

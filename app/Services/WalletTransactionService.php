@@ -288,22 +288,14 @@ class WalletTransactionService
         );
     }
 
+    /**
+     * No longer writes a second ledger row. One withdrawal = one receipt that
+     * flips Processing → Completed via {@see displayTypeLabel()}.
+     */
     public static function recordWithdrawalCompleted(Withdrawal $withdrawal): void
     {
-        if (WalletTransaction::where('withdrawal_id', $withdrawal->id)
-            ->where('type', WalletTransactionType::WithdrawalCompleted)
-            ->exists()) {
-            return;
-        }
-
-        static::record(
-            userId: $withdrawal->user_id,
-            type: WalletTransactionType::WithdrawalCompleted,
-            amount: -1 * (float) $withdrawal->amount,
-            description: "Payout sent to {$withdrawal->momo_number}",
-            withdrawalId: $withdrawal->id,
-            reference: "WD-{$withdrawal->id}",
-        );
+        // Intentionally empty — historical withdrawal_completed rows are hidden
+        // from statements; paid state lives on withdrawals.status.
     }
 
     public static function recordWithdrawalRefunded(Withdrawal $withdrawal): void
@@ -346,10 +338,6 @@ class WalletTransactionService
         foreach ($withdrawals as $withdrawal) {
             static::recordWithdrawal($withdrawal);
 
-            if ($withdrawal->status === WithdrawalStatus::Paid) {
-                static::recordWithdrawalCompleted($withdrawal);
-            }
-
             if ($withdrawal->status === WithdrawalStatus::Rejected) {
                 static::recordWithdrawalRefunded($withdrawal);
             }
@@ -361,8 +349,8 @@ class WalletTransactionService
         return match ($type) {
             WalletTransactionType::SalePending => 'Sale (Pending)',
             WalletTransactionType::SaleReleased => 'Funds Released',
-            WalletTransactionType::Withdrawal => 'Withdrawal Request',
-            WalletTransactionType::WithdrawalCompleted => 'Payout Sent',
+            WalletTransactionType::Withdrawal => 'Withdrawal · Processing',
+            WalletTransactionType::WithdrawalCompleted => 'Withdrawal · Completed',
             WalletTransactionType::WithdrawalRefunded => 'Withdrawal Refunded',
             WalletTransactionType::FundAdded => 'Funds Credited',
             WalletTransactionType::OrderPayment => 'Order Payment',
@@ -456,12 +444,50 @@ class WalletTransactionService
         return is_array($party) ? $party : null;
     }
 
+    /**
+     * One withdrawal receipt: Processing while pending, Completed after payout.
+     * Historical "Payout Sent" marker rows are filtered from statements.
+     */
+    public static function displayTypeLabel(WalletTransaction $tx): string
+    {
+        if ($tx->type === WalletTransactionType::Withdrawal) {
+            $withdrawal = $tx->relationLoaded('withdrawal')
+                ? $tx->withdrawal
+                : ($tx->withdrawal_id ? Withdrawal::query()->find($tx->withdrawal_id) : null);
+
+            return match ($withdrawal?->status) {
+                WithdrawalStatus::Paid => 'Withdrawal · Completed',
+                WithdrawalStatus::Rejected => 'Withdrawal · Rejected',
+                default => 'Withdrawal · Processing',
+            };
+        }
+
+        if ($tx->type === WalletTransactionType::WithdrawalCompleted) {
+            return 'Withdrawal · Completed';
+        }
+
+        return $tx->type->label();
+    }
+
     /** Statement / history line with Tel inserted when the stored description lacks it. */
     public static function displayDescription(WalletTransaction $tx): string
     {
         $description = (string) ($tx->description ?? '');
         if ($description === '') {
             return $description;
+        }
+
+        if ($tx->type === WalletTransactionType::Withdrawal) {
+            $withdrawal = $tx->relationLoaded('withdrawal')
+                ? $tx->withdrawal
+                : ($tx->withdrawal_id ? Withdrawal::query()->find($tx->withdrawal_id) : null);
+
+            if ($withdrawal?->status === WithdrawalStatus::Paid) {
+                return "Payout completed to {$withdrawal->momo_number}"
+                    .((float) ($withdrawal->fee ?? 0) > 0
+                        ? ' · fee GH₵'.number_format((float) $withdrawal->fee, 2)
+                        : '');
+            }
         }
 
         if (! in_array($tx->type, [

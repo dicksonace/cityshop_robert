@@ -334,8 +334,52 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('data.0.status_label', 'Rejected')
             ->assertJsonPath('data.0.rejection_reason', 'Name did not match the MoMo account.')
             ->assertJsonPath('data.1.amount', 25)
-            ->assertJsonPath('data.1.status_label', 'Paid out')
+            ->assertJsonPath('data.1.status_label', 'Completed')
             ->assertJsonPath('data.1.network_label', 'Telecel Cash');
+    }
+
+    public function test_wallet_history_keeps_one_receipt_that_becomes_completed(): void
+    {
+        $buyer = $this->buyerWithBalance(500);
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
+            'amount' => 12,
+        ]))->assertCreated();
+
+        $withdrawal = Withdrawal::where('user_id', $buyer->id)->sole();
+
+        $this->getJson('/api/v1/wallet/transactions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'withdrawal')
+            ->assertJsonPath('data.0.type_label', 'Withdrawal · Processing')
+            ->assertJsonPath('data.0.reference', 'WD-'.$withdrawal->id)
+            ->assertJsonPath('data.0.amount', -12);
+
+        app(\App\Services\WithdrawalPayoutService::class)->markAsPaid($withdrawal->fresh(), 'manual');
+
+        $this->assertSame(
+            1,
+            WalletTransaction::where('user_id', $buyer->id)->where('reference', 'WD-'.$withdrawal->id)->count(),
+        );
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'user_id' => $buyer->id,
+            'type' => WalletTransactionType::WithdrawalCompleted->value,
+        ]);
+
+        $this->getJson('/api/v1/wallet/transactions')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'withdrawal')
+            ->assertJsonPath('data.0.type_label', 'Withdrawal · Completed')
+            ->assertJsonPath('data.0.reference', 'WD-'.$withdrawal->id)
+            ->assertJsonPath('data.0.amount', -12);
+
+        $this->getJson('/api/v1/wallet/withdrawals')
+            ->assertOk()
+            ->assertJsonPath('data.0.status_label', 'Completed');
     }
 
     /**

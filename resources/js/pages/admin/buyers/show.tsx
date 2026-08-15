@@ -141,7 +141,7 @@ export default function AdminBuyerShow({ buyer, orders, conversations, wallet, t
                                 <div key={tx.id} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
                                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                                            {formatWalletTransactionType(tx.type)}
+                                            {formatWalletTransactionType(tx.type, tx.type_label)}
                                         </span>
                                         <p className="mt-1 text-sm text-gray-600">{tx.description}</p>
                                         <p className="text-xs text-gray-400">{formatDate(tx.created_at)}</p>

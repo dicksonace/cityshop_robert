@@ -46,7 +46,7 @@ const statusColor: Record<string, string> = {
 const statusLabel: Record<string, string> = {
     pending: 'Pending',
     processing: 'Processing',
-    paid: 'Paid out',
+    paid: 'Completed',
     rejected: 'Rejected',
 };
 

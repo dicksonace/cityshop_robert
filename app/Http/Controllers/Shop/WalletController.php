@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Shop;
 
+use App\Enums\WalletTransactionType;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Wallet;
@@ -32,6 +33,8 @@ class WalletController extends Controller
         $wallet = WalletService::ensure($request->user());
 
         $transactions = WalletTransaction::where('user_id', $userId)
+            ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)
+            ->with('withdrawal:id,status,momo_number,fee')
             ->latest()
             ->paginate(15)
             ->withQueryString();
@@ -42,6 +45,10 @@ class WalletController extends Controller
             (float) $wallet->available_balance,
             (float) $wallet->pending_balance,
         );
+        $transactions->getCollection()->each(function (WalletTransaction $tx) {
+            $tx->setAttribute('type_label', WalletTransactionService::displayTypeLabel($tx));
+            $tx->setAttribute('description', WalletTransactionService::displayDescription($tx));
+        });
 
         $withdrawals = Withdrawal::where('user_id', $userId)
             ->latest()

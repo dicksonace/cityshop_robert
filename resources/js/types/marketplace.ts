@@ -118,6 +118,7 @@ export interface Withdrawal {
 export interface WalletTransaction {
     id: number;
     type: string;
+    type_label?: string | null;
     amount: number;
     description: string;
     reference?: string | null;
@@ -135,8 +136,8 @@ export interface WalletTransaction {
 export const walletTransactionLabels: Record<string, string> = {
     sale_pending: 'Sale (Pending)',
     sale_released: 'Funds Released',
-    withdrawal: 'Withdrawal Request',
-    withdrawal_completed: 'Payout Sent',
+    withdrawal: 'Withdrawal · Processing',
+    withdrawal_completed: 'Withdrawal · Completed',
     withdrawal_refunded: 'Withdrawal Refunded',
     fund_added: 'Funds Credited',
     fund_removed: 'Funds Debited',
@@ -147,7 +148,10 @@ export const walletTransactionLabels: Record<string, string> = {
     direct_cancel_debit: 'Pay-to-seller Cancel',
 };
 
-export function formatWalletTransactionType(type: string): string {
+export function formatWalletTransactionType(type: string, typeLabel?: string | null): string {
+    if (typeLabel && typeLabel.trim() !== '') {
+        return typeLabel;
+    }
     return walletTransactionLabels[type] ?? type.replace(/_/g, ' ');
 }
 

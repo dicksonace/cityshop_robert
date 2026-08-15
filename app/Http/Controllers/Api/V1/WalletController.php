@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\UserRole;
 use App\Enums\WalletTopUpStatus;
+use App\Enums\WalletTransactionType;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Wallet;
@@ -64,6 +65,8 @@ class WalletController extends Controller
         $perPage = min(max((int) $request->integer('per_page', 20), 1), 50);
 
         $transactions = WalletTransaction::where('user_id', $user->id)
+            ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)
+            ->with('withdrawal:id,status,momo_number,fee')
             ->latest()
             ->paginate($perPage);
 
@@ -79,7 +82,7 @@ class WalletController extends Controller
             'data' => $transactions->getCollection()->map(fn (WalletTransaction $tx) => [
                 'id' => $tx->id,
                 'type' => $tx->type->value,
-                'type_label' => $tx->type->label(),
+                'type_label' => WalletTransactionService::displayTypeLabel($tx),
                 'amount' => (float) $tx->amount,
                 'description' => WalletTransactionService::displayDescription($tx),
                 'reference' => $tx->reference,
@@ -111,6 +114,8 @@ class WalletController extends Controller
         $wallet = WalletService::ensure($user);
         $tx = WalletTransaction::where('user_id', $user->id)
             ->where('reference', $reference)
+            ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)
+            ->with('withdrawal:id,status,momo_number,fee')
             ->latest('id')
             ->first();
 
@@ -130,7 +135,7 @@ class WalletController extends Controller
             'transaction' => [
                 'id' => $tx->id,
                 'type' => $tx->type->value,
-                'type_label' => $tx->type->label(),
+                'type_label' => WalletTransactionService::displayTypeLabel($tx),
                 'amount' => (float) $tx->amount,
                 'description' => WalletTransactionService::displayDescription($tx),
                 'reference' => $tx->reference,
@@ -273,7 +278,7 @@ class WalletController extends Controller
             'status_label' => match ($withdrawal->status) {
                 WithdrawalStatus::Pending, WithdrawalStatus::Processing => 'Processing',
                 WithdrawalStatus::Approved => 'Approved',
-                WithdrawalStatus::Paid => 'Paid out',
+                WithdrawalStatus::Paid => 'Completed',
                 WithdrawalStatus::Rejected => 'Rejected',
                 default => 'Processing',
             },

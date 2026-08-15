@@ -28,8 +28,8 @@ enum WalletTransactionType: string
         return match ($this) {
             self::SalePending => 'Sale (Pending)',
             self::SaleReleased => 'Funds Released',
-            self::Withdrawal => 'Withdrawal Request',
-            self::WithdrawalCompleted => 'Payout Sent',
+            self::Withdrawal => 'Withdrawal · Processing',
+            self::WithdrawalCompleted => 'Withdrawal · Completed',
             self::WithdrawalRefunded => 'Withdrawal Refunded',
             self::FundAdded => 'Funds Credited',
             self::FundRemoved => 'Funds Debited',

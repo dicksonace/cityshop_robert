@@ -84,7 +84,7 @@ export default function SellerTransactions({ wallet, transactions }: Props) {
                                                 <span
                                                     className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${transactionTypeBadgeClass(tx.type)}`}
                                                 >
-                                                    {formatWalletTransactionType(tx.type)}
+                                                    {formatWalletTransactionType(tx.type, tx.type_label)}
                                                 </span>
                                                 <p className="mt-1 truncate text-sm text-gray-700">{tx.description}</p>
                                                 {tx.reference && (

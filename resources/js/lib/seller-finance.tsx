@@ -56,7 +56,7 @@ export const withdrawalStatusLabel: Record<string, string> = {
     pending: 'Processing',
     processing: 'Processing',
     approved: 'Approved',
-    paid: 'Paid out',
+    paid: 'Completed',
     rejected: 'Rejected',
 };
 

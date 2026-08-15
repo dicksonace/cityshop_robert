@@ -85,12 +85,24 @@ class PushNotificationService
                 ->post('https://fcm.googleapis.com/fcm/send', [
                     'to' => $token,
                     'priority' => 'high',
+                    'content_available' => true,
                     'notification' => [
                         'title' => $title,
                         'body' => $body ?: '',
                         'sound' => 'default',
+                        'android_channel_id' => 'cityshop_alerts',
                     ],
-                    'data' => $data,
+                    'android' => [
+                        'priority' => 'high',
+                        'notification' => [
+                            'channel_id' => 'cityshop_alerts',
+                            'sound' => 'default',
+                            'default_vibrate_timings' => true,
+                        ],
+                    ],
+                    'data' => array_merge($data, [
+                        'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+                    ]),
                 ]);
 
             if ($response->failed()) {

@@ -250,7 +250,7 @@ export default function SellerWallet({
     const statusLabel: Record<string, string> = {
         pending: 'Processing',
         processing: 'Processing',
-        paid: 'Paid out',
+        paid: 'Completed',
         rejected: 'Rejected',
     };
 
@@ -840,7 +840,7 @@ export default function SellerWallet({
                                         <div className="min-w-0 flex-1">
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
-                                                    {formatWalletTransactionType(tx.type)}
+                                                    {formatWalletTransactionType(tx.type, tx.type_label)}
                                                 </span>
                                                 <span className="text-xs text-gray-400">{formatDate(tx.created_at)}</span>
                                             </div>

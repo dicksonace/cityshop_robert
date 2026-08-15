@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Seller;
 
+use App\Enums\WalletTransactionType;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\SellerPayoutMethod;
@@ -33,6 +34,8 @@ class WalletController extends Controller
         $wallet = WalletService::ensure($user);
 
         $transactions = WalletTransaction::where('user_id', $user->id)
+            ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)
+            ->with('withdrawal:id,status,momo_number,fee')
             ->latest()
             ->paginate(8, ['*'], 'transactions_page')
             ->withQueryString();
@@ -43,6 +46,10 @@ class WalletController extends Controller
             (float) $wallet->available_balance,
             (float) $wallet->pending_balance,
         );
+        $transactions->getCollection()->each(function (WalletTransaction $tx) {
+            $tx->setAttribute('type_label', WalletTransactionService::displayTypeLabel($tx));
+            $tx->setAttribute('description', WalletTransactionService::displayDescription($tx));
+        });
 
         $withdrawals = Withdrawal::where('user_id', $user->id)
             ->latest()
@@ -80,7 +87,8 @@ class WalletController extends Controller
         $wallet = $user->wallet;
 
         $transactions = WalletTransaction::where('user_id', $user->id)
-            ->with(['orderItem:id,order_id,product_name,status', 'withdrawal:id,status,amount,network,momo_number'])
+            ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)
+            ->with(['orderItem:id,order_id,product_name,status', 'withdrawal:id,status,amount,network,momo_number,fee'])
             ->latest()
             ->paginate(20)
             ->withQueryString();
@@ -91,6 +99,10 @@ class WalletController extends Controller
             (float) ($wallet?->available_balance ?? 0),
             (float) ($wallet?->pending_balance ?? 0),
         );
+        $transactions->getCollection()->each(function (WalletTransaction $tx) {
+            $tx->setAttribute('type_label', WalletTransactionService::displayTypeLabel($tx));
+            $tx->setAttribute('description', WalletTransactionService::displayDescription($tx));
+        });
 
         return Inertia::render('seller/wallet/transactions', [
             'wallet' => $wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),
@@ -114,6 +126,9 @@ class WalletController extends Controller
             'orderItem.order:id,order_number,status,payment_status,created_at',
             'withdrawal',
         ]);
+
+        $transaction->setAttribute('type_label', WalletTransactionService::displayTypeLabel($transaction));
+        $transaction->setAttribute('description', WalletTransactionService::displayDescription($transaction));
 
         return Inertia::render('seller/wallet/transaction-show', [
             'wallet' => $wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),
@@ -139,8 +154,15 @@ class WalletController extends Controller
         abort_unless($withdrawal->user_id === $request->user()->id, 403);
 
         $ledger = WalletTransaction::where('withdrawal_id', $withdrawal->id)
+            ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)
             ->orderBy('created_at')
             ->get();
+
+        $ledger->each(function (WalletTransaction $tx) use ($withdrawal) {
+            $tx->setRelation('withdrawal', $withdrawal);
+            $tx->setAttribute('type_label', WalletTransactionService::displayTypeLabel($tx));
+            $tx->setAttribute('description', WalletTransactionService::displayDescription($tx));
+        });
 
         return Inertia::render('seller/wallet/withdrawal-show', [
             'wallet' => $request->user()->wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),

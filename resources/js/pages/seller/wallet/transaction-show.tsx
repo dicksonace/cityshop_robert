@@ -63,7 +63,7 @@ export default function SellerTransactionShow({ wallet, transaction }: Props) {
                     <span
                         className={`inline-flex rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold ring-1 ring-white/20`}
                     >
-                        {formatWalletTransactionType(transaction.type)}
+                        {formatWalletTransactionType(transaction.type, transaction.type_label)}
                     </span>
                     <p className={`mt-3 text-3xl font-bold ${isCredit ? 'text-emerald-300' : 'text-rose-200'}`}>
                         {isCredit ? '+' : ''}
@@ -103,7 +103,7 @@ export default function SellerTransactionShow({ wallet, transaction }: Props) {
                             <span
                                 className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${transactionTypeBadgeClass(transaction.type)}`}
                             >
-                                {formatWalletTransactionType(transaction.type)}
+                                {formatWalletTransactionType(transaction.type, transaction.type_label)}
                             </span>
                         </dd>
                     </div>

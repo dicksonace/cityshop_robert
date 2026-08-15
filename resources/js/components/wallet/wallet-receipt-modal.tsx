@@ -31,7 +31,7 @@ export function WalletReceiptModal({ tx, open, onClose }: WalletReceiptModalProp
                 <div className="mb-4 flex items-start justify-between gap-3">
                     <div>
                         <h3 className="text-lg font-extrabold text-gray-900">Transaction receipt</h3>
-                        <p className="text-sm text-gray-500">{formatWalletTransactionType(tx.type)}</p>
+                        <p className="text-sm text-gray-500">{formatWalletTransactionType(tx.type, tx.type_label)}</p>
                     </div>
                     <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100">
                         <X className="h-4 w-4" />

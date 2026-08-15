@@ -142,7 +142,8 @@ class WithdrawalPayoutService
 
         $withdrawal->user->wallet?->increment('withdrawn_amount', $withdrawal->amount);
 
-        WalletTransactionService::recordWithdrawalCompleted($withdrawal);
+        // Keep a single wallet receipt (the original debit). Status becomes Completed
+        // on that same row via WalletTransactionService::displayTypeLabel().
 
         try {
             $withdrawal->loadMissing('user');

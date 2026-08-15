@@ -136,7 +136,7 @@ export default function SellerWithdrawalShow({ wallet, withdrawal, ledger }: Pro
                                             <span
                                                 className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${transactionTypeBadgeClass(tx.type)}`}
                                             >
-                                                {formatWalletTransactionType(tx.type)}
+                                                {formatWalletTransactionType(tx.type, tx.type_label)}
                                             </span>
                                             <p className="mt-1 text-sm text-gray-700">{tx.description}</p>
                                             <p className="text-xs text-gray-400">{formatFinanceDate(tx.created_at)}</p>
