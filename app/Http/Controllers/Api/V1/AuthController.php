@@ -59,7 +59,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'login' => ['required', 'string'],
             'password' => ['required', 'string'],
-            'portal' => ['sometimes', 'string', 'in:buyer,seller'],
+            'portal' => ['sometimes', 'string', 'in:buyer,seller,admin'],
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -84,6 +84,15 @@ class AuthController extends Controller
         }
 
         $portal = $validated['portal'] ?? 'buyer';
+
+        if ($portal === 'admin') {
+            if (! $user->isAdmin()) {
+                RateLimiter::hit($throttleKey);
+                throw ValidationException::withMessages([
+                    'login' => 'This account is not an administrator.',
+                ]);
+            }
+        }
 
         if ($portal === 'seller') {
             if (! $user->isSeller()) {

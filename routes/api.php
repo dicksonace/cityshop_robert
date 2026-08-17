@@ -22,6 +22,27 @@ use App\Http\Controllers\Api\V1\UserBlockController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\ChinaTransferController;
 use App\Http\Controllers\Api\V1\SellRmbController;
+use App\Http\Controllers\Api\V1\Admin\AnnouncementController as AdminAnnouncementController;
+use App\Http\Controllers\Api\V1\Admin\BuyerController as AdminBuyerController;
+use App\Http\Controllers\Api\V1\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Api\V1\Admin\ChatController as AdminChatController;
+use App\Http\Controllers\Api\V1\Admin\ChinaTransferController as AdminChinaTransferController;
+use App\Http\Controllers\Api\V1\Admin\ContactMessageController as AdminContactMessageController;
+use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\V1\Admin\DisputeController as AdminDisputeController;
+use App\Http\Controllers\Api\V1\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Api\V1\Admin\PendingFundController as AdminPendingFundController;
+use App\Http\Controllers\Api\V1\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Api\V1\Admin\SellRmbController as AdminSellRmbController;
+use App\Http\Controllers\Api\V1\Admin\SellerController as AdminSellerController;
+use App\Http\Controllers\Api\V1\Admin\SellerInviteController as AdminSellerInviteController;
+use App\Http\Controllers\Api\V1\Admin\SellerReportController as AdminSellerReportController;
+use App\Http\Controllers\Api\V1\Admin\SettingsController as AdminSettingsController;
+use App\Http\Controllers\Api\V1\Admin\StoreOversightController as AdminStoreOversightController;
+use App\Http\Controllers\Api\V1\Admin\TopUpController as AdminTopUpController;
+use App\Http\Controllers\Api\V1\Admin\TransactionController as AdminTransactionController;
+use App\Http\Controllers\Api\V1\Admin\WalletFundingController as AdminWalletFundingController;
+use App\Http\Controllers\Api\V1\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\Api\V1\Seller\AccountController as SellerAccountController;
 use App\Http\Controllers\Api\V1\Seller\DashboardController as SellerDashboardController;
 use App\Http\Controllers\Api\V1\Seller\DisputeController as SellerDisputeController;
@@ -157,6 +178,140 @@ Route::prefix('v1')->group(function () {
             Route::patch('/payment-methods/settings', [SellerPaymentMethodController::class, 'updateSettings']);
             Route::post('/payment-methods', [SellerPaymentMethodController::class, 'store']);
             Route::delete('/payment-methods/{method}', [SellerPaymentMethodController::class, 'destroy']);
+        });
+
+        Route::middleware(['role:admin'])->prefix('admin')->group(function () {
+            Route::get('/dashboard', [AdminDashboardController::class, 'show']);
+
+            Route::get('/sellers', [AdminSellerController::class, 'index']);
+            Route::get('/sellers/{seller}', [AdminSellerController::class, 'show']);
+            Route::post('/sellers/{seller}/approve', [AdminSellerController::class, 'approve']);
+            Route::post('/sellers/{seller}/reject', [AdminSellerController::class, 'reject']);
+            Route::post('/sellers/{seller}/block', [AdminSellerController::class, 'block']);
+            Route::post('/sellers/{seller}/unblock', [AdminSellerController::class, 'unblock']);
+            Route::post('/sellers/{seller}/activation/prompt', [AdminSellerController::class, 'promptActivation']);
+            Route::post('/sellers/{seller}/activation/waive', [AdminSellerController::class, 'waiveActivation']);
+            Route::post('/sellers/{seller}/activation/end', [AdminSellerController::class, 'endActivation']);
+            Route::patch('/sellers/{seller}/profile', [AdminSellerController::class, 'updateProfile']);
+            Route::delete('/sellers/{seller}', [AdminSellerController::class, 'destroy']);
+            Route::post('/sellers/{seller}/resend-invite', [AdminSellerController::class, 'resendInvite']);
+            Route::post('/sellers/{seller}/payment-methods/{method}/disable', [AdminSellerController::class, 'disablePaymentMethod']);
+            Route::post('/sellers/{seller}/payment-methods/{method}/enable', [AdminSellerController::class, 'enablePaymentMethod']);
+            Route::post('/sellers/{seller}/payment-methods/unlock', [AdminSellerController::class, 'unlockPaymentMethods']);
+
+            Route::get('/products', [AdminProductController::class, 'index']);
+            Route::post('/products/{product}/approve', [AdminProductController::class, 'approve']);
+            Route::post('/products/{product}/reject', [AdminProductController::class, 'reject']);
+            Route::post('/products/{product}/hide', [AdminProductController::class, 'hide']);
+
+            Route::get('/orders', [AdminOrderController::class, 'index']);
+            Route::get('/orders/unprocessed', [AdminOrderController::class, 'unprocessed']);
+            Route::get('/orders/awaiting-confirmation', [AdminOrderController::class, 'awaitingConfirmation']);
+            Route::get('/orders/awaiting-direct', [AdminOrderController::class, 'awaitingDirect']);
+            Route::get('/orders/cancellations', [AdminOrderController::class, 'cancellations']);
+            Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
+            Route::post('/orders/items/{orderItem}/cancel-unprocessed', [AdminOrderController::class, 'cancelUnprocessed']);
+            Route::post('/orders/items/{orderItem}/confirm-delivery', [AdminOrderController::class, 'confirmDelivery']);
+
+            Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
+            Route::post('/withdrawals/{withdrawal}/start', [AdminWithdrawalController::class, 'start']);
+            Route::post('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve']);
+            Route::post('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
+
+            Route::get('/top-ups', [AdminTopUpController::class, 'index']);
+            Route::post('/top-ups/{topUp}/approve', [AdminTopUpController::class, 'approve']);
+            Route::post('/top-ups/{topUp}/reject', [AdminTopUpController::class, 'reject']);
+
+            Route::get('/wallet-funding/users', [AdminWalletFundingController::class, 'users']);
+            Route::post('/wallet-funding', [AdminWalletFundingController::class, 'store']);
+
+            Route::get('/disputes', [AdminDisputeController::class, 'index']);
+            Route::post('/disputes/{dispute}/review', [AdminDisputeController::class, 'review']);
+            Route::post('/disputes/{dispute}/resolve', [AdminDisputeController::class, 'resolve']);
+
+            Route::get('/pending-funds', [AdminPendingFundController::class, 'index']);
+            Route::post('/pending-funds/{orderItem}/release', [AdminPendingFundController::class, 'approve']);
+            Route::post('/pending-funds/{orderItem}/hold', [AdminPendingFundController::class, 'reject']);
+
+            Route::get('/categories', [AdminCategoryController::class, 'index']);
+            Route::post('/categories', [AdminCategoryController::class, 'store']);
+            Route::put('/categories/{category}', [AdminCategoryController::class, 'update']);
+            Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy']);
+
+            Route::get('/buyers', [AdminBuyerController::class, 'index']);
+            Route::get('/buyers/{buyer}', [AdminBuyerController::class, 'show']);
+            Route::patch('/buyers/{buyer}', [AdminBuyerController::class, 'update']);
+
+            Route::get('/seller-invites', [AdminSellerInviteController::class, 'index']);
+            Route::post('/seller-invites', [AdminSellerInviteController::class, 'store']);
+
+            Route::get('/stores', [AdminStoreOversightController::class, 'index']);
+            Route::get('/stores/{seller}', [AdminStoreOversightController::class, 'show']);
+            Route::post('/stores/{seller}/products/bulk', [AdminStoreOversightController::class, 'bulkProducts']);
+            Route::post('/stores/{seller}/products/{product}/hide', [AdminStoreOversightController::class, 'hideProduct']);
+            Route::post('/stores/{seller}/products/{product}/approve', [AdminStoreOversightController::class, 'approveProduct']);
+            Route::delete('/stores/{seller}/products/{product}', [AdminStoreOversightController::class, 'destroyProduct']);
+            Route::post('/stores/{seller}/products/{product}/restore', [AdminStoreOversightController::class, 'restoreProduct']);
+
+            Route::get('/chats', [AdminChatController::class, 'index']);
+            Route::get('/chats/{conversation}', [AdminChatController::class, 'show']);
+
+            Route::get('/contact-messages', [AdminContactMessageController::class, 'index']);
+            Route::patch('/contact-messages/{contactMessage}/read', [AdminContactMessageController::class, 'markRead']);
+
+            Route::get('/announcements', [AdminAnnouncementController::class, 'sellerIndex']);
+            Route::get('/announcements/recipients', [AdminAnnouncementController::class, 'sellerRecipients']);
+            Route::post('/announcements', [AdminAnnouncementController::class, 'sellerStore']);
+            Route::get('/buyer-announcements', [AdminAnnouncementController::class, 'buyerIndex']);
+            Route::get('/buyer-announcements/recipients', [AdminAnnouncementController::class, 'buyerRecipients']);
+            Route::post('/buyer-announcements', [AdminAnnouncementController::class, 'buyerStore']);
+
+            Route::get('/transactions', [AdminTransactionController::class, 'index']);
+            Route::get('/seller-reports', [AdminSellerReportController::class, 'index']);
+            Route::patch('/seller-reports/{report}', [AdminSellerReportController::class, 'update']);
+
+            Route::get('/settings/sms', [AdminSettingsController::class, 'sms']);
+            Route::post('/settings/sms', [AdminSettingsController::class, 'updateSms']);
+            Route::get('/settings/paystack', [AdminSettingsController::class, 'paystack']);
+            Route::post('/settings/paystack', [AdminSettingsController::class, 'updatePaystack']);
+            Route::post('/settings/paystack/lock', [AdminSettingsController::class, 'updatePaystackLock']);
+            Route::get('/settings/withdrawal', [AdminSettingsController::class, 'withdrawal']);
+            Route::post('/settings/withdrawal', [AdminSettingsController::class, 'updateWithdrawal']);
+            Route::get('/settings/manual-funding', [AdminSettingsController::class, 'manualFunding']);
+            Route::post('/settings/manual-funding', [AdminSettingsController::class, 'updateManualFunding']);
+
+            Route::get('/china-transfers', [AdminChinaTransferController::class, 'index']);
+            Route::get('/china-transfers/settings', [AdminChinaTransferController::class, 'settings']);
+            Route::post('/china-transfers/settings', [AdminChinaTransferController::class, 'updateSettings']);
+            Route::post('/china-transfers/rates', [AdminChinaTransferController::class, 'publishRate']);
+            Route::post('/china-transfers/methods/{method}/deactivate', [AdminChinaTransferController::class, 'deactivateMethod']);
+            Route::post('/china-transfers/fields/{field}/deactivate', [AdminChinaTransferController::class, 'deactivateField']);
+            Route::get('/china-transfers/{chinaTransfer}', [AdminChinaTransferController::class, 'show']);
+            Route::post('/china-transfers/{chinaTransfer}/verify', [AdminChinaTransferController::class, 'verify']);
+            Route::post('/china-transfers/{chinaTransfer}/reject', [AdminChinaTransferController::class, 'reject']);
+            Route::post('/china-transfers/{chinaTransfer}/process', [AdminChinaTransferController::class, 'process']);
+            Route::post('/china-transfers/{chinaTransfer}/sent', [AdminChinaTransferController::class, 'markSent']);
+            Route::post('/china-transfers/{chinaTransfer}/complete', [AdminChinaTransferController::class, 'complete']);
+            Route::post('/china-transfers/{chinaTransfer}/fail', [AdminChinaTransferController::class, 'fail']);
+            Route::post('/china-transfers/{chinaTransfer}/cancel', [AdminChinaTransferController::class, 'cancel']);
+            Route::post('/china-transfers/{chinaTransfer}/note', [AdminChinaTransferController::class, 'note']);
+
+            Route::get('/sell-rmb', [AdminSellRmbController::class, 'index']);
+            Route::get('/sell-rmb/settings', [AdminSellRmbController::class, 'settings']);
+            Route::post('/sell-rmb/settings', [AdminSellRmbController::class, 'updateSettings']);
+            Route::post('/sell-rmb/rates', [AdminSellRmbController::class, 'publishRate']);
+            Route::post('/sell-rmb/methods/{method}/deactivate', [AdminSellRmbController::class, 'deactivateMethod']);
+            Route::post('/sell-rmb/fields/{field}/deactivate', [AdminSellRmbController::class, 'deactivateField']);
+            Route::get('/sell-rmb/{sellRmbTransfer}', [AdminSellRmbController::class, 'show']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/verify', [AdminSellRmbController::class, 'verify']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/received', [AdminSellRmbController::class, 'received']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/process', [AdminSellRmbController::class, 'process']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/paid', [AdminSellRmbController::class, 'paid']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/complete', [AdminSellRmbController::class, 'complete']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/reject', [AdminSellRmbController::class, 'reject']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/fail', [AdminSellRmbController::class, 'fail']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/cancel', [AdminSellRmbController::class, 'cancel']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/note', [AdminSellRmbController::class, 'note']);
         });
 
         Route::post('/livestreams/start', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'start']);
