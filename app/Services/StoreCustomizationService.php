@@ -20,7 +20,7 @@ class StoreCustomizationService
 
     public function forProfile(SellerProfile $profile): StoreCustomization
     {
-        return $profile->storeCustomization ?? $profile->storeCustomization()->create([
+        return $profile->storeCustomization()->firstOrCreate([], [
             'published_settings' => self::defaults(),
             'draft_settings' => self::defaults(),
         ]);

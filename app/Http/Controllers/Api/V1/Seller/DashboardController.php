@@ -59,6 +59,8 @@ class DashboardController extends Controller
                 'shop_photo' => $this->publicUrl($shopPhoto),
                 'rating' => $profile->rating !== null ? (float) $profile->rating : null,
                 'total_sales' => (int) ($profile->total_sales ?? 0),
+                'needs_activation' => $profile->needsActivationPayment(),
+                'activation_fee' => (float) ($profile->activation_fee_amount ?? 0),
             ] : null,
             'store_url' => $profile?->slug
                 ? url('/store/'.$profile->slug)

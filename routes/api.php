@@ -22,7 +22,16 @@ use App\Http\Controllers\Api\V1\UserBlockController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\ChinaTransferController;
 use App\Http\Controllers\Api\V1\SellRmbController;
+use App\Http\Controllers\Api\V1\Seller\AccountController as SellerAccountController;
 use App\Http\Controllers\Api\V1\Seller\DashboardController as SellerDashboardController;
+use App\Http\Controllers\Api\V1\Seller\DisputeController as SellerDisputeController;
+use App\Http\Controllers\Api\V1\Seller\FollowerController as SellerFollowerController;
+use App\Http\Controllers\Api\V1\Seller\OrderController as SellerOrderController;
+use App\Http\Controllers\Api\V1\Seller\PaymentMethodController as SellerPaymentMethodController;
+use App\Http\Controllers\Api\V1\Seller\ProductController as SellerProductController;
+use App\Http\Controllers\Api\V1\Seller\PromotionController as SellerPromotionController;
+use App\Http\Controllers\Api\V1\Seller\ReviewController as SellerReviewController;
+use App\Http\Controllers\Api\V1\Seller\StoreController as SellerStoreController;
 use App\Http\Controllers\Api\V1\WishlistController;
 use Illuminate\Broadcasting\BroadcastController;
 use Illuminate\Support\Facades\Route;
@@ -98,6 +107,56 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware(['role:seller', 'seller.approved'])->prefix('seller')->group(function () {
             Route::get('/dashboard', [SellerDashboardController::class, 'show']);
+
+            Route::get('/orders', [SellerOrderController::class, 'index']);
+            Route::get('/orders/{orderItem}', [SellerOrderController::class, 'show']);
+            Route::get('/orders/{orderItem}/pdf', [SellerOrderController::class, 'pdf']);
+            Route::post('/orders/{orderItem}', [SellerOrderController::class, 'update']);
+            Route::post('/orders/{orderItem}/reject', [SellerOrderController::class, 'reject']);
+            Route::post('/orders/{orderItem}/confirm-direct-payment', [SellerOrderController::class, 'confirmDirectPayment']);
+            Route::post('/orders/{orderItem}/reject-direct-payment', [SellerOrderController::class, 'rejectDirectPayment']);
+
+            Route::get('/products', [SellerProductController::class, 'index']);
+            Route::post('/products', [SellerProductController::class, 'store']);
+            Route::post('/products/bulk', [SellerProductController::class, 'bulk']);
+            Route::get('/products/{product}', [SellerProductController::class, 'show']);
+            Route::patch('/products/{product}', [SellerProductController::class, 'update']);
+            Route::post('/products/{product}/images', [SellerProductController::class, 'uploadImages']);
+            Route::post('/products/{product}/visibility', [SellerProductController::class, 'toggleVisibility']);
+            Route::post('/products/{product}/duplicate', [SellerProductController::class, 'duplicate']);
+            Route::post('/products/{product}/video', [SellerProductController::class, 'uploadVideo']);
+            Route::get('/products/{product}/analytics', [SellerProductController::class, 'analytics']);
+            Route::get('/products/{product}/reviews', [SellerProductController::class, 'reviews']);
+            Route::delete('/products/{product}', [SellerProductController::class, 'destroy']);
+
+            Route::get('/reviews', [SellerReviewController::class, 'index']);
+            Route::post('/reviews/{review}/reply', [SellerReviewController::class, 'reply']);
+
+            Route::get('/promotions', [SellerPromotionController::class, 'index']);
+            Route::post('/promotions', [SellerPromotionController::class, 'store']);
+            Route::patch('/promotions/{coupon}', [SellerPromotionController::class, 'update']);
+            Route::delete('/promotions/{coupon}', [SellerPromotionController::class, 'destroy']);
+
+            Route::get('/followers', [SellerFollowerController::class, 'index']);
+            Route::get('/refunds', [SellerDisputeController::class, 'index']);
+
+            Route::get('/store', [SellerStoreController::class, 'show']);
+            Route::patch('/store', [SellerStoreController::class, 'update']);
+            Route::post('/store/logo', [SellerStoreController::class, 'uploadLogo']);
+            Route::post('/store/cover', [SellerStoreController::class, 'uploadCover']);
+            Route::post('/store/hero', [SellerStoreController::class, 'uploadHero']);
+            Route::post('/store/promo', [SellerStoreController::class, 'uploadPromo']);
+            Route::post('/store/publish', [SellerStoreController::class, 'publish']);
+            Route::post('/store/complete-setup', [SellerStoreController::class, 'completeSetup']);
+
+            Route::get('/account', [SellerAccountController::class, 'show']);
+            Route::patch('/account/order-sms', [SellerAccountController::class, 'updateOrderSms']);
+            Route::post('/activation/pay', [SellerAccountController::class, 'payActivation']);
+
+            Route::get('/payment-methods', [SellerPaymentMethodController::class, 'index']);
+            Route::patch('/payment-methods/settings', [SellerPaymentMethodController::class, 'updateSettings']);
+            Route::post('/payment-methods', [SellerPaymentMethodController::class, 'store']);
+            Route::delete('/payment-methods/{method}', [SellerPaymentMethodController::class, 'destroy']);
         });
 
         Route::post('/livestreams/start', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'start']);
