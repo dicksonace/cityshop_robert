@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Enums\WalletTopUpStatus;
 use App\Models\WalletTopUpRequest;
 use App\Services\AdminNotifier;
+use App\Services\KycService;
 use App\Services\PlatformSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -49,6 +50,10 @@ class WalletManualTopUpController extends Controller
     {
         $user = $request->user();
         abort_unless($user && in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        if ($denied = KycService::denyStoreFundsRedirect($user)) {
+            return $denied;
+        }
 
         $settings = PlatformSettings::manualFundingAccounts();
 

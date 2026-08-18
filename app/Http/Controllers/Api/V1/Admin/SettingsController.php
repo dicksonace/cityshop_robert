@@ -115,6 +115,9 @@ class SettingsController extends Controller
             'momo_amount' => ['required', 'numeric', 'min:0', 'max:500'],
             'applies_to' => ['required', 'in:bank,momo,all,none'],
             'bank_tiers' => ['nullable', 'array', 'max:10'],
+            'bank_tiers.*.min' => ['required_with:bank_tiers', 'numeric', 'min:0'],
+            'bank_tiers.*.max' => ['nullable', 'numeric', 'min:0'],
+            'bank_tiers.*.fee' => ['required_with:bank_tiers', 'numeric', 'min:0', 'max:500'],
             'auto_paystack_enabled' => ['required', 'boolean'],
             'auto_paystack_fee_percent' => ['required', 'numeric', 'min:0', 'max:25'],
         ]);

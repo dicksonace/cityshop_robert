@@ -63,6 +63,16 @@ class User extends Authenticatable
         return $this->hasOne(Wallet::class);
     }
 
+    public function kycVerifications(): HasMany
+    {
+        return $this->hasMany(KycVerification::class);
+    }
+
+    public function latestKyc(): HasOne
+    {
+        return $this->hasOne(KycVerification::class)->latestOfMany();
+    }
+
     public function products(): HasMany
     {
         return $this->hasMany(Product::class, 'seller_id');

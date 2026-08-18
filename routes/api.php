@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\ImageSearchController;
+use App\Http\Controllers\Api\V1\KycController;
 use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\ProductController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Api\V1\Admin\ChinaTransferController as AdminChinaTrans
 use App\Http\Controllers\Api\V1\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\DisputeController as AdminDisputeController;
+use App\Http\Controllers\Api\V1\Admin\KycController as AdminKycController;
 use App\Http\Controllers\Api\V1\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\PendingFundController as AdminPendingFundController;
 use App\Http\Controllers\Api\V1\Admin\ProductController as AdminProductController;
@@ -242,6 +244,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/buyers/{buyer}', [AdminBuyerController::class, 'show']);
             Route::patch('/buyers/{buyer}', [AdminBuyerController::class, 'update']);
 
+            Route::get('/kyc', [AdminKycController::class, 'index']);
+            Route::get('/kyc/{kyc}', [AdminKycController::class, 'show']);
+            Route::post('/kyc/{kyc}/approve', [AdminKycController::class, 'approve']);
+            Route::post('/kyc/{kyc}/reject', [AdminKycController::class, 'reject']);
+            Route::post('/kyc/{kyc}/request-changes', [AdminKycController::class, 'requestChanges']);
+
             Route::get('/seller-invites', [AdminSellerInviteController::class, 'index']);
             Route::post('/seller-invites', [AdminSellerInviteController::class, 'store']);
 
@@ -326,6 +334,9 @@ Route::prefix('v1')->group(function () {
         Route::put('/profile/payment-pin', [\App\Http\Controllers\Api\PaymentPinController::class, 'update']);
         Route::post('/profile/payment-pin/forgot', [\App\Http\Controllers\Api\PaymentPinController::class, 'forgot']);
         Route::post('/profile/payment-pin/reset', [\App\Http\Controllers\Api\PaymentPinController::class, 'reset']);
+
+        Route::get('/kyc', [KycController::class, 'show']);
+        Route::post('/kyc', [KycController::class, 'store']);
 
         Route::get('/cart', [CartController::class, 'index']);
         Route::post('/cart', [CartController::class, 'store']);

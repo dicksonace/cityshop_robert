@@ -11,6 +11,7 @@ use App\Models\Withdrawal;
 use App\Services\PaystackService;
 use App\Services\PlatformSettings;
 use App\Services\PaymentPinService;
+use App\Services\KycService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
@@ -101,6 +102,14 @@ class WalletController extends Controller
     public function addFunds(Request $request): RedirectResponse|JsonResponse
     {
         abort_unless($request->user()->isBuyer(), 403);
+
+        if ($request->expectsJson()) {
+            if ($denied = KycService::denyStoreFundsResponse($request->user())) {
+                return $denied;
+            }
+        } elseif (! KycService::canStoreFunds($request->user())) {
+            return back()->with('error', KycService::denyStoreFundsMessage($request->user()));
+        }
 
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:5', 'max:50000'],

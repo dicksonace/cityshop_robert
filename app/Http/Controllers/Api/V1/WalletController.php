@@ -15,6 +15,7 @@ use App\Services\AdminNotifier;
 use App\Services\PaystackService;
 use App\Services\PaymentPinService;
 use App\Services\PlatformSettings;
+use App\Services\KycService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
@@ -48,6 +49,7 @@ class WalletController extends Controller
                 'paystack_configured' => $this->paystack->isAvailable(),
                 'paystack_fee' => $this->paystack->rechargeFeePayload(),
                 'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
+                'kyc' => KycService::payload($user, withPhotos: false),
             ],
         ]);
     }
@@ -348,6 +350,10 @@ class WalletController extends Controller
             'method' => ['required', 'in:momo,card'],
         ]);
 
+        if ($denied = KycService::denyStoreFundsResponse($user)) {
+            return $denied;
+        }
+
         if (! $this->paystack->isAvailable()) {
             return response()->json(['message' => $this->paystack->unavailableMessage()], 503);
         }
@@ -456,6 +462,10 @@ class WalletController extends Controller
         abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
 
         $settings = PlatformSettings::manualFundingAccounts();
+
+        if ($denied = KycService::denyStoreFundsResponse($user)) {
+            return $denied;
+        }
 
         if (! $settings['enabled'] || count($settings['accounts']) === 0) {
             return response()->json(['message' => 'Manual top-up is not available right now.'], 422);

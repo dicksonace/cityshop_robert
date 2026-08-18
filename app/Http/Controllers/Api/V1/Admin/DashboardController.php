@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Enums\DisputeStatus;
+use App\Enums\KycStatus;
 use App\Enums\OrderStatus;
 use App\Enums\SellerStatus;
 use App\Enums\WalletTopUpStatus;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Dispute;
+use App\Models\KycVerification;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -16,12 +18,13 @@ use App\Models\SellerProfile;
 use App\Models\User;
 use App\Models\WalletTopUpRequest;
 use App\Models\Withdrawal;
+use App\Services\ChinaTransferService;
 use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
-    public function show(OrderService $orders): JsonResponse
+    public function show(OrderService $orders, ChinaTransferService $china): JsonResponse
     {
         return response()->json([
             'stats' => [
@@ -33,6 +36,8 @@ class DashboardController extends Controller
                 'paid_revenue' => (float) Order::where('payment_status', 'paid')->sum('total'),
                 'pending_withdrawals' => Withdrawal::where('status', WithdrawalStatus::Pending)->count(),
                 'pending_topups' => WalletTopUpRequest::where('status', WalletTopUpStatus::Pending)->count(),
+                'pending_rmb' => $china->pendingAdminCount(),
+                'pending_kyc' => KycVerification::where('status', KycStatus::Pending)->count(),
                 'open_disputes' => Dispute::where('status', DisputeStatus::Open)->count(),
                 'pending_funds' => $orders->pendingFundReleaseItemsQuery()->count(),
                 'awaiting_confirmation' => OrderItem::where('status', OrderStatus::AwaitingConfirmation)->count(),

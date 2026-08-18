@@ -12,6 +12,7 @@ use App\Models\Withdrawal;
 use App\Services\PaymentPinService;
 use App\Services\PaystackService;
 use App\Services\PlatformSettings;
+use App\Services\KycService;
 use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
@@ -293,6 +294,12 @@ class WalletController extends Controller
 
     public function addFunds(Request $request): RedirectResponse|JsonResponse
     {
+        if ($denied = KycService::denyStoreFundsResponse($request->user())) {
+            return $request->expectsJson()
+                ? $denied
+                : back()->with('error', KycService::denyStoreFundsMessage($request->user()));
+        }
+
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
             'method' => ['required', 'in:momo,card'],

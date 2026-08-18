@@ -25,6 +25,7 @@ class UserResource extends JsonResource
             'city' => $this->city,
             'avatar' => $this->publicAvatarUrl(),
             'has_payment_pin' => filled($this->payment_pin),
+            'kyc' => \App\Services\KycService::payload($this->resource instanceof \App\Models\User ? $this->resource : null, withPhotos: false),
             'seller' => $profile ? [
                 'store_name' => $profile->displayName(),
                 'slug' => $profile->slug,

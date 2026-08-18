@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { LogOut, Menu } from 'lucide-react';
+import { ArrowLeft, LogOut, Menu } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 
 import CityShopBrand from '@/components/cityshop-brand';
@@ -114,6 +114,24 @@ export default function PanelLayout({ children, title, panelTitle, panelId, navG
                 <div className="flex min-w-0 flex-1 flex-col lg:pl-72">
                     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur lg:px-8 lg:py-4">
                         <div className="flex items-center gap-3">
+                            {title !== 'Dashboard' && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="shrink-0 lg:hidden"
+                                    onClick={() => {
+                                        if (window.history.length > 1) {
+                                            window.history.back();
+                                            return;
+                                        }
+                                        router.visit(brandHref ?? route('home'));
+                                    }}
+                                    aria-label="Go back"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </Button>
+                            )}
                             <Button
                                 type="button"
                                 variant="outline"

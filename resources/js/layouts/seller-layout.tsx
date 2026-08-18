@@ -1,5 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
+    ArrowLeft,
     LayoutDashboard,
     LogOut,
     Menu,
@@ -113,6 +114,24 @@ export default function SellerLayout({ children, title, active, showFab = false 
                     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur lg:px-8 lg:py-4">
                         <div className="flex items-center justify-between gap-3">
                             <div className="flex min-w-0 items-center gap-2 lg:hidden">
+                                {active !== 'overview' && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="shrink-0"
+                                        onClick={() => {
+                                            if (window.history.length > 1) {
+                                                window.history.back();
+                                                return;
+                                            }
+                                            router.visit(route('seller.dashboard'));
+                                        }}
+                                        aria-label="Go back"
+                                    >
+                                        <ArrowLeft className="h-5 w-5" />
+                                    </Button>
+                                )}
                                 <Button
                                     type="button"
                                     variant="outline"
