@@ -34,6 +34,18 @@ class ApiSellerHubTest extends TestCase
         $this->getJson('/api/v1/seller/products')->assertForbidden();
     }
 
+    public function test_seller_dashboard_balances_are_numbers(): void
+    {
+        $seller = $this->approvedSeller();
+        \App\Services\WalletService::ensure($seller)->update(['available_balance' => 80.5, 'total_earnings' => 120]);
+        Sanctum::actingAs($seller);
+
+        $this->getJson('/api/v1/seller/dashboard')
+            ->assertOk()
+            ->assertJsonPath('stats.available_balance', 80.5)
+            ->assertJsonPath('stats.total_earnings', 120);
+    }
+
     public function test_seller_can_list_and_advance_an_order(): void
     {
         [$seller, $item] = $this->paidOrder(OrderStatus::Pending);
