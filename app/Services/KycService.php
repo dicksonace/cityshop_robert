@@ -67,10 +67,10 @@ class KycService
     public static function denyStoreFundsMessage(?User $user): string
     {
         return match (static::status($user)) {
-            'pending' => 'Your Ghana Card is waiting for admin review. You can still buy items with Paystack.',
-            'needs_improvement' => 'Admin asked you to improve your Ghana Card photos before you can add wallet funds.',
-            'rejected' => 'Your Ghana Card was not approved. Update it and submit again to store money in your wallet.',
-            default => 'Verify your Ghana Card before you can store money in your wallet. You can still pay for orders with Paystack.',
+            'pending' => 'Your Ghana Card is waiting for system approval. You can still buy items with Paystack.',
+            'needs_improvement' => 'Please improve your Ghana Card photos before you can transact with the CityShop wallet.',
+            'rejected' => 'Your Ghana Card was not approved. Update it and submit again to transact with the CityShop wallet.',
+            default => 'The system must approve your Ghana Card before you can transact with the CityShop wallet.',
         };
     }
 

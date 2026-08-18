@@ -52,12 +52,12 @@ class KycController extends Controller
             $user,
             'kyc_submitted',
             'Ghana Card submitted',
-            'Admin will approve, reject, or ask you to improve the photos. You can still buy with Paystack.',
+            'The system will review your Ghana Card before you can transact with the CityShop wallet. You can still buy with Paystack.',
             ['kyc_id' => $kyc->id, 'status' => $kyc->status?->value],
         );
 
         return response()->json([
-            'message' => 'Ghana Card submitted. Admin will review it before you can store money in your wallet.',
+            'message' => 'Ghana Card submitted. The system must approve it before you can transact with the CityShop wallet.',
             'data' => KycService::payload($user->fresh()),
         ], 201);
     }

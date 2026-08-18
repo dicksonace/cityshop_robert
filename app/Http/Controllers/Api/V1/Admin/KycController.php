@@ -107,7 +107,7 @@ class KycController extends Controller
             default => 'Ghana Card not approved',
         };
         $body = match ($kyc->status) {
-            KycStatus::Approved => 'You can now recharge and store money in your wallet.',
+            KycStatus::Approved => 'You can now transact with the CityShop wallet.',
             KycStatus::NeedsImprovement => $kyc->admin_notes ?: 'Please submit clearer Ghana Card photos.',
             default => $kyc->admin_notes ?: 'Your Ghana Card was not approved.',
         };
