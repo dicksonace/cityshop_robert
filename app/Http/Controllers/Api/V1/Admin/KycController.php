@@ -46,7 +46,7 @@ class KycController extends Controller
     {
         $kyc->load('user:id,name,email,mobile,role');
 
-        return response()->json(['data' => $this->serialize($kyc, detailed: true)]);
+        return response()->json(['data' => $this->serialize($kyc)]);
     }
 
     public function approve(Request $request, KycVerification $kyc): JsonResponse
@@ -56,7 +56,7 @@ class KycController extends Controller
 
         return response()->json([
             'message' => 'Ghana Card approved. This user can now store money in their wallet.',
-            'data' => $this->serialize($kyc, detailed: true),
+            'data' => $this->serialize($kyc),
         ]);
     }
 
@@ -70,7 +70,7 @@ class KycController extends Controller
 
         return response()->json([
             'message' => 'Ghana Card rejected.',
-            'data' => $this->serialize($kyc, detailed: true),
+            'data' => $this->serialize($kyc),
         ]);
     }
 
@@ -84,7 +84,7 @@ class KycController extends Controller
 
         return response()->json([
             'message' => 'Asked the user to improve their Ghana Card photos.',
-            'data' => $this->serialize($kyc, detailed: true),
+            'data' => $this->serialize($kyc),
         ]);
     }
 
@@ -124,7 +124,7 @@ class KycController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function serialize(KycVerification $kyc, bool $detailed = false): array
+    private function serialize(KycVerification $kyc): array
     {
         $user = $kyc->user;
         $payload = [
@@ -136,6 +136,9 @@ class KycController extends Controller
             'admin_notes' => $kyc->admin_notes,
             'submitted_at' => $kyc->submitted_at?->toIso8601String() ?? $kyc->created_at?->toIso8601String(),
             'reviewed_at' => $kyc->reviewed_at?->toIso8601String(),
+            'front_url' => $kyc->publicUrl($kyc->front_path),
+            'back_url' => $kyc->publicUrl($kyc->back_path),
+            'selfie_url' => $kyc->publicUrl($kyc->selfie_path),
             'user' => $user ? [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -144,12 +147,6 @@ class KycController extends Controller
                 'role' => $user->role?->value,
             ] : null,
         ];
-
-        if ($detailed) {
-            $payload['front_url'] = $kyc->publicUrl($kyc->front_path);
-            $payload['back_url'] = $kyc->publicUrl($kyc->back_path);
-            $payload['selfie_url'] = $kyc->publicUrl($kyc->selfie_path);
-        }
 
         return $payload;
     }
