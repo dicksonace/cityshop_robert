@@ -43,9 +43,9 @@ class WalletTransferReceivedNotification extends Notification implements ShouldQ
         $ghs = $this->availableBalanceGhs($notifiable);
 
         $message = (new MailMessage)
-            ->subject("{$amount} credited to your CityShop wallet")
+            ->subject("{$amount} received from {$from}")
             ->greeting('Hello '.(filled($notifiable->name ?? null) ? $notifiable->name : 'there').'!')
-            ->line("{$amount} has been credited to your CityShop wallet from {$from}.");
+            ->line("{$from} sent you {$amount} on CityShop.");
 
         if (filled($this->note)) {
             $message->line('Note: '.$this->note);
@@ -64,8 +64,8 @@ class WalletTransferReceivedNotification extends Notification implements ShouldQ
         $when = NotificationPrivacy::stamp($this->receivedAt);
         $ghs = $this->availableBalanceGhs($notifiable);
 
-        return 'CityShop: '.NotificationPrivacy::money($this->amount)
-            ." credited to your wallet from {$from}.\nAvailable Balance: GHS {$ghs}\nRef: {$this->reference}.\nDate: {$when}.";
+        return 'CityShop: '.$from.' sent you '.NotificationPrivacy::money($this->amount)
+            .".\nAvailable Balance: GHS {$ghs}\nRef: {$this->reference}.\nDate: {$when}.";
     }
 
     private function availableBalanceGhs(object $notifiable): string
