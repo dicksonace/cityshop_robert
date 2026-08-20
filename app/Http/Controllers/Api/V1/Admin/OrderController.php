@@ -9,6 +9,7 @@ use App\Models\OrderItem;
 use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
@@ -32,7 +33,12 @@ class OrderController extends Controller
 
     public function show(Order $order): JsonResponse
     {
-        $order->load(['buyer:id,name,email,mobile', 'items.seller:id,name']);
+        $order->load([
+            'buyer:id,name,email,mobile',
+            'items.seller:id,name,mobile',
+            'items.seller.sellerProfile',
+            'items.product.images',
+        ]);
 
         return response()->json(['data' => $this->serialize($order, detailed: true)]);
     }
@@ -153,6 +159,7 @@ class OrderController extends Controller
         return response()->json([
             'data' => $items->getCollection()->map(fn (OrderItem $item) => [
                 'id' => $item->id,
+                'order_id' => $item->order_id,
                 'product_name' => $item->product_name,
                 'quantity' => (int) $item->quantity,
                 'rejection_reason' => $item->rejection_reason,
@@ -185,17 +192,24 @@ class OrderController extends Controller
             'buyer' => $order->buyer ? [
                 'id' => $order->buyer->id,
                 'name' => $order->buyer->name,
+                'email' => $order->buyer->email,
                 'mobile' => $order->buyer->mobile,
             ] : null,
             'items_count' => $order->items->count(),
         ];
 
         if ($detailed) {
+            $payload['payment_method'] = $order->payment_method;
+            $payload['payment_channel'] = $order->payment_channel?->value;
+            $payload['payment_reference'] = $order->payment_reference;
+            $payload['shipping_cost'] = (float) $order->shipping_cost;
             $payload['receiver_name'] = $order->receiver_name;
             $payload['receiver_phone'] = $order->receiver_phone;
             $payload['city'] = $order->city;
             $payload['region'] = $order->region;
-            $payload['items'] = $order->items->map(fn (OrderItem $item) => $this->serializeItem($item))->values();
+            $payload['digital_address'] = $order->digital_address;
+            $payload['delivery_notes'] = $order->delivery_notes;
+            $payload['items'] = $order->items->map(fn (OrderItem $item) => $this->serializeItem($item, detailed: true))->values();
         }
 
         return $payload;
@@ -204,17 +218,49 @@ class OrderController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function serializeItem(OrderItem $item): array
+    private function serializeItem(OrderItem $item, bool $detailed = false): array
     {
-        return [
+        $images = $item->product?->images;
+        $imagePath = $images?->firstWhere('is_primary', true)?->path
+            ?? $images?->first()?->path;
+        $storeName = $item->seller?->sellerProfile?->displayName() ?? $item->seller?->name;
+
+        $row = [
             'id' => $item->id,
+            'order_id' => $item->order_id,
             'product_name' => $item->product_name,
+            'product_image' => $this->publicUrl($imagePath),
             'quantity' => (int) $item->quantity,
             'unit_price' => (float) $item->unit_price,
+            'seller_amount' => (float) $item->seller_amount,
             'status' => $item->status?->value ?? (string) $item->status,
+            'funds_release_status' => $item->funds_release_status?->value,
             'order_number' => $item->order?->order_number,
             'buyer_name' => $item->order?->buyer?->name,
-            'seller_name' => $item->seller?->name,
+            'seller_name' => $storeName,
+            'seller_mobile' => $item->seller?->mobile,
+            'vehicle_number' => $item->vehicle_number,
+            'driver_phone' => $item->driver_phone,
+            'package_image_url' => $this->publicUrl($item->package_image),
         ];
+
+        if ($detailed) {
+            $row['rejection_reason'] = $item->rejection_reason;
+            $row['courier_name'] = $item->courier_name;
+            $row['tracking_number'] = $item->tracking_number;
+        }
+
+        return $row;
+    }
+
+    private function publicUrl(?string $path): ?string
+    {
+        if (! filled($path)) {
+            return null;
+        }
+
+        return str_starts_with($path, 'http')
+            ? $path
+            : Storage::disk('public')->url($path);
     }
 }

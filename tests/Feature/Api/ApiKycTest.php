@@ -49,7 +49,10 @@ class ApiKycTest extends TestCase
         Notification::fake();
 
         $buyer = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Ama Buyer']);
-        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+            'mobile' => '0244123456',
+        ]);
         Sanctum::actingAs($buyer);
 
         $this->post('/api/v1/kyc', [
@@ -67,7 +70,16 @@ class ApiKycTest extends TestCase
             'ghana_card_number' => 'GHA-123456789-1',
         ]);
 
-        Notification::assertSentTo($admin, AdminKycSubmittedNotification::class);
+        Notification::assertSentTo($admin, AdminKycSubmittedNotification::class, function ($notification, $channels) use ($admin) {
+            $this->assertContains('mail', $channels);
+            $this->assertContains(\App\Channels\SmsChannel::class, $channels);
+            $sms = $notification->toSms($admin);
+            $this->assertStringContainsString('Ghana Card KYC', $sms);
+            $this->assertStringContainsString('Ama Buyer', $sms);
+            $this->assertStringContainsString('GHA-123456789-1', $sms);
+
+            return true;
+        });
 
         $kyc = KycVerification::firstOrFail();
         Sanctum::actingAs($admin);

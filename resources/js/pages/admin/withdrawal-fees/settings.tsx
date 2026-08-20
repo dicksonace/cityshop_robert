@@ -138,16 +138,28 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                         <p className="mb-3 text-sm font-semibold text-gray-900">Fees when auto payout is off</p>
                     </div>
 
-                    <label className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    <label className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
                         <input
                             type="checkbox"
                             checked={form.data.enabled}
                             onChange={(e) => form.setData('enabled', e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-orange-600"
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600"
                         />
-                        <span className="text-sm font-semibold text-gray-900">Enable withdrawal fees</span>
+                        <span>
+                            <span className="block text-sm font-semibold text-gray-900">Charge bank withdrawal fees</span>
+                            <span className="mt-0.5 block text-xs text-gray-600">
+                                Must be on for sellers to see GH₵10 / GH₵20 bank fees. Bands below are ignored while this is
+                                off.
+                            </span>
+                        </span>
                     </label>
                     <InputError message={form.errors.enabled} />
+                    {!form.data.enabled && form.data.applies_to === 'bank' && (
+                        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+                            Bank fee bands are filled, but charging is off — sellers currently see “No fee”. Turn the switch
+                            on, then save.
+                        </div>
+                    )}
 
                     <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50/50 p-4">
                         <div>
@@ -172,7 +184,14 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                         <Label>Apply bank fees to</Label>
                         <select
                             value={form.data.applies_to}
-                            onChange={(e) => form.setData('applies_to', e.target.value as Props['settings']['applies_to'])}
+                            onChange={(e) => {
+                                const next = e.target.value as Props['settings']['applies_to'];
+                                form.setData((data) => ({
+                                    ...data,
+                                    applies_to: next,
+                                    enabled: next === 'bank' ? true : next === 'none' ? false : data.enabled,
+                                }));
+                            }}
                             className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
                         >
                             <option value="bank">Charge bank fee bands</option>
@@ -180,7 +199,7 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                             <option value="none">Disable all flat fees (bank and MoMo)</option>
                         </select>
                         <p className="mt-1 text-xs text-gray-500">
-                            MoMo always uses the MoMo fee field. This dropdown only turns bank bands on or off.
+                            Choosing “Charge bank fee bands” turns charging on when you save. MoMo uses the MoMo fee field.
                         </p>
                         <InputError message={form.errors.applies_to} />
                     </div>

@@ -20,7 +20,7 @@ class WithdrawalController extends Controller
         $status = $request->string('status', 'pending')->toString();
         $role = $request->string('role', 'all')->toString();
 
-        $withdrawals = Withdrawal::with(['user:id,name,email,mobile,role'])
+        $withdrawals = Withdrawal::with(['user:id,name,email,mobile,role', 'user.wallet', 'user.sellerProfile'])
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
             ->when($role === 'seller', fn ($q) => $q->whereHas('user', fn ($u) => $u->where('role', UserRole::Seller)))
             ->when($role === 'buyer', fn ($q) => $q->whereHas('user', fn ($u) => $u->where('role', UserRole::Buyer)))
@@ -36,6 +36,16 @@ class WithdrawalController extends Controller
             ],
             'status' => $status,
             'role' => $role,
+            'counts' => [
+                'pending_sellers' => Withdrawal::where('status', WithdrawalStatus::Pending)
+                    ->whereHas('user', fn ($q) => $q->where('role', UserRole::Seller))
+                    ->count(),
+                'pending_buyers' => Withdrawal::where('status', WithdrawalStatus::Pending)
+                    ->whereHas('user', fn ($q) => $q->where('role', UserRole::Buyer))
+                    ->count(),
+                'processing' => Withdrawal::where('status', WithdrawalStatus::Processing)->count(),
+                'pending' => Withdrawal::where('status', WithdrawalStatus::Pending)->count(),
+            ],
         ]);
     }
 
@@ -49,7 +59,7 @@ class WithdrawalController extends Controller
 
         return response()->json([
             'message' => 'Withdrawal marked as processing.',
-            'data' => $this->serialize($withdrawal->fresh('user')),
+            'data' => $this->serialize($withdrawal->fresh(['user.wallet', 'user.sellerProfile'])),
         ]);
     }
 
@@ -82,7 +92,7 @@ class WithdrawalController extends Controller
 
         return response()->json([
             'message' => 'Payout marked complete.',
-            'data' => $this->serialize($withdrawal->fresh('user')),
+            'data' => $this->serialize($withdrawal->fresh(['user.wallet', 'user.sellerProfile'])),
         ]);
     }
 
@@ -101,7 +111,7 @@ class WithdrawalController extends Controller
 
         return response()->json([
             'message' => 'Withdrawal rejected and funds returned to wallet.',
-            'data' => $this->serialize($withdrawal->fresh('user')),
+            'data' => $this->serialize($withdrawal->fresh(['user.wallet', 'user.sellerProfile'])),
         ]);
     }
 
@@ -110,22 +120,52 @@ class WithdrawalController extends Controller
      */
     private function serialize(Withdrawal $withdrawal): array
     {
+        $user = $withdrawal->user;
+        $profile = $user?->sellerProfile;
+        $wallet = $user?->wallet;
+        $network = (string) ($withdrawal->network ?? '');
+
+        $networkLabel = match ($network) {
+            'mtn' => 'MTN Mobile Money',
+            'telecel', 'vodafone' => 'Telecel Cash',
+            'airteltigo' => 'AirtelTigo Money',
+            default => $network === '' ? '—' : str_replace('_', ' ', $network),
+        };
+
         return [
             'id' => $withdrawal->id,
             'amount' => (float) $withdrawal->amount,
             'fee' => (float) ($withdrawal->fee ?? 0),
+            'total_debited' => $withdrawal->totalDebited(),
             'momo_number' => $withdrawal->momo_number,
             'account_name' => $withdrawal->account_name,
             'network' => $withdrawal->network,
+            'network_label' => $networkLabel,
+            'pay_to_label' => $withdrawal->payout_channel === 'bank' ? 'Bank transfer' : 'Mobile money',
+            'payout_channel' => $withdrawal->payout_channel,
             'status' => $withdrawal->status?->value ?? (string) $withdrawal->status,
+            'admin_notes' => $withdrawal->admin_notes,
+            'rejection_reason' => $withdrawal->rejection_reason,
             'proof_url' => $withdrawal->proof_path ? Storage::disk('public')->url($withdrawal->proof_path) : null,
             'created_at' => $withdrawal->created_at?->toIso8601String(),
-            'user' => $withdrawal->user ? [
-                'id' => $withdrawal->user->id,
-                'name' => $withdrawal->user->name,
-                'mobile' => $withdrawal->user->mobile,
-                'role' => $withdrawal->user->role?->value,
+            'processed_at' => $withdrawal->processed_at?->toIso8601String(),
+            'user' => $user ? [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'mobile' => $user->mobile,
+                'role' => $user->role?->value,
             ] : null,
+            'seller' => $profile ? [
+                'business_name' => $profile->displayName(),
+                'store_name' => $profile->store_name,
+                'slug' => $profile->slug,
+            ] : null,
+            'wallet' => [
+                'available_balance' => (float) ($wallet?->available_balance ?? 0),
+                'pending_balance' => (float) ($wallet?->pending_balance ?? 0),
+                'withdrawn_amount' => (float) ($wallet?->withdrawn_amount ?? 0),
+            ],
         ];
     }
 }

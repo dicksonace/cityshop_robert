@@ -164,4 +164,35 @@ class AdminWalletAlertTest extends TestCase
         $this->assertStringContainsString('Kofi Amoah requested a GH₵75.00 MoMo withdrawal', $sms);
         $this->assertStringContainsString('Review in admin', $sms);
     }
+
+    public function test_ghana_card_kyc_submission_sms_all_system_admins(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+            'name' => 'Super Admin',
+            'mobile' => '0244000000',
+        ]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Asare Kwame']);
+        $kyc = new \App\Models\KycVerification([
+            'ghana_card_number' => 'GHA-737743882-3',
+            'full_name' => 'Asare Kwame',
+            'status' => 'pending',
+        ]);
+        $kyc->setRelation('user', $buyer);
+        $kyc->submitted_at = Carbon::parse('2026-08-20 12:00:00', 'Africa/Accra');
+
+        AdminNotifier::notify(new \App\Notifications\AdminKycSubmittedNotification($kyc));
+
+        Notification::assertSentTo($admin, \App\Notifications\AdminKycSubmittedNotification::class, function ($notification, $channels) {
+            return in_array('mail', $channels, true)
+                && in_array(SmsChannel::class, $channels, true);
+        });
+
+        $sms = (new \App\Notifications\AdminKycSubmittedNotification($kyc))->toSms($admin);
+        $this->assertStringContainsString('Asare Kwame submitted Ghana Card KYC', $sms);
+        $this->assertStringContainsString('GHA-737743882-3', $sms);
+        $this->assertStringContainsString('Ghana Card KYC', $sms);
+    }
 }

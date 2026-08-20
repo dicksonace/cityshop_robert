@@ -1360,6 +1360,121 @@ class OrderService
     }
 
     /**
+     * Same filters as the web admin Pending Funds page (pending / held / released / all).
+     */
+    public function pendingFundItemsQuery(string $status)
+    {
+        $eager = [
+            'order:id,order_number,buyer_id,seller_id,payment_channel,payment_status,shipping_cost,total',
+            'order.buyer:id,name,email,mobile',
+            'seller:id,name,email,mobile',
+            'product:id,name',
+            'fundsReviewer:id,name',
+        ];
+
+        $base = OrderItem::query()->with($eager);
+
+        return match ($status) {
+            'held' => $base->where('funds_release_status', FundsReleaseStatus::Held),
+            'released' => $base->where('funds_release_status', FundsReleaseStatus::Released),
+            'all' => $base->where(function ($q) {
+                $q->whereIn('funds_release_status', [
+                    FundsReleaseStatus::Pending,
+                    FundsReleaseStatus::Held,
+                    FundsReleaseStatus::Released,
+                ])->orWhere(function ($inner) {
+                    $inner->whereNull('funds_release_status')
+                        ->whereIn('status', self::fundsReleaseEligibleStatuses());
+                });
+            })->whereHas('order', function ($q) {
+                $q->where(function ($channel) {
+                    $channel->where('payment_channel', PaymentChannel::Marketplace)
+                        ->orWhereNull('payment_channel');
+                });
+            }),
+            default => $this->pendingFundReleaseItemsQuery()->with($eager),
+        };
+    }
+
+    /**
+     * @return array{pending: int, held: int, released: int}
+     */
+    public function pendingFundCounts(): array
+    {
+        return [
+            'pending' => $this->pendingFundReleaseItemsQuery()->count(),
+            'held' => OrderItem::where('funds_release_status', FundsReleaseStatus::Held)->count(),
+            'released' => OrderItem::where('funds_release_status', FundsReleaseStatus::Released)->count(),
+        ];
+    }
+
+    public function orderStatusLabel(?OrderStatus $status): string
+    {
+        return match ($status) {
+            OrderStatus::AwaitingConfirmation => 'Confirm delivery',
+            OrderStatus::CallConfirmed => 'Call confirmed',
+            OrderStatus::Pending => 'Pending',
+            OrderStatus::Processing => 'Processing',
+            OrderStatus::Packed => 'Packed',
+            OrderStatus::Shipped => 'Shipped',
+            OrderStatus::Delivered => 'Delivered',
+            OrderStatus::Cancelled => 'Cancelled',
+            OrderStatus::Refunded => 'Refunded',
+            null => '—',
+        };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function serializePendingFundItem(OrderItem $item): array
+    {
+        $fundsStatus = $item->funds_release_status?->value ?? 'pending';
+
+        return [
+            'id' => $item->id,
+            'product_name' => $item->product_name,
+            'quantity' => $item->quantity,
+            'seller_amount' => (float) $item->seller_amount,
+            'commission_amount' => (float) $item->commission_amount,
+            'status' => $item->status?->value,
+            'status_label' => $this->orderStatusLabel($item->status),
+            'funds_release_status' => $fundsStatus,
+            'funds_release_notes' => $item->funds_release_notes,
+            'funds_released_at' => $item->funds_released_at?->toIso8601String(),
+            'updated_at' => $item->updated_at?->toIso8601String(),
+            'can_approve' => in_array($fundsStatus, ['pending', 'held'], true),
+            'can_reject' => $fundsStatus === 'pending',
+            'order_number' => $item->order?->order_number,
+            'buyer_name' => $item->order?->buyer?->name,
+            'seller_name' => $item->seller?->name,
+            'order' => $item->order ? [
+                'id' => $item->order->id,
+                'order_number' => $item->order->order_number,
+                'payment_channel' => $item->order->payment_channel?->value,
+                'shipping_cost' => (float) $item->order->shipping_cost,
+                'total' => (float) $item->order->total,
+                'buyer' => $item->order->buyer ? [
+                    'id' => $item->order->buyer->id,
+                    'name' => $item->order->buyer->name,
+                    'email' => $item->order->buyer->email,
+                    'mobile' => $item->order->buyer->mobile,
+                ] : null,
+            ] : null,
+            'seller' => $item->seller ? [
+                'id' => $item->seller->id,
+                'name' => $item->seller->name,
+                'email' => $item->seller->email,
+                'mobile' => $item->seller->mobile,
+            ] : null,
+            'reviewer' => $item->fundsReviewer ? [
+                'id' => $item->fundsReviewer->id,
+                'name' => $item->fundsReviewer->name,
+            ] : null,
+        ];
+    }
+
+    /**
      * Once the seller starts processing a CityShop-secured sale, admin can release funds.
      */
     private function markMarketplaceFundsPendingWhenProcessing(OrderItem $item): void

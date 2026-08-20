@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
-use App\Enums\FundsReleaseStatus;
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
 use App\Services\OrderService;
@@ -17,34 +16,25 @@ class PendingFundController extends Controller
     {
         $this->orderService->releaseStuckSellerShipping();
         $status = $request->string('status', 'pending')->toString();
+        if (! in_array($status, ['pending', 'held', 'released', 'all'], true)) {
+            $status = 'pending';
+        }
 
-        $items = match ($status) {
-            'held' => OrderItem::where('funds_release_status', FundsReleaseStatus::Held),
-            'released' => OrderItem::where('funds_release_status', FundsReleaseStatus::Released),
-            default => $this->orderService->pendingFundReleaseItemsQuery(),
-        };
-
-        $page = $items->with(['order:id,order_number,buyer_id', 'order.buyer:id,name,mobile', 'seller:id,name'])
+        $page = $this->orderService->pendingFundItemsQuery($status)
             ->latest('updated_at')
-            ->paginate(min(max((int) $request->integer('per_page', 20), 1), 50));
+            ->paginate(min(max((int) $request->integer('per_page', 50), 1), 100));
 
         return response()->json([
-            'data' => $page->getCollection()->map(fn (OrderItem $item) => [
-                'id' => $item->id,
-                'product_name' => $item->product_name,
-                'seller_amount' => (float) $item->seller_amount,
-                'status' => $item->status?->value,
-                'funds_release_status' => $item->funds_release_status?->value ?? 'pending',
-                'order_number' => $item->order?->order_number,
-                'buyer_name' => $item->order?->buyer?->name,
-                'seller_name' => $item->seller?->name,
-            ])->values(),
+            'data' => $page->getCollection()
+                ->map(fn (OrderItem $item) => $this->orderService->serializePendingFundItem($item))
+                ->values(),
             'meta' => [
                 'current_page' => $page->currentPage(),
                 'last_page' => $page->lastPage(),
                 'total' => $page->total(),
             ],
             'status' => $status,
+            'counts' => $this->orderService->pendingFundCounts(),
         ]);
     }
 
@@ -58,12 +48,17 @@ class PendingFundController extends Controller
             if (! empty($validated['admin_notes'])) {
                 $orderItem->update(['funds_release_notes' => $validated['admin_notes']]);
             }
-            $this->orderService->releaseSellerFunds($orderItem, $request->user()->id, true);
+            $released = $this->orderService->releaseSellerFunds($orderItem, $request->user()->id, true);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['message' => 'Funds released to the seller.']);
+        $total = round(($released['product'] ?? 0) + ($released['shipping'] ?? 0), 2);
+
+        return response()->json([
+            'message' => 'Funds released to seller Available balance (GH₵'.number_format($total, 2).').',
+            'released' => $released,
+        ]);
     }
 
     public function reject(Request $request, OrderItem $orderItem): JsonResponse
@@ -73,11 +68,15 @@ class PendingFundController extends Controller
         ]);
 
         try {
-            $this->orderService->holdSellerFunds($orderItem, $validated['admin_notes'], $request->user()->id);
+            $this->orderService->holdSellerFunds(
+                $orderItem,
+                $validated['admin_notes'],
+                $request->user()->id,
+            );
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['message' => 'Funds held. A dispute was opened.']);
+        return response()->json(['message' => 'Funds held in pending. A dispute was opened for review.']);
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\FundsReleaseStatus;
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
 use App\Services\OrderService;
@@ -22,90 +21,16 @@ class PendingFundController extends Controller
 
         $status = $request->get('status', 'pending');
 
-        $base = OrderItem::query()
-            ->with([
-                'order:id,order_number,buyer_id,seller_id,payment_channel,payment_status,shipping_cost,total',
-                'order.buyer:id,name,email,mobile',
-                'seller:id,name,email,mobile',
-                'product:id,name',
-                'fundsReviewer:id,name',
-            ]);
-
-        $items = match ($status) {
-            'held' => $base->where('funds_release_status', FundsReleaseStatus::Held),
-            'released' => $base->where('funds_release_status', FundsReleaseStatus::Released),
-            'all' => $base->where(function ($q) {
-                $q->whereIn('funds_release_status', [
-                    FundsReleaseStatus::Pending,
-                    FundsReleaseStatus::Held,
-                    FundsReleaseStatus::Released,
-                ])->orWhere(function ($inner) {
-                    $inner->whereNull('funds_release_status')
-                        ->whereIn('status', OrderService::fundsReleaseEligibleStatuses());
-                });
-            })->whereHas('order', function ($q) {
-                $q->where(function ($channel) {
-                    $channel->where('payment_channel', \App\Enums\PaymentChannel::Marketplace)
-                        ->orWhereNull('payment_channel');
-                });
-            }),
-            default => $this->orderService->pendingFundReleaseItemsQuery()->with([
-                'order:id,order_number,buyer_id,seller_id,payment_channel,payment_status,shipping_cost,total',
-                'order.buyer:id,name,email,mobile',
-                'seller:id,name,email,mobile',
-                'product:id,name',
-                'fundsReviewer:id,name',
-            ]),
-        };
-
-        $items = $items
+        $items = $this->orderService->pendingFundItemsQuery($status)
             ->latest('updated_at')
             ->paginate(15)
             ->withQueryString()
-            ->through(fn (OrderItem $item) => [
-                'id' => $item->id,
-                'product_name' => $item->product_name,
-                'quantity' => $item->quantity,
-                'seller_amount' => (float) $item->seller_amount,
-                'commission_amount' => (float) $item->commission_amount,
-                'status' => $item->status->value,
-                'funds_release_status' => $item->funds_release_status?->value ?? 'pending',
-                'funds_release_notes' => $item->funds_release_notes,
-                'funds_released_at' => $item->funds_released_at?->toIso8601String(),
-                'updated_at' => $item->updated_at?->toIso8601String(),
-                'order' => $item->order ? [
-                    'id' => $item->order->id,
-                    'order_number' => $item->order->order_number,
-                    'payment_channel' => $item->order->payment_channel?->value,
-                    'shipping_cost' => (float) $item->order->shipping_cost,
-                    'total' => (float) $item->order->total,
-                    'buyer' => $item->order->buyer ? [
-                        'id' => $item->order->buyer->id,
-                        'name' => $item->order->buyer->name,
-                        'email' => $item->order->buyer->email,
-                        'mobile' => $item->order->buyer->mobile,
-                    ] : null,
-                ] : null,
-                'seller' => $item->seller ? [
-                    'id' => $item->seller->id,
-                    'name' => $item->seller->name,
-                    'email' => $item->seller->email,
-                    'mobile' => $item->seller->mobile,
-                ] : null,
-                'reviewer' => $item->fundsReviewer ? [
-                    'id' => $item->fundsReviewer->id,
-                    'name' => $item->fundsReviewer->name,
-                ] : null,
-            ]);
+            ->through(fn (OrderItem $item) => $this->orderService->serializePendingFundItem($item));
 
         return Inertia::render('admin/pending-funds/index', [
             'items' => $items,
             'status' => $status,
-            'counts' => [
-                'pending' => $this->orderService->pendingFundReleaseItemsQuery()->count(),
-                'held' => OrderItem::where('funds_release_status', FundsReleaseStatus::Held)->count(),
-                'released' => OrderItem::where('funds_release_status', FundsReleaseStatus::Released)->count(),
-            ],
+            'counts' => $this->orderService->pendingFundCounts(),
         ]);
     }
 

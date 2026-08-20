@@ -78,14 +78,36 @@ class PlatformSettings
         }
 
         $amount = max(0, round((float) ($decoded['amount'] ?? 10), 2));
+        $bankTiers = static::normalizeBankFeeTiers($decoded['bank_tiers'] ?? null);
+        $enabled = (bool) ($decoded['enabled'] ?? true);
+
+        // Admins often fill bank bands + "Charge bank fee bands" but leave the master
+        // toggle off — sellers then see "No fee". Treat configured bank bands as on.
+        if (! $enabled && in_array($appliesTo, ['bank', 'all'], true) && static::bankTiersHaveFees($bankTiers)) {
+            $enabled = true;
+        }
 
         return [
-            'enabled' => (bool) ($decoded['enabled'] ?? true),
+            'enabled' => $enabled,
             'amount' => $amount,
             'momo_amount' => static::resolveMomoFeeAmount($decoded, $appliesTo, $amount),
             'applies_to' => $appliesTo,
-            'bank_tiers' => static::normalizeBankFeeTiers($decoded['bank_tiers'] ?? null),
+            'bank_tiers' => $bankTiers,
         ];
+    }
+
+    /**
+     * @param  list<array{min: float, max: float|null, fee: float}>  $tiers
+     */
+    private static function bankTiersHaveFees(array $tiers): bool
+    {
+        foreach ($tiers as $tier) {
+            if ((float) ($tier['fee'] ?? 0) > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -243,12 +265,22 @@ class PlatformSettings
             $appliesTo = 'bank';
         }
 
+        $bankTiers = static::normalizeBankFeeTiers($data['bank_tiers'] ?? null);
+        $enabled = (bool) ($data['enabled'] ?? false);
+        // Selecting "Charge bank fee bands" with real fees always turns bank fees on.
+        if (in_array($appliesTo, ['bank', 'all'], true) && static::bankTiersHaveFees($bankTiers)) {
+            $enabled = true;
+        }
+        if ($appliesTo === 'none') {
+            $enabled = false;
+        }
+
         static::set(self::WITHDRAWAL_FEE_KEY, [
-            'enabled' => (bool) ($data['enabled'] ?? false),
+            'enabled' => $enabled,
             'amount' => max(0, round((float) ($data['amount'] ?? 0), 2)),
             'momo_amount' => max(0, round((float) ($data['momo_amount'] ?? 0), 2)),
             'applies_to' => $appliesTo,
-            'bank_tiers' => static::normalizeBankFeeTiers($data['bank_tiers'] ?? null),
+            'bank_tiers' => $bankTiers,
         ]);
     }
 
@@ -382,10 +414,12 @@ class PlatformSettings
     public static function withdrawalFeePayload(): array
     {
         $auto = static::autoPaystackWithdrawSettings();
-        if ($auto['enabled']) {
+        // Percent fee only when auto Paystack is on AND a % is set. Otherwise keep
+        // flat / bank-tier fees (same as feeForWithdrawal) so the app can show them.
+        if ($auto['enabled'] && $auto['fee_percent'] > 0) {
             return [
                 'mode' => 'percent',
-                'enabled' => $auto['fee_percent'] > 0,
+                'enabled' => true,
                 'amount' => 0.0,
                 'momo_amount' => 0.0,
                 'percent' => $auto['fee_percent'],
@@ -404,7 +438,7 @@ class PlatformSettings
             'momo_amount' => $flat['momo_amount'],
             'percent' => 0.0,
             'applies_to' => $flat['applies_to'],
-            'auto_paystack' => false,
+            'auto_paystack' => (bool) $auto['enabled'],
             'bank_tiers' => $flat['bank_tiers'],
         ];
     }
@@ -795,7 +829,7 @@ class PlatformSettings
         ]);
     }
 
-    /** Extra Ghana numbers that always get finance SMS (withdrawal, deposit, China transfer). */
+    /** Extra Ghana numbers that always get finance / KYC SMS (withdrawal, deposit, China transfer, Ghana Card). */
     public static function adminAlertNumbers(): array
     {
         $settings = static::smsSettings();

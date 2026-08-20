@@ -98,6 +98,48 @@ class BankWithdrawalFeeTest extends TestCase
         $this->assertSame(3.0, PlatformSettings::feeForPayoutType('momo', 80));
     }
 
+    public function test_configured_bank_bands_apply_even_if_master_toggle_was_off(): void
+    {
+        PlatformSetting::updateOrCreate(
+            ['key' => PlatformSettings::WITHDRAWAL_FEE_KEY],
+            ['value' => json_encode([
+                'enabled' => false,
+                'amount' => 10,
+                'momo_amount' => 0,
+                'applies_to' => 'bank',
+                'bank_tiers' => PlatformSettings::defaultBankFeeTiers(),
+            ])],
+        );
+        Cache::forget('platform_setting.'.PlatformSettings::WITHDRAWAL_FEE_KEY);
+
+        $this->assertTrue(PlatformSettings::withdrawalFeeSettings()['enabled']);
+        $this->assertSame(20.0, PlatformSettings::feeForWithdrawal(1000, 'bank'));
+        $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(500, 'bank'));
+    }
+
+    public function test_auto_paystack_with_zero_percent_keeps_bank_tier_fees(): void
+    {
+        PlatformSettings::saveWithdrawalFeeSettings([
+            'enabled' => true,
+            'amount' => 10,
+            'momo_amount' => 0,
+            'applies_to' => 'bank',
+            'bank_tiers' => PlatformSettings::defaultBankFeeTiers(),
+        ]);
+        PlatformSettings::saveAutoPaystackWithdrawSettings([
+            'enabled' => true,
+            'fee_percent' => 0,
+        ]);
+
+        $payload = PlatformSettings::withdrawalFeePayload();
+        $this->assertSame('flat', $payload['mode']);
+        $this->assertTrue($payload['enabled']);
+        $this->assertTrue($payload['auto_paystack']);
+        $this->assertNotEmpty($payload['bank_tiers']);
+        $this->assertSame(20.0, PlatformSettings::feeForWithdrawal(1000, 'bank'));
+        $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(500, 'bank'));
+    }
+
     public function test_old_single_ten_cedi_band_upgrades_from_one_thousand(): void
     {
         $this->putRawBankFeeTiers([

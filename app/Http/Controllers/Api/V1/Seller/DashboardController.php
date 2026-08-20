@@ -63,7 +63,7 @@ class DashboardController extends Controller
                 'activation_fee' => (float) ($profile->activation_fee_amount ?? 0),
             ] : null,
             'store_url' => $profile?->slug
-                ? url('/store/'.$profile->slug)
+                ? rtrim((string) config('app.url'), '/').'/store/'.$profile->slug
                 : null,
         ]);
     }

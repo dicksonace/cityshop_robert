@@ -36,22 +36,27 @@ export function feeForPayoutType(
     payoutType: 'momo' | 'bank',
     amount = 0,
 ): number {
-    if (!settings?.enabled) return 0;
+    if (!settings) return 0;
     const amt = Number(amount) || 0;
-    if (settings.mode === 'percent') {
-        const percent = Number(settings.percent) || 0;
-        return percent > 0 ? Math.round(amt * (percent / 100) * 100) / 100 : 0;
+    const percent = Number(settings.percent) || 0;
+    // Percent only when a % is set. Legacy auto-Paystack 0% payloads used mode=percent
+    // with enabled=false and empty bank_tiers — fall through to flat/tier fees.
+    if (settings.mode === 'percent' && percent > 0) {
+        return Math.round(amt * (percent / 100) * 100) / 100;
     }
+    if (!settings.enabled && settings.mode !== 'percent') return 0;
     if (settings.applies_to === 'none') return 0;
     if (payoutType === 'momo') {
         const momo = momoFeeAmount(settings);
         return momo > 0 ? momo : 0;
     }
     if (!(settings.applies_to === 'all' || settings.applies_to === 'bank')) return 0;
-    if ((settings.bank_tiers?.length ?? 0) > 0) {
-        return feeFromBankTiers(amt, settings.bank_tiers!, Number(settings.amount) || 0);
-    }
-    return Number(settings.amount) > 0 ? Number(settings.amount) : 0;
+    const defaultTiers: BankFeeTiers = [
+        { min: 10, max: 999.99, fee: 10 },
+        { min: 1000, max: 25000, fee: 20 },
+    ];
+    const tiers = (settings.bank_tiers?.length ?? 0) > 0 ? settings.bank_tiers! : defaultTiers;
+    return feeFromBankTiers(amt, tiers, Number(settings.amount) || 0);
 }
 
 export function maxWithdrawableAmount(
