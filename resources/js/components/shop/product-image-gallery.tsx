@@ -176,7 +176,7 @@ export default function ProductImageGallery({
 
     if (total === 0) {
         return (
-            <div className={cn('flex aspect-square items-center justify-center rounded-2xl bg-gray-100', className)}>
+            <div className={cn('flex aspect-[4/3] items-center justify-center rounded-2xl bg-gray-100 sm:aspect-square', className)}>
                 <p className="text-sm text-gray-400">No images</p>
             </div>
         );
@@ -186,7 +186,7 @@ export default function ProductImageGallery({
         <div className={cn('w-full min-w-0 space-y-3', className)}>
             <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-sm ring-1 ring-gray-100">
                 {active?.type === 'video' ? (
-                    <div className="relative aspect-square bg-black">
+                    <div className="relative aspect-[4/3] max-h-[min(52vh,340px)] bg-black sm:aspect-square sm:max-h-none">
                         <video
                             key={active.path}
                             src={productVideoUrl(active.path)}
@@ -222,7 +222,7 @@ export default function ProductImageGallery({
                 ) : (
                     <button
                         type="button"
-                        className="relative flex aspect-square w-full cursor-zoom-in items-center justify-center p-6"
+                        className="relative flex aspect-[4/3] max-h-[min(52vh,340px)] w-full cursor-zoom-in items-center justify-center p-3 sm:aspect-square sm:max-h-none sm:p-6"
                         onClick={() => setLightboxOpen(true)}
                         aria-label="Open full size image"
                     >
