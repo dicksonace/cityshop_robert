@@ -121,7 +121,8 @@ export default function SellerAccountActions({
         );
     }
 
-    if (!compact && (status === 'pending' || status === 'rejected')) {
+    // Pending applications: approve/reject only (no delete on that screen).
+    if (!compact && status === 'rejected') {
         return (
             <div className={cn('space-y-3', className)}>
                 <DeleteSellerForm
