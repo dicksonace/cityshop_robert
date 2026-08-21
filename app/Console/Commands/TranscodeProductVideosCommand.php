@@ -14,6 +14,18 @@ class TranscodeProductVideosCommand extends Command
 
     public function handle(): int
     {
+        $ffmpeg = ProductVideoService::ffmpegBinary();
+        if ($ffmpeg) {
+            $this->info('Using ffmpeg: '.$ffmpeg);
+        } else {
+            $this->warn('ffmpeg not found. Install it, or put a static binary at ~/bin/ffmpeg and set FFMPEG_PATH.');
+            if (! $this->option('dry-run')) {
+                $this->error('Cannot convert without ffmpeg.');
+
+                return self::FAILURE;
+            }
+        }
+
         $query = Product::query()->whereNotNull('video_path')->where('video_path', '!=', '');
         $total = $query->count();
         $this->info("Scanning {$total} product video(s)…");
@@ -25,6 +37,13 @@ class TranscodeProductVideosCommand extends Command
         $query->orderBy('id')->each(function (Product $product) use (&$converted, &$skipped, &$failed) {
             $path = (string) $product->video_path;
             $absolute = storage_path('app/public/'.$path);
+
+            if (! is_file($absolute)) {
+                $failed++;
+                $this->error("Missing file: #{$product->id} {$path}");
+
+                return;
+            }
 
             if (! ProductVideoService::needsWebCompatTranscode($absolute)) {
                 $skipped++;
@@ -40,18 +59,16 @@ class TranscodeProductVideosCommand extends Command
                 return;
             }
 
-            $newPath = ProductVideoService::ensureWebCompatible($path);
-            if ($newPath === null || $newPath === $path) {
-                // Still the same path usually means ffmpeg missing or encode failed.
-                if (ProductVideoService::needsWebCompatTranscode($absolute)) {
-                    $failed++;
-                    $this->error("  failed to convert #{$product->id}");
+            $result = ProductVideoService::ensureWebCompatible($path);
+            if (! ($result['ok'] ?? false)) {
+                $failed++;
+                $this->error('  failed to convert #'.$product->id.': '.($result['reason'] ?? 'unknown error'));
 
-                    return;
-                }
+                return;
             }
 
-            if ($newPath && $newPath !== $path) {
+            $newPath = $result['path'] ?? $path;
+            if ($newPath !== $path) {
                 $product->update(['video_path' => $newPath]);
                 $converted++;
                 $this->info("  → {$newPath}");

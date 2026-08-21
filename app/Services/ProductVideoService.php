@@ -21,23 +21,24 @@ class ProductVideoService
     {
         $path = $file->store($directory, 'public');
 
-        return static::ensureWebCompatible($path) ?? $path;
+        return static::ensureWebCompatible($path)['path'] ?? $path;
     }
 
     /**
      * Re-encode an existing public-disk video if it will black-screen on PC browsers.
-     * Returns the (possibly new) relative path.
+     *
+     * @return array{path: string|null, ok: bool, reason: ?string}
      */
-    public static function ensureWebCompatible(string $relativePath): ?string
+    public static function ensureWebCompatible(string $relativePath): array
     {
         $disk = Storage::disk('public');
         if (! $disk->exists($relativePath)) {
-            return null;
+            return ['path' => null, 'ok' => false, 'reason' => 'Video file not found on disk.'];
         }
 
         $absolute = $disk->path($relativePath);
         if (! static::needsWebCompatTranscode($absolute)) {
-            return $relativePath;
+            return ['path' => $relativePath, 'ok' => true, 'reason' => null];
         }
 
         $ffmpeg = static::ffmpegBinary();
@@ -46,7 +47,11 @@ class ProductVideoService
                 'path' => $relativePath,
             ]);
 
-            return $relativePath;
+            return [
+                'path' => $relativePath,
+                'ok' => false,
+                'reason' => 'ffmpeg is not installed (or not in PATH). Install ffmpeg, or set FFMPEG_PATH in .env',
+            ];
         }
 
         $dir = trim(dirname($relativePath), '.');
@@ -69,18 +74,23 @@ class ProductVideoService
         ]);
 
         if (! $result->successful() || ! is_file($outAbsolute) || filesize($outAbsolute) < 1000) {
+            $stderr = trim(Str::limit($result->errorOutput(), 500));
             Log::warning('Product video H.264 transcode failed.', [
                 'path' => $relativePath,
-                'stderr' => Str::limit($result->errorOutput(), 2000),
+                'stderr' => $stderr,
             ]);
             @unlink($outAbsolute);
 
-            return $relativePath;
+            return [
+                'path' => $relativePath,
+                'ok' => false,
+                'reason' => $stderr !== '' ? 'ffmpeg failed: '.$stderr : 'ffmpeg failed to write H.264 output.',
+            ];
         }
 
         $disk->delete($relativePath);
 
-        return $outRelative;
+        return ['path' => $outRelative, 'ok' => true, 'reason' => null];
     }
 
     public static function needsWebCompatTranscode(string $absolutePath): bool
@@ -89,7 +99,6 @@ class ProductVideoService
             return false;
         }
 
-        // Scan container atoms — HEVC in MP4 uses hvc1/hev1; VP9/AV1 also poor on older PCs.
         $handle = fopen($absolutePath, 'rb');
         if ($handle === false) {
             return false;
@@ -114,15 +123,27 @@ class ProductVideoService
         }
         fclose($handle);
 
-        // HEVC plays on Safari/iPhone but shows a black frame on most PC Chrome/Edge builds.
         return $hevc;
     }
 
     public static function ffmpegBinary(): ?string
     {
-        $candidates = ['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg'];
+        $configured = trim((string) config('services.ffmpeg_path', env('FFMPEG_PATH', '')));
+        if ($configured !== '' && is_executable($configured)) {
+            return $configured;
+        }
+
+        $candidates = [
+            base_path('bin/ffmpeg'),
+            storage_path('bin/ffmpeg'),
+            getenv('HOME') ? rtrim((string) getenv('HOME'), '/').'/bin/ffmpeg' : null,
+            '/usr/bin/ffmpeg',
+            '/usr/local/bin/ffmpeg',
+            '/opt/homebrew/bin/ffmpeg',
+        ];
+
         foreach ($candidates as $bin) {
-            if ($bin !== 'ffmpeg' && is_executable($bin)) {
+            if (is_string($bin) && $bin !== '' && is_executable($bin)) {
                 return $bin;
             }
         }
