@@ -174,9 +174,12 @@ export default function ProductImageGallery({
         };
     }, [total, updateThumbScrollState]);
 
+    const mediaFrameClass =
+        'relative aspect-[4/3] w-full max-h-[min(52vh,340px)] overflow-hidden sm:aspect-square sm:max-h-none';
+
     if (total === 0) {
         return (
-            <div className={cn('flex aspect-[4/3] items-center justify-center rounded-2xl bg-gray-100 sm:aspect-square', className)}>
+            <div className={cn(mediaFrameClass, 'flex items-center justify-center rounded-2xl bg-gray-100', className)}>
                 <p className="text-sm text-gray-400">No images</p>
             </div>
         );
@@ -186,7 +189,7 @@ export default function ProductImageGallery({
         <div className={cn('w-full min-w-0 space-y-3', className)}>
             <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-sm ring-1 ring-gray-100">
                 {active?.type === 'video' ? (
-                    <div className="relative aspect-[4/3] max-h-[min(52vh,340px)] bg-black sm:aspect-square sm:max-h-none">
+                    <div className={cn(mediaFrameClass, 'bg-black')}>
                         <video
                             key={active.path}
                             src={productVideoUrl(active.path)}
@@ -194,7 +197,7 @@ export default function ProductImageGallery({
                             controls
                             playsInline
                             preload="metadata"
-                            className="h-full w-full object-contain"
+                            className="absolute inset-0 h-full w-full object-contain"
                             onPlay={handleVideoPlay}
                             onError={() => setVideoFailed(true)}
                             onLoadedMetadata={(e) => handleVideoMeta(e.currentTarget)}
@@ -203,7 +206,7 @@ export default function ProductImageGallery({
                             Your browser does not support product videos.
                         </video>
                         {videoFailed && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 px-6 text-center text-white">
+                            <div className="absolute inset-0 z-[1] flex flex-col items-center justify-center gap-2 bg-black/80 px-6 text-center text-white">
                                 {posterUrl ? (
                                     <img src={posterUrl} alt="" className="mb-2 max-h-[55%] max-w-full rounded-lg object-contain opacity-90" />
                                 ) : null}
@@ -213,7 +216,7 @@ export default function ProductImageGallery({
                                 </p>
                             </div>
                         )}
-                        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white">
+                        <span className="absolute left-3 top-3 z-[1] inline-flex items-center gap-1 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white">
                             <Film className="h-3.5 w-3.5" />
                             Video
                             {videoDuration ? ` · ${Math.floor(videoDuration / 60)}:${String(videoDuration % 60).padStart(2, '0')}` : ''}
@@ -222,16 +225,16 @@ export default function ProductImageGallery({
                 ) : (
                     <button
                         type="button"
-                        className="relative flex aspect-[4/3] max-h-[min(52vh,340px)] w-full cursor-zoom-in items-center justify-center p-3 sm:aspect-square sm:max-h-none sm:p-6"
+                        className={cn(mediaFrameClass, 'cursor-zoom-in bg-neutral-50')}
                         onClick={() => setLightboxOpen(true)}
                         aria-label="Open full size image"
                     >
                         <img
                             src={productImageUrl(active?.type === 'image' ? active.image.path : undefined)}
                             alt={`${productName} - image ${current + 1}`}
-                            className="max-h-full max-w-full object-contain transition-transform duration-500 group-hover:scale-105"
+                            className="absolute inset-0 h-full w-full object-contain p-3 transition-transform duration-500 group-hover:scale-105 sm:p-6"
                         />
-                        <div className="absolute bottom-3 right-3 rounded-full bg-black/40 p-2 text-white opacity-80 transition-opacity group-hover:opacity-100">
+                        <div className="absolute bottom-3 right-3 z-[1] rounded-full bg-black/40 p-2 text-white opacity-80 transition-opacity group-hover:opacity-100">
                             <ZoomIn className="h-4 w-4" />
                         </div>
                     </button>
