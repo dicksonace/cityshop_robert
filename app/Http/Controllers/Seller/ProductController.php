@@ -10,6 +10,7 @@ use App\Models\ProductImage;
 use App\Models\Review;
 use App\Services\CategorySpecService;
 use App\Services\ProductAnalyticsService;
+use App\Services\ProductVideoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -120,7 +121,7 @@ class ProductController extends Controller
             $videoDuration = null;
 
             if ($request->hasFile('video')) {
-                $videoPath = $request->file('video')->store('products/videos', 'public');
+                $videoPath = ProductVideoService::storeUploaded($request->file('video'));
                 $videoDuration = (int) $request->input('video_duration');
             }
 
@@ -497,7 +498,7 @@ class ProductController extends Controller
             }
 
             return [
-                'video_path' => $request->file('video')->store('products/videos', 'public'),
+                'video_path' => ProductVideoService::storeUploaded($request->file('video')),
                 'video_duration' => (int) $request->input('video_duration'),
             ];
         }

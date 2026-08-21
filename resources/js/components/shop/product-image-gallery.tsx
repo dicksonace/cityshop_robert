@@ -35,6 +35,7 @@ export default function ProductImageGallery({
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
+    const [videoFailed, setVideoFailed] = useState(false);
     const thumbsRef = useRef<HTMLDivElement>(null);
     const playRecordedRef = useRef(false);
 
@@ -57,6 +58,20 @@ export default function ProductImageGallery({
 
     const total = items.length;
     const active = items[current];
+    const posterUrl = sortedImages[0]
+        ? productImageUrl(sortedImages[0].path)
+        : undefined;
+
+    useEffect(() => {
+        setVideoFailed(false);
+    }, [active?.type === 'video' ? active.path : null]);
+
+    const handleVideoMeta = useCallback((el: HTMLVideoElement) => {
+        // HEVC often "loads" on PC Chrome with 0×0 frames → black square.
+        if (el.videoWidth === 0 || el.videoHeight === 0) {
+            setVideoFailed(true);
+        }
+    }, []);
 
     const lightboxImages: LightboxImage[] = items
         .filter((item): item is Extract<GalleryItem, { type: 'image' }> => item.type === 'image')
@@ -175,14 +190,29 @@ export default function ProductImageGallery({
                         <video
                             key={active.path}
                             src={productVideoUrl(active.path)}
+                            poster={posterUrl}
                             controls
                             playsInline
                             preload="metadata"
                             className="h-full w-full object-contain"
                             onPlay={handleVideoPlay}
+                            onError={() => setVideoFailed(true)}
+                            onLoadedMetadata={(e) => handleVideoMeta(e.currentTarget)}
+                            onLoadedData={(e) => handleVideoMeta(e.currentTarget)}
                         >
                             Your browser does not support product videos.
                         </video>
+                        {videoFailed && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 px-6 text-center text-white">
+                                {posterUrl ? (
+                                    <img src={posterUrl} alt="" className="mb-2 max-h-[55%] max-w-full rounded-lg object-contain opacity-90" />
+                                ) : null}
+                                <p className="text-sm font-semibold">This video can’t play in this browser</p>
+                                <p className="text-xs text-white/80">
+                                    Try your phone browser or Safari. Desktop Chrome often can’t play phone-recorded clips until they’re converted.
+                                </p>
+                            </div>
+                        )}
                         <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white">
                             <Film className="h-3.5 w-3.5" />
                             Video

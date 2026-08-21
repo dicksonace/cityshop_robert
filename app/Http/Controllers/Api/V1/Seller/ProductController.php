@@ -10,6 +10,7 @@ use App\Models\ProductImage;
 use App\Models\Review;
 use App\Services\CategorySpecService;
 use App\Services\ProductAnalyticsService;
+use App\Services\ProductVideoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -107,7 +108,7 @@ class ProductController extends Controller
                     'video' => ['file', 'mimes:mp4,webm,mov,qt,m4v,3gp,3gpp', 'max:51200'],
                     'video_duration' => ['nullable', 'integer', 'min:0', 'max:60'],
                 ]);
-                $videoPath = $request->file('video')->store('products/videos', 'public');
+                $videoPath = ProductVideoService::storeUploaded($request->file('video'));
                 $videoDuration = $request->filled('video_duration') ? (int) $request->input('video_duration') : null;
             }
 
@@ -352,7 +353,7 @@ class ProductController extends Controller
         }
 
         $product->update([
-            'video_path' => $request->file('video')->store('products/videos', 'public'),
+            'video_path' => ProductVideoService::storeUploaded($request->file('video')),
             'video_duration' => $request->filled('video_duration') ? (int) $request->input('video_duration') : null,
         ]);
         $product->load(['images', 'category'])->loadCount('reviews');
