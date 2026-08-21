@@ -118,6 +118,45 @@ class ApiAuthTest extends TestCase
             ->assertJsonPath('user.id', $user->id);
     }
 
+    public function test_buyer_can_login_with_233_when_stored_as_local_zero(): void
+    {
+        $user = User::factory()->create([
+            'role' => UserRole::Buyer,
+            'mobile' => '0248620718',
+            'password' => 'password',
+        ]);
+
+        $this->postJson('/api/v1/auth/login', [
+            'login' => '233248620718',
+            'password' => 'password',
+            'portal' => 'buyer',
+        ])->assertOk()
+            ->assertJsonPath('user.id', $user->id);
+
+        $this->postJson('/api/v1/auth/login', [
+            'login' => '+233248620718',
+            'password' => 'password',
+            'portal' => 'buyer',
+        ])->assertOk()
+            ->assertJsonPath('user.id', $user->id);
+    }
+
+    public function test_buyer_cannot_register_233_duplicate_of_local_mobile(): void
+    {
+        User::factory()->create([
+            'role' => UserRole::Buyer,
+            'mobile' => '0248620718',
+        ]);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Dup Buyer',
+            'mobile' => '233248620718',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['mobile']);
+    }
+
     public function test_products_list_is_public(): void
     {
         $this->getJson('/api/v1/products')->assertOk();

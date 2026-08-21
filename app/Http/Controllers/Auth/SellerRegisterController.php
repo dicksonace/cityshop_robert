@@ -10,6 +10,7 @@ use App\Models\SellerRegistrationInvite;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\SellerRegistrationInviteService;
+use App\Support\GhanaMobile;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -162,7 +163,16 @@ class SellerRegisterController extends Controller
         $rules = [
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
-            'mobile' => ['required', 'string', 'max:20', Rule::unique('users', 'mobile')->ignore($existingUser?->id)],
+            'mobile' => [
+                'required',
+                'string',
+                'max:20',
+                function (string $attribute, mixed $value, \Closure $fail) use ($existingUser): void {
+                    if (GhanaMobile::isTaken((string) $value, $existingUser?->id)) {
+                        $fail('This mobile number is already registered.');
+                    }
+                },
+            ],
             'whatsapp' => ['required', 'string', 'max:20'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users', 'email')->ignore($existingUser?->id)],
             'ghana_card_number' => ['required', 'string', 'max:50'],

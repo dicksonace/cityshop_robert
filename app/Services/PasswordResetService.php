@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Notifications\PasswordResetCodeNotification;
+use App\Support\GhanaMobile;
 use App\Support\NotificationPrivacy;
 use App\Support\ResetChannel;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ class PasswordResetService
     public static function sendCode(string $login, string $via = ResetChannel::EMAIL): array
     {
         $via = ResetChannel::parse($via);
+        $login = trim($login);
         $throttleKey = 'password-reset-send:'.strtolower($login).':'.$via;
         if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
             $seconds = RateLimiter::availableIn($throttleKey);
@@ -29,8 +31,9 @@ class PasswordResetService
             ]);
         }
 
-        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'mobile';
-        $user = User::query()->where($field, $login)->first();
+        $user = filter_var($login, FILTER_VALIDATE_EMAIL)
+            ? User::query()->where('email', $login)->first()
+            : GhanaMobile::findUserByMobile($login);
 
         // Always look like success so we don't leak whether an account exists.
         if (! $user || ! static::canSend($user, $via)) {
@@ -71,8 +74,10 @@ class PasswordResetService
 
     public static function resetWithCode(string $login, string $code, string $password): User
     {
-        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'mobile';
-        $user = User::query()->where($field, $login)->first();
+        $login = trim($login);
+        $user = filter_var($login, FILTER_VALIDATE_EMAIL)
+            ? User::query()->where('email', $login)->first()
+            : GhanaMobile::findUserByMobile($login);
 
         if (! $user) {
             throw ValidationException::withMessages([

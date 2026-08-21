@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\Countries;
+use App\Support\GhanaMobile;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,7 +31,16 @@ class BuyerRegisterController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'mobile' => ['required', 'string', 'max:20', 'unique:users,mobile'],
+            'mobile' => [
+                'required',
+                'string',
+                'max:20',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (GhanaMobile::isTaken((string) $value)) {
+                        $fail('This mobile number is already registered.');
+                    }
+                },
+            ],
             'country' => ['required', 'string', 'max:80', Rule::in(Countries::names())],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],

@@ -28,13 +28,35 @@ class ApiPasswordResetTest extends TestCase
 
         $this->postJson('/api/v1/auth/forgot-password', ['login' => '0244111222'])
             ->assertOk()
-            ->assertJsonPath('message', 'A reset code was sent to your email.')
-            ->assertJsonPath('email_hint', 'b****@example.com');
+            ->assertJsonPath('message', 'A reset code was sent to your phone.')
+            ->assertJsonPath('via', 'sms');
 
         Notification::assertSentTo($user, PasswordResetCodeNotification::class);
         $this->assertDatabaseHas('password_reset_tokens', [
             'email' => 'buyer@example.com',
         ]);
+    }
+
+    public function test_forgot_password_can_email_when_via_email(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create([
+            'role' => UserRole::Buyer,
+            'email' => 'mailreset@example.com',
+            'mobile' => '0244111333',
+            'password' => 'old-password',
+        ]);
+
+        $this->postJson('/api/v1/auth/forgot-password', [
+            'login' => '0244111333',
+            'via' => 'email',
+        ])
+            ->assertOk()
+            ->assertJsonPath('message', 'A reset code was sent to your email.')
+            ->assertJsonPath('email_hint', 'mai******@example.com');
+
+        Notification::assertSentTo($user, PasswordResetCodeNotification::class);
     }
 
     public function test_reset_password_with_valid_code(): void

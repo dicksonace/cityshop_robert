@@ -9,6 +9,7 @@ use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
 use App\Services\PasswordResetService;
 use App\Support\Countries;
+use App\Support\GhanaMobile;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +26,16 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'mobile' => ['required', 'string', 'max:20', 'unique:users,mobile'],
+            'mobile' => [
+                'required',
+                'string',
+                'max:20',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (GhanaMobile::isTaken((string) $value)) {
+                        $fail('This mobile number is already registered.');
+                    }
+                },
+            ],
             'country' => ['nullable', 'string', 'max:80', Rule::in(Countries::names())],
             'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
@@ -72,8 +82,10 @@ class AuthController extends Controller
             ]);
         }
 
-        $field = filter_var($validated['login'], FILTER_VALIDATE_EMAIL) ? 'email' : 'mobile';
-        $user = User::where($field, $validated['login'])->first();
+        $login = trim($validated['login']);
+        $user = filter_var($login, FILTER_VALIDATE_EMAIL)
+            ? User::query()->where('email', $login)->first()
+            : GhanaMobile::findUserByMobile($login);
 
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
             RateLimiter::hit($throttleKey);

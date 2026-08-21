@@ -4,6 +4,7 @@ namespace App\Http\Requests\Auth;
 
 use App\Enums\SellerStatus;
 use App\Models\User;
+use App\Support\GhanaMobile;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -31,10 +32,10 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $login = $this->string('login');
-        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'mobile';
-
-        $user = User::where($field, $login)->first();
+        $login = trim((string) $this->string('login'));
+        $user = filter_var($login, FILTER_VALIDATE_EMAIL)
+            ? User::query()->where('email', $login)->first()
+            : GhanaMobile::findUserByMobile($login);
 
         if (! $user || ! Auth::getProvider()->validateCredentials($user, ['password' => $this->password])) {
             RateLimiter::hit($this->throttleKey());
