@@ -37,12 +37,12 @@ class Conversation extends Model
 
     public function buyer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'buyer_id');
+        return $this->belongsTo(User::class, 'buyer_id')->withTrashed();
     }
 
     public function seller(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'seller_id');
+        return $this->belongsTo(User::class, 'seller_id')->withTrashed();
     }
 
     public function creator(): BelongsTo
@@ -97,7 +97,19 @@ class Conversation extends Model
             return $user;
         }
 
-        return $this->buyer_id === $user->id ? $this->seller : $this->buyer;
+        $other = $this->buyer_id === $user->id ? $this->seller : $this->buyer;
+        if ($other) {
+            return $other;
+        }
+
+        // Soft-deleted / missing peer must not 500 the web chat widget.
+        $fallback = new User([
+            'id' => $this->buyer_id === $user->id ? (int) $this->seller_id : (int) $this->buyer_id,
+            'name' => 'Deleted account',
+        ]);
+        $fallback->exists = false;
+
+        return $fallback;
     }
 
     /** @return Collection<int, User> */

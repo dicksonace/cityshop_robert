@@ -22,8 +22,8 @@ class MessageController extends Controller
     {
         $conversations = ChatService::visibleConversationsQuery($request->user()->id)
             ->with([
-                'buyer:id,name,avatar,city,region,last_seen_at',
-                'seller:id,name,avatar,city,region,last_seen_at',
+                'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+                'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
                 'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
                 'participants:id,name,avatar,last_seen_at',
                 'product:id,name,slug,price,discount_price',
@@ -58,8 +58,8 @@ class MessageController extends Controller
 
         $conversation = ChatService::createGroup($user, $validated['name'], $validated['member_ids']);
         $conversation->load([
-            'buyer:id,name,avatar,city,region,last_seen_at',
-            'seller:id,name,avatar,city,region,last_seen_at',
+            'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+            'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
             'participants:id,name,avatar,last_seen_at',
             'latestVisibleMessage.sender:id,name',
         ]);
@@ -228,8 +228,8 @@ class MessageController extends Controller
         $conversation = ChatService::findOrCreateConversation($request->user(), $peer, $product);
 
         $conversation->load([
-            'buyer:id,name,avatar,city,region,last_seen_at',
-            'seller:id,name,avatar,city,region,last_seen_at',
+            'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+            'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
             'product:id,name,slug,price,discount_price',
             'product.images',
@@ -249,8 +249,8 @@ class MessageController extends Controller
         ChatService::markConversationRead($conversation, $request->user());
 
         $conversation->load([
-            'buyer:id,name,avatar,city,region,last_seen_at',
-            'seller:id,name,avatar,city,region,last_seen_at',
+            'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+            'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
             'participants:id,name,avatar,mobile,last_seen_at,role',
             'product:id,name,slug,price,discount_price',
@@ -293,7 +293,7 @@ class MessageController extends Controller
                     MessageType::Transfer,
                     MessageType::File,
                 ])
-                ->with('sender:id,name')
+                ->with('sender:id,name,deleted_at')
                 ->first();
 
             if (! $replyTo) {
@@ -310,7 +310,7 @@ class MessageController extends Controller
             $replyTo,
         );
 
-        $message->load('sender:id,name');
+        $message->load('sender:id,name,deleted_at');
 
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
@@ -340,14 +340,14 @@ class MessageController extends Controller
             return response()->json(['message' => 'Could not share product.'], 422);
         }
 
-        $message->load('sender:id,name');
+        $message->load('sender:id,name,deleted_at');
 
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
             'conversation' => $this->formatConversation(
                 $conversation->fresh([
-                    'buyer:id,name,avatar,city,region,last_seen_at',
-                    'seller:id,name,avatar,city,region,last_seen_at',
+                    'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+                    'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
                     'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
                     'product:id,name,slug,price,discount_price',
                     'product.images',
@@ -438,7 +438,7 @@ class MessageController extends Controller
             ],
         );
 
-        $message->load('sender:id,name');
+        $message->load('sender:id,name,deleted_at');
 
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
@@ -471,7 +471,7 @@ class MessageController extends Controller
             ],
         );
 
-        $message->load('sender:id,name');
+        $message->load('sender:id,name,deleted_at');
 
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
@@ -503,7 +503,7 @@ class MessageController extends Controller
             ],
         );
 
-        $message->load('sender:id,name');
+        $message->load('sender:id,name,deleted_at');
 
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
@@ -575,7 +575,7 @@ class MessageController extends Controller
             ],
         );
 
-        $message->load('sender:id,name');
+        $message->load('sender:id,name,deleted_at');
 
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
@@ -616,7 +616,7 @@ class MessageController extends Controller
             ],
         );
 
-        $message->load('sender:id,name');
+        $message->load('sender:id,name,deleted_at');
 
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
@@ -777,7 +777,7 @@ class MessageController extends Controller
         $messages = $conversation->messages()
             ->whereIn('type', ChatService::visibleTypes())
             ->where('body', 'like', '%'.$q.'%')
-            ->with('sender:id,name')
+            ->with('sender:id,name,deleted_at')
             ->orderByDesc('id')
             ->limit(50)
             ->get()
@@ -828,7 +828,7 @@ class MessageController extends Controller
             'ok' => true,
             'message_id' => $message->id,
             'call_log' => $callLogMessage
-                ? ChatService::formatMessage($callLogMessage->load('sender:id,name'), $request->user())
+                ? ChatService::formatMessage($callLogMessage->load('sender:id,name,deleted_at'), $request->user())
                 : null,
         ]);
     }
@@ -916,13 +916,17 @@ class MessageController extends Controller
         }
 
         $other = $conversation->otherParticipant($user);
-        $other->loadMissing('sellerProfile');
+        if ($other->exists) {
+            $other->loadMissing('sellerProfile');
+        }
 
         $product = ChatService::sharedProductForConversation($conversation);
-        $iBlocked = \App\Services\UserBlockService::iBlocked($user, $other);
-        $blockedEitherWay = \App\Services\UserBlockService::isBlockedEitherWay($user, $other);
+        $iBlocked = $other->exists ? \App\Services\UserBlockService::iBlocked($user, $other) : false;
+        $blockedEitherWay = $other->exists ? \App\Services\UserBlockService::isBlockedEitherWay($user, $other) : false;
         $canComplain = $conversation->buyer_id === $user->id
             && $conversation->seller_id !== $user->id;
+        $deletedPeer = ! $other->exists || $other->trashed();
+        $otherName = $deletedPeer ? 'Deleted account' : ($other->name ?: 'User');
 
         return [
             'id' => $conversation->id,
@@ -930,7 +934,7 @@ class MessageController extends Controller
             'name' => null,
             'buyer_id' => $conversation->buyer_id,
             'seller_id' => $conversation->seller_id,
-            'can_complain' => $canComplain,
+            'can_complain' => $canComplain && ! $deletedPeer,
             'blocked' => $blockedEitherWay,
             'i_blocked' => $iBlocked,
             'product' => $product ? [
@@ -942,16 +946,16 @@ class MessageController extends Controller
             ] : null,
             'other' => [
                 'id' => $other->id,
-                'name' => $other->name,
-                'avatar' => $this->publicMediaUrl($other->displayAvatarPath()),
-                'online' => ChatService::isOnline($other),
-                'last_seen_at' => $other->last_seen_at?->toIso8601String(),
-                'city' => $other->city,
-                'region' => $other->region,
-                'mobile' => $other->mobile,
-                'store_name' => $other->sellerProfile?->displayName(),
-                'store_slug' => $other->sellerProfile?->slug,
-                'is_seller' => $other->sellerProfile !== null || $other->isSeller(),
+                'name' => $otherName,
+                'avatar' => $deletedPeer ? null : $this->publicMediaUrl($other->displayAvatarPath()),
+                'online' => ! $deletedPeer && ChatService::isOnline($other),
+                'last_seen_at' => $deletedPeer ? null : $other->last_seen_at?->toIso8601String(),
+                'city' => $deletedPeer ? null : $other->city,
+                'region' => $deletedPeer ? null : $other->region,
+                'mobile' => $deletedPeer ? null : $other->mobile,
+                'store_name' => $deletedPeer ? null : $other->sellerProfile?->displayName(),
+                'store_slug' => $deletedPeer ? null : $other->sellerProfile?->slug,
+                'is_seller' => ! $deletedPeer && ($other->sellerProfile !== null || $other->isSeller()),
             ],
             'latest_message' => $latest ? [
                 'body' => match ($latest->type) {

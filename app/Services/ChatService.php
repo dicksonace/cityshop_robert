@@ -500,7 +500,7 @@ class ChatService
 
             if ($replyTo) {
                 abort_unless($replyTo->conversation_id === $conversation->id, 422, 'Invalid reply target.');
-                $replyTo->loadMissing('sender:id,name');
+                $replyTo->loadMissing('sender:id,name,deleted_at');
 
                 $replyBody = match ($replyTo->type) {
                     MessageType::Image => $replyTo->body ?: 'Photo',
@@ -733,7 +733,7 @@ class ChatService
             'metadata' => $metadata,
         ]);
 
-        $fresh = $message->fresh(['sender:id,name', 'reactions']);
+        $fresh = $message->fresh(['sender:id,name,deleted_at', 'reactions']);
         static::broadcastMessageUpdated($fresh);
 
         return $fresh;
@@ -751,7 +751,7 @@ class ChatService
             'metadata' => $metadata,
         ]);
 
-        $fresh = $message->fresh(['sender:id,name', 'reactions']);
+        $fresh = $message->fresh(['sender:id,name,deleted_at', 'reactions']);
         static::broadcastMessageUpdated($fresh);
 
         return $fresh;
@@ -781,7 +781,7 @@ class ChatService
         }
 
         $message->touch();
-        $fresh = $message->fresh(['sender:id,name', 'reactions']);
+        $fresh = $message->fresh(['sender:id,name,deleted_at', 'reactions']);
         static::broadcastMessageUpdated($fresh);
 
         return $fresh;
@@ -795,7 +795,7 @@ class ChatService
 
         try {
             if (! $message->relationLoaded('sender')) {
-                $message->load('sender:id,name');
+                $message->load('sender:id,name,deleted_at');
             }
             if (! $message->relationLoaded('reactions')) {
                 $message->load('reactions');
@@ -985,8 +985,10 @@ class ChatService
             'reactions' => $deleted ? [] : static::formatReactions($message, $viewer),
             'created_at' => $message->created_at?->toIso8601String(),
             'sender' => [
-                'id' => $message->sender->id,
-                'name' => $message->sender->name,
+                'id' => $message->sender_id,
+                'name' => ($message->sender && ! $message->sender->trashed())
+                    ? ($message->sender->name ?: 'User')
+                    : 'Deleted account',
             ],
         ];
     }
@@ -1140,7 +1142,7 @@ class ChatService
     {
         return $conversation->messages()
             ->whereIn('type', static::visibleTypes())
-            ->with(['sender:id,name', 'reactions'])
+            ->with(['sender:id,name,deleted_at', 'reactions'])
             ->orderByDesc('id')
             ->limit($limit)
             ->get()
@@ -1159,7 +1161,7 @@ class ChatService
     {
         return $conversation->messages()
             ->whereIn('type', static::visibleTypes())
-            ->with(['sender:id,name', 'reactions'])
+            ->with(['sender:id,name,deleted_at', 'reactions'])
             ->where(function ($q) use ($afterId, $viewer) {
                 if ($afterId > 0) {
                     $q->where('id', '>', $afterId);
@@ -1192,7 +1194,7 @@ class ChatService
 
         return $conversation->messages()
             ->whereIn('type', static::visibleTypes())
-            ->with(['sender:id,name', 'reactions'])
+            ->with(['sender:id,name,deleted_at', 'reactions'])
             ->where('id', '<=', $afterId)
             ->where('updated_at', '>', $since)
             ->orderBy('id')
@@ -1250,7 +1252,7 @@ class ChatService
 
         $fresh = $conversation->messages()
             ->whereIn('type', $types)
-            ->with('sender:id,name')
+            ->with('sender:id,name,deleted_at')
             ->when(
                 $afterId > 0,
                 fn ($q) => $q->where('id', '>', $afterId),
@@ -1283,7 +1285,7 @@ class ChatService
 
         $tail = $conversation->messages()
             ->whereIn('type', $types)
-            ->with('sender:id,name')
+            ->with('sender:id,name,deleted_at')
             ->where('id', '>=', $liveOffer->id)
             ->orderBy('id')
             ->limit(80)

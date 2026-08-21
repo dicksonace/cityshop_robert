@@ -19,8 +19,8 @@ class ConversationController extends Controller
     {
         $conversations = ChatService::visibleConversationsQuery($request->user()->id)
             ->with([
-                'buyer:id,name,avatar,city,region,last_seen_at',
-                'seller:id,name,avatar,city,region,last_seen_at',
+                'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+                'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
                 'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
                 'participants:id,name,avatar,last_seen_at',
                 'product:id,name,slug,price,discount_price',
@@ -53,8 +53,8 @@ class ConversationController extends Controller
         ChatService::markConversationRead($conversation, $request->user());
 
         $conversation->load([
-            'buyer:id,name,avatar,city,region,last_seen_at',
-            'seller:id,name,avatar,city,region,last_seen_at',
+            'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+            'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
             'product:id,name,slug,price,discount_price',
             'product.images',
@@ -101,8 +101,8 @@ class ConversationController extends Controller
         $conversation = ChatService::findOrCreateConversation($request->user(), $seller, $product);
 
         $conversation->load([
-            'buyer:id,name,avatar,city,region,last_seen_at',
-            'seller:id,name,avatar,city,region,last_seen_at',
+            'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+            'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
             'seller.sellerProfile:id,user_id,business_name,store_name,slug,business_address,shop_photo',
             'product:id,name,slug,price,discount_price',
             'product.images',
@@ -144,7 +144,7 @@ class ConversationController extends Controller
         $messages = $conversation->messages()
             ->whereIn('type', ChatService::visibleTypes())
             ->where('body', 'like', '%'.$q.'%')
-            ->with('sender:id,name')
+            ->with('sender:id,name,deleted_at')
             ->orderByDesc('id')
             ->limit(50)
             ->get()
@@ -302,12 +302,16 @@ class ConversationController extends Controller
         }
 
         $other = $conversation->otherParticipant($user);
-        $other->loadMissing('sellerProfile');
+        if ($other->exists) {
+            $other->loadMissing('sellerProfile');
+        }
 
         $product = ChatService::sharedProductForConversation($conversation);
         $productPayload = $product ? ChatService::productCardPayload($product) : null;
         $canComplain = $conversation->buyer_id === $user->id
             && $conversation->seller_id !== $user->id;
+        $deletedPeer = ! $other->exists || $other->trashed();
+        $otherName = $deletedPeer ? 'Deleted account' : ($other->name ?: 'User');
 
         return [
             'id' => $conversation->id,
@@ -315,19 +319,19 @@ class ConversationController extends Controller
             'name' => null,
             'buyer_id' => $conversation->buyer_id,
             'seller_id' => $conversation->seller_id,
-            'can_complain' => $canComplain,
+            'can_complain' => $canComplain && ! $deletedPeer,
             'product' => $productPayload,
             'other' => [
                 'id' => $other->id,
-                'name' => $other->name,
-                'avatar' => $other->displayAvatarPath(),
-                'online' => ChatService::isOnline($other),
-                'last_seen_at' => $other->last_seen_at?->toIso8601String(),
-                'city' => $other->city,
-                'region' => $other->region,
-                'is_seller' => $other->sellerProfile !== null || $other->isSeller(),
-                'store_slug' => $other->sellerProfile?->slug,
-                'seller_profile' => $other->sellerProfile ? [
+                'name' => $otherName,
+                'avatar' => $deletedPeer ? null : $other->displayAvatarPath(),
+                'online' => ! $deletedPeer && ChatService::isOnline($other),
+                'last_seen_at' => $deletedPeer ? null : $other->last_seen_at?->toIso8601String(),
+                'city' => $deletedPeer ? null : $other->city,
+                'region' => $deletedPeer ? null : $other->region,
+                'is_seller' => ! $deletedPeer && ($other->sellerProfile !== null || $other->isSeller()),
+                'store_slug' => $deletedPeer ? null : $other->sellerProfile?->slug,
+                'seller_profile' => (! $deletedPeer && $other->sellerProfile) ? [
                     'business_name' => $other->sellerProfile->business_name,
                     'store_name' => $other->sellerProfile->store_name,
                     'slug' => $other->sellerProfile->slug,
