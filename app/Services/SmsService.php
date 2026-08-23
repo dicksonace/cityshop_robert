@@ -9,31 +9,88 @@ class SmsService
 {
     public function send(?string $phone, string $message): bool
     {
+        return (bool) ($this->sendDetailed($phone, $message)['ok'] ?? false);
+    }
+
+    /**
+     * @return array{ok: bool, selected: string, delivered_via: string|null, failover_used: bool, error: string|null}
+     */
+    public function sendDetailed(?string $phone, string $message): array
+    {
+        $selected = PlatformSettings::smsDriver();
+
         if (! $phone || trim($message) === '') {
-            return false;
+            return [
+                'ok' => false,
+                'selected' => $selected,
+                'delivered_via' => null,
+                'failover_used' => false,
+                'error' => 'Missing phone or message.',
+            ];
         }
 
         $msisdn = $this->normalizeGhanaMsisdn($phone);
         if (! $msisdn) {
             Log::warning('SMS skipped: invalid Ghana number.', ['phone' => $phone]);
 
-            return false;
+            return [
+                'ok' => false,
+                'selected' => $selected,
+                'delivered_via' => null,
+                'failover_used' => false,
+                'error' => 'Invalid Ghana number.',
+            ];
         }
 
-        $driver = PlatformSettings::smsDriver();
-        $ok = $this->sendViaDriver($driver, $msisdn, $message);
-
-        if (! $ok && PlatformSettings::smsFailoverEnabled()) {
-            $fallback = $driver === 'txtconnect' ? 'formula_dc' : 'txtconnect';
-            Log::warning('SMS primary driver failed, trying fallback.', [
+        $ok = $this->sendViaDriver($selected, $msisdn, $message);
+        if ($ok) {
+            Log::info('SMS delivered via selected provider.', [
                 'phone' => $msisdn,
-                'primary' => $driver,
-                'fallback' => $fallback,
+                'provider' => $selected,
             ]);
-            $ok = $this->sendViaDriver($fallback, $msisdn, $message);
+
+            return [
+                'ok' => true,
+                'selected' => $selected,
+                'delivered_via' => $selected,
+                'failover_used' => false,
+                'error' => null,
+            ];
         }
 
-        return $ok;
+        if (PlatformSettings::smsFailoverEnabled()) {
+            $fallback = $selected === 'txtconnect' ? 'formula_dc' : 'txtconnect';
+            Log::warning('SMS primary provider failed, trying failover.', [
+                'phone' => $msisdn,
+                'selected' => $selected,
+                'failover' => $fallback,
+            ]);
+
+            $ok = $this->sendViaDriver($fallback, $msisdn, $message);
+            if ($ok) {
+                Log::warning('SMS delivered via failover — selected provider did not send.', [
+                    'phone' => $msisdn,
+                    'selected' => $selected,
+                    'delivered_via' => $fallback,
+                ]);
+
+                return [
+                    'ok' => true,
+                    'selected' => $selected,
+                    'delivered_via' => $fallback,
+                    'failover_used' => true,
+                    'error' => null,
+                ];
+            }
+        }
+
+        return [
+            'ok' => false,
+            'selected' => $selected,
+            'delivered_via' => null,
+            'failover_used' => false,
+            'error' => 'All configured SMS providers failed.',
+        ];
     }
 
     private function sendViaDriver(string $driver, string $msisdn, string $message): bool

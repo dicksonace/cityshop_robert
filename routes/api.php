@@ -283,6 +283,7 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/settings/sms', [AdminSettingsController::class, 'sms']);
             Route::post('/settings/sms', [AdminSettingsController::class, 'updateSms']);
+            Route::post('/settings/sms/test', [AdminSettingsController::class, 'testSms']);
             Route::get('/settings/paystack', [AdminSettingsController::class, 'paystack']);
             Route::post('/settings/paystack', [AdminSettingsController::class, 'updatePaystack']);
             Route::post('/settings/paystack/lock', [AdminSettingsController::class, 'updatePaystackLock']);

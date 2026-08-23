@@ -49,7 +49,51 @@ class SettingsController extends Controller
             'alert_mobile_4' => $validated['alert_mobile_4'] ?? '',
         ]);
 
-        return response()->json(['message' => 'SMS platform saved.']);
+        $settings = PlatformSettings::smsSettings();
+        $message = 'SMS platform saved. Active: '.($settings['driver'] === 'txtconnect' ? 'TxtConnect' : 'Formula DC').'.';
+        if ($settings['driver'] === 'txtconnect' && $settings['failover']) {
+            $message .= ' Failover is ON — if TxtConnect fails (e.g. sender ID pending), Formula DC will still send.';
+        }
+
+        return response()->json([
+            'message' => $message,
+            'settings' => $settings,
+        ]);
+    }
+
+    public function testSms(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'mobile' => ['required', 'string', 'max:20'],
+        ]);
+
+        $result = app(\App\Services\SmsService::class)->sendDetailed(
+            $validated['mobile'],
+            'CityShop SMS test at '.now()->format('Y-m-d H:i').'. Provider check.',
+        );
+
+        $delivered = $result['delivered_via'];
+        $label = match ($delivered) {
+            'txtconnect' => 'TxtConnect',
+            'formula_dc' => 'Formula DC',
+            default => null,
+        };
+
+        if (! $result['ok']) {
+            return response()->json([
+                'message' => 'Test SMS failed. Selected '.$result['selected'].'. '.($result['error'] ?? ''),
+                'result' => $result,
+            ], 422);
+        }
+
+        $message = $result['failover_used']
+            ? "Test SMS sent via failover {$label}. Selected was {$result['selected']} — that provider failed first."
+            : "Test SMS sent via {$label}.";
+
+        return response()->json([
+            'message' => $message,
+            'result' => $result,
+        ]);
     }
 
     public function paystack(): JsonResponse

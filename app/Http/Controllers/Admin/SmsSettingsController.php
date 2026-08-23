@@ -54,6 +54,13 @@ class SmsSettingsController extends Controller
             'alert_mobile_4' => $validated['alert_mobile_4'] ?? '',
         ]);
 
-        return back()->with('success', 'SMS platform saved.');
+        $settings = PlatformSettings::smsSettings();
+
+        return back()->with(
+            'success',
+            $settings['driver'] === 'txtconnect' && $settings['failover']
+                ? 'SMS platform saved as TxtConnect. Failover is ON — if TxtConnect fails, Formula DC will still send.'
+                : 'SMS platform saved. Active: '.($settings['driver'] === 'txtconnect' ? 'TxtConnect' : 'Formula DC').'.'
+        );
     }
 }

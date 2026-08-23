@@ -50,7 +50,9 @@ export default function SmsSettings({ settings, providers }: Props) {
                 <div>
                     <h1 className="text-xl font-bold text-gray-900">SMS platforms</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Switch which provider sends CityShop SMS. Formula DC stays live until TxtConnect CityShop sender ID is approved.
+                        Switch which provider sends CityShop SMS. If failover is ON and TxtConnect fails
+                        (for example CityShop sender ID still pending), Formula DC will still deliver the text.
+                        Turn failover OFF to confirm TxtConnect alone.
                     </p>
                 </div>
 
@@ -98,7 +100,7 @@ export default function SmsSettings({ settings, providers }: Props) {
                         <span>
                             <span className="block font-semibold text-gray-900">If this platform fails, try the other</span>
                             <span className="mt-0.5 block text-xs text-gray-500">
-                                Keeps order and wallet SMS going if Formula DC or TxtConnect is down.
+                                With this ON, choosing TxtConnect can still send via Formula DC when TxtConnect rejects the message.
                             </span>
                         </span>
                     </label>
