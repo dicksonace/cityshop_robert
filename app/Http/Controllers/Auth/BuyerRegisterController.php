@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\Countries;
 use App\Support\GhanaMobile;
+use App\Support\UserRegistrationGuard;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,13 +37,26 @@ class BuyerRegisterController extends Controller
                 'string',
                 'max:20',
                 function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (GhanaMobile::isTaken((string) $value)) {
-                        $fail('This mobile number is already registered.');
+                    $message = UserRegistrationGuard::mobileTakenMessage((string) $value);
+                    if ($message) {
+                        $fail($message);
                     }
                 },
             ],
             'country' => ['required', 'string', 'max:80', Rule::in(Countries::names())],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class, 'email')],
+            'email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $message = UserRegistrationGuard::emailTakenMessage($value);
+                    if ($message) {
+                        $fail($message);
+                    }
+                },
+            ],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 

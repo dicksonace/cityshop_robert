@@ -49,7 +49,7 @@ class LoginRequest extends FormRequest
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'login' => 'This account has been blocked. Please contact CityShop support.',
+                'login' => 'Your account has been restricted for security reasons. Contact CityShop support if you need help.',
             ]);
         }
 

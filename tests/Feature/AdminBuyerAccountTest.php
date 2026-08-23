@@ -57,4 +57,29 @@ class AdminBuyerAccountTest extends TestCase
             'password_confirmation' => 'Password123!',
         ])->assertCreated();
     }
+
+    public function test_blacklisted_buyer_cannot_re_register_with_same_email(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $buyer = User::factory()->create([
+            'role' => UserRole::Buyer,
+            'email' => 'blocked@example.com',
+            'mobile' => '0249998877',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/v1/admin/buyers/{$buyer->id}/block", [
+            'reason' => 'Security review',
+        ])->assertOk();
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Someone Else',
+            'mobile' => '0249998877',
+            'email' => 'blocked@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
 }

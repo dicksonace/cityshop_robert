@@ -73,7 +73,7 @@ class BuyerController extends Controller
         }
 
         return response()->json([
-            'message' => 'Buyer blocked.',
+            'message' => 'Buyer blacklisted for security.',
             'data' => $this->serialize($buyer->fresh('wallet'), detailed: true),
         ]);
     }
@@ -89,7 +89,7 @@ class BuyerController extends Controller
         }
 
         return response()->json([
-            'message' => 'Buyer unblocked.',
+            'message' => 'Blacklist removed.',
             'data' => $this->serialize($buyer->fresh('wallet'), detailed: true),
         ]);
     }

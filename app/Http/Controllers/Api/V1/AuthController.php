@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\PasswordResetService;
 use App\Support\Countries;
 use App\Support\GhanaMobile;
+use App\Support\UserRegistrationGuard;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,13 +32,26 @@ class AuthController extends Controller
                 'string',
                 'max:20',
                 function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (GhanaMobile::isTaken((string) $value)) {
-                        $fail('This mobile number is already registered.');
+                    $message = UserRegistrationGuard::mobileTakenMessage((string) $value);
+                    if ($message) {
+                        $fail($message);
                     }
                 },
             ],
             'country' => ['nullable', 'string', 'max:80', Rule::in(Countries::names())],
-            'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class, 'email')],
+            'email' => [
+                'nullable',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $message = UserRegistrationGuard::emailTakenMessage($value);
+                    if ($message) {
+                        $fail($message);
+                    }
+                },
+            ],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
@@ -98,7 +112,7 @@ class AuthController extends Controller
         if ($user->isBlocked()) {
             RateLimiter::hit($throttleKey);
             throw ValidationException::withMessages([
-                'login' => 'This account has been blocked. Please contact CityShop support.',
+                'login' => 'Your account has been restricted for security reasons. Contact CityShop support if you need help.',
             ]);
         }
 

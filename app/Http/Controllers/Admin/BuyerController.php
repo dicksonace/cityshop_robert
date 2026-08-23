@@ -112,7 +112,7 @@ class BuyerController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Buyer blocked. They cannot sign in until you unblock them.');
+        return back()->with('success', 'Buyer blacklisted for security. They cannot sign in or re-register with the same email or phone.');
     }
 
     public function unblock(User $buyer, BuyerAccountService $accounts): RedirectResponse
@@ -125,7 +125,7 @@ class BuyerController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Buyer unblocked.');
+        return back()->with('success', 'Blacklist removed. Buyer can sign in again.');
     }
 
     public function destroy(Request $request, User $buyer, BuyerAccountService $accounts): RedirectResponse
