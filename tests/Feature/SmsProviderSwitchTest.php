@@ -44,7 +44,7 @@ class SmsProviderSwitchTest extends TestCase
                 && $request->hasHeader('Authorization', 'Bearer txt-test-key')
                 && ($payload['to'] ?? null) === '233532700209'
                 && ($payload['from'] ?? null) === 'CityShop'
-                && ($payload['unicode'] ?? null) === 'regular'
+                && ($payload['unicode'] ?? null) === false
                 && ($payload['sms'] ?? null) === 'CityShop: payment Completed';
         });
     }

@@ -8,6 +8,36 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Artisan::command('sms:check {--send-to= : Send a real test SMS to this Ghana number}', function () {
+    $driver = \App\Services\PlatformSettings::smsDriver();
+    $failover = \App\Services\PlatformSettings::smsFailoverEnabled();
+    $formulaKey = filled(config('services.sms.formula_dc_api_key'));
+    $txtKey = filled(config('services.sms.txtconnect_api_key'));
+
+    $this->line('Active SMS driver: '.$driver);
+    $this->line('Failover enabled: '.($failover ? 'yes' : 'no'));
+    $this->line('Formula DC key: '.($formulaKey ? 'saved' : 'MISSING'));
+    $this->line('TxtConnect key: '.($txtKey ? 'saved' : 'MISSING'));
+    $this->line('Formula sender: '.config('services.sms.formula_dc_sender', 'Cityshop'));
+    $this->line('TxtConnect sender: '.config('services.sms.txtconnect_sender', 'CityShop'));
+
+    $sendTo = trim((string) $this->option('send-to'));
+    if ($sendTo === '') {
+        $this->warn('No test SMS sent. Run: php artisan sms:check --send-to=0XXXXXXXXX');
+        return self::SUCCESS;
+    }
+
+    $message = 'CityShop SMS test at '.now()->format('Y-m-d H:i');
+    $ok = app(\App\Services\SmsService::class)->send($sendTo, $message);
+    if ($ok) {
+        $this->info("Test SMS sent to {$sendTo} via {$driver}.");
+        return self::SUCCESS;
+    }
+
+    $this->error("Test SMS failed for {$sendTo}. Check storage/logs/laravel.log");
+    return self::FAILURE;
+})->purpose('Show SMS platform config and optionally send a test text');
+
 Artisan::command('sms:send {phone} {message}', function () {
     $phone = (string) $this->argument('phone');
     $message = trim((string) $this->argument('message'));

@@ -143,7 +143,7 @@ class SmsService
             return false;
         }
 
-        $unicode = preg_match('/[^\x00-\x7F]/', $message) ? 'unicode' : 'regular';
+        $unicode = (bool) preg_match('/[^\x00-\x7F]/', $message);
 
         try {
             $response = Http::withToken($apiKey)
