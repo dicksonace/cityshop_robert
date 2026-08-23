@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 
 import AccountProfileForm from '@/components/admin/account-profile-form';
+import BuyerAccountActions from '@/components/admin/buyer-account-actions';
 import AdminLayout from '@/layouts/admin-layout';
 import { SharedData } from '@/types';
 import { formatPrice, formatWalletTransactionType, Paginated, Wallet, WalletTransaction } from '@/types/marketplace';
@@ -17,6 +18,9 @@ interface BuyerShowProps {
         residential_address?: string;
         created_at: string;
         orders_count: number;
+        is_blocked?: boolean;
+        block_reason?: string | null;
+        blocked_at?: string | null;
     };
     orders: Paginated<{
         id: number;
@@ -128,6 +132,13 @@ export default function AdminBuyerShow({ buyer, orders, conversations, wallet, t
                     </div>
                 </div>
             </div>
+
+            <BuyerAccountActions
+                buyerId={buyer.id}
+                email={buyer.email}
+                isBlocked={buyer.is_blocked ?? false}
+                blockReason={buyer.block_reason}
+            />
 
             <div className="mt-6 rounded-xl bg-white p-6 shadow-sm">
                 <h3 className="font-semibold text-gray-900">Wallet transactions</h3>

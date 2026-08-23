@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateAccountProfileRequest;
 use App\Models\User;
+use App\Services\BuyerAccountService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,6 +59,62 @@ class BuyerController extends Controller
         ]);
     }
 
+    public function block(Request $request, User $buyer, BuyerAccountService $accounts): JsonResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ]);
+
+        try {
+            $accounts->block($buyer, $validated['reason']);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => 'Buyer blocked.',
+            'data' => $this->serialize($buyer->fresh('wallet'), detailed: true),
+        ]);
+    }
+
+    public function unblock(User $buyer, BuyerAccountService $accounts): JsonResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+
+        try {
+            $accounts->unblock($buyer);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => 'Buyer unblocked.',
+            'data' => $this->serialize($buyer->fresh('wallet'), detailed: true),
+        ]);
+    }
+
+    public function destroy(Request $request, User $buyer, BuyerAccountService $accounts): JsonResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+            'confirm_email' => ['required', 'string'],
+        ]);
+
+        if (strcasecmp(trim($validated['confirm_email']), trim((string) $buyer->email)) !== 0) {
+            return response()->json(['message' => 'Email confirmation did not match. Account was not deleted.'], 422);
+        }
+
+        try {
+            $accounts->delete($buyer, $validated['reason']);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['message' => 'Buyer account deleted. Email and phone can register again.']);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -73,11 +130,14 @@ class BuyerController extends Controller
             'created_at' => $buyer->created_at?->toIso8601String(),
             'orders_count' => (int) ($buyer->orders_count ?? 0),
             'available_balance' => (float) ($wallet?->available_balance ?? 0),
+            'is_blocked' => $buyer->isBlocked(),
         ];
 
         if ($detailed) {
             $payload['region'] = $buyer->region;
             $payload['city'] = $buyer->city;
+            $payload['block_reason'] = $buyer->block_reason;
+            $payload['blocked_at'] = $buyer->blocked_at?->toIso8601String();
         }
 
         return $payload;

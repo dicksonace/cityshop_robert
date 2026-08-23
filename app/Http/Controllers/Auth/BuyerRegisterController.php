@@ -42,7 +42,7 @@ class BuyerRegisterController extends Controller
                 },
             ],
             'country' => ['required', 'string', 'max:80', Rule::in(Countries::names())],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class, 'email')],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 

@@ -59,6 +59,9 @@ class SellerAccountService
                 'rejection_reason' => $reason ?? 'Account removed by admin.',
             ]);
 
+            $user->tokens()->delete();
+            $user->releaseLoginIdentifiers();
+            $user->save();
             $user->delete();
         });
     }

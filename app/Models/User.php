@@ -35,6 +35,8 @@ class User extends Authenticatable
         'city',
         'ghana_card_number',
         'last_seen_at',
+        'blocked_at',
+        'block_reason',
     ];
 
     protected $hidden = [
@@ -48,6 +50,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'last_seen_at' => 'datetime',
+            'blocked_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,
         ];
@@ -121,6 +124,27 @@ class User extends Authenticatable
     public function isBuyer(): bool
     {
         return $this->role === UserRole::Buyer;
+    }
+
+    public function isBlocked(): bool
+    {
+        return $this->blocked_at !== null;
+    }
+
+    /**
+     * Free email and mobile so a deleted account can register again.
+     */
+    public function releaseLoginIdentifiers(): void
+    {
+        $stamp = now()->timestamp;
+
+        if (filled($this->email) && ! str_ends_with(strtolower((string) $this->email), '.local')) {
+            $this->email = "released+{$this->id}+{$stamp}@deleted.cityunlock.local";
+        }
+
+        if (filled($this->mobile)) {
+            $this->mobile = "del-{$this->id}-{$stamp}";
+        }
     }
 
     /**

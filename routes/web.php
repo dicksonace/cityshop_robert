@@ -402,6 +402,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/buyers', [AdminBuyerController::class, 'index'])->name('buyers.index');
     Route::get('/buyers/{buyer}', [AdminBuyerController::class, 'show'])->name('buyers.show');
     Route::patch('/buyers/{buyer}', [AdminBuyerController::class, 'update'])->name('buyers.update');
+    Route::post('/buyers/{buyer}/block', [AdminBuyerController::class, 'block'])->name('buyers.block');
+    Route::post('/buyers/{buyer}/unblock', [AdminBuyerController::class, 'unblock'])->name('buyers.unblock');
+    Route::delete('/buyers/{buyer}', [AdminBuyerController::class, 'destroy'])->name('buyers.destroy');
 
     Route::get('/chats', [AdminChatOversightController::class, 'index'])->name('chats.index');
     Route::get('/chats/{conversation}', [AdminChatOversightController::class, 'show'])->name('chats.show');

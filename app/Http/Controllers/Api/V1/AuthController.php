@@ -37,7 +37,7 @@ class AuthController extends Controller
                 },
             ],
             'country' => ['nullable', 'string', 'max:80', Rule::in(Countries::names())],
-            'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class, 'email')],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
@@ -92,6 +92,13 @@ class AuthController extends Controller
 
             throw ValidationException::withMessages([
                 'login' => __('auth.failed'),
+            ]);
+        }
+
+        if ($user->isBlocked()) {
+            RateLimiter::hit($throttleKey);
+            throw ValidationException::withMessages([
+                'login' => 'This account has been blocked. Please contact CityShop support.',
             ]);
         }
 

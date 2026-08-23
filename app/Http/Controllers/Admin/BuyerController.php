@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateAccountProfileRequest;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Models\WalletTransaction;
+use App\Services\BuyerAccountService;
 use App\Services\WalletService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -67,7 +68,20 @@ class BuyerController extends Controller
             ->get();
 
         return Inertia::render('admin/buyers/show', [
-            'buyer' => $buyer,
+            'buyer' => [
+                'id' => $buyer->id,
+                'name' => $buyer->name,
+                'email' => $buyer->email,
+                'mobile' => $buyer->mobile,
+                'region' => $buyer->region,
+                'city' => $buyer->city,
+                'residential_address' => $buyer->residential_address,
+                'created_at' => $buyer->created_at?->toIso8601String(),
+                'orders_count' => (int) $buyer->orders_count,
+                'is_blocked' => $buyer->isBlocked(),
+                'block_reason' => $buyer->block_reason,
+                'blocked_at' => $buyer->blocked_at?->toIso8601String(),
+            ],
             'wallet' => $wallet,
             'transactions' => $transactions,
             'orders' => $orders,
@@ -83,5 +97,57 @@ class BuyerController extends Controller
         $buyer->updateAccountDetails($validated['name'], $validated['email'], $validated['mobile']);
 
         return back()->with('success', 'Buyer account details updated.');
+    }
+
+    public function block(Request $request, User $buyer, BuyerAccountService $accounts): RedirectResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ]);
+
+        try {
+            $accounts->block($buyer, $validated['reason']);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Buyer blocked. They cannot sign in until you unblock them.');
+    }
+
+    public function unblock(User $buyer, BuyerAccountService $accounts): RedirectResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+
+        try {
+            $accounts->unblock($buyer);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Buyer unblocked.');
+    }
+
+    public function destroy(Request $request, User $buyer, BuyerAccountService $accounts): RedirectResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+            'confirm_email' => ['required', 'string'],
+        ]);
+
+        if (strcasecmp(trim($validated['confirm_email']), trim((string) $buyer->email)) !== 0) {
+            return back()->with('error', 'Email confirmation did not match. Account was not deleted.');
+        }
+
+        try {
+            $accounts->delete($buyer, $validated['reason']);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('admin.buyers.index')
+            ->with('success', 'Buyer account deleted. Their email and phone can be used to register again.');
     }
 }

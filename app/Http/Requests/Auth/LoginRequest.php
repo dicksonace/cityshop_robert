@@ -45,6 +45,14 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        if ($user->isBlocked()) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'login' => 'This account has been blocked. Please contact CityShop support.',
+            ]);
+        }
+
         $portal = $this->input('portal', 'buyer');
 
         if ($portal === 'seller' && $user->isSeller()) {

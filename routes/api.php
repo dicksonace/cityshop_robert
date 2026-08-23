@@ -243,6 +243,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/buyers', [AdminBuyerController::class, 'index']);
             Route::get('/buyers/{buyer}', [AdminBuyerController::class, 'show']);
             Route::patch('/buyers/{buyer}', [AdminBuyerController::class, 'update']);
+            Route::post('/buyers/{buyer}/block', [AdminBuyerController::class, 'block']);
+            Route::post('/buyers/{buyer}/unblock', [AdminBuyerController::class, 'unblock']);
+            Route::delete('/buyers/{buyer}', [AdminBuyerController::class, 'destroy']);
 
             Route::get('/kyc', [AdminKycController::class, 'index']);
             Route::get('/kyc/{kyc}', [AdminKycController::class, 'show']);
