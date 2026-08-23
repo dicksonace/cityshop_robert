@@ -68,11 +68,29 @@ interface SellerShowProps {
     activation: ActivationPayload;
 }
 
-function DocLink({ path, label }: { path?: string; label: string }) {
+function DocCard({ path, label }: { path?: string; label: string }) {
     if (!path) return null;
+    const href = path.startsWith('http') ? path : `/storage/${path}`;
     return (
-        <a href={`/storage/${path}`} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">
-            {label}
+        <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="group block w-28 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 transition hover:border-orange-300 hover:shadow-sm"
+        >
+            <div className="aspect-square bg-gray-100">
+                <img
+                    src={href}
+                    alt={label}
+                    className="h-full w-full object-cover"
+                    onError={(event) => {
+                        event.currentTarget.style.display = 'none';
+                    }}
+                />
+            </div>
+            <span className="block px-2 py-1.5 text-center text-xs font-medium text-blue-600 group-hover:underline">
+                {label}
+            </span>
         </a>
     );
 }
@@ -174,13 +192,14 @@ export default function SellerShow({
                 />
                 <div className="rounded-xl bg-white p-6 shadow-sm">
                     <h3 className="font-semibold text-gray-900">Documents</h3>
+                    <p className="mt-1 text-sm text-gray-500">Tap a photo to open full size.</p>
                     <div className="mt-4 flex flex-wrap gap-3">
-                        <DocLink path={seller.shop_photo} label="Shop Photo" />
-                        <DocLink path={seller.id_card_front} label="ID Front" />
-                        <DocLink path={seller.id_card_back} label="ID Back" />
-                        <DocLink path={seller.form_a} label="Form A" />
-                        <DocLink path={seller.form_b} label="Form B" />
-                        <DocLink path={seller.business_certificate} label="Certificate" />
+                        <DocCard path={seller.shop_photo} label="Shop Photo" />
+                        <DocCard path={seller.id_card_front} label="ID Front" />
+                        <DocCard path={seller.id_card_back} label="ID Back" />
+                        <DocCard path={seller.form_a} label="Form A" />
+                        <DocCard path={seller.form_b} label="Form B" />
+                        <DocCard path={seller.business_certificate} label="Certificate" />
                     </div>
                 </div>
             </div>

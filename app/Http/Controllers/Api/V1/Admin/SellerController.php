@@ -314,6 +314,12 @@ class SellerController extends Controller
             $payload['accept_marketplace_payments'] = (bool) $seller->accept_marketplace_payments;
             $payload['accept_direct_payments'] = (bool) $seller->accept_direct_payments;
             $payload['payment_methods_locked'] = $seller->paymentMethodsAreLocked();
+            $payload['id_card_front'] = $this->publicUrl($seller->id_card_front);
+            $payload['id_card_back'] = $this->publicUrl($seller->id_card_back);
+            $payload['form_a'] = $this->publicUrl($seller->form_a);
+            $payload['form_b'] = $this->publicUrl($seller->form_b);
+            $payload['business_certificate'] = $this->publicUrl($seller->business_certificate);
+            $payload['selfie_with_id'] = $this->publicUrl($seller->selfie_with_id);
             $payload['user'] = $seller->user ? [
                 'id' => $seller->user->id,
                 'name' => $seller->user->name,
