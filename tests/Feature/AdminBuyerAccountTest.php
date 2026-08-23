@@ -82,4 +82,32 @@ class AdminBuyerAccountTest extends TestCase
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['email']);
     }
+
+    public function test_buyer_can_register_with_email_from_legacy_soft_deleted_account(): void
+    {
+        $buyer = User::factory()->create([
+            'role' => UserRole::Buyer,
+            'email' => 'legacy@example.com',
+            'mobile' => '0241112233',
+        ]);
+
+        $buyer->delete();
+
+        $this->assertSoftDeleted('users', ['id' => $buyer->id]);
+        $this->assertSame('legacy@example.com', $buyer->fresh()->email);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Fresh Buyer',
+            'mobile' => '0241112233',
+            'email' => 'legacy@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'legacy@example.com',
+            'name' => 'Fresh Buyer',
+            'deleted_at' => null,
+        ]);
+    }
 }

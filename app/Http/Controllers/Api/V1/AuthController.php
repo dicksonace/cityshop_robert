@@ -58,6 +58,8 @@ class AuthController extends Controller
 
         $email = filled($validated['email'] ?? null) ? $validated['email'] : null;
 
+        UserRegistrationGuard::releaseTrashedIdentifiers($email, $validated['mobile']);
+
         $user = User::create([
             'name' => $validated['name'],
             'mobile' => $validated['mobile'],

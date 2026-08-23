@@ -38,4 +38,33 @@ class UserRegistrationGuard
 
         return 'This mobile number is already registered.';
     }
+
+    /**
+     * Free email/mobile on soft-deleted rows so the same details can register again.
+     * Handles legacy deletes from before identifiers were released automatically.
+     */
+    public static function releaseTrashedIdentifiers(?string $email, ?string $mobile): void
+    {
+        $normalized = strtolower(trim((string) $email));
+        if ($normalized !== '') {
+            User::onlyTrashed()
+                ->where('email', $normalized)
+                ->get()
+                ->each(function (User $user): void {
+                    $user->releaseLoginIdentifiers();
+                    $user->save();
+                });
+        }
+
+        $variants = GhanaMobile::variants((string) $mobile);
+        if ($variants !== []) {
+            User::onlyTrashed()
+                ->whereIn('mobile', $variants)
+                ->get()
+                ->each(function (User $user): void {
+                    $user->releaseLoginIdentifiers();
+                    $user->save();
+                });
+        }
+    }
 }

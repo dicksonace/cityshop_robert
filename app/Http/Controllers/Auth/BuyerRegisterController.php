@@ -60,6 +60,8 @@ class BuyerRegisterController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        UserRegistrationGuard::releaseTrashedIdentifiers($validated['email'], $validated['mobile']);
+
         $user = User::create([
             'name' => $validated['name'],
             'mobile' => $validated['mobile'],
