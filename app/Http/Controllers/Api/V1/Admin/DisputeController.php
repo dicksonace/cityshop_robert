@@ -113,16 +113,30 @@ class DisputeController extends Controller
      */
     private function serialize(Dispute $dispute): array
     {
+        $item = $dispute->orderItem;
+        $status = $dispute->status?->value ?? (string) $dispute->status;
+
         return [
             'id' => $dispute->id,
-            'status' => $dispute->status?->value ?? (string) $dispute->status,
+            'status' => $status,
+            'status_label' => str($status)->replace('_', ' ')->title()->toString(),
             'reason' => $dispute->reason,
+            'reason_label' => str($dispute->reason ?? '')->replace('_', ' ')->title()->toString(),
+            'description' => $dispute->description,
             'resolution_notes' => $dispute->resolution_notes,
             'created_at' => $dispute->created_at?->toIso8601String(),
+            'resolved_at' => $dispute->resolved_at?->toIso8601String(),
+            'order_id' => $dispute->order_id,
+            'order_item_id' => $dispute->order_item_id,
             'order_number' => $dispute->order?->order_number,
-            'product_name' => $dispute->orderItem?->product_name,
+            'product_name' => $item?->product_name,
+            'refund_amount' => $item ? (float) $item->lineTotal() : null,
             'buyer_name' => $dispute->buyer?->name,
+            'buyer_mobile' => $dispute->buyer?->mobile,
             'seller_name' => $dispute->seller?->name,
+            'seller_mobile' => $dispute->seller?->mobile,
+            'funds_release_status' => $item?->funds_release_status?->value,
+            'is_open' => $dispute->isOpen(),
         ];
     }
 }
