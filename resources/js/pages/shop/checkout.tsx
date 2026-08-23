@@ -92,10 +92,13 @@ export default function Checkout({
                 : selectedAddressId;
 
         const allowedMethods = new Set(['momo', 'card', 'cash', 'wallet']);
+        const walletBalance = Number(wallet.available_balance);
         const paymentMethod =
             draft?.payment_method && allowedMethods.has(draft.payment_method)
                 ? draft.payment_method
-                : 'momo';
+                : walletBalance >= grandTotal
+                  ? 'wallet'
+                  : 'momo';
 
         if (draft?.seller_payments) {
             sellerGroups.forEach((group) => {
@@ -133,7 +136,7 @@ export default function Checkout({
             seller_payments: sellerPayments,
             seller_coupons: sellerCoupons,
         };
-    }, [addresses, cartKey, selectedAddressId, sellerGroups]);
+    }, [addresses, cartKey, grandTotal, selectedAddressId, sellerGroups, wallet.available_balance]);
 
     const [pickingAddress, setPickingAddress] = useState(false);
     const [activeAddressId, setActiveAddressId] = useState<number | null>(initialForm.address_id);
@@ -363,7 +366,7 @@ export default function Checkout({
                                     <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 hover:bg-gray-50 ${data.payment_method === 'wallet' ? 'border-orange-300 bg-orange-50/40' : ''} ${!canUseWallet ? 'opacity-70' : ''}`}>
                                         <PaymentMethodIcon method="wallet" />
                                         <div className="min-w-0 flex-1">
-                                            <span className="font-medium">My Wallet</span>
+                                            <span className="font-medium">Balance</span>
                                             <p className="text-sm text-gray-500">
                                                 Balance: {formatPrice(walletBalance)}
                                                 {marketplaceTotal > 0 && (
