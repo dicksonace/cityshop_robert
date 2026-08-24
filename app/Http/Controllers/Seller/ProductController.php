@@ -527,12 +527,25 @@ class ProductController extends Controller
     private function resolveVideoUpdates(Request $request, Product $product): array
     {
         if ($request->hasFile('video')) {
-            if ($product->video_path) {
-                Storage::disk('public')->delete($product->video_path);
+            try {
+                if (function_exists('set_time_limit')) {
+                    @set_time_limit(90);
+                }
+                $newPath = ProductVideoService::storeUploaded($request->file('video'));
+            } catch (\Throwable $e) {
+                report($e);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'video' => ['Could not save this video. Try another clip (MP4 under 1 minute).'],
+                ]);
+            }
+
+            $oldPath = $product->video_path;
+            if ($oldPath && $oldPath !== $newPath) {
+                Storage::disk('public')->delete($oldPath);
             }
 
             return [
-                'video_path' => ProductVideoService::storeUploaded($request->file('video')),
+                'video_path' => $newPath,
                 'video_duration' => (int) $request->input('video_duration'),
             ];
         }
