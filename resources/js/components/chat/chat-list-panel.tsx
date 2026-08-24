@@ -7,6 +7,7 @@ import { getCallLogListPreview } from '@/lib/call-log';
 import type { ChatConversation } from '@/types/chat';
 import { SharedData } from '@/types';
 import { productImageUrl } from '@/types/marketplace';
+import StatusTray from '@/components/chat/status-tray';
 
 function formatTime(value?: string): string {
     if (!value) return '';
@@ -36,39 +37,42 @@ export default function ChatListPanel() {
 
     if (conversations.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center px-6 py-8 text-center text-gray-400">
-                <MessageCircle className="h-9 w-9 text-gray-300" />
-                <p className="mt-2 text-sm font-medium text-gray-600">No messages yet</p>
-                <p className="mt-1 text-xs">Message a seller from their store or product page</p>
+            <div className="overflow-y-auto overscroll-contain">
+                <StatusTray />
+                <div className="flex flex-col items-center justify-center px-6 py-8 text-center text-gray-400">
+                    <MessageCircle className="h-9 w-9 text-gray-300" />
+                    <p className="mt-2 text-sm font-medium text-gray-600">No messages yet</p>
+                    <p className="mt-1 text-xs">Message a seller from their store or product page</p>
+                </div>
             </div>
         );
     }
 
     return (
         <div className="overflow-y-auto overscroll-contain">
+            <StatusTray />
             {conversations.map((c) => {
                 const name = conversationName(c);
                 const location = [c.other.city, c.other.region].filter(Boolean).join(', ');
-                const preview =
-                    c.latest_message?.type === 'text'
-                        ? c.latest_message.body
-                        : c.latest_message?.type === 'image'
-                          ? 'Photo'
-                          : c.latest_message?.type === 'video'
-                            ? 'Video'
-                            : c.latest_message?.type === 'voice'
-                              ? 'Voice message'
-                              : c.latest_message?.type === 'product'
-                                ? c.latest_message.body || 'Product'
-                                : c.latest_message?.type === 'transfer'
-                                  ? c.latest_message.body || 'Money transfer'
-                                  : c.latest_message?.type === 'file'
-                                    ? c.latest_message.body || 'File'
-                                    : c.latest_message?.type === 'call_log' && c.latest_message.call_log
-                                      ? getCallLogListPreview(c.latest_message.call_log, auth.user?.id ?? 0)
-                                      : c.latest_message?.type?.startsWith('call')
-                                        ? 'Voice call'
-                                        : '';
+                const preview = c.latest_message?.body?.trim()
+                    ? c.latest_message.body
+                    : c.latest_message?.type === 'image'
+                      ? 'Photo'
+                      : c.latest_message?.type === 'video'
+                        ? 'Video'
+                        : c.latest_message?.type === 'voice'
+                          ? 'Voice message'
+                          : c.latest_message?.type === 'product'
+                            ? 'Product'
+                            : c.latest_message?.type === 'transfer'
+                              ? 'Money transfer'
+                              : c.latest_message?.type === 'file'
+                                ? 'File'
+                                : c.latest_message?.type === 'call_log' && c.latest_message.call_log
+                                  ? getCallLogListPreview(c.latest_message.call_log, auth.user?.id ?? 0)
+                                  : c.latest_message?.type?.startsWith('call')
+                                    ? 'Voice call'
+                                    : '';
 
                 return (
                     <button

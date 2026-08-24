@@ -211,20 +211,25 @@ class MessageController extends Controller
         $validated = $request->validate([
             'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
             'caption' => ['nullable', 'string', 'max:500'],
+            'view_once' => ['sometimes', 'boolean'],
         ]);
 
         $path = $request->file('image')->store('chat/'.$conversation->id, 'public');
         $url = Storage::disk('public')->url($path);
+        $meta = [
+            'image_path' => $path,
+            'image_url' => $url,
+        ];
+        if ($request->boolean('view_once')) {
+            $meta['view_once'] = true;
+        }
 
         $message = ChatService::sendMessage(
             $conversation,
             $request->user(),
             $validated['caption'] ?? '',
             MessageType::Image,
-            [
-                'image_path' => $path,
-                'image_url' => $url,
-            ],
+            $meta,
         );
 
         $message->load('sender:id,name');
@@ -242,21 +247,26 @@ class MessageController extends Controller
             'video' => ['required', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/3gpp', 'max:51200'],
             'caption' => ['nullable', 'string', 'max:500'],
             'duration_seconds' => ['nullable', 'integer', 'min:0', 'max:600'],
+            'view_once' => ['sometimes', 'boolean'],
         ]);
 
         $path = $request->file('video')->store('chat/'.$conversation->id, 'public');
         $url = Storage::disk('public')->url($path);
+        $meta = [
+            'video_path' => $path,
+            'video_url' => $url,
+            'duration_seconds' => $validated['duration_seconds'] ?? null,
+        ];
+        if ($request->boolean('view_once')) {
+            $meta['view_once'] = true;
+        }
 
         $message = ChatService::sendMessage(
             $conversation,
             $request->user(),
             $validated['caption'] ?? '',
             MessageType::Video,
-            [
-                'video_path' => $path,
-                'video_url' => $url,
-                'duration_seconds' => $validated['duration_seconds'] ?? null,
-            ],
+            $meta,
         );
 
         $message->load('sender:id,name');
@@ -377,6 +387,18 @@ class MessageController extends Controller
         return response()->json([
             'message' => ChatService::formatMessage($message, $request->user()),
         ]);
+    }
+
+    public function openViewOnce(Request $request, Conversation $conversation, Message $message): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($message->conversation_id === $conversation->id, 404);
+
+        try {
+            return response()->json(ChatService::openViewOnce($message, $request->user()));
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        }
     }
 
     public function update(Request $request, Conversation $conversation, Message $message): JsonResponse

@@ -84,6 +84,10 @@ export default function ChatThreadPanel() {
     const [sending, setSending] = useState(false);
     const [sendingProduct, setSendingProduct] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [pendingImage, setPendingImage] = useState<File | null>(null);
+    const [pendingPreview, setPendingPreview] = useState<string | null>(null);
+    const [viewOnce, setViewOnce] = useState(false);
+    const [viewOnceMedia, setViewOnceMedia] = useState<{ src: string; video: boolean } | null>(null);
     const [uploadingFile, setUploadingFile] = useState(false);
     const [uploadingVoice, setUploadingVoice] = useState(false);
     const [recordingVoice, setRecordingVoice] = useState(false);
@@ -421,6 +425,10 @@ export default function ChatThreadPanel() {
 
     const sendMessage = async (e: FormEvent) => {
         e.preventDefault();
+        if (pendingImage) {
+            await sendPendingImage();
+            return;
+        }
         if (!activeConversation || !body.trim() || sending) return;
         setSending(true);
         try {
@@ -468,18 +476,61 @@ export default function ChatThreadPanel() {
             return;
         }
 
+        if (pendingPreview) {
+            URL.revokeObjectURL(pendingPreview);
+        }
+        setPendingImage(file);
+        setPendingPreview(URL.createObjectURL(file));
+        setViewOnce(false);
+    };
+
+    const clearPendingImage = () => {
+        if (pendingPreview) {
+            URL.revokeObjectURL(pendingPreview);
+        }
+        setPendingImage(null);
+        setPendingPreview(null);
+        setViewOnce(false);
+    };
+
+    const sendPendingImage = async () => {
+        if (!pendingImage || !activeConversation || uploadingImage) return;
         setUploadingImage(true);
         try {
-            const message = await chatApi.uploadChatImage(activeConversation.id, file);
+            const message = await chatApi.uploadChatImage(
+                activeConversation.id,
+                pendingImage,
+                body.trim() || undefined,
+                viewOnce,
+            );
             setMessages((prev) => [...prev, message]);
             lastIdRef.current = Math.max(lastIdRef.current, message.id);
+            setBody('');
+            clearPendingImage();
             refreshConversations();
             playChatSendSound();
-            toast?.success('Photo sent');
+            toast?.success(viewOnce ? 'View once photo sent' : 'Photo sent');
         } catch (err) {
             toast?.error(err instanceof Error ? err.message : 'Could not send photo');
         } finally {
             setUploadingImage(false);
+        }
+    };
+
+    const openViewOnceMedia = async (msg: ChatMessage) => {
+        if (!activeConversation || msg.view_once_opened || msg.sender_id === auth.user?.id) {
+            return;
+        }
+        try {
+            const opened = await chatApi.openViewOnce(activeConversation.id, msg.id);
+            replaceMessage(opened.message);
+            if (opened.video_url) {
+                setViewOnceMedia({ src: opened.video_url, video: true });
+            } else if (opened.image_url) {
+                setViewOnceMedia({ src: opened.image_url, video: false });
+            }
+        } catch (err) {
+            toast?.error(err instanceof Error ? err.message : 'This was already opened');
         }
     };
 
@@ -695,6 +746,9 @@ export default function ChatThreadPanel() {
     const timelineMessages = messages.filter(isTimelineMessage);
 
     const replyPreview = (msg: ChatMessage) => {
+        if (msg.view_once) {
+            return msg.view_once_opened ? 'Opened' : msg.type === 'video' ? 'View once video' : 'View once photo';
+        }
         if (msg.type === 'image') return msg.body?.trim() || 'Photo';
         if (msg.type === 'video') return msg.body?.trim() || 'Video';
         if (msg.type === 'voice') return 'Voice message';
@@ -1059,8 +1113,9 @@ export default function ChatThreadPanel() {
 
                         const mine = msg.sender_id === auth.user?.id;
                         const showMenu = menuMessageId === msg.id;
-                        const isImage = msg.type === 'image' && msg.image_url && !msg.is_deleted;
-                        const isVideo = msg.type === 'video' && msg.video_url && !msg.is_deleted;
+                        const isViewOnce = Boolean(msg.view_once) && (msg.type === 'image' || msg.type === 'video') && !msg.is_deleted;
+                        const isImage = msg.type === 'image' && msg.image_url && !msg.is_deleted && !msg.view_once;
+                        const isVideo = msg.type === 'video' && msg.video_url && !msg.is_deleted && !msg.view_once;
                         const isVoice = msg.type === 'voice' && msg.voice_url && !msg.is_deleted;
                         const productCard =
                             msg.type === 'product' && !msg.is_deleted
@@ -1094,7 +1149,7 @@ export default function ChatThreadPanel() {
                                     <div
                                         className={cn(
                                             'overflow-hidden rounded-2xl text-sm',
-                                            isImage || isVideo
+                                            isImage || isVideo || isViewOnce
                                                 ? 'p-1'
                                                 : isProduct || isTransfer || isFile
                                                   ? 'p-0'
@@ -1223,6 +1278,28 @@ export default function ChatThreadPanel() {
                                                     </p>
                                                 </div>
                                             )
+                                        ) : isViewOnce ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => void openViewOnceMedia(msg)}
+                                                className="flex w-52 items-center gap-2.5 rounded-xl bg-[#111B21] px-3 py-3 text-left text-white"
+                                            >
+                                                <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white/70 text-sm font-black">
+                                                    {msg.view_once_opened ? '✓' : '1'}
+                                                </span>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block text-sm font-semibold">
+                                                        {msg.view_once_opened
+                                                            ? 'Opened'
+                                                            : msg.type === 'video'
+                                                              ? 'View once video'
+                                                              : 'View once photo'}
+                                                    </span>
+                                                    {!msg.view_once_opened && msg.sender_id !== auth.user?.id && (
+                                                        <span className="text-[11px] text-white/70">Tap to open</span>
+                                                    )}
+                                                </span>
+                                            </button>
                                         ) : isImage ? (
                                             <div>
                                                 <a href={msg.image_url!} target="_blank" rel="noreferrer">
@@ -1350,6 +1427,7 @@ export default function ChatThreadPanel() {
                                                 <CornerUpLeft className="h-3.5 w-3.5" />
                                                 Reply
                                             </button>
+                                            {!msg.view_once && (
                                             <button
                                                 type="button"
                                                 onClick={() => startForward(msg)}
@@ -1365,6 +1443,7 @@ export default function ChatThreadPanel() {
                                                     </span>
                                                 )}
                                             </button>
+                                            )}
                                             {mine && canEditChatMessage(msg, mine) && (
                                                 <button
                                                     type="button"
@@ -1503,6 +1582,24 @@ export default function ChatThreadPanel() {
                     </div>
                 )}
 
+                {pendingImage && (
+                    <div className="flex items-center gap-2 border-t border-gray-200 bg-white px-3 py-2">
+                        {pendingPreview && (
+                            <img src={pendingPreview} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                        )}
+                        <p className="min-w-0 flex-1 truncate text-xs text-gray-500">
+                            {viewOnce ? 'View once photo ready' : 'Photo ready — add a caption if you want'}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={clearPendingImage}
+                            className="text-xs text-gray-500 underline"
+                        >
+                            Remove
+                        </button>
+                    </div>
+                )}
+
                 <form onSubmit={sendMessage} className="flex min-w-0 items-center gap-1 bg-[#F0EFEA] p-2.5 sm:gap-1.5 sm:p-3">
                     <input
                         ref={fileInputRef}
@@ -1575,13 +1672,31 @@ export default function ChatThreadPanel() {
                         </div>
                     ) : (
                         <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                            {pendingImage && (
+                                <button
+                                    type="button"
+                                    onClick={() => setViewOnce((v) => !v)}
+                                    className={cn(
+                                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-sm font-black',
+                                        viewOnce
+                                            ? 'border-orange-500 bg-orange-500 text-white'
+                                            : 'border-gray-400 text-gray-600',
+                                    )}
+                                    title="View once"
+                                    aria-label="View once"
+                                >
+                                    1
+                                </button>
+                            )}
                             <input
                                 ref={inputRef}
                                 type="text"
                                 value={body}
                                 onChange={(e) => setBody(e.target.value)}
                                 placeholder={
-                                    uploadingImage
+                                    pendingImage
+                                        ? 'Add a caption…'
+                                        : uploadingImage
                                         ? 'Uploading photo...'
                                         : uploadingFile
                                           ? 'Uploading file...'
@@ -1599,7 +1714,11 @@ export default function ChatThreadPanel() {
                             />
                             <button
                                 type="submit"
-                                disabled={!body.trim() || sending || uploadingImage || uploadingFile || uploadingVoice}
+                                disabled={
+                                    pendingImage
+                                        ? uploadingImage
+                                        : !body.trim() || sending || uploadingImage || uploadingFile || uploadingVoice
+                                }
                                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white hover:bg-[#1ebe5d] disabled:bg-[#8ee2b0] disabled:opacity-100 sm:h-9 sm:w-9"
                                 title="Send"
                                 aria-label="Send"
@@ -1640,6 +1759,29 @@ export default function ChatThreadPanel() {
                         refreshConversations();
                     }}
                 />
+            )}
+            {viewOnceMedia && (
+                <div
+                    className="fixed inset-0 z-[130] flex items-center justify-center bg-black/90 p-4"
+                    onClick={() => setViewOnceMedia(null)}
+                >
+                    {viewOnceMedia.video ? (
+                        <video
+                            src={viewOnceMedia.src}
+                            controls
+                            autoPlay
+                            className="max-h-[90vh] max-w-full"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    ) : (
+                        <img
+                            src={viewOnceMedia.src}
+                            alt="View once"
+                            className="max-h-[90vh] max-w-full object-contain"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    )}
+                </div>
             )}
         </div>
     );

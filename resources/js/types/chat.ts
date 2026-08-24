@@ -126,6 +126,8 @@ export interface ChatMessage {
     reactions?: ChatReaction[];
     created_at?: string;
     sender: { id: number; name: string };
+    view_once?: boolean;
+    view_once_opened?: boolean;
 }
 
 export const CHAT_EDIT_WINDOW_MS = 2 * 60 * 1000;

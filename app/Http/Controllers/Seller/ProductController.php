@@ -126,7 +126,10 @@ class ProductController extends Controller
             }
 
             $product = Product::create([
-                ...collect($validated)->except(['images', 'image_count', 'video', 'video_duration', 'remove_video'])->toArray(),
+                ...$this->withListingDefaults(
+                    collect($validated)->except(['images', 'image_count', 'video', 'video_duration', 'remove_video'])->toArray(),
+                    creating: true,
+                ),
                 'specifications' => $specifications,
                 'seller_id' => $request->user()->id,
                 'status' => ProductStatus::Approved,
@@ -225,7 +228,10 @@ class ProductController extends Controller
         $videoUpdates = $this->resolveVideoUpdates($request, $product);
 
         $product->update([
-            ...collect($validated)->except(['images', 'image_count', 'remove_images', 'video', 'video_duration', 'remove_video'])->toArray(),
+            ...$this->withListingDefaults(
+                collect($validated)->except(['images', 'image_count', 'remove_images', 'video', 'video_duration', 'remove_video'])->toArray(),
+                creating: false,
+            ),
             'specifications' => $specifications,
             'status' => $nextStatus,
             'is_preorder' => false,
@@ -379,6 +385,34 @@ class ProductController extends Controller
         }
 
         $product->forceDelete();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withListingDefaults(array $data, bool $creating): array
+    {
+        $defaults = [
+            'condition' => 'new',
+            'low_stock_alert' => 5,
+            'minimum_order_quantity' => 1,
+        ];
+
+        foreach ($defaults as $key => $default) {
+            if (! array_key_exists($key, $data)) {
+                continue;
+            }
+            if ($data[$key] === null || $data[$key] === '') {
+                if ($creating) {
+                    $data[$key] = $default;
+                } else {
+                    unset($data[$key]);
+                }
+            }
+        }
+
+        return $data;
     }
 
     private function validateProduct(Request $request, bool $creating): array

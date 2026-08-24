@@ -184,6 +184,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/messages/{conversation}/messages/{message}/react', [ChatMessageController::class, 'react'])->name('chat.messages.react');
     Route::delete('/messages/{conversation}/messages/{message}', [ChatMessageController::class, 'destroy'])->name('chat.messages.destroy');
     Route::post('/messages/{conversation}/messages/{message}/forward', [ChatMessageController::class, 'forward'])->name('chat.messages.forward');
+    Route::post('/messages/{conversation}/messages/{message}/view-once', [ChatMessageController::class, 'openViewOnce'])->name('chat.messages.view-once');
+    Route::get('/status', [\App\Http\Controllers\Chat\StatusController::class, 'index'])->name('chat.status.index');
+    Route::post('/status', [\App\Http\Controllers\Chat\StatusController::class, 'store'])->name('chat.status.store');
+    Route::post('/status/{status}/view', [\App\Http\Controllers\Chat\StatusController::class, 'view'])->name('chat.status.view');
+    Route::delete('/status/{status}', [\App\Http\Controllers\Chat\StatusController::class, 'destroy'])->name('chat.status.destroy');
     Route::post('/messages/{conversation}/signal', [ChatMessageController::class, 'signal'])->name('chat.signal');
 
     Route::get('/calls/ice-servers', fn () => response()->json([

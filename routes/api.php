@@ -388,6 +388,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/messages/{conversation}/messages/{message}/react', [MessageController::class, 'react']);
         Route::delete('/messages/{conversation}/messages/{message}', [MessageController::class, 'destroy']);
         Route::post('/messages/{conversation}/messages/{message}/forward', [MessageController::class, 'forward']);
+        Route::post('/messages/{conversation}/messages/{message}/view-once', [MessageController::class, 'openViewOnce']);
+
+        Route::get('/status', [\App\Http\Controllers\Api\V1\StatusController::class, 'index']);
+        Route::post('/status', [\App\Http\Controllers\Api\V1\StatusController::class, 'store']);
+        Route::post('/status/{status}/view', [\App\Http\Controllers\Api\V1\StatusController::class, 'view']);
+        Route::delete('/status/{status}', [\App\Http\Controllers\Api\V1\StatusController::class, 'destroy']);
 
         Route::post('/sellers/report', [\App\Http\Controllers\Api\V1\SellerReportController::class, 'store']);
 

@@ -82,6 +82,15 @@ class Product extends Model
             if (! $product->slug) {
                 $product->slug = static::generateUniqueSlug($product->name, $product->seller_id);
             }
+            if (! filled($product->condition)) {
+                $product->condition = 'new';
+            }
+            if ($product->low_stock_alert === null) {
+                $product->low_stock_alert = 5;
+            }
+            if ($product->minimum_order_quantity === null) {
+                $product->minimum_order_quantity = 1;
+            }
         });
 
         static::deleting(function (Product $product) {

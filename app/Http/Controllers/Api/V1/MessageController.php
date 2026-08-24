@@ -455,20 +455,25 @@ class MessageController extends Controller
         $validated = $request->validate([
             'image' => ['required', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
             'caption' => ['nullable', 'string', 'max:500'],
+            'view_once' => ['sometimes', 'boolean'],
         ]);
 
         $path = $request->file('image')->store('chat/'.$conversation->id, 'public');
         $url = Storage::disk('public')->url($path);
+        $meta = [
+            'image_path' => $path,
+            'image_url' => $url,
+        ];
+        if ($request->boolean('view_once')) {
+            $meta['view_once'] = true;
+        }
 
         $message = ChatService::sendMessage(
             $conversation,
             $request->user(),
             $validated['caption'] ?? '',
             MessageType::Image,
-            [
-                'image_path' => $path,
-                'image_url' => $url,
-            ],
+            $meta,
         );
 
         $message->load('sender:id,name,deleted_at');
@@ -486,21 +491,26 @@ class MessageController extends Controller
             'video' => ['required', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/3gpp', 'max:51200'],
             'caption' => ['nullable', 'string', 'max:500'],
             'duration_seconds' => ['nullable', 'integer', 'min:0', 'max:600'],
+            'view_once' => ['sometimes', 'boolean'],
         ]);
 
         $path = $request->file('video')->store('chat/'.$conversation->id, 'public');
         $url = Storage::disk('public')->url($path);
+        $meta = [
+            'video_path' => $path,
+            'video_url' => $url,
+            'duration_seconds' => $validated['duration_seconds'] ?? null,
+        ];
+        if ($request->boolean('view_once')) {
+            $meta['view_once'] = true;
+        }
 
         $message = ChatService::sendMessage(
             $conversation,
             $request->user(),
             $validated['caption'] ?? '',
             MessageType::Video,
-            [
-                'video_path' => $path,
-                'video_url' => $url,
-                'duration_seconds' => $validated['duration_seconds'] ?? null,
-            ],
+            $meta,
         );
 
         $message->load('sender:id,name,deleted_at');
@@ -666,6 +676,18 @@ class MessageController extends Controller
                 'last_seen_at' => $presence['last_seen_at'],
             ],
         ]);
+    }
+
+    public function openViewOnce(Request $request, Conversation $conversation, Message $message): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+        abort_unless($message->conversation_id === $conversation->id, 404);
+
+        try {
+            return response()->json(ChatService::openViewOnce($message, $request->user()));
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        }
     }
 
     public function update(Request $request, Conversation $conversation, Message $message): JsonResponse
@@ -896,16 +918,7 @@ class MessageController extends Controller
                     'member_count' => $memberCount,
                 ],
                 'latest_message' => $latest ? [
-                    'body' => match ($latest->type) {
-                        MessageType::Product => 'Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')),
-                        MessageType::Transfer => ChatService::transferPreviewForMessage($latest, $user),
-                        MessageType::File => $latest->body ?: ($latest->metadata['file_name'] ?? 'File'),
-                        MessageType::Image => $latest->body ?: 'Photo',
-                        MessageType::Video => $latest->body ?: 'Video',
-                        MessageType::Voice => 'Voice message',
-                        MessageType::System => $latest->body ?: 'Group update',
-                        default => $latest->body,
-                    },
+                    'body' => ChatService::inboxPreviewBody($latest, $user),
                     'type' => $latest->type->value,
                     'created_at' => $latest->created_at?->toIso8601String(),
                     'sender_id' => $latest->sender_id,
@@ -958,15 +971,7 @@ class MessageController extends Controller
                 'is_seller' => ! $deletedPeer && ($other->sellerProfile !== null || $other->isSeller()),
             ],
             'latest_message' => $latest ? [
-                'body' => match ($latest->type) {
-                    MessageType::Product => 'Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')),
-                    MessageType::Transfer => ChatService::transferPreviewForMessage($latest, $user),
-                    MessageType::File => $latest->body ?: ($latest->metadata['file_name'] ?? 'File'),
-                    MessageType::Image => $latest->body ?: 'Photo',
-                    MessageType::Video => $latest->body ?: 'Video',
-                    MessageType::Voice => 'Voice message',
-                    default => $latest->body,
-                },
+                'body' => ChatService::inboxPreviewBody($latest, $user),
                 'type' => $latest->type->value,
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'sender_id' => $latest->sender_id,

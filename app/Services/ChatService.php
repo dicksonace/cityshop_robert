@@ -582,8 +582,8 @@ class ChatService
             if (! $isCallSignal && $type !== MessageType::CallLog && ! $skipBell && $type !== MessageType::System) {
                 $notificationBody = match (true) {
                     $type === MessageType::Text => $body,
-                    $type === MessageType::Image => 'Sent a photo',
-                    $type === MessageType::Video => 'Sent a video',
+                    $type === MessageType::Image => ! empty($metadata['view_once']) ? 'Sent a view once photo' : 'Sent a photo',
+                    $type === MessageType::Video => ! empty($metadata['view_once']) ? 'Sent a view once video' : 'Sent a video',
                     $type === MessageType::Voice => 'Sent a voice message',
                     $type === MessageType::Product => 'Shared a product: '.$body,
                     $type === MessageType::Transfer => static::transferPreviewForViewer(
@@ -684,6 +684,7 @@ class ChatService
     public static function canReactToMessage(Message $message): bool
     {
         return empty($message->metadata['deleted_at'])
+            && empty($message->metadata['view_once'])
             && in_array($message->type, [
                 MessageType::Text,
                 MessageType::Image,
@@ -819,6 +820,7 @@ class ChatService
         abort_unless($conversation->involves($actor), 403);
         abort_unless($message->conversation_id === $conversation->id, 404);
         abort_unless(empty($message->metadata['deleted_at']), 422, 'This message can no longer be forwarded.');
+        abort_unless(empty($message->metadata['view_once']), 422, 'View once messages cannot be forwarded.');
         abort_unless(in_array($message->type, [
             MessageType::Text,
             MessageType::Image,
@@ -938,22 +940,107 @@ class ChatService
             ->all();
     }
 
+    /**
+     * One-tap media: the listing never includes the file URL. Recipients call
+     * openViewOnce() to receive it once; after that the bubble stays "Opened".
+     *
+     * @return array{message: array<string, mixed>, image_url: ?string, video_url: ?string}
+     */
+    public static function openViewOnce(Message $message, User $viewer): array
+    {
+        $metadata = $message->metadata ?? [];
+        abort_unless(empty($metadata['deleted_at']), 422, 'This message is no longer available.');
+        abort_unless(! empty($metadata['view_once']), 422, 'This is not a view once message.');
+        abort_unless(in_array($message->type, [MessageType::Image, MessageType::Video], true), 422, 'This message cannot be opened.');
+        abort_if((int) $message->sender_id === (int) $viewer->id, 422, 'You already sent this view once message.');
+
+        $viewedBy = collect($metadata['viewed_by'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        abort_if(in_array((int) $viewer->id, $viewedBy, true), 422, 'This was already opened.');
+
+        $imageUrl = static::publicMediaUrl($metadata['image_url'] ?? null, $metadata['image_path'] ?? null);
+        $videoUrl = static::publicMediaUrl($metadata['video_url'] ?? null, $metadata['video_path'] ?? null);
+        abort_if($imageUrl === null && $videoUrl === null, 422, 'This media is no longer available.');
+
+        $viewedBy[] = (int) $viewer->id;
+        $metadata['viewed_by'] = array_values(array_unique($viewedBy));
+        $metadata['viewed_at'] = $metadata['viewed_at'] ?? now()->toIso8601String();
+        $message->metadata = $metadata;
+        $message->save();
+
+        $message->loadMissing(['sender:id,name,deleted_at', 'reactions']);
+        static::broadcastMessageUpdated($message);
+
+        return [
+            'message' => static::formatMessage($message, $viewer),
+            'image_url' => $imageUrl,
+            'video_url' => $videoUrl,
+        ];
+    }
+
+    /**
+     * Conversation-list / notification preview for the latest visible message.
+     */
+    public static function inboxPreviewBody(Message $latest, User $viewer): string
+    {
+        $metadata = $latest->metadata ?? [];
+        if (! empty($metadata['view_once']) && in_array($latest->type, [MessageType::Image, MessageType::Video], true)) {
+            $kind = $latest->type === MessageType::Video ? 'video' : 'photo';
+            $opened = ! empty($metadata['viewed_at']) || ! empty($metadata['viewed_by']);
+
+            return $opened ? 'Opened' : 'View once '.$kind;
+        }
+
+        return match ($latest->type) {
+            MessageType::Product => 'Product: '.($latest->body ?: ($metadata['product']['name'] ?? 'Shared a product')),
+            MessageType::Transfer => static::transferPreviewForMessage($latest, $viewer),
+            MessageType::File => $latest->body ?: ($metadata['file_name'] ?? 'File'),
+            MessageType::Image => $latest->body ?: 'Photo',
+            MessageType::Video => $latest->body ?: 'Video',
+            MessageType::Voice => 'Voice message',
+            MessageType::System => $latest->body ?: 'Group update',
+            default => (string) ($latest->body ?? ''),
+        };
+    }
+
     public static function formatMessage(Message $message, ?User $viewer = null): array
     {
         $metadata = $message->metadata ?? [];
         $deleted = ! empty($metadata['deleted_at']);
+        $viewOnce = ! empty($metadata['view_once']);
+        $viewedBy = collect($metadata['viewed_by'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $anyoneOpened = ! empty($metadata['viewed_at']) || $viewedBy !== [];
+        $isSender = $viewer && (int) $viewer->id === (int) $message->sender_id;
+        $openedForViewer = $isSender
+            ? $anyoneOpened
+            : ($viewer !== null && in_array((int) $viewer->id, $viewedBy, true));
+        $hideMedia = $deleted || $viewOnce;
+        $safeMeta = $metadata;
+        if ($viewOnce) {
+            unset(
+                $safeMeta['image_url'],
+                $safeMeta['image_path'],
+                $safeMeta['video_url'],
+                $safeMeta['video_path'],
+            );
+        }
 
         return [
             'id' => $message->id,
             'sender_id' => $message->sender_id,
             'type' => $message->type->value,
             'body' => $deleted ? null : $message->body,
-            'metadata' => $message->metadata,
-            'image_url' => $deleted ? null : static::publicMediaUrl(
+            'metadata' => $safeMeta,
+            'view_once' => $viewOnce,
+            'view_once_opened' => $viewOnce && $openedForViewer,
+            'image_url' => $hideMedia ? null : static::publicMediaUrl(
                 $metadata['image_url'] ?? null,
                 $metadata['image_path'] ?? null,
             ),
-            'video_url' => $deleted ? null : static::publicMediaUrl(
+            'video_url' => $hideMedia ? null : static::publicMediaUrl(
                 $metadata['video_url'] ?? null,
                 $metadata['video_path'] ?? null,
             ),

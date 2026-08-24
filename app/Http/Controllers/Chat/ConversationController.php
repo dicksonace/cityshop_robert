@@ -286,12 +286,7 @@ class ConversationController extends Controller
                     'member_count' => $members->count(),
                 ],
                 'latest_message' => $latest ? [
-                    'body' => match ($latest->type) {
-                        MessageType::Product => 'Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')),
-                        MessageType::Transfer => ChatService::transferPreviewForMessage($latest, $user),
-                        MessageType::System => $latest->body ?: 'Group update',
-                        default => $latest->body,
-                    },
+                    'body' => ChatService::inboxPreviewBody($latest, $user),
                     'type' => $latest->type->value,
                     'created_at' => $latest->created_at?->toIso8601String(),
                     'sender_id' => $latest->sender_id,
@@ -339,11 +334,7 @@ class ConversationController extends Controller
                 ] : null,
             ],
             'latest_message' => $latest ? [
-                'body' => match ($latest->type) {
-                    MessageType::Product => 'Product: '.($latest->body ?: ($latest->metadata['product']['name'] ?? 'Shared a product')),
-                    MessageType::Transfer => ChatService::transferPreviewForMessage($latest, $user),
-                    default => $latest->body,
-                },
+                'body' => ChatService::inboxPreviewBody($latest, $user),
                 'type' => $latest->type->value,
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'sender_id' => $latest->sender_id,

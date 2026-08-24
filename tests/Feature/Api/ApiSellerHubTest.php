@@ -124,6 +124,44 @@ class ApiSellerHubTest extends TestCase
         ]);
     }
 
+    public function test_seller_can_create_auto_parts_listing_without_condition(): void
+    {
+        Storage::fake('public');
+        $seller = $this->approvedSeller();
+        $category = \App\Models\Category::query()->where('slug', 'auto-parts')->first()
+            ?? \App\Models\Category::create([
+                'name' => 'Auto Parts',
+                'slug' => 'auto-parts',
+                'is_active' => true,
+            ]);
+
+        Sanctum::actingAs($seller);
+
+        $this->post('/api/v1/seller/products', [
+            'name' => 'Brake pad',
+            'price' => 45,
+            'quantity' => 3,
+            'category_id' => $category->id,
+            'condition' => '',
+            'shipping_type' => 'buyer',
+            'specifications' => [
+                'part_type' => 'Brake pad',
+                'vehicle_make' => 'Toyota',
+                'condition' => '',
+            ],
+            'images' => [UploadedFile::fake()->image('pad.jpg')],
+        ], ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Brake pad')
+            ->assertJsonPath('data.condition', 'new');
+
+        $this->assertDatabaseHas('products', [
+            'seller_id' => $seller->id,
+            'name' => 'Brake pad',
+            'condition' => 'new',
+        ]);
+    }
+
     public function test_seller_can_duplicate_a_product_and_open_analytics(): void
     {
         $seller = $this->approvedSeller();

@@ -39,4 +39,23 @@ class UserBlockService
             ->where('blocked_id', $other->id)
             ->exists();
     }
+
+    /**
+     * User IDs this person has blocked or been blocked by.
+     *
+     * @return list<int>
+     */
+    public static function blockedUserIds(User $user): array
+    {
+        return UserBlock::query()
+            ->where('blocker_id', $user->id)
+            ->orWhere('blocked_id', $user->id)
+            ->get(['blocker_id', 'blocked_id'])
+            ->flatMap(fn (UserBlock $row) => [
+                (int) $row->blocker_id === (int) $user->id ? (int) $row->blocked_id : (int) $row->blocker_id,
+            ])
+            ->unique()
+            ->values()
+            ->all();
+    }
 }

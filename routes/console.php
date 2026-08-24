@@ -66,5 +66,9 @@ Artisan::command('mail:test {email}', function () {
 Schedule::command('orders:auto-confirm-deliveries')->hourly();
 
 Schedule::call(function () {
+    \App\Services\StatusService::pruneExpired();
+})->hourly();
+
+Schedule::call(function () {
     \App\Services\LiveStreamService::expireStale();
 })->everyMinute();

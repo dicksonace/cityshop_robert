@@ -560,6 +560,7 @@ class ProductController extends Controller
     private function listingAttributes(array $validated, Request $request, ?Product $product = null): array
     {
         $data = collect($validated)->except(['images', 'remove_image_ids', 'specifications'])->all();
+        $data = $this->withListingDefaults($data, creating: $product === null);
 
         $categoryId = $validated['category_id'] ?? $product?->category_id;
         if ($request->exists('specifications') || array_key_exists('category_id', $validated)) {
@@ -567,6 +568,37 @@ class ProductController extends Controller
                 $categoryId !== null ? (int) $categoryId : null,
                 is_array($request->input('specifications')) ? $request->input('specifications') : [],
             );
+        }
+
+        return $data;
+    }
+
+    /**
+     * NOT NULL product columns cannot be persisted as null — the mobile app
+     * sends empty Condition as "" which Laravel converts to null and 500s.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withListingDefaults(array $data, bool $creating): array
+    {
+        $defaults = [
+            'condition' => 'new',
+            'low_stock_alert' => 5,
+            'minimum_order_quantity' => 1,
+        ];
+
+        foreach ($defaults as $key => $default) {
+            if (! array_key_exists($key, $data)) {
+                continue;
+            }
+            if ($data[$key] === null || $data[$key] === '') {
+                if ($creating) {
+                    $data[$key] = $default;
+                } else {
+                    unset($data[$key]);
+                }
+            }
         }
 
         return $data;

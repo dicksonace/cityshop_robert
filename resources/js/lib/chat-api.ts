@@ -144,11 +144,15 @@ export async function uploadChatImage(
     conversationId: number,
     file: File,
     caption?: string,
+    viewOnce = false,
 ): Promise<ChatMessage> {
     const form = new FormData();
     form.append('image', file);
     if (caption?.trim()) {
         form.append('caption', caption.trim());
+    }
+    if (viewOnce) {
+        form.append('view_once', '1');
     }
 
     const res = await fetch(route('chat.messages.image', conversationId), {
@@ -272,6 +276,18 @@ export async function deleteChatMessage(conversationId: number, messageId: numbe
     });
     const data = await parseJsonResponse<{ message: ChatMessage }>(res);
     return data.message;
+}
+
+export async function openViewOnce(
+    conversationId: number,
+    messageId: number,
+): Promise<{ message: ChatMessage; image_url?: string | null; video_url?: string | null }> {
+    const res = await fetch(route('chat.messages.view-once', { conversation: conversationId, message: messageId }), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+    });
+    return parseJsonResponse(res);
 }
 
 export async function forwardChatMessage(
