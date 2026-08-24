@@ -14,6 +14,10 @@ use Illuminate\Support\Str;
 class Product extends Model
 {
     use SoftDeletes;
+
+    /** Max gallery photos per product (app + web + API). */
+    public const MAX_IMAGES = 60;
+
     protected $fillable = [
         'seller_id',
         'category_id',

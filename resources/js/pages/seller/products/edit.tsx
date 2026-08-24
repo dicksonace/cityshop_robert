@@ -119,7 +119,7 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                 )}
 
                 <ImageUploader
-                    maxImages={6}
+                    maxImages={60}
                     existingImages={product.images ?? []}
                     onChange={(files, removed) => {
                         setImageFiles(files);

@@ -9,7 +9,7 @@ export type AdminOrderTab =
 
 const tabs: { key: AdminOrderTab; label: string; href: () => string }[] = [
     { key: 'all', label: 'All orders', href: () => route('admin.orders.index') },
-    { key: 'unprocessed', label: 'Unprocessed 24h+', href: () => route('admin.orders.unprocessed') },
+    { key: 'unprocessed', label: 'Unprocessed', href: () => route('admin.orders.unprocessed') },
     { key: 'awaiting-direct', label: 'Awaiting direct payment', href: () => route('admin.orders.awaiting-direct') },
     { key: 'confirm-delivery', label: 'Confirm delivery', href: () => route('admin.orders.confirm-delivery') },
     { key: 'cancellations', label: 'Seller cancellations', href: () => route('admin.orders.cancellations') },

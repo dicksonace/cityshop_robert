@@ -72,13 +72,13 @@ export default function AdminUnprocessedOrders({ items, hours, count }: Unproces
 
     return (
         <AdminLayout title="Unprocessed orders" active="orders-unprocessed">
-            <Head title="Unprocessed orders (24h+)" />
+            <Head title="Unprocessed orders" />
 
             <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <p className="font-semibold">Paid {hours}+ hours ago — not yet out for delivery</p>
+                <p className="font-semibold">Paid orders not yet out for delivery</p>
                 <p className="mt-1">
-                    Each card shows the current fulfillment stage. You can cancel and refund the buyer’s CityShop wallet at any time if you
-                    suspect the order will not go through (before it is out for delivery).
+                    Cancel anytime and refund the buyer’s CityShop wallet if the order looks stuck or will not go through
+                    (before it is out for delivery). Waiting time is shown on each card.
                 </p>
                 <p className="mt-2 font-medium">{count} waiting</p>
             </div>

@@ -2,8 +2,6 @@ import { useMemo, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
-export const BUY_RMB_PARTNER_URL = 'https://buy-rmb.com';
-
 type Rate = {
     ghs_per_rmb: number;
     rmb_per_ghs: number;
@@ -145,15 +143,6 @@ export default function BuyRmbCalculator({ rate, enabled, initialGhs = '', onCon
             >
                 {enabled ? 'Continue' : 'Transfers paused'}
             </button>
-
-            <a
-                href={BUY_RMB_PARTNER_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 block text-center text-sm font-semibold text-indigo-600 underline-offset-2 hover:underline"
-            >
-                Or open buy-rmb.com
-            </a>
         </div>
     );
 }

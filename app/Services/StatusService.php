@@ -18,8 +18,12 @@ class StatusService
     /**
      * @param  array{type?: string, body?: ?string, background_color?: ?string}  $payload
      */
-    public static function post(User $user, array $payload, ?UploadedFile $image = null): UserStatus
-    {
+    public static function post(
+        User $user,
+        array $payload,
+        ?UploadedFile $image = null,
+        ?UploadedFile $video = null,
+    ): UserStatus {
         abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
 
         static::pruneExpiredFor($user);
@@ -29,8 +33,9 @@ class StatusService
             ->where('expires_at', '>', now())
             ->count();
         abort_if($active >= static::MAX_ACTIVE, 422, 'You can have at most 20 statuses at a time.');
+        abort_if($image && $video, 422, 'Send either an image or a video, not both.');
 
-        $type = $image ? 'image' : 'text';
+        $type = $video ? 'video' : ($image ? 'image' : 'text');
         $body = trim((string) ($payload['body'] ?? ''));
         $color = static::sanitizeColor($payload['background_color'] ?? null);
 
@@ -39,7 +44,9 @@ class StatusService
         }
 
         $path = null;
-        if ($image) {
+        if ($video) {
+            $path = ProductVideoService::storeUploaded($video, 'status/'.$user->id);
+        } elseif ($image) {
             $path = $image->store('status/'.$user->id, 'public');
         }
 

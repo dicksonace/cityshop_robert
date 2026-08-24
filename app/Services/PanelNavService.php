@@ -51,7 +51,7 @@ class PanelNavService
             'pending_china_transfers' => app(ChinaTransferService::class)->pendingAdminCount(),
             'pending_sell_rmb' => app(SellRmbService::class)->pendingAdminCount(),
             'pending_fund_releases' => app(OrderService::class)->pendingFundReleaseItemsQuery()->count(),
-            'stale_unprocessed_orders' => app(OrderService::class)->staleUnprocessedItemsQuery(24)->count(),
+            'stale_unprocessed_orders' => app(OrderService::class)->staleUnprocessedItemsQuery(0)->count(),
             'awaiting_direct_payments' => app(OrderService::class)->awaitingDirectPaymentOrdersQuery('all')->count(),
             'awaiting_buyer_confirmation' => OrderItem::where('status', OrderStatus::AwaitingConfirmation)->count(),
             'open_disputes' => Dispute::whereIn('status', [DisputeStatus::Open, DisputeStatus::UnderReview])->count(),

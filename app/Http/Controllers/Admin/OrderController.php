@@ -95,7 +95,7 @@ class OrderController extends Controller
 
     public function unprocessed(Request $request): Response
     {
-        $hours = max(1, (int) $request->integer('hours', 24));
+        $hours = max(0, (int) $request->integer('hours', 0));
 
         $items = $this->orders->staleUnprocessedItemsQuery($hours)
             ->with([

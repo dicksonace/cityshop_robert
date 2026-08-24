@@ -190,8 +190,8 @@ class ProductController extends Controller
         $currentCount = $product->images()->count();
         $newCount = $request->file('images') ? count($request->file('images')) : 0;
 
-        if ($currentCount + $newCount > 5) {
-            return back()->withErrors(['images' => 'Maximum 5 images allowed per product.']);
+        if ($currentCount + $newCount > Product::MAX_IMAGES) {
+            return back()->withErrors(['images' => 'Maximum '.Product::MAX_IMAGES.' images allowed per product.']);
         }
 
         if ($request->file('images')) {
@@ -418,8 +418,8 @@ class ProductController extends Controller
     private function validateProduct(Request $request, bool $creating): array
     {
         $imageRules = $creating
-            ? ['required', 'array', 'min:1', 'max:6']
-            : ['nullable', 'array', 'max:6'];
+            ? ['required', 'array', 'min:1', 'max:'.Product::MAX_IMAGES]
+            : ['nullable', 'array', 'max:'.Product::MAX_IMAGES];
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -451,7 +451,7 @@ class ProductController extends Controller
             'images' => $imageRules,
             'images.*' => ['image', 'max:5120'],
             // 0 is valid on update when no new photos are uploaded (existing images remain).
-            'image_count' => ['nullable', 'integer', 'min:0', 'max:6'],
+            'image_count' => ['nullable', 'integer', 'min:0', 'max:'.Product::MAX_IMAGES],
             'remove_images' => ['nullable', 'array'],
             'remove_images.*' => ['integer', 'exists:product_images,id'],
             'video' => ['nullable', 'file', 'mimes:mp4,webm,mov,qt,m4v,3gp,3gpp', 'max:51200'],

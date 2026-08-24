@@ -145,14 +145,30 @@ class AdminUnprocessedOrdersTest extends TestCase
         $this->assertEquals(100.0, (float) $buyerWallet->available_balance);
     }
 
-    public function test_fresh_pending_item_is_not_in_stale_queue(): void
+    public function test_fresh_pending_item_is_not_in_24h_stale_queue(): void
     {
         $buyer = User::factory()->create(['role' => UserRole::Buyer]);
         $seller = User::factory()->create(['role' => UserRole::Seller]);
         $this->makeStalePaidItem($buyer, $seller, 2);
 
-        $count = app(OrderService::class)->staleUnprocessedItemsQuery(24)->count();
-        $this->assertSame(0, $count);
+        $this->assertSame(0, app(OrderService::class)->staleUnprocessedItemsQuery(24)->count());
+        $this->assertSame(1, app(OrderService::class)->staleUnprocessedItemsQuery(0)->count());
+    }
+
+    public function test_admin_unprocessed_page_includes_fresh_paid_items(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+        $this->makeStalePaidItem($buyer, $seller, 1);
+
+        $this->actingAs($admin)
+            ->get(route('admin.orders.unprocessed'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/orders/unprocessed')
+                ->where('count', 1)
+                ->where('hours', 0));
     }
 
     public function test_admin_can_cancel_processing_item_in_stale_queue(): void

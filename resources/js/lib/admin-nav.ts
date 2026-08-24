@@ -134,7 +134,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'orders-all', label: 'All Orders', href: route('admin.orders.index') },
                 {
                     key: 'orders-unprocessed',
-                    label: 'Unprocessed 24h+',
+                    label: 'Unprocessed',
                     href: route('admin.orders.unprocessed'),
                     badgeKey: 'stale_unprocessed_orders',
                     defaultOnPath: true,

@@ -41,7 +41,7 @@ class DashboardController extends Controller
                 'open_disputes' => Dispute::where('status', DisputeStatus::Open)->count(),
                 'pending_funds' => $orders->pendingFundReleaseItemsQuery()->count(),
                 'awaiting_confirmation' => OrderItem::where('status', OrderStatus::AwaitingConfirmation)->count(),
-                'unprocessed_orders' => $orders->staleUnprocessedItemsQuery(24)->count(),
+                'unprocessed_orders' => $orders->staleUnprocessedItemsQuery(0)->count(),
             ],
             'queues' => [
                 'sellers' => SellerProfile::with('user:id,name,email,mobile')

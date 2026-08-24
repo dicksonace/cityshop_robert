@@ -19,6 +19,7 @@ class StatusController extends Controller
     {
         $request->validate([
             'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:5120'],
+            'video' => ['nullable', 'file', 'mimetypes:video/mp4,video/quicktime,video/webm,video/3gpp', 'max:51200'],
             'body' => ['nullable', 'string', 'max:500'],
             'background_color' => ['nullable', 'string', 'max:16'],
         ]);
@@ -30,6 +31,7 @@ class StatusController extends Controller
                 'background_color' => $request->input('background_color'),
             ],
             $request->file('image'),
+            $request->file('video'),
         );
 
         return response()->json([

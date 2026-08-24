@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 
-import BuyRmbCalculator, { BUY_RMB_PARTNER_URL } from '@/components/china/buy-rmb-calculator';
+import BuyRmbCalculator from '@/components/china/buy-rmb-calculator';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 import { formatPrice, Paginated } from '@/types/marketplace';
@@ -61,23 +61,11 @@ export default function ChinaTransferHub({ config, transfers }: Props) {
                 </div>
             )}
             <div className="mx-auto max-w-lg px-4 py-6">
-                <div className="flex items-center justify-between gap-3">
-                    <Link href={route('wallet.china-rmb.index')} className="text-sm font-semibold text-orange-600">
-                        ← China / RMB
-                    </Link>
-                    <a
-                        href={BUY_RMB_PARTNER_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-semibold text-indigo-600"
-                    >
-                        buy-rmb.com ↗
-                    </a>
-                </div>
+                <Link href={route('wallet.china-rmb.index')} className="text-sm font-semibold text-orange-600">
+                    ← China / RMB
+                </Link>
                 <h1 className="mt-3 text-2xl font-black text-gray-900">Buy RMB</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                    Send GHS, receive CNY in China via Alipay. Same style as buy-rmb.com — and you can open that site anytime.
-                </p>
+                <p className="mt-1 text-sm text-gray-500">Send GHS, receive CNY in China via Alipay.</p>
 
                 {config.instructions && (
                     <p className="mt-4 rounded-xl bg-orange-50 px-4 py-3 text-sm text-orange-900">{config.instructions}</p>
@@ -96,15 +84,9 @@ export default function ChinaTransferHub({ config, transfers }: Props) {
                 ) : (
                     <div className="mt-5 rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-center">
                         <p className="font-semibold text-gray-700">Rate not published yet</p>
-                        <p className="mt-2 text-sm text-gray-500">You can still use the partner desk meanwhile.</p>
-                        <a
-                            href={BUY_RMB_PARTNER_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-4 inline-flex rounded-full bg-indigo-500 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-indigo-600"
-                        >
-                            Open buy-rmb.com
-                        </a>
+                        <p className="mt-2 text-sm text-gray-500">
+                            China transfers will open here once admin publishes a rate.
+                        </p>
                     </div>
                 )}
 

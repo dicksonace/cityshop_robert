@@ -1658,13 +1658,16 @@ class OrderService
     }
 
     /**
-     * Paid marketplace items still at "pending" (seller never started) for 24+ hours.
+     * Paid marketplace items not yet out for delivery.
+     * Pass $hours > 0 to only include items paid at least that many hours ago.
+     * Pass $hours = 0 to include all paid unprocessed items (admin can cancel anytime).
      *
      * @return \Illuminate\Database\Eloquent\Builder<\App\Models\OrderItem>
      */
-    public function staleUnprocessedItemsQuery(int $hours = 24)
+    public function staleUnprocessedItemsQuery(int $hours = 0)
     {
-        $cutoff = now()->subHours($hours);
+        $hours = max(0, $hours);
+        $cutoff = $hours > 0 ? now()->subHours($hours) : null;
 
         return OrderItem::query()
             ->whereIn('status', [
@@ -1679,11 +1682,21 @@ class OrderService
                         $channel->where('payment_channel', PaymentChannel::Marketplace)
                             ->orWhereNull('payment_channel');
                     })
-                    ->where(function ($paid) use ($cutoff) {
-                        $paid->whereHas('payments', function ($p) use ($cutoff) {
-                            $p->whereNotNull('paid_at')->where('paid_at', '<=', $cutoff);
-                        })->orWhereHas('checkout.payments', function ($p) use ($cutoff) {
-                            $p->whereNotNull('paid_at')->where('paid_at', '<=', $cutoff);
+                    ->when($cutoff !== null, function ($paid) use ($cutoff) {
+                        $paid->where(function ($inner) use ($cutoff) {
+                            $inner->whereHas('payments', function ($p) use ($cutoff) {
+                                $p->whereNotNull('paid_at')->where('paid_at', '<=', $cutoff);
+                            })->orWhereHas('checkout.payments', function ($p) use ($cutoff) {
+                                $p->whereNotNull('paid_at')->where('paid_at', '<=', $cutoff);
+                            });
+                        });
+                    }, function ($paid) {
+                        $paid->where(function ($inner) {
+                            $inner->whereHas('payments', function ($p) {
+                                $p->whereNotNull('paid_at');
+                            })->orWhereHas('checkout.payments', function ($p) {
+                                $p->whereNotNull('paid_at');
+                            });
                         });
                     });
             });

@@ -45,19 +45,36 @@ class OrderController extends Controller
 
     public function unprocessed(Request $request): JsonResponse
     {
-        $hours = max(1, (int) $request->integer('hours', 24));
+        $hours = max(0, (int) $request->integer('hours', 0));
         $items = $this->orders->staleUnprocessedItemsQuery($hours)
-            ->with(['order.buyer:id,name,mobile', 'seller:id,name'])
+            ->with([
+                'order.buyer:id,name,mobile',
+                'order.payments',
+                'order.checkout.payments',
+                'seller:id,name,mobile',
+                'seller.sellerProfile',
+            ])
             ->paginate(20);
 
         return response()->json([
-            'data' => $items->getCollection()->map(fn (OrderItem $item) => $this->serializeItem($item))->values(),
+            'data' => $items->getCollection()->map(function (OrderItem $item) {
+                $row = $this->serializeItem($item);
+                $paidAt = $this->orders->itemPaidAt($item);
+                $row['line_total'] = $item->lineTotal();
+                $row['paid_at'] = $paidAt?->toIso8601String();
+                $row['hours_waiting'] = $paidAt ? (int) $paidAt->diffInHours(now()) : null;
+                $row['buyer_mobile'] = $item->order?->buyer?->mobile;
+                $row['shipping_cost'] = (float) ($item->order?->shipping_cost ?? 0);
+
+                return $row;
+            })->values(),
             'meta' => [
                 'current_page' => $items->currentPage(),
                 'last_page' => $items->lastPage(),
                 'total' => $items->total(),
             ],
             'hours' => $hours,
+            'count' => $this->orders->staleUnprocessedItemsQuery($hours)->count(),
         ]);
     }
 

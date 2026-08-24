@@ -188,16 +188,16 @@ class ProductController extends Controller
         abort_unless($product->seller_id === $request->user()->id, 403);
 
         $request->validate([
-            'images' => ['required', 'array', 'min:1', 'max:6'],
+            'images' => ['required', 'array', 'min:1', 'max:'.Product::MAX_IMAGES],
             'images.*' => ['image', 'max:5120'],
         ]);
 
         $files = $this->uploadedImages($request);
         $currentCount = $product->images()->count();
-        if ($currentCount + count($files) > 6) {
+        if ($currentCount + count($files) > Product::MAX_IMAGES) {
             return response()->json([
-                'message' => 'Maximum 6 images allowed per product.',
-                'errors' => ['images' => ['Maximum 6 images allowed per product.']],
+                'message' => 'Maximum '.Product::MAX_IMAGES.' images allowed per product.',
+                'errors' => ['images' => ['Maximum '.Product::MAX_IMAGES.' images allowed per product.']],
             ], 422);
         }
 
@@ -557,8 +557,8 @@ class ProductController extends Controller
         $priceRule = $creating ? 'required' : 'sometimes';
         $qtyRule = $creating ? 'required' : 'sometimes';
         $imageRules = $creating
-            ? ['required', 'array', 'min:1', 'max:6']
-            : ['nullable', 'array', 'max:6'];
+            ? ['required', 'array', 'min:1', 'max:'.Product::MAX_IMAGES]
+            : ['nullable', 'array', 'max:'.Product::MAX_IMAGES];
 
         $validated = $request->validate([
             'name' => [$nameRule, 'string', 'max:255'],
