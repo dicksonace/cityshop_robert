@@ -368,6 +368,22 @@ class ProductController extends Controller
 
                         return;
                     }
+                    if (! $value->isValid()) {
+                        $fail('Video was too large or incomplete. Use a clip under 50 MB / 1 minute.');
+
+                        return;
+                    }
+                    $size = (int) $value->getSize();
+                    if ($size <= 0) {
+                        $fail('Video upload was empty. Try another file under 50 MB.');
+
+                        return;
+                    }
+                    if ($size > 50 * 1024 * 1024) {
+                        $fail('Video must be 50 MB or smaller. This file is '.number_format($size / (1024 * 1024), 1).' MB.');
+
+                        return;
+                    }
                     $ext = strtolower((string) $value->getClientOriginalExtension());
                     $mime = strtolower((string) ($value->getMimeType() ?: ''));
                     $allowedExt = ['mp4', 'webm', 'mov', 'qt', 'm4v', '3gp', '3gpp'];
@@ -375,7 +391,7 @@ class ProductController extends Controller
                         || str_starts_with($mime, 'video/')
                         || in_array($mime, ['application/octet-stream', 'application/mp4'], true);
                     if (! $ok) {
-                        $fail('Use MP4, MOV, WebM, or 3GP under 50MB / 1 minute.');
+                        $fail('Use MP4, MOV, WebM, or 3GP under 50 MB / 1 minute.');
                     }
                 },
             ],
