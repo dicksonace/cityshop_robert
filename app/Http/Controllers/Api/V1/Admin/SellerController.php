@@ -133,7 +133,7 @@ class SellerController extends Controller
         $activation->prompt($seller, (float) $validated['amount']);
 
         return response()->json([
-            'message' => 'Seller prompted to pay the yearly fee.',
+            'message' => 'Seller prompted. Products are hidden until they pay. SMS and in-app notification sent.',
             'data' => $this->serialize($seller->fresh('user'), detailed: true),
         ]);
     }

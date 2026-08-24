@@ -155,6 +155,32 @@ class SellerActivationTest extends TestCase
         $this->assertFalse($product->fresh()->load('seller.sellerProfile')->isVisibleInShop());
     }
 
+    public function test_prompting_an_already_active_seller_hides_products_again(): void
+    {
+        Notification::fake();
+
+        [, $profile, $product] = $this->approvedSellerWithProduct();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.sellers.activation.prompt', $profile), ['amount' => 90]);
+        $this->actingAs($admin)
+            ->post(route('admin.sellers.activation.waive', $profile));
+
+        $this->assertTrue($profile->fresh()->isServiceActive());
+        $this->assertTrue($product->fresh()->load('seller.sellerProfile')->isVisibleInShop());
+
+        $this->actingAs($admin)
+            ->post(route('admin.sellers.activation.prompt', $profile), ['amount' => 120])
+            ->assertRedirect();
+
+        $profile->refresh();
+        $this->assertFalse($profile->isServiceActive());
+        $this->assertTrue($profile->needsActivationPayment());
+        $this->assertFalse($product->fresh()->load('seller.sellerProfile')->isVisibleInShop());
+        Notification::assertSentTo($profile->user, SellerActivationDueNotification::class);
+    }
+
     /**
      * @return array{0: User, 1: SellerProfile, 2: Product}
      */

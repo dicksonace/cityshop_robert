@@ -32,18 +32,11 @@ class SellerActivationService
         $seller->update([
             'activation_fee_amount' => $amount,
             'activation_prompted_at' => now('Africa/Accra'),
+            // Expire any leftover paid year so products hide immediately.
+            'activation_paid_until' => now('Africa/Accra')->subMinute(),
         ]);
 
-        $seller->loadMissing('user');
-        $seller->user->notify(new SellerActivationDueNotification($seller->fresh()));
-
-        AppNotificationService::send(
-            $seller->user,
-            'seller_activation_due',
-            'Pay seller service fee',
-            'Pay GH₵'.number_format($amount, 2).' for 1 year to keep your store live. Buyers cannot see your products until you pay. You can still withdraw and recharge.',
-            ['href' => route('seller.activation.show')],
-        );
+        $this->notifyPaymentDue($seller->fresh());
     }
 
     public function waiveForYear(SellerProfile $seller, ?float $amount = null): void
@@ -79,8 +72,26 @@ class SellerActivationService
             'activation_paid_until' => now('Africa/Accra')->subMinute(),
         ]);
 
+        $this->notifyPaymentDue($seller->fresh());
+    }
+
+    private function notifyPaymentDue(SellerProfile $seller): void
+    {
         $seller->loadMissing('user');
-        $seller->user->notify(new SellerActivationDueNotification($seller->fresh()));
+        if (! $seller->user) {
+            return;
+        }
+
+        $amount = (float) ($seller->activation_fee_amount ?? 0);
+        $seller->user->notify(new SellerActivationDueNotification($seller));
+
+        AppNotificationService::send(
+            $seller->user,
+            'seller_activation_due',
+            'Pay seller service fee',
+            'Pay GH₵'.number_format($amount, 2).' for 1 year to keep your store live. Buyers cannot see your products until you pay. You can still withdraw and recharge.',
+            ['href' => '/seller/activation'],
+        );
     }
 
     public function payFromWallet(User $seller, ?string $pin): SellerProfile
