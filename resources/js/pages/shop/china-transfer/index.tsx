@@ -1,8 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import BuyRmbCalculator, { BUY_RMB_PARTNER_URL } from '@/components/china/buy-rmb-calculator';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 import { formatPrice, Paginated } from '@/types/marketplace';
@@ -49,21 +47,10 @@ interface Props {
 
 export default function ChinaTransferHub({ config, transfers }: Props) {
     const { flash } = usePage<SharedData>().props;
-    const [ghs, setGhs] = useState(String(config.rate?.min_ghs ?? 1000));
-    const quote = useMemo(() => {
-        const amount = Number(ghs);
-        if (!config.rate || !Number.isFinite(amount) || amount <= 0) return null;
-        const rmb = amount / config.rate.ghs_per_rmb;
-        const fee =
-            config.rate.fee_mode === 'percent'
-                ? (amount * config.rate.fee_value) / 100
-                : config.rate.fee_value;
-        return { rmb, fee, total: amount + fee };
-    }, [ghs, config.rate]);
 
     return (
         <ShopLayout hideFlash>
-            <Head title="Transfer to China" />
+            <Head title="Buy RMB" />
             {(flash.success || flash.error) && (
                 <div
                     className={`mx-auto mt-4 max-w-lg rounded-xl px-4 py-3 text-sm font-medium ${
@@ -74,65 +61,50 @@ export default function ChinaTransferHub({ config, transfers }: Props) {
                 </div>
             )}
             <div className="mx-auto max-w-lg px-4 py-6">
-                <Link href={route('wallet.index')} className="text-sm font-semibold text-orange-600">
-                    ← Wallet
-                </Link>
-                <h1 className="mt-3 text-2xl font-black text-gray-900">Transfer to China</h1>
-                <p className="mt-1 text-sm text-gray-500">GHS → RMB via Alipay. WeChat Pay is not available.</p>
-
-                <div className="mt-5 rounded-2xl bg-gradient-to-br from-violet-800 to-purple-700 p-5 text-white shadow-lg">
-                    <p className="text-sm font-semibold text-white/80">Current exchange rates</p>
-                    <p className="mt-1 text-xs uppercase tracking-wide text-white/60">GHS to RMB · Alipay</p>
-                    {config.rate ? (
-                        <>
-                            <p className="mt-4 text-3xl font-black tracking-tight">
-                                1 GHS → {config.rate.rmb_per_ghs.toFixed(3)} RMB
-                            </p>
-                            <p className="mt-2 text-sm text-white/80">
-                                1 RMB = GH₵{config.rate.ghs_per_rmb.toFixed(4)}
-                            </p>
-                        </>
-                    ) : (
-                        <p className="mt-4 text-lg font-semibold">Rate not published yet.</p>
-                    )}
+                <div className="flex items-center justify-between gap-3">
+                    <Link href={route('wallet.china-rmb.index')} className="text-sm font-semibold text-orange-600">
+                        ← China / RMB
+                    </Link>
+                    <a
+                        href={BUY_RMB_PARTNER_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold text-indigo-600"
+                    >
+                        buy-rmb.com ↗
+                    </a>
                 </div>
+                <h1 className="mt-3 text-2xl font-black text-gray-900">Buy RMB</h1>
+                <p className="mt-1 text-sm text-gray-500">
+                    Send GHS, receive CNY in China via Alipay. Same style as buy-rmb.com — and you can open that site anytime.
+                </p>
 
                 {config.instructions && (
                     <p className="mt-4 rounded-xl bg-orange-50 px-4 py-3 text-sm text-orange-900">{config.instructions}</p>
                 )}
 
-                {config.rate && (
-                    <div className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
-                        <label className="text-sm font-semibold text-gray-700">Amount to send (GHS)</label>
-                        <Input className="mt-2" inputMode="decimal" value={ghs} onChange={(e) => setGhs(e.target.value)} />
-                        {quote && (
-                            <dl className="mt-4 space-y-1.5 text-sm">
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">RMB value</dt>
-                                    <dd className="font-semibold">¥{quote.rmb.toFixed(2)}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt className="text-gray-500">Transfer fee</dt>
-                                    <dd>GH₵{quote.fee.toFixed(2)}</dd>
-                                </div>
-                                <div className="flex justify-between border-t pt-2 font-bold">
-                                    <dt>Total payment</dt>
-                                    <dd>{formatPrice(quote.total)}</dd>
-                                </div>
-                            </dl>
-                        )}
-                        {config.enabled ? (
-                            <Button
-                                className="mt-4 w-full bg-orange-500 hover:bg-orange-600"
-                                onClick={() =>
-                                    router.get(route('wallet.china-transfer.create'), { ghs_amount: ghs })
-                                }
-                            >
-                                Continue to Alipay details
-                            </Button>
-                        ) : (
-                            <p className="mt-4 text-sm text-amber-700">Transfers are paused until admin activates this service.</p>
-                        )}
+                {config.rate ? (
+                    <BuyRmbCalculator
+                        className="mt-5"
+                        rate={config.rate}
+                        enabled={config.enabled}
+                        initialGhs={String(config.rate.min_ghs || '')}
+                        onContinue={(ghsAmount) =>
+                            router.get(route('wallet.china-transfer.create'), { ghs_amount: ghsAmount })
+                        }
+                    />
+                ) : (
+                    <div className="mt-5 rounded-3xl border border-dashed border-gray-300 bg-white p-8 text-center">
+                        <p className="font-semibold text-gray-700">Rate not published yet</p>
+                        <p className="mt-2 text-sm text-gray-500">You can still use the partner desk meanwhile.</p>
+                        <a
+                            href={BUY_RMB_PARTNER_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-4 inline-flex rounded-full bg-indigo-500 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-indigo-600"
+                        >
+                            Open buy-rmb.com
+                        </a>
                     </div>
                 )}
 

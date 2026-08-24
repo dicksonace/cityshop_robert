@@ -91,6 +91,23 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                 <h1 className="mt-3 text-2xl font-black text-gray-900">China / RMB</h1>
                 <p className="mt-1 text-sm text-gray-500">Choose your exchange direction below.</p>
 
+                <a
+                    href="https://buy-rmb.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3.5 transition hover:bg-indigo-100"
+                >
+                    <div>
+                        <p className="text-sm font-extrabold text-indigo-900">Also on buy-rmb.com</p>
+                        <p className="mt-0.5 text-xs font-medium text-indigo-700">
+                            Open the partner desk anytime — you can access that site from CityShop.
+                        </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-indigo-500 px-3 py-1.5 text-xs font-extrabold text-white">
+                        Open ↗
+                    </span>
+                </a>
+
                 <div className="mt-5 rounded-2xl bg-gradient-to-br from-teal-800 to-teal-900 p-5 text-white shadow-lg">
                     <p className="text-sm font-semibold text-white/80">RMB Rates</p>
                     <p className="mt-3 text-sm font-bold leading-relaxed">
