@@ -105,11 +105,18 @@ class ProductController extends Controller
             $videoDuration = null;
             if ($request->hasFile('video')) {
                 $request->validate([
-                    'video' => ['file', 'mimes:mp4,webm,mov,qt,m4v,3gp,3gpp', 'max:51200'],
+                    'video' => ['file', 'max:51200'],
                     'video_duration' => ['nullable', 'integer', 'min:0', 'max:60'],
                 ]);
-                $videoPath = ProductVideoService::storeUploaded($request->file('video'));
-                $videoDuration = $request->filled('video_duration') ? (int) $request->input('video_duration') : null;
+                try {
+                    $videoPath = ProductVideoService::storeUploaded($request->file('video'));
+                    $videoDuration = $request->filled('video_duration') ? (int) $request->input('video_duration') : null;
+                } catch (\Throwable $e) {
+                    report($e);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'video' => ['Could not save this video. Try another clip (MP4 under 1 minute).'],
+                    ]);
+                }
             }
 
             $product = Product::create([
@@ -343,19 +350,60 @@ class ProductController extends Controller
             ]);
         }
 
+        if (! $request->hasFile('video')) {
+            return response()->json([
+                'message' => 'Video upload was empty or too large for the server. Use MP4/MOV under 50MB and 1 minute.',
+                'errors' => ['video' => ['Video upload was empty or too large for the server.']],
+            ], 422);
+        }
+
         $request->validate([
-            'video' => ['required', 'file', 'mimes:mp4,webm,mov,qt,m4v,3gp,3gpp', 'max:51200'],
+            'video' => [
+                'required',
+                'file',
+                'max:51200',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $value instanceof \Illuminate\Http\UploadedFile) {
+                        $fail('Upload a video file.');
+
+                        return;
+                    }
+                    $ext = strtolower((string) $value->getClientOriginalExtension());
+                    $mime = strtolower((string) ($value->getMimeType() ?: ''));
+                    $allowedExt = ['mp4', 'webm', 'mov', 'qt', 'm4v', '3gp', '3gpp'];
+                    $ok = in_array($ext, $allowedExt, true)
+                        || str_starts_with($mime, 'video/')
+                        || in_array($mime, ['application/octet-stream', 'application/mp4'], true);
+                    if (! $ok) {
+                        $fail('Use MP4, MOV, WebM, or 3GP under 50MB / 1 minute.');
+                    }
+                },
+            ],
             'video_duration' => ['nullable', 'integer', 'min:0', 'max:60'],
         ]);
 
-        if ($product->video_path) {
-            Storage::disk('public')->delete($product->video_path);
+        try {
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(90);
+            }
+            $newPath = ProductVideoService::storeUploaded($request->file('video'));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Could not save this video. Try another clip (MP4 under 1 minute) or compress it first.',
+                'errors' => ['video' => ['Could not save this video. Try another clip.']],
+            ], 422);
         }
 
+        $oldPath = $product->video_path;
         $product->update([
-            'video_path' => ProductVideoService::storeUploaded($request->file('video')),
+            'video_path' => $newPath,
             'video_duration' => $request->filled('video_duration') ? (int) $request->input('video_duration') : null,
         ]);
+        if ($oldPath && $oldPath !== $newPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
         $product->load(['images', 'category'])->loadCount('reviews');
 
         return response()->json([
