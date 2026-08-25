@@ -500,6 +500,7 @@ class MessageController extends Controller
             'video_path' => $path,
             'video_url' => $url,
             'duration_seconds' => $validated['duration_seconds'] ?? null,
+            'file_size' => $request->file('video')->getSize(),
         ];
         if ($request->boolean('view_once')) {
             $meta['view_once'] = true;
