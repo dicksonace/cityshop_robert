@@ -70,6 +70,25 @@ class ApiSellerHubTest extends TestCase
         $this->assertSame(OrderStatus::Processing, $item->fresh()->status);
     }
 
+    public function test_seller_can_move_an_order_one_stage_back(): void
+    {
+        [$seller, $item] = $this->paidOrder(OrderStatus::Packed);
+
+        Sanctum::actingAs($seller);
+
+        $this->getJson("/api/v1/seller/orders/{$item->id}")
+            ->assertOk()
+            ->assertJsonPath('data.previous_action.status', 'processing')
+            ->assertJsonPath('data.next_actions.0.status', 'shipped');
+
+        $this->postJson("/api/v1/seller/orders/{$item->id}", ['status' => 'processing'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'processing')
+            ->assertJsonPath('data.next_actions.0.status', 'packed');
+
+        $this->assertSame(OrderStatus::Processing, $item->fresh()->status);
+    }
+
     public function test_seller_can_cancel_a_pending_order(): void
     {
         [$seller, $item] = $this->paidOrder(OrderStatus::Pending);

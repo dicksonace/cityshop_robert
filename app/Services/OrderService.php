@@ -707,6 +707,10 @@ class OrderService
                     $wallet->increment('total_earnings', $item->seller_amount);
 
                     WalletTransactionService::recordSalePending($item);
+
+                    if ($item->funds_release_status === null) {
+                        $item->update(['funds_release_status' => FundsReleaseStatus::Pending]);
+                    }
                 }
 
                 $seller = User::find($item->seller_id);
@@ -1061,8 +1065,12 @@ class OrderService
             throw new \RuntimeException('Only marketplace (CityShop secured) sales use pending fund release.');
         }
 
-        if (in_array($item->status, [OrderStatus::Cancelled, OrderStatus::Refunded, OrderStatus::Pending], true)) {
-            throw new \RuntimeException('Funds can be released after the seller starts processing the order.');
+        if (in_array($item->status, [OrderStatus::Cancelled, OrderStatus::Refunded], true)) {
+            throw new \RuntimeException('Funds cannot be released for cancelled or refunded items.');
+        }
+
+        if ($item->order->payment_status !== PaymentStatus::Paid) {
+            throw new \RuntimeException('Funds can be released after the buyer pays for the order.');
         }
 
         if (! in_array($item->status, self::fundsReleaseEligibleStatuses(), true)) {
@@ -1128,7 +1136,7 @@ class OrderService
         }
 
         if (! in_array($item->status, self::fundsReleaseEligibleStatuses(), true)) {
-            throw new \RuntimeException('Funds can be held after the seller starts processing the order.');
+            throw new \RuntimeException('Funds can be held once the buyer has paid for this order.');
         }
 
         if ($item->funds_release_status === null) {
@@ -1322,6 +1330,8 @@ class OrderService
     public static function fundsReleaseEligibleStatuses(): array
     {
         return [
+            // Paid CityShop-secured lines can be released as soon as the buyer orders/pays.
+            OrderStatus::Pending,
             OrderStatus::Processing,
             OrderStatus::CallConfirmed,
             OrderStatus::Packed,
@@ -1475,13 +1485,17 @@ class OrderService
     }
 
     /**
-     * Once the seller starts processing a CityShop-secured sale, admin can release funds.
+     * Once a CityShop-secured sale is paid, admin can release funds (even while still "new").
      */
     private function markMarketplaceFundsPendingWhenProcessing(OrderItem $item): void
     {
         $item->loadMissing('order');
 
         if ($item->order?->payment_channel !== PaymentChannel::Marketplace) {
+            return;
+        }
+
+        if ($item->order?->payment_status !== PaymentStatus::Paid) {
             return;
         }
 
@@ -1506,7 +1520,7 @@ class OrderService
 
         $isCod = $item->order?->payment_method === 'cash';
 
-        $flow = $isCod
+        $forward = $isCod
             ? [
                 OrderStatus::Pending->value => [OrderStatus::Processing],
                 OrderStatus::Processing->value => [OrderStatus::CallConfirmed],
@@ -1523,8 +1537,25 @@ class OrderService
                 OrderStatus::Shipped->value => [OrderStatus::AwaitingConfirmation],
             ];
 
+        // Sellers can also step one stage back if they advanced by mistake.
+        $backward = $isCod
+            ? [
+                OrderStatus::Processing->value => [OrderStatus::Pending],
+                OrderStatus::CallConfirmed->value => [OrderStatus::Processing],
+                OrderStatus::Packed->value => [OrderStatus::CallConfirmed],
+                OrderStatus::Shipped->value => [OrderStatus::Packed],
+                OrderStatus::Delivered->value => [OrderStatus::Shipped],
+            ]
+            : [
+                OrderStatus::Processing->value => [OrderStatus::Pending],
+                OrderStatus::Packed->value => [OrderStatus::Processing],
+                OrderStatus::CallConfirmed->value => [OrderStatus::Processing],
+                OrderStatus::Shipped->value => [OrderStatus::Packed],
+                OrderStatus::AwaitingConfirmation->value => [OrderStatus::Shipped],
+            ];
+
         $current = $item->status->value;
-        $allowed = $flow[$current] ?? [];
+        $allowed = array_merge($forward[$current] ?? [], $backward[$current] ?? []);
 
         if (! in_array($next, $allowed, true)) {
             throw new \RuntimeException("Cannot change status from {$current} to {$next->value}.");

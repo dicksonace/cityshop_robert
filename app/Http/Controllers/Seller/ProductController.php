@@ -148,6 +148,10 @@ class ProductController extends Controller
             }
         });
 
+        if ($product && filled($product->video_path)) {
+            ProductVideoService::scheduleProductWebCompat($product);
+        }
+
         return redirect()->route('seller.products.index')
             ->with('success', 'Product published successfully. It is now live in the shop.');
     }
@@ -238,6 +242,10 @@ class ProductController extends Controller
             'rejection_reason' => null,
             ...$videoUpdates,
         ]);
+
+        if (array_key_exists('video_path', $videoUpdates) && filled($product->fresh()->video_path)) {
+            ProductVideoService::scheduleProductWebCompat($product->fresh());
+        }
 
         $message = $nextStatus === ProductStatus::Approved
             ? 'Product updated successfully. It is live in the shop.'
@@ -528,9 +536,6 @@ class ProductController extends Controller
     {
         if ($request->hasFile('video')) {
             try {
-                if (function_exists('set_time_limit')) {
-                    @set_time_limit(90);
-                }
                 $newPath = ProductVideoService::storeUploaded($request->file('video'));
             } catch (\Throwable $e) {
                 report($e);

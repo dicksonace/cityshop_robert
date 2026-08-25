@@ -138,6 +138,10 @@ class ProductController extends Controller
             }
         });
 
+        if ($product && filled($product->video_path)) {
+            ProductVideoService::scheduleProductWebCompat($product);
+        }
+
         $product->load(['images', 'category'])->loadCount('reviews');
 
         return response()->json([
@@ -399,9 +403,6 @@ class ProductController extends Controller
         ]);
 
         try {
-            if (function_exists('set_time_limit')) {
-                @set_time_limit(90);
-            }
             $newPath = ProductVideoService::storeUploaded($request->file('video'));
         } catch (\Throwable $e) {
             report($e);
@@ -420,6 +421,9 @@ class ProductController extends Controller
         if ($oldPath && $oldPath !== $newPath) {
             Storage::disk('public')->delete($oldPath);
         }
+
+        ProductVideoService::scheduleProductWebCompat($product->fresh());
+
         $product->load(['images', 'category'])->loadCount('reviews');
 
         return response()->json([

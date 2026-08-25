@@ -34,6 +34,31 @@ class TopUpController extends Controller
         ]);
     }
 
+    public function updateAmount(Request $request, WalletTopUpRequest $topUp): JsonResponse
+    {
+        if ($topUp->status !== WalletTopUpStatus::Pending) {
+            return response()->json(['message' => 'Only pending deposits can be edited.'], 422);
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:1', 'max:500000'],
+        ]);
+
+        $old = (float) $topUp->amount;
+        $new = round((float) $validated['amount'], 2);
+
+        $topUp->update([
+            'amount' => $new,
+            'admin_notes' => trim(($topUp->admin_notes ? $topUp->admin_notes."\n" : '').'Amount edited from GH₵'
+                .number_format($old, 2).' to GH₵'.number_format($new, 2).' by admin.'),
+        ]);
+
+        return response()->json([
+            'message' => 'Deposit amount updated to GH₵'.number_format($new, 2).'.',
+            'data' => $this->serialize($topUp->fresh('user')),
+        ]);
+    }
+
     public function approve(Request $request, WalletTopUpRequest $topUp): JsonResponse
     {
         if ($topUp->status !== WalletTopUpStatus::Pending) {
@@ -129,11 +154,15 @@ class TopUpController extends Controller
             'sender_number' => $item->sender_number,
             'network' => $item->network,
             'proof_url' => $item->proof_path ? Storage::disk('public')->url($item->proof_path) : null,
+            'user_note' => $item->user_note,
+            'admin_notes' => $item->admin_notes,
             'status' => $item->status?->value ?? (string) $item->status,
             'created_at' => $item->created_at?->toIso8601String(),
+            'reviewed_at' => $item->reviewed_at?->toIso8601String(),
             'user' => $item->user ? [
                 'id' => $item->user->id,
                 'name' => $item->user->name,
+                'email' => $item->user->email,
                 'mobile' => $item->user->mobile,
                 'role' => $item->user->role?->value,
             ] : null,

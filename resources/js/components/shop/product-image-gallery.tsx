@@ -210,10 +210,18 @@ export default function ProductImageGallery({
                                 {posterUrl ? (
                                     <img src={posterUrl} alt="" className="mb-2 max-h-[55%] max-w-full rounded-lg object-contain opacity-90" />
                                 ) : null}
-                                <p className="text-sm font-semibold">This video can’t play in this browser</p>
+                                <p className="text-sm font-semibold">This video can’t play in Chrome yet</p>
                                 <p className="text-xs text-white/80">
-                                    Try your phone browser or Safari. Desktop Chrome often can’t play phone-recorded clips until they’re converted.
+                                    Phone-recorded clips need a quick server conversion for PC. The CityShop app plays them fine — hard-refresh after conversion, or open on your phone.
                                 </p>
+                                <a
+                                    href={productVideoUrl(active.path)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-1 text-xs font-semibold text-orange-300 underline underline-offset-2 hover:text-orange-200"
+                                >
+                                    Open video file
+                                </a>
                             </div>
                         )}
                         <span className="absolute left-3 top-3 z-[1] inline-flex items-center gap-1 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white">

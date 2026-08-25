@@ -89,8 +89,8 @@ export default function PendingFundsIndex({ items, status, counts }: Props) {
             <div className="mb-4">
                 <h1 className="text-lg font-bold text-gray-900">Pending fund releases</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    After the seller starts processing a CityShop-secured order, release earnings to Available{' '}
-                    <strong>anytime</strong> — even under 24 hours, with no wait for buyer confirm. If you have not
+                    As soon as a buyer pays a CityShop-secured order, release earnings to Available{' '}
+                    <strong>anytime</strong> — no 24-hour wait, and no need to wait for delivery confirm. If you have not
                     released yet, the buyer’s Confirm delivery also releases funds once. If you release first, the buyer
                     still confirms to complete the order — funds are not released twice.
                 </p>

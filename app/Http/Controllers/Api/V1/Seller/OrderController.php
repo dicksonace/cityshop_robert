@@ -106,7 +106,7 @@ class OrderController extends Controller
         abort_unless($orderItem->seller_id === $request->user()->id, 403);
 
         $validated = $request->validate([
-            'status' => ['nullable', 'in:processing,call_confirmed,packed,shipped,awaiting_confirmation,delivered'],
+            'status' => ['nullable', 'in:pending,processing,call_confirmed,packed,shipped,awaiting_confirmation,delivered'],
             'vehicle_number' => ['nullable', 'string', 'max:50'],
             'driver_phone' => ['nullable', 'string', 'max:30'],
             'package_image' => ['nullable', 'image', 'max:5120'],
@@ -330,6 +330,7 @@ class OrderController extends Controller
     {
         $order = $orderItem->order;
         $nextActions = $this->nextActions($orderItem);
+        $previousAction = $this->previousAction($orderItem);
         $canCancel = in_array(
             $orderItem->status->value,
             OrderCancellation::sellerCancellableStatuses(),
@@ -359,6 +360,7 @@ class OrderController extends Controller
             'driver_phone' => $orderItem->driver_phone,
             'package_image' => $this->publicUrl($orderItem->package_image),
             'next_actions' => $nextActions,
+            'previous_action' => $previousAction,
             'can_cancel' => $canCancel,
             'cancellation_reasons' => collect(OrderCancellation::reasons())
                 ->map(fn ($label, $code) => ['code' => $code, 'label' => $label])
@@ -406,7 +408,7 @@ class OrderController extends Controller
     }
 
     /**
-     * @return list<array{status: string, label: string}>
+     * @return list<array{status: string, label: string, needs_delivery_details?: bool}>
      */
     private function nextActions(OrderItem $item): array
     {
@@ -429,20 +431,55 @@ class OrderController extends Controller
             return [];
         }
 
-        $labels = [
+        return [[
+            'status' => $next->value,
+            'label' => $this->statusActionLabel($next->value),
+            'needs_delivery_details' => $next === OrderStatus::Shipped,
+        ]];
+    }
+
+    /**
+     * @return array{status: string, label: string}|null
+     */
+    private function previousAction(OrderItem $item): ?array
+    {
+        $item->loadMissing('order');
+        $isCod = $item->order?->payment_method === 'cash';
+        $current = $item->status;
+
+        $previous = match (true) {
+            $current === OrderStatus::Processing => OrderStatus::Pending,
+            $current === OrderStatus::CallConfirmed => OrderStatus::Processing,
+            $current === OrderStatus::Packed && $isCod => OrderStatus::CallConfirmed,
+            $current === OrderStatus::Packed => OrderStatus::Processing,
+            $current === OrderStatus::Shipped => OrderStatus::Packed,
+            $current === OrderStatus::AwaitingConfirmation => OrderStatus::Shipped,
+            $current === OrderStatus::Delivered && $isCod => OrderStatus::Shipped,
+            default => null,
+        };
+
+        if (! $previous) {
+            return null;
+        }
+
+        return [
+            'status' => $previous->value,
+            'label' => 'Back to '.$this->statusActionLabel($previous->value),
+        ];
+    }
+
+    private function statusActionLabel(string $status): string
+    {
+        return match ($status) {
+            'pending' => 'New / pending',
             'processing' => 'Start processing',
             'call_confirmed' => 'Confirm call with buyer',
-            'packed' => 'Mark packed',
+            'packed' => 'Mark as packing',
             'shipped' => 'Out for delivery',
             'awaiting_confirmation' => 'Mark as delivered',
             'delivered' => 'Mark delivered',
-        ];
-
-        return [[
-            'status' => $next->value,
-            'label' => $labels[$next->value] ?? $next->value,
-            'needs_delivery_details' => $next === OrderStatus::Shipped,
-        ]];
+            default => $status,
+        };
     }
 
     private function statusToStage(?OrderStatus $status): string

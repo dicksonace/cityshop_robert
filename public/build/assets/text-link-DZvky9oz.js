@@ -1,0 +1,1 @@
+import{j as o,$ as t,k as a}from"./app-Dn2HD_3S.js";function i({className:e="",children:r,...n}){return o.jsx(t,{className:a("text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500",e),...n,children:r})}export{i as T};

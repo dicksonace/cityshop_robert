@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Product;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Log;
@@ -12,34 +13,66 @@ use Throwable;
 
 /**
  * Product gallery videos must play on desktop Chrome/Edge/Firefox.
- * Phone uploads are often HEVC (hvc1); Safari plays them, PC browsers show a black frame.
+ * Phone uploads are often HEVC (hvc1); Safari/app play them, PC Chrome shows a black frame.
  *
- * Transcode is best-effort: never throw out of the HTTP request (shared hosts often
- * kill long ffmpeg runs → generic "Server Error" for some phone clips only).
+ * Upload only stores the file (fast). Conversion runs after the HTTP response so
+ * shared hosts do not kill the request mid-ffmpeg.
  */
 class ProductVideoService
 {
     /**
-     * Store an uploaded product video and re-encode to H.264 when needed/possible.
+     * Store an uploaded product video. Conversion is scheduled separately.
      */
     public static function storeUploaded(UploadedFile $file, string $directory = 'products/videos'): string
     {
-        if (function_exists('set_time_limit')) {
-            @set_time_limit(90);
+        return $file->store($directory, 'public');
+    }
+
+    /**
+     * After the response is sent, re-encode the product video for PC browsers when needed.
+     */
+    public static function scheduleProductWebCompat(Product $product): void
+    {
+        $path = (string) ($product->video_path ?? '');
+        if ($path === '') {
+            return;
         }
 
-        $path = $file->store($directory, 'public');
+        $productId = (int) $product->id;
 
-        try {
-            return static::ensureWebCompatible($path)['path'] ?? $path;
-        } catch (Throwable $e) {
-            Log::warning('Product video post-process threw; keeping original upload.', [
-                'path' => $path,
-                'error' => $e->getMessage(),
-            ]);
+        app()->terminating(function () use ($productId, $path) {
+            if (function_exists('ignore_user_abort')) {
+                ignore_user_abort(true);
+            }
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(240);
+            }
 
-            return $path;
-        }
+            try {
+                $product = Product::query()->find($productId);
+                if (! $product || (string) $product->video_path !== $path) {
+                    return;
+                }
+
+                $result = static::ensureWebCompatible($path);
+                $newPath = $result['path'] ?? $path;
+                if (($result['ok'] ?? false) && is_string($newPath) && $newPath !== '' && $newPath !== $path) {
+                    $product->update(['video_path' => $newPath]);
+                } elseif (! ($result['ok'] ?? false)) {
+                    Log::warning('Deferred product video transcode did not finish.', [
+                        'product_id' => $productId,
+                        'path' => $path,
+                        'reason' => $result['reason'] ?? null,
+                    ]);
+                }
+            } catch (Throwable $e) {
+                Log::warning('Deferred product video transcode threw.', [
+                    'product_id' => $productId,
+                    'path' => $path,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        });
     }
 
     /**
@@ -77,7 +110,7 @@ class ProductVideoService
         $outAbsolute = $disk->path($outRelative);
 
         try {
-            $result = Process::timeout(45)->run([
+            $result = Process::timeout(180)->run([
                 $ffmpeg,
                 '-y',
                 '-i', $absolute,
@@ -156,7 +189,7 @@ class ProductVideoService
         $disk,
     ): ?array {
         try {
-            $result = Process::timeout(40)->run([
+            $result = Process::timeout(180)->run([
                 $ffmpeg,
                 '-y',
                 '-i', $absolute,

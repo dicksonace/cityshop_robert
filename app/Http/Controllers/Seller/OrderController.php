@@ -143,7 +143,7 @@ class OrderController extends Controller
         abort_unless($orderItem->seller_id === $request->user()->id, 403);
 
         $validated = $request->validate([
-            'status' => ['nullable', 'in:processing,call_confirmed,packed,shipped,awaiting_confirmation,delivered'],
+            'status' => ['nullable', 'in:pending,processing,call_confirmed,packed,shipped,awaiting_confirmation,delivered'],
             'vehicle_number' => ['nullable', 'string', 'max:50'],
             'driver_phone' => ['nullable', 'string', 'max:30'],
             'package_image' => ['nullable', 'image', 'max:5120'],
@@ -169,6 +169,8 @@ class OrderController extends Controller
         $previousStatus = $orderItem->status->value;
         $requestedStatus = $validated['status'] ?? null;
         $statusChanging = is_string($requestedStatus) && $requestedStatus !== '' && $requestedStatus !== $previousStatus;
+        $orderItem->loadMissing('order');
+        $isCod = $orderItem->order?->payment_method === 'cash';
 
         try {
             $this->orderService->updateOrderItemStatus($orderItem, $validated);
@@ -183,10 +185,22 @@ class OrderController extends Controller
         }
 
         $nextStage = $this->statusToStage(OrderStatus::from($requestedStatus));
+        $movedBack = $this->isBackwardMove($previousStatus, $requestedStatus, $isCod);
 
         return redirect()
             ->route('seller.orders.stage', $nextStage)
-            ->with('success', 'Order moved to the next stage.');
+            ->with('success', $movedBack ? 'Order moved back to the previous stage.' : 'Order moved to the next stage.');
+    }
+
+    private function isBackwardMove(string $from, string $to, bool $isCod): bool
+    {
+        $flow = $isCod
+            ? ['pending', 'processing', 'call_confirmed', 'packed', 'shipped', 'delivered']
+            : ['pending', 'processing', 'packed', 'shipped', 'awaiting_confirmation'];
+        $fromIdx = array_search($from, $flow, true);
+        $toIdx = array_search($to, $flow, true);
+
+        return $fromIdx !== false && $toIdx !== false && $toIdx < $fromIdx;
     }
 
     public function reject(Request $request, OrderItem $orderItem): RedirectResponse

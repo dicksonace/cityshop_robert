@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Check, ChevronRight, Download, LoaderCircle, Printer } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Download, LoaderCircle, Printer } from 'lucide-react';
 import { FormEventHandler, useEffect, useRef, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -77,6 +77,23 @@ function nextSellerStatus(current: string, isCod: boolean): string | null {
     return flow[idx + 1].status;
 }
 
+function previousSellerStatus(current: string, isCod: boolean): string | null {
+    if (current === 'pending') return null;
+    if (!isCod && current === 'call_confirmed') return 'processing';
+    const flow = isCod
+        ? ['pending', 'processing', 'call_confirmed', 'packed', 'shipped', 'delivered']
+        : ['pending', 'processing', 'packed', 'shipped', 'awaiting_confirmation'];
+    const idx = flow.indexOf(current);
+    return idx > 0 ? flow[idx - 1] : null;
+}
+
+function sellerStatusLabel(status: string, isCod: boolean): string {
+    const fromFlow = (isCod ? codSellerFlow : paidSellerFlow).find((s) => s.status === status)?.label;
+    if (fromFlow) return fromFlow;
+    if (status === 'pending') return 'New / pending';
+    return status.replaceAll('_', ' ');
+}
+
 export default function SellerOrderShow({
     orderItem,
     backStage = 'new',
@@ -133,7 +150,9 @@ export default function SellerOrderShow({
     const isCod = order.payment_method === 'cash';
     const sellerFlow = isCod ? codSellerFlow : paidSellerFlow;
     const next = nextSellerStatus(itemStatus, isCod);
-    const isTerminal = isCod
+    const previous = previousSellerStatus(itemStatus, isCod);
+    const isTerminal = ['cancelled', 'refunded'].includes(itemStatus);
+    const nextBlocked = isCod
         ? ['cancelled', 'delivered', 'refunded'].includes(itemStatus)
         : ['cancelled', 'delivered', 'refunded', 'awaiting_confirmation'].includes(itemStatus);
     const needsDeliveryDetails = next === 'shipped';
@@ -153,15 +172,13 @@ export default function SellerOrderShow({
         });
     };
 
-    const advanceStatus = () => {
-        if (!next || advancing) return;
-
+    const postStatus = (status: string, withDeliveryFiles = false) => {
         form.clearErrors();
+        setAdvancing(true);
 
-        if (next === 'shipped') {
-            setAdvancing(true);
+        if (withDeliveryFiles) {
             form.transform((data) => ({
-                status: 'shipped',
+                status,
                 vehicle_number: form.data.vehicle_number.trim(),
                 driver_phone: form.data.driver_phone.trim(),
                 package_image: data.package_image,
@@ -177,11 +194,10 @@ export default function SellerOrderShow({
             return;
         }
 
-        setAdvancing(true);
         router.post(
             route('seller.orders.update', orderItem.id),
             {
-                status: next,
+                status,
                 vehicle_number: form.data.vehicle_number.trim(),
                 driver_phone: form.data.driver_phone.trim(),
             },
@@ -195,6 +211,16 @@ export default function SellerOrderShow({
                 onFinish: () => setAdvancing(false),
             },
         );
+    };
+
+    const advanceStatus = () => {
+        if (!next || advancing) return;
+        postStatus(next, next === 'shipped');
+    };
+
+    const moveBackStatus = () => {
+        if (!previous || advancing) return;
+        postStatus(previous);
     };
 
     const currentStep = sellerFlow.find((s) => s.status === itemStatus);
@@ -367,7 +393,7 @@ export default function SellerOrderShow({
                             <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                                 <p className="font-semibold">Waiting for buyer confirmation</p>
                                 <p className="mt-1 text-blue-700">
-                                    The buyer must confirm receipt to complete the order. Admin can release Pending funds anytime after you start processing — or the buyer’s confirm will release them.
+                                    The buyer must confirm receipt to complete the order. Admin can release Pending funds as soon as the buyer pays — or the buyer’s confirm will release them.
                                 </p>
                             </div>
                         )}
@@ -494,30 +520,58 @@ export default function SellerOrderShow({
                             </div>
                         )}
 
-                        {next && !isTerminal && (
+                        {(previous || (next && !nextBlocked)) && !isTerminal && (
                             <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-                                <p className="text-sm font-medium text-gray-900">
-                                    Next step: {sellerFlow.find((s) => s.status === next)?.label}
-                                </p>
-                                <p className="mt-1 text-xs text-gray-500">
-                                    {needsDeliveryDetails
-                                        ? 'Tap Out for delivery when ready. Driver details are optional if you deliver yourself.'
-                                        : currentStep?.hint}
-                                </p>
-                                <Button
-                                    type="button"
-                                    className="mt-3 w-full bg-orange-500 hover:bg-orange-600 sm:w-auto"
-                                    onClick={advanceStatus}
-                                    disabled={advancing}
-                                >
-                                    {advancing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                    {sellerFlow.find((s) => s.status === next)?.label}
-                                    <ChevronRight className="ml-1 h-4 w-4" />
-                                </Button>
+                                {next && !nextBlocked ? (
+                                    <>
+                                        <p className="text-sm font-medium text-gray-900">
+                                            Next step: {sellerFlow.find((s) => s.status === next)?.label}
+                                        </p>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            {needsDeliveryDetails
+                                                ? 'Tap Out for delivery when ready. Driver details are optional if you deliver yourself.'
+                                                : currentStep?.hint}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-sm font-medium text-gray-900">Move stage</p>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            Step one stage back if you advanced by mistake.
+                                        </p>
+                                    </>
+                                )}
+                                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                                    {previous && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="w-full border-gray-300 sm:w-auto"
+                                            onClick={moveBackStatus}
+                                            disabled={advancing}
+                                        >
+                                            <ChevronLeft className="mr-1 h-4 w-4" />
+                                            {advancing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                            Back to {sellerStatusLabel(previous, isCod)}
+                                        </Button>
+                                    )}
+                                    {next && !nextBlocked && (
+                                        <Button
+                                            type="button"
+                                            className="w-full bg-orange-500 hover:bg-orange-600 sm:w-auto"
+                                            onClick={advanceStatus}
+                                            disabled={advancing}
+                                        >
+                                            {advancing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                            {sellerFlow.find((s) => s.status === next)?.label}
+                                            <ChevronRight className="ml-1 h-4 w-4" />
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         )}
 
-                        {canCancel && !isTerminal && (
+                        {canCancel && !nextBlocked && (
                             <div ref={cancelSectionRef} className="mt-4 rounded-xl border border-red-100 bg-white p-4">
                                 {!showCancel ? (
                                     <>
