@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ChevronRight, Download, LoaderCircle, Printer } from 'lucide-react';
+import { Check, ChevronRight, Download, LoaderCircle, Printer } from 'lucide-react';
 import { FormEventHandler, useEffect, useRef, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -329,22 +329,35 @@ export default function SellerOrderShow({
                         <div className="mt-4 space-y-2">
                             {sellerFlow.map((step, i) => {
                                 const stepIdx = sellerFlow.findIndex((s) => s.status === itemStatus);
-                                const done = stepIdx > i || itemStatus === 'delivered';
-                                const active = step.status === itemStatus;
+                                // Reaching a status means that step is complete (e.g. Current: processing → Start processing ✓).
+                                const done =
+                                    itemStatus === 'delivered' ||
+                                    (stepIdx >= 0 && stepIdx >= i);
+                                const isNext = stepIdx >= 0 && i === stepIdx + 1 && !isTerminal;
 
                                 return (
                                     <div
                                         key={step.status}
-                                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${
-                                            active ? 'bg-orange-50 text-orange-800' : done ? 'text-green-700' : 'text-gray-400'
+                                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${
+                                            done
+                                                ? 'font-semibold text-gray-900'
+                                                : isNext
+                                                  ? 'font-medium text-gray-700'
+                                                  : 'text-gray-400'
                                         }`}
                                     >
-                                        <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                                            done ? 'bg-green-500 text-white' : active ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'
-                                        }`}>
-                                            {i + 1}
-                                        </span>
-                                        <span className="font-medium">{step.label}</span>
+                                        {done ? (
+                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500 text-white">
+                                                <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                                            </span>
+                                        ) : (
+                                            <span
+                                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${
+                                                    isNext ? 'border-orange-400 bg-orange-50' : 'border-gray-300 bg-white'
+                                                }`}
+                                            />
+                                        )}
+                                        <span>{step.label}</span>
                                     </div>
                                 );
                             })}
