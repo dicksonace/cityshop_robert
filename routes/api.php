@@ -221,7 +221,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
 
             Route::get('/top-ups', [AdminTopUpController::class, 'index']);
-            Route::patch('/top-ups/{topUp}/amount', [AdminTopUpController::class, 'updateAmount']);
+            Route::post('/top-ups/{topUp}/amount', [AdminTopUpController::class, 'updateAmount']);
             Route::post('/top-ups/{topUp}/approve', [AdminTopUpController::class, 'approve']);
             Route::post('/top-ups/{topUp}/reject', [AdminTopUpController::class, 'reject']);
 

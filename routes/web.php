@@ -383,7 +383,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/manual-top-ups', [AdminManualTopUpController::class, 'index'])->name('manual-top-ups.index');
     Route::post('/manual-top-ups/{topUp}/approve', [AdminManualTopUpController::class, 'approve'])->name('manual-top-ups.approve');
     Route::post('/manual-top-ups/{topUp}/reject', [AdminManualTopUpController::class, 'reject'])->name('manual-top-ups.reject');
-    Route::patch('/manual-top-ups/{topUp}/amount', [AdminManualTopUpController::class, 'updateAmount'])->name('manual-top-ups.amount');
+    Route::post('/manual-top-ups/{topUp}/amount', [AdminManualTopUpController::class, 'updateAmount'])->name('manual-top-ups.amount');
 
     Route::get('/pending-funds', [AdminPendingFundController::class, 'index'])->name('pending-funds.index');
     Route::post('/pending-funds/{orderItem}/approve', [AdminPendingFundController::class, 'approve'])->name('pending-funds.approve');

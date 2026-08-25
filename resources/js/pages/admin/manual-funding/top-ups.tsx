@@ -87,13 +87,30 @@ export default function ManualTopUps({ requests, status, search = '', pendingTot
 
     const saveAmount = () => {
         if (!detail) return;
+        const next = Number(editAmount);
+        if (!Number.isFinite(next) || next < 1) {
+            window.alert('Enter a valid amount (minimum GH₵1).');
+            return;
+        }
         setBusyId(detail.id);
-        router.patch(
+        // POST (not PATCH) — some hosts block PATCH and the Edit button appears broken.
+        router.post(
             route('admin.manual-top-ups.amount', detail.id),
-            { amount: editAmount },
+            { amount: next },
             {
+                preserveScroll: true,
                 onFinish: () => setBusyId(null),
-                onSuccess: () => setDetail((d) => (d ? { ...d, amount: Number(editAmount) } : d)),
+                onSuccess: () => {
+                    setDetail((d) => (d ? { ...d, amount: next } : d));
+                    setEditAmount(String(next));
+                },
+                onError: (errors) => {
+                    const msg =
+                        (errors as Record<string, string>).amount ||
+                        (errors as Record<string, string>).message ||
+                        'Could not update amount.';
+                    window.alert(msg);
+                },
             },
         );
     };
@@ -320,7 +337,7 @@ export default function ManualTopUps({ requests, status, search = '', pendingTot
                                     />
                                     <Button type="button" size="sm" variant="outline" disabled={busyId === detail.id} onClick={saveAmount}>
                                         <Pencil className="mr-1 h-3.5 w-3.5" />
-                                        Edit
+                                        {busyId === detail.id ? 'Saving…' : 'Save'}
                                     </Button>
                                 </div>
                             )}
