@@ -189,6 +189,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/status', [\App\Http\Controllers\Chat\StatusController::class, 'index'])->name('chat.status.index');
     Route::post('/status', [\App\Http\Controllers\Chat\StatusController::class, 'store'])->name('chat.status.store');
     Route::post('/status/{status}/view', [\App\Http\Controllers\Chat\StatusController::class, 'view'])->name('chat.status.view');
+    Route::get('/status/{status}/views', [\App\Http\Controllers\Chat\StatusController::class, 'views'])->name('chat.status.views');
     Route::delete('/status/{status}', [\App\Http\Controllers\Chat\StatusController::class, 'destroy'])->name('chat.status.destroy');
     Route::post('/messages/{conversation}/signal', [ChatMessageController::class, 'signal'])->name('chat.signal');
 

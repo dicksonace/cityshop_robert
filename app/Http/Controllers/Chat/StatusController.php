@@ -46,6 +46,13 @@ class StatusController extends Controller
         ]);
     }
 
+    public function views(Request $request, UserStatus $status): JsonResponse
+    {
+        return response()->json([
+            'data' => StatusService::views($status, $request->user()),
+        ]);
+    }
+
     public function destroy(Request $request, UserStatus $status): JsonResponse
     {
         StatusService::destroy($status, $request->user());

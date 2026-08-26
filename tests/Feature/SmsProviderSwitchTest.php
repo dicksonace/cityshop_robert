@@ -92,6 +92,7 @@ class SmsProviderSwitchTest extends TestCase
             'services.sms.formula_dc_api_key' => 'formula-key',
             'services.sms.txtconnect_api_key' => 'txt-test-key',
             'services.sms.txtconnect_sender' => 'CityShop',
+            'services.sms.txtconnect_base_url' => 'https://api.txtconnect.net/dev/api',
         ]);
         PlatformSettings::saveSmsSettings([
             'driver' => 'formula_dc',
@@ -111,5 +112,36 @@ class SmsProviderSwitchTest extends TestCase
         $this->assertTrue($ok);
         Http::assertSent(fn ($request) => str_contains($request->url(), 'formula-dc.com'));
         Http::assertSent(fn ($request) => str_contains($request->url(), 'txtconnect.net'));
+    }
+
+    public function test_security_reset_sms_does_not_failover_when_primary_fails(): void
+    {
+        config([
+            'services.sms.formula_dc_api_key' => 'formula-key',
+            'services.sms.txtconnect_api_key' => 'txt-test-key',
+            'services.sms.txtconnect_sender' => 'CityShop',
+        ]);
+        PlatformSettings::saveSmsSettings([
+            'driver' => 'txtconnect',
+            'failover' => true,
+        ]);
+
+        Http::fake([
+            'https://api.txtconnect.net/*' => Http::response([
+                'data' => ['status_code' => '999', 'in_error' => true, 'reason' => 'Sender pending'],
+            ], 422),
+            'https://api.formula-dc.com/*' => Http::response(['success' => true, 'data' => ['message_id' => 'x']], 200),
+        ]);
+
+        $user = \App\Models\User::factory()->create([
+            'mobile' => '0532700209',
+            'email' => 'buyer@example.com',
+        ]);
+        $user->forceFill(['payment_pin' => bcrypt('1234')])->save();
+
+        \App\Services\PaymentPinService::sendResetCode($user, 'sms');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'txtconnect.net'));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'formula-dc.com'));
     }
 }

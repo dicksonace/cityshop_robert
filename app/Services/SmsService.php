@@ -7,15 +7,15 @@ use Illuminate\Support\Facades\Log;
 
 class SmsService
 {
-    public function send(?string $phone, string $message): bool
+    public function send(?string $phone, string $message, bool $allowFailover = true): bool
     {
-        return (bool) ($this->sendDetailed($phone, $message)['ok'] ?? false);
+        return (bool) ($this->sendDetailed($phone, $message, $allowFailover)['ok'] ?? false);
     }
 
     /**
      * @return array{ok: bool, selected: string, delivered_via: string|null, failover_used: bool, error: string|null}
      */
-    public function sendDetailed(?string $phone, string $message): array
+    public function sendDetailed(?string $phone, string $message, bool $allowFailover = true): array
     {
         $selected = PlatformSettings::smsDriver();
 
@@ -58,7 +58,7 @@ class SmsService
             ];
         }
 
-        if (PlatformSettings::smsFailoverEnabled()) {
+        if (PlatformSettings::smsFailoverEnabled() && $allowFailover) {
             $fallback = $selected === 'txtconnect' ? 'formula_dc' : 'txtconnect';
             Log::warning('SMS primary provider failed, trying failover.', [
                 'phone' => $msisdn,
@@ -223,25 +223,46 @@ class SmsService
         }
 
         $body = $response->json();
-        $inError = is_array($body) ? (bool) data_get($body, 'data.in_error', false) : true;
-        $statusCode = is_array($body) ? (string) data_get($body, 'data.status_code', '') : '';
-
-        if (! $response->successful() || $inError || ($statusCode !== '' && $statusCode !== '000')) {
-            Log::error('TxtConnect SMS send failed', [
+        if ($this->txtConnectSucceeded($response->status(), $body)) {
+            Log::info('TxtConnect SMS sent', [
                 'phone' => $msisdn,
-                'status' => $response->status(),
-                'body' => $body ?? $response->body(),
+                'message_id' => data_get($body, 'messageId') ?? data_get($body, 'data.message_id'),
             ]);
 
+            return true;
+        }
+
+        Log::error('TxtConnect SMS send failed', [
+            'phone' => $msisdn,
+            'status' => $response->status(),
+            'body' => $body ?? $response->body(),
+        ]);
+
+        return false;
+    }
+
+    private function txtConnectSucceeded(int $httpStatus, mixed $body): bool
+    {
+        if ($httpStatus < 200 || $httpStatus >= 300 || ! is_array($body)) {
             return false;
         }
 
-        Log::info('TxtConnect SMS sent', [
-            'phone' => $msisdn,
-            'message_id' => data_get($body, 'messageId'),
-        ]);
+        if (data_get($body, 'data.in_error') === true) {
+            return false;
+        }
 
-        return true;
+        $statusCode = (string) data_get($body, 'data.status_code', '');
+        if ($statusCode !== '' && $statusCode !== '000') {
+            return false;
+        }
+
+        if (filled(data_get($body, 'messageId')) || filled(data_get($body, 'data.message_id'))) {
+            return true;
+        }
+
+        $message = strtolower((string) (data_get($body, 'msg') ?? data_get($body, 'data.message') ?? ''));
+
+        return str_contains($message, 'successful') || str_contains($message, 'success');
     }
 
     private function sendViaHubtel(string $msisdn, string $message): bool

@@ -216,9 +216,18 @@ class QrPaymentService
                 : Storage::disk('public')->url($avatar);
         }
 
+        $displayName = $user->name;
+        if ($user->isSeller()) {
+            $user->loadMissing('sellerProfile');
+            $storeName = trim((string) ($user->sellerProfile?->store_name ?? ''));
+            if ($storeName !== '') {
+                $displayName = $storeName;
+            }
+        }
+
         return [
             'id' => $user->id,
-            'name' => $user->name,
+            'name' => $displayName,
             'mobile' => $user->mobile,
             'role' => $user->role?->value,
             'avatar' => $avatarUrl,

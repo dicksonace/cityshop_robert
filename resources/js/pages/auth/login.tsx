@@ -60,7 +60,7 @@ export default function Login({ canResetPassword, status, defaultLogin = '' }: L
                                 required
                                 autoFocus
                                 className="mt-1"
-                                placeholder="0241234567 or email@example.com"
+                                placeholder="0241234567 or Email@example.com"
                             />
                         </div>
                         <div>

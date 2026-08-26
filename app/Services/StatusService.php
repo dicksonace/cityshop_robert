@@ -183,6 +183,43 @@ class StatusService
         return static::formatStatus($status, $viewer, viewedIds: [(int) $status->id]);
     }
 
+    /**
+     * @return array{view_count: int, viewers: list<array{id: int, name: string, avatar: ?string, viewed_at: ?string}>}
+     */
+    public static function views(UserStatus $status, User $user): array
+    {
+        abort_if($status->isExpired(), 404, 'This status has expired.');
+        abort_unless((int) $status->user_id === (int) $user->id, 403);
+
+        $views = StatusView::query()
+            ->where('user_status_id', $status->id)
+            ->with(['viewer:id,name,avatar,role,deleted_at'])
+            ->orderByDesc('viewed_at')
+            ->get();
+
+        return [
+            'view_count' => $views->count(),
+            'viewers' => $views->map(function (StatusView $view) {
+                $viewer = $view->viewer;
+                if (! $viewer || $viewer->trashed()) {
+                    return [
+                        'id' => (int) $view->viewer_id,
+                        'name' => 'Deleted account',
+                        'avatar' => null,
+                        'viewed_at' => $view->viewed_at?->toIso8601String(),
+                    ];
+                }
+
+                return [
+                    'id' => $viewer->id,
+                    'name' => $viewer->name ?: 'User',
+                    'avatar' => $viewer->publicAvatarUrl(),
+                    'viewed_at' => $view->viewed_at?->toIso8601String(),
+                ];
+            })->values()->all(),
+        ];
+    }
+
     public static function destroy(UserStatus $status, User $user): void
     {
         abort_unless((int) $status->user_id === (int) $user->id, 403);

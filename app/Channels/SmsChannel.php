@@ -2,6 +2,8 @@
 
 namespace App\Channels;
 
+use App\Notifications\PasswordResetCodeNotification;
+use App\Notifications\PaymentPinResetCodeNotification;
 use App\Services\SmsService;
 use Illuminate\Notifications\Notification;
 
@@ -21,6 +23,11 @@ class SmsChannel
             return;
         }
 
+        // OTP / reset codes must use the admin-selected provider only — no silent
+        // fallback to Formula DC when TxtConnect is selected (and vice versa).
+        $allowFailover = ! ($notification instanceof PaymentPinResetCodeNotification
+            || $notification instanceof PasswordResetCodeNotification);
+
         $phones = method_exists($notification, 'smsRecipients')
             ? $notification->smsRecipients($notifiable)
             : [$notifiable->mobile ?? $notifiable->phone ?? null];
@@ -37,7 +44,7 @@ class SmsChannel
             }
 
             $sent[$msisdn] = true;
-            $this->sms->send($phone, $message);
+            $this->sms->send($phone, $message, $allowFailover);
         }
     }
 }

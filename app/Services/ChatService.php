@@ -1081,6 +1081,29 @@ class ChatService
     }
 
     /**
+     * Admin oversight — keep media URLs even for view-once messages.
+     *
+     * @return array<string, mixed>
+     */
+    public static function formatMessageForAdmin(Message $message): array
+    {
+        $formatted = static::formatMessage($message);
+        if (! empty($message->metadata['view_once']) && empty($message->metadata['deleted_at'])) {
+            $metadata = $message->metadata ?? [];
+            $formatted['image_url'] = static::publicMediaUrl(
+                $metadata['image_url'] ?? null,
+                $metadata['image_path'] ?? null,
+            );
+            $formatted['video_url'] = static::publicMediaUrl(
+                $metadata['video_url'] ?? null,
+                $metadata['video_path'] ?? null,
+            );
+        }
+
+        return $formatted;
+    }
+
+    /**
      * Chat-list / notification copy for wallet transfers.
      * Sender keeps "Transferred GH₵…"; receiver sees "Transferred to you GH₵…".
      */

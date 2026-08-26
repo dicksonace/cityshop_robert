@@ -111,7 +111,7 @@ class ChatOversightController extends Controller
             ->paginate(50)
             ->withQueryString()
             ->through(function (Message $message) {
-                $formatted = ChatService::formatMessage($message);
+                $formatted = ChatService::formatMessageForAdmin($message);
                 $formatted['sender'] = $message->sender ? [
                     'id' => $message->sender->id,
                     'name' => $message->sender->name,

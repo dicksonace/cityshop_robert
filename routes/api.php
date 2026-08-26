@@ -274,9 +274,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/announcements', [AdminAnnouncementController::class, 'sellerIndex']);
             Route::get('/announcements/recipients', [AdminAnnouncementController::class, 'sellerRecipients']);
             Route::post('/announcements', [AdminAnnouncementController::class, 'sellerStore']);
+            Route::delete('/announcements/{announcement}', [AdminAnnouncementController::class, 'sellerDestroy']);
             Route::get('/buyer-announcements', [AdminAnnouncementController::class, 'buyerIndex']);
             Route::get('/buyer-announcements/recipients', [AdminAnnouncementController::class, 'buyerRecipients']);
             Route::post('/buyer-announcements', [AdminAnnouncementController::class, 'buyerStore']);
+            Route::delete('/buyer-announcements/{buyerAnnouncement}', [AdminAnnouncementController::class, 'buyerDestroy']);
 
             Route::get('/transactions', [AdminTransactionController::class, 'index']);
             Route::get('/seller-reports', [AdminSellerReportController::class, 'index']);
@@ -394,6 +396,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/status', [\App\Http\Controllers\Api\V1\StatusController::class, 'index']);
         Route::post('/status', [\App\Http\Controllers\Api\V1\StatusController::class, 'store']);
         Route::post('/status/{status}/view', [\App\Http\Controllers\Api\V1\StatusController::class, 'view']);
+        Route::get('/status/{status}/views', [\App\Http\Controllers\Api\V1\StatusController::class, 'views']);
         Route::delete('/status/{status}', [\App\Http\Controllers\Api\V1\StatusController::class, 'destroy']);
 
         Route::post('/sellers/report', [\App\Http\Controllers\Api\V1\SellerReportController::class, 'store']);

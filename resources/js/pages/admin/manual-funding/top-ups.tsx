@@ -81,7 +81,7 @@ export default function ManualTopUps({ requests, status, search = '', pendingTot
 
     const openDetail = (item: TopUpRequest) => {
         setDetail(item);
-        setEditAmount(String(item.amount));
+        setEditAmount(Number(item.amount).toFixed(2));
         setNotes(item.admin_notes ?? '');
     };
 
@@ -93,7 +93,7 @@ export default function ManualTopUps({ requests, status, search = '', pendingTot
             return;
         }
         setBusyId(detail.id);
-        // POST (not PATCH) — some hosts block PATCH and the Edit button appears broken.
+        // POST (not PATCH) — some hosts block PATCH and Save looks broken.
         router.post(
             route('admin.manual-top-ups.amount', detail.id),
             { amount: next },
@@ -102,7 +102,9 @@ export default function ManualTopUps({ requests, status, search = '', pendingTot
                 onFinish: () => setBusyId(null),
                 onSuccess: () => {
                     setDetail((d) => (d ? { ...d, amount: next } : d));
-                    setEditAmount(String(next));
+                    setEditAmount(next.toFixed(2));
+                    // Refresh list + pending total so the card amount updates too.
+                    router.reload({ only: ['requests', 'pendingTotal', 'counts'] });
                 },
                 onError: (errors) => {
                     const msg =
@@ -323,25 +325,40 @@ export default function ManualTopUps({ requests, status, search = '', pendingTot
                             </button>
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between gap-3">
-                            <p className="text-2xl font-bold text-gray-900">{formatPrice(Number(editAmount) || detail.amount)}</p>
-                            {detail.status === 'pending' && (
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        type="number"
-                                        min="1"
-                                        step="0.01"
-                                        value={editAmount}
-                                        onChange={(e) => setEditAmount(e.target.value)}
-                                        className="h-9 w-28"
-                                    />
-                                    <Button type="button" size="sm" variant="outline" disabled={busyId === detail.id} onClick={saveAmount}>
-                                        <Pencil className="mr-1 h-3.5 w-3.5" />
+                        {detail.status === 'pending' ? (
+                            <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Amount (edit before approve)</p>
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    <div className="relative min-w-[140px] flex-1">
+                                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">
+                                            GH₵
+                                        </span>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            step="0.01"
+                                            value={editAmount}
+                                            onChange={(e) => setEditAmount(e.target.value)}
+                                            className="h-11 bg-white pl-12 text-lg font-bold"
+                                        />
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        className="h-11 bg-violet-600 hover:bg-violet-700"
+                                        disabled={busyId === detail.id}
+                                        onClick={saveAmount}
+                                    >
+                                        <Pencil className="mr-1 h-4 w-4" />
                                         {busyId === detail.id ? 'Saving…' : 'Save'}
                                     </Button>
                                 </div>
-                            )}
-                        </div>
+                                <p className="mt-2 text-xs text-amber-900/80">
+                                    Change the amount, tap Save, then Approve. Approve can also use the amount in this field.
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="mt-4 text-2xl font-bold text-emerald-600">{formatPrice(detail.amount)}</p>
+                        )}
 
                         <dl className="mt-4 space-y-2 text-sm">
                             <div className="flex justify-between gap-3"><dt className="text-gray-500">Name</dt><dd className="font-medium">{detail.user?.name}</dd></div>

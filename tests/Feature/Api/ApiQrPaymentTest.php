@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\UserRole;
+use App\Models\SellerProfile;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\PaymentPinService;
@@ -206,5 +207,27 @@ class ApiQrPaymentTest extends TestCase
         Sanctum::actingAs($user);
         $this->postJson('/api/v1/wallet/qr/resolve', ['payload' => $code['payload']])
             ->assertStatus(422);
+    }
+
+    public function test_seller_receive_code_uses_store_name(): void
+    {
+        $seller = User::factory()->create([
+            'role' => UserRole::Seller,
+            'name' => 'Kofi Amoah',
+        ]);
+        SellerProfile::create([
+            'user_id' => $seller->id,
+            'store_name' => 'Kofi Market Stall',
+            'slug' => 'kofi-market-stall',
+            'status' => 'approved',
+        ]);
+
+        Sanctum::actingAs($seller);
+        $receive = $this->getJson('/api/v1/wallet/qr/receive')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertSame('Kofi Market Stall', $receive['user']['name']);
+        $this->assertSame('seller', $receive['user']['role']);
     }
 }

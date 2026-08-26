@@ -24,8 +24,19 @@ class PlatformSettings
     {
         return Cache::remember("platform_setting.{$key}", 3600, function () use ($key, $default) {
             $setting = PlatformSetting::where('key', $key)->first();
+            $value = $setting?->value ?? $default;
 
-            return $setting?->value ?? $default;
+            if (is_string($value)) {
+                $trimmed = trim($value);
+                if ($trimmed !== '' && ($trimmed[0] === '{' || $trimmed[0] === '[')) {
+                    $decoded = json_decode($trimmed, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        return $decoded;
+                    }
+                }
+            }
+
+            return $value;
         });
     }
 
@@ -783,11 +794,10 @@ class PlatformSettings
             ? $raw
             : (is_string($raw) ? json_decode($raw, true) : null);
 
-        $envDriver = (string) config('services.sms.driver', 'formula_dc');
-        $driver = is_array($decoded) ? (string) ($decoded['driver'] ?? $envDriver) : $envDriver;
-        if (! in_array($driver, ['formula_dc', 'txtconnect'], true)) {
-            $driver = 'formula_dc';
-        }
+        $envDriver = static::normalizeSmsDriver((string) config('services.sms.driver', 'formula_dc'));
+        $driver = is_array($decoded)
+            ? static::normalizeSmsDriver((string) ($decoded['driver'] ?? $envDriver))
+            : $envDriver;
 
         return [
             'driver' => $driver,
@@ -804,16 +814,15 @@ class PlatformSettings
      */
     public static function saveSmsSettings(array $data): void
     {
-        $driver = (string) ($data['driver'] ?? 'formula_dc');
-        if (! in_array($driver, ['formula_dc', 'txtconnect'], true)) {
-            $driver = 'formula_dc';
-        }
-
+        $driver = static::normalizeSmsDriver((string) ($data['driver'] ?? 'formula_dc'));
         $current = static::smsSettings();
+        $failover = array_key_exists('failover', $data)
+            ? (bool) $data['failover']
+            : ($driver === 'txtconnect' ? false : $current['failover']);
 
         static::set(self::SMS_KEY, [
             'driver' => $driver,
-            'failover' => (bool) ($data['failover'] ?? false),
+            'failover' => $failover,
             'alert_mobile_1' => array_key_exists('alert_mobile_1', $data)
                 ? trim((string) $data['alert_mobile_1'])
                 : $current['alert_mobile_1'],
@@ -850,5 +859,16 @@ class PlatformSettings
     public static function smsFailoverEnabled(): bool
     {
         return static::smsSettings()['failover'];
+    }
+
+    private static function normalizeSmsDriver(string $driver): string
+    {
+        $driver = strtolower(trim($driver));
+
+        return match ($driver) {
+            'txtconnect', 'txt_connect', 'txt-connect' => 'txtconnect',
+            'formula_dc', 'formula', 'formula-dc' => 'formula_dc',
+            default => 'formula_dc',
+        };
     }
 }

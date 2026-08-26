@@ -137,6 +137,20 @@ class AnnouncementController extends Controller
         return response()->json(['message' => 'Message sent to buyers.'], 201);
     }
 
+    public function sellerDestroy(AdminAnnouncement $announcement): JsonResponse
+    {
+        $announcement->delete();
+
+        return response()->json(['message' => 'Announcement deleted.']);
+    }
+
+    public function buyerDestroy(AdminBuyerAnnouncement $announcement): JsonResponse
+    {
+        $announcement->delete();
+
+        return response()->json(['message' => 'Announcement deleted.']);
+    }
+
     /**
      * @return array<string, mixed>
      */
