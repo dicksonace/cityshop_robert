@@ -19,10 +19,13 @@ class IndexProductImageColors extends Command
         $bar = $this->output->createProgressBar(ProductImage::count());
         $bar->start();
 
-        ProductImage::query()->orderBy('id')->chunkById(100, function ($images) use ($imageSearch, $bar) {
+        ProductImage::query()->orderBy('id')->chunkById(50, function ($images) use ($imageSearch, $bar) {
             foreach ($images as $image) {
                 $imageSearch->indexImage($image);
                 $bar->advance();
+                if (function_exists('gc_collect_cycles')) {
+                    gc_collect_cycles();
+                }
             }
         });
 

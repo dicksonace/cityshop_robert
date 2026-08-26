@@ -15,6 +15,9 @@ class ImageSearchService
 {
     private const BINS = 64;
 
+    /** Cap decode size so bulk indexing stays within shared-host PHP memory limits. */
+    private const MAX_ANALYSIS_EDGE = 512;
+
     /**
      * Soft visual tolerance. Phone photos of catalog items often land in the
      * 12–22 dHash range; older near-duplicate gate (8) returned empty too often.
@@ -226,10 +229,23 @@ class ImageSearchService
      */
     public function buildSignatureFromBytes(string $contents): array
     {
-        return [
-            'histogram' => $this->extractColorHistogramFromBytes($contents),
-            'dhash' => $this->extractDHashFromBytes($contents),
-        ];
+        $img = $this->loadAnalysisImage($contents);
+
+        if ($img === null) {
+            return [
+                'histogram' => array_fill(0, self::BINS, 0),
+                'dhash' => str_repeat('0', self::BINS),
+            ];
+        }
+
+        try {
+            return [
+                'histogram' => $this->histogramFromImage($img),
+                'dhash' => $this->dhashFromImage($img),
+            ];
+        } finally {
+            imagedestroy($img);
+        }
     }
 
     /**
@@ -251,12 +267,75 @@ class ImageSearchService
      */
     public function extractColorHistogramFromBytes(string $contents): array
     {
-        $img = @imagecreatefromstring($contents);
+        $img = $this->loadAnalysisImage($contents);
 
-        if (! $img) {
+        if ($img === null) {
             return array_fill(0, self::BINS, 0);
         }
 
+        try {
+            return $this->histogramFromImage($img);
+        } finally {
+            imagedestroy($img);
+        }
+    }
+
+    public function extractDHashFromBytes(string $contents): string
+    {
+        $img = $this->loadAnalysisImage($contents);
+
+        if ($img === null) {
+            return str_repeat('0', self::BINS);
+        }
+
+        try {
+            return $this->dhashFromImage($img);
+        } finally {
+            imagedestroy($img);
+        }
+    }
+
+    /**
+     * Decode once and downscale large uploads before histogram / dHash work.
+     *
+     * @return \GdImage|null
+     */
+    private function loadAnalysisImage(string $contents): ?\GdImage
+    {
+        $img = @imagecreatefromstring($contents);
+
+        if ($img === false) {
+            return null;
+        }
+
+        $width = imagesx($img);
+        $height = imagesy($img);
+        $maxEdge = max($width, $height);
+
+        if ($maxEdge <= self::MAX_ANALYSIS_EDGE) {
+            return $img;
+        }
+
+        $scale = self::MAX_ANALYSIS_EDGE / $maxEdge;
+        $targetW = max(1, (int) round($width * $scale));
+        $targetH = max(1, (int) round($height * $scale));
+        $resized = imagecreatetruecolor($targetW, $targetH);
+
+        if ($resized === false) {
+            return $img;
+        }
+
+        imagecopyresampled($resized, $img, 0, 0, 0, 0, $targetW, $targetH, $width, $height);
+        imagedestroy($img);
+
+        return $resized;
+    }
+
+    /**
+     * @return array<int, float>
+     */
+    private function histogramFromImage(\GdImage $img): array
+    {
         $width = imagesx($img);
         $height = imagesy($img);
         $bins = array_fill(0, self::BINS, 0.0);
@@ -274,24 +353,15 @@ class ImageSearchService
             }
         }
 
-        imagedestroy($img);
-
         $total = array_sum($bins) ?: 1;
 
         return array_map(fn ($v) => $v / $total, $bins);
     }
 
-    public function extractDHashFromBytes(string $contents): string
+    private function dhashFromImage(\GdImage $img): string
     {
-        $img = @imagecreatefromstring($contents);
-
-        if (! $img) {
-            return str_repeat('0', self::BINS);
-        }
-
         $small = imagecreatetruecolor(9, 8);
         imagecopyresampled($small, $img, 0, 0, 0, 0, 9, 8, imagesx($img), imagesy($img));
-        imagedestroy($img);
 
         $gray = [];
 

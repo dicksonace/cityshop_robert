@@ -25,20 +25,20 @@ else
 fi
 
 echo "==> Run migrations"
-$PHP_BIN artisan migrate --force
+$PHP_BIN -d memory_limit=512M artisan migrate --force
 
 echo "==> Index product images for visual search"
-$PHP_BIN artisan products:index-image-colors
+$PHP_BIN -d memory_limit=512M artisan products:index-image-colors
 
 echo "==> Storage link (safe if already exists)"
 $PHP_BIN artisan storage:link 2>/dev/null || true
 
 echo "==> Refresh config (so .env changes actually apply)"
-$PHP_BIN artisan config:clear
-$PHP_BIN artisan cache:clear
-$PHP_BIN artisan config:cache
-$PHP_BIN artisan route:cache
-$PHP_BIN artisan view:cache
+$PHP_BIN -d memory_limit=512M artisan config:clear
+$PHP_BIN -d memory_limit=512M artisan cache:clear
+$PHP_BIN -d memory_limit=512M artisan config:cache
+$PHP_BIN -d memory_limit=512M artisan route:cache
+$PHP_BIN -d memory_limit=512M artisan view:cache
 
 if grep -qE '^PAYSTACK_PUBLIC_KEY=pk_test_' .env 2>/dev/null; then
     echo "WARNING: PAYSTACK_PUBLIC_KEY is still a TEST key."
