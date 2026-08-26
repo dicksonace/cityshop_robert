@@ -59,7 +59,7 @@ return [
         'formula_dc_test_mode' => env('FORMULA_DC_TEST_MODE', false),
         'txtconnect_api_key' => env('TXTCONNECT_API_KEY'),
         'txtconnect_sender' => env('TXTCONNECT_SENDER', 'CityShop'),
-        'txtconnect_base_url' => env('TXTCONNECT_BASE_URL', 'https://api.txtconnect.net/api'),
+        'txtconnect_base_url' => env('TXTCONNECT_BASE_URL', 'https://api.txtconnect.net/dev/api'),
         'hubtel_client_id' => env('HUBTEL_CLIENT_ID'),
         'hubtel_client_secret' => env('HUBTEL_CLIENT_SECRET'),
         'hubtel_sender' => env('HUBTEL_SENDER', 'CityShop'),

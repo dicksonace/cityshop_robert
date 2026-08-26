@@ -44,9 +44,31 @@ class SmsProviderSwitchTest extends TestCase
                 && $request->hasHeader('Authorization', 'Bearer txt-test-key')
                 && ($payload['to'] ?? null) === '233532700209'
                 && ($payload['from'] ?? null) === 'CityShop'
-                && ($payload['unicode'] ?? null) === false
+                && ($payload['unicode'] ?? null) === '0'
                 && ($payload['sms'] ?? null) === 'CityShop: payment Completed';
         });
+    }
+
+    public function test_txtconnect_wrong_base_url_is_auto_corrected(): void
+    {
+        config([
+            'services.sms.driver' => 'txtconnect',
+            'services.sms.txtconnect_api_key' => 'txt-test-key',
+            'services.sms.txtconnect_sender' => 'CityShop',
+            'services.sms.txtconnect_base_url' => 'https://api.txtconnect.net/api',
+        ]);
+
+        Http::fake([
+            'https://api.txtconnect.net/dev/api/sms/send' => Http::response([
+                'messageId' => 'FIXEDURL1',
+                'data' => ['status_code' => '000', 'in_error' => false],
+            ], 200),
+        ]);
+
+        $ok = app(SmsService::class)->send('0532700209', 'CityShop URL fix test');
+
+        $this->assertTrue($ok);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'https://api.txtconnect.net/dev/api/sms/send'));
     }
 
     public function test_admin_can_switch_sms_platform(): void

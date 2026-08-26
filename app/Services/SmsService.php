@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Log;
 
 class SmsService
 {
+    private ?string $lastProviderError = null;
+
     public function send(?string $phone, string $message, bool $allowFailover = true): bool
     {
         return (bool) ($this->sendDetailed($phone, $message, $allowFailover)['ok'] ?? false);
@@ -89,12 +91,14 @@ class SmsService
             'selected' => $selected,
             'delivered_via' => null,
             'failover_used' => false,
-            'error' => 'All configured SMS providers failed.',
+            'error' => $this->lastProviderError ?? 'All configured SMS providers failed.',
         ];
     }
 
     private function sendViaDriver(string $driver, string $msisdn, string $message): bool
     {
+        $this->lastProviderError = null;
+
         return match ($driver) {
             'formula_dc', 'formula' => $this->sendViaFormulaDc($msisdn, $message),
             'txtconnect', 'txt_connect' => $this->sendViaTxtConnect($msisdn, $message),
@@ -192,9 +196,10 @@ class SmsService
     {
         $apiKey = (string) config('services.sms.txtconnect_api_key', '');
         $sender = (string) config('services.sms.txtconnect_sender', 'CityShop');
-        $baseUrl = rtrim((string) config('services.sms.txtconnect_base_url', 'https://api.txtconnect.net/dev/api'), '/');
+        $baseUrl = $this->txtConnectBaseUrl();
 
         if ($apiKey === '') {
+            $this->lastProviderError = 'TxtConnect API key is missing in server .env.';
             Log::warning('TxtConnect SMS not configured, logging instead.', ['phone' => $msisdn, 'message' => $message]);
 
             return false;
@@ -210,10 +215,11 @@ class SmsService
                 ->post("{$baseUrl}/sms/send", [
                     'to' => $msisdn,
                     'from' => $sender,
-                    'unicode' => $unicode,
+                    'unicode' => $unicode ? '1' : '0',
                     'sms' => $message,
                 ]);
         } catch (\Throwable $e) {
+            $this->lastProviderError = $e->getMessage();
             Log::error('TxtConnect SMS request failed', [
                 'phone' => $msisdn,
                 'error' => $e->getMessage(),
@@ -232,13 +238,60 @@ class SmsService
             return true;
         }
 
+        $this->lastProviderError = $this->txtConnectErrorMessage($response->status(), $body, $response->body());
+
         Log::error('TxtConnect SMS send failed', [
             'phone' => $msisdn,
             'status' => $response->status(),
             'body' => $body ?? $response->body(),
+            'url' => "{$baseUrl}/sms/send",
         ]);
 
         return false;
+    }
+
+    private function txtConnectBaseUrl(): string
+    {
+        $baseUrl = rtrim((string) config('services.sms.txtconnect_base_url', 'https://api.txtconnect.net/dev/api'), '/');
+
+        // TxtConnect's live API is documented at /dev/api (see txtconnect.net/ApiDocumentation).
+        if (preg_match('#^https://api\.txtconnect\.net/api$#i', $baseUrl)) {
+            return 'https://api.txtconnect.net/dev/api';
+        }
+
+        return $baseUrl;
+    }
+
+    private function txtConnectErrorMessage(int $httpStatus, mixed $body, string $rawBody): string
+    {
+        if (is_array($body)) {
+            $reason = data_get($body, 'data.reason')
+                ?? data_get($body, 'data.message')
+                ?? data_get($body, 'msg')
+                ?? data_get($body, 'message');
+            if (is_string($reason) && trim($reason) !== '') {
+                return trim($reason);
+            }
+        }
+
+        if ($httpStatus === 401) {
+            return 'TxtConnect rejected the API key (401 Unauthorized).';
+        }
+
+        if ($httpStatus === 403) {
+            return 'TxtConnect forbidden — check sender ID approval and account balance.';
+        }
+
+        if ($httpStatus === 404) {
+            return 'TxtConnect API URL not found — server should use https://api.txtconnect.net/dev/api';
+        }
+
+        $snippet = trim($rawBody);
+        if ($snippet !== '') {
+            return 'TxtConnect error HTTP '.$httpStatus.': '.mb_substr($snippet, 0, 180);
+        }
+
+        return 'TxtConnect returned HTTP '.$httpStatus.'.';
     }
 
     private function txtConnectSucceeded(int $httpStatus, mixed $body): bool
