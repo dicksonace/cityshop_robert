@@ -296,6 +296,111 @@ class OrderService
     }
 
     /**
+     * Preview checkout totals with seller coupon codes — no orders created.
+     *
+     * @param  array<string, string>  $sellerCoupons
+     * @return array{
+     *     subtotal: float,
+     *     shipping_total: float,
+     *     discount_total: float,
+     *     grand_total: float,
+     *     seller_groups: list<array{
+     *         seller_id: int,
+     *         subtotal: float,
+     *         shipping_cost: float,
+     *         shipping_label: string,
+     *         discount_amount: float,
+     *         free_shipping: bool,
+     *         package_total: float,
+     *         coupon_code: string|null,
+     *         coupon_applied: bool,
+     *         coupon_message: string|null,
+     *     }>,
+     *     errors: array<string, string>
+     * }
+     */
+    public function previewCheckoutTotals(User $buyer, array $sellerCoupons = []): array
+    {
+        $grouped = $this->cartGroupedBySeller($buyer);
+        if ($grouped->isEmpty()) {
+            return [
+                'subtotal' => 0.0,
+                'shipping_total' => 0.0,
+                'discount_total' => 0.0,
+                'grand_total' => 0.0,
+                'seller_groups' => [],
+                'errors' => [],
+            ];
+        }
+
+        $subtotal = round($grouped->flatten()->sum(fn ($item) => $item->subtotal()), 2);
+        $totalDiscount = 0.0;
+        $totalShipping = 0.0;
+        $sellerPreviews = [];
+        $errors = [];
+
+        foreach ($grouped as $sellerId => $items) {
+            $orderSubtotal = round($items->sum(fn ($item) => $item->subtotal()), 2);
+            $shipping = static::shippingMetaForSellerItems($items);
+            $shippingCost = (float) $shipping['cost'];
+            $couponDiscount = 0.0;
+            $appliedCoupon = null;
+            $couponCode = trim($sellerCoupons[$sellerId] ?? $sellerCoupons[(string) $sellerId] ?? '');
+
+            if ($couponCode !== '') {
+                try {
+                    $result = $this->coupons->validateForSeller($buyer, (int) $sellerId, $couponCode, $orderSubtotal);
+                    $couponDiscount = $result['discount'];
+                    $appliedCoupon = $result['coupon'];
+                } catch (ValidationException $e) {
+                    $errors[(string) $sellerId] = $e->validator->errors()->first('coupon') ?? 'Invalid coupon code.';
+                }
+            }
+
+            $freeShipping = false;
+            if ($appliedCoupon?->type === CouponType::FreeShipping) {
+                $shippingCost = 0.0;
+                $freeShipping = true;
+            }
+
+            $packageTotal = max(0, round($orderSubtotal - $couponDiscount + $shippingCost, 2));
+            $totalDiscount += $couponDiscount;
+            $totalShipping += $shippingCost;
+
+            $sellerPreviews[] = [
+                'seller_id' => (int) $sellerId,
+                'subtotal' => $orderSubtotal,
+                'shipping_cost' => $shippingCost,
+                'shipping_label' => $shipping['label'],
+                'discount_amount' => $couponDiscount,
+                'free_shipping' => $freeShipping,
+                'package_total' => $packageTotal,
+                'coupon_code' => $couponCode !== '' ? strtoupper($couponCode) : null,
+                'coupon_applied' => $appliedCoupon !== null,
+                'coupon_message' => $appliedCoupon ? $this->couponAppliedMessage($appliedCoupon, $couponDiscount) : null,
+            ];
+        }
+
+        return [
+            'subtotal' => $subtotal,
+            'shipping_total' => round($totalShipping, 2),
+            'discount_total' => round($totalDiscount, 2),
+            'grand_total' => max(0, round($subtotal - $totalDiscount + $totalShipping, 2)),
+            'seller_groups' => $sellerPreviews,
+            'errors' => $errors,
+        ];
+    }
+
+    private function couponAppliedMessage(\App\Models\SellerCoupon $coupon, float $discount): string
+    {
+        return match ($coupon->type) {
+            CouponType::Percentage => number_format((float) $coupon->value, 0).'% off applied',
+            CouponType::Fixed => 'GH₵'.number_format($discount, 2).' off applied',
+            CouponType::FreeShipping => 'Free delivery applied',
+        };
+    }
+
+    /**
      * Pay-to-seller packages from the live cart (orders are not created yet).
      *
      * @param  array<string, array{channel: string, method_id?: int|null}>  $sellerPayments

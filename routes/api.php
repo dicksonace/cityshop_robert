@@ -412,6 +412,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/device-tokens', [DeviceTokenController::class, 'destroy']);
 
         Route::get('/checkout', [CheckoutController::class, 'preview']);
+        Route::post('/checkout/apply-coupons', [CheckoutController::class, 'applyCoupons']);
         Route::post('/checkout', [CheckoutController::class, 'store']);
         Route::get('/checkout/direct-pay', [CheckoutController::class, 'directPay']);
         Route::post('/checkout/direct-pay/{sellerId}', [CheckoutController::class, 'submitDirectPay']);

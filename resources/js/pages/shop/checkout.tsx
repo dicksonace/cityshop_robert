@@ -50,6 +50,28 @@ interface SellerGroup {
     package_total: number;
 }
 
+interface CouponPreviewGroup {
+    seller_id: number;
+    subtotal: number;
+    shipping_cost: number;
+    shipping_label: string;
+    discount_amount: number;
+    free_shipping: boolean;
+    package_total: number;
+    coupon_code: string | null;
+    coupon_applied: boolean;
+    coupon_message: string | null;
+}
+
+interface CouponPreview {
+    subtotal: number;
+    shipping_total: number;
+    discount_total: number;
+    grand_total: number;
+    seller_groups: CouponPreviewGroup[];
+    errors: Record<string, string>;
+}
+
 interface CheckoutProps {
     sellerGroups: SellerGroup[];
     subtotal: number;
@@ -143,6 +165,47 @@ export default function Checkout({
 
     const { data, setData } = useForm(initialForm);
     const [submitting, setSubmitting] = useState(false);
+    const [applyingCoupons, setApplyingCoupons] = useState(false);
+    const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+    const [couponApplyError, setCouponApplyError] = useState<string | null>(null);
+
+    const applyCoupons = async () => {
+        const hasCode = Object.values(data.seller_coupons).some((code) => code.trim() !== '');
+        if (!hasCode) return;
+
+        setApplyingCoupons(true);
+        setCouponApplyError(null);
+        try {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+            const res = await fetch(route('checkout.apply-coupons'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    Accept: 'application/json',
+                },
+                body: JSON.stringify({ seller_coupons: data.seller_coupons }),
+            });
+            const preview = (await res.json()) as CouponPreview & { message?: string };
+            if (!res.ok) {
+                throw new Error(preview.message ?? 'Could not apply coupon');
+            }
+            setCouponPreview(preview);
+        } catch (e) {
+            setCouponPreview(null);
+            setCouponApplyError(e instanceof Error ? e.message : 'Could not apply coupon');
+        } finally {
+            setApplyingCoupons(false);
+        }
+    };
+
+    const previewForSeller = (sellerId: number) =>
+        couponPreview?.seller_groups.find((g) => g.seller_id === sellerId);
+
+    const displaySubtotal = couponPreview?.subtotal ?? subtotal;
+    const displayShipping = couponPreview?.shipping_total ?? shippingTotal;
+    const displayDiscount = couponPreview?.discount_total ?? 0;
+    const displayGrandTotal = couponPreview?.grand_total ?? grandTotal;
 
     // The order is posted with router.post, so failures come back on the page
     // props — useForm's own error bag stays empty and would hide them.
@@ -165,6 +228,11 @@ export default function Checkout({
             seller_coupons: data.seller_coupons,
         });
     }, [cartKey, data.address_id, data.payment_method, data.seller_coupons, data.seller_payments]);
+
+    useEffect(() => {
+        setCouponPreview(null);
+        setCouponApplyError(null);
+    }, [data.seller_coupons]);
 
     const selected =
         addresses.find((a) => a.id === (activeAddressId ?? data.address_id))
@@ -212,7 +280,9 @@ export default function Checkout({
     const marketplaceTotal = sellerGroups.reduce((sum, group) => {
         const choice = data.seller_payments[String(group.seller_id)] ?? { channel: 'marketplace' };
         const usesMarketplace = choice.channel === 'marketplace' && group.accept_marketplace_payments;
-        return usesMarketplace ? sum + group.package_total : sum;
+        if (!usesMarketplace) return sum;
+        const preview = previewForSeller(group.seller_id);
+        return sum + (preview?.package_total ?? group.package_total);
     }, 0);
 
     const hasMarketplaceOrders = marketplaceTotal > 0;
@@ -501,6 +571,11 @@ export default function Checkout({
                     <div className="space-y-4">
                         {sellerGroups.map((group) => {
                             const choice = data.seller_payments[String(group.seller_id)] ?? { channel: 'marketplace' };
+                            const groupPreview = previewForSeller(group.seller_id);
+                            const displayPackageTotal = groupPreview?.package_total ?? group.package_total;
+                            const displayGroupShipping = groupPreview?.shipping_cost ?? group.shipping_cost;
+                            const couponError = couponPreview?.errors[String(group.seller_id)];
+                            const couponMessage = groupPreview?.coupon_applied ? groupPreview.coupon_message : null;
 
                             return (
                                 <div key={group.seller_id} className="rounded-xl bg-white p-6 shadow-sm">
@@ -515,7 +590,7 @@ export default function Checkout({
                                             )}
                                         </div>
                                         <div className="flex shrink-0 flex-col items-end gap-2">
-                                            <span className="text-sm font-medium text-orange-500">{formatPrice(group.package_total)}</span>
+                                            <span className="text-sm font-medium text-orange-500">{formatPrice(displayPackageTotal)}</span>
                                             {group.store_slug && (
                                                 <Link
                                                     href={route('store.show', group.store_slug)}
@@ -545,13 +620,27 @@ export default function Checkout({
                                         </div>
                                         <div className="flex justify-between text-gray-600">
                                             <span>
-                                                {group.shipping_label}
+                                                {groupPreview?.shipping_label ?? group.shipping_label}
                                                 {group.shipping_note ? (
                                                     <span className="mt-0.5 block text-xs text-gray-400">{group.shipping_note}</span>
                                                 ) : null}
                                             </span>
-                                            <span>{group.shipping_cost > 0 ? formatPrice(group.shipping_cost) : group.shipping_label === 'Arrange with seller' ? '—' : formatPrice(0)}</span>
+                                            <span>
+                                                {groupPreview?.free_shipping
+                                                    ? 'Free'
+                                                    : displayGroupShipping > 0
+                                                      ? formatPrice(displayGroupShipping)
+                                                      : (groupPreview?.shipping_label ?? group.shipping_label) === 'Arrange with seller'
+                                                        ? '—'
+                                                        : formatPrice(0)}
+                                            </span>
                                         </div>
+                                        {(groupPreview?.discount_amount ?? 0) > 0 && (
+                                            <div className="flex justify-between text-emerald-700">
+                                                <span>Coupon discount</span>
+                                                <span>-{formatPrice(groupPreview!.discount_amount)}</span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {data.payment_method !== 'cash' &&
@@ -634,15 +723,32 @@ export default function Checkout({
 
                                     <div className="mt-4 border-t pt-4">
                                         <Label className="text-sm">Coupon code (optional)</Label>
-                                        <Input
-                                            className="mt-1 font-mono uppercase"
-                                            placeholder="SAVE10"
-                                            value={data.seller_coupons[String(group.seller_id)] ?? ''}
-                                            onChange={(e) => setData('seller_coupons', {
-                                                ...data.seller_coupons,
-                                                [String(group.seller_id)]: e.target.value.toUpperCase(),
-                                            })}
-                                        />
+                                        <div className="mt-1 flex gap-2">
+                                            <Input
+                                                className="font-mono uppercase"
+                                                placeholder="SAVE10"
+                                                value={data.seller_coupons[String(group.seller_id)] ?? ''}
+                                                onChange={(e) => setData('seller_coupons', {
+                                                    ...data.seller_coupons,
+                                                    [String(group.seller_id)]: e.target.value.toUpperCase(),
+                                                })}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="shrink-0"
+                                                disabled={applyingCoupons || !(data.seller_coupons[String(group.seller_id)] ?? '').trim()}
+                                                onClick={() => applyCoupons()}
+                                            >
+                                                {applyingCoupons ? 'Applying…' : 'Apply'}
+                                            </Button>
+                                        </div>
+                                        {couponError && (
+                                            <p className="mt-1 text-xs font-medium text-red-600">{couponError}</p>
+                                        )}
+                                        {couponMessage && !couponError && (
+                                            <p className="mt-1 text-xs font-medium text-emerald-700">{couponMessage}</p>
+                                        )}
                                     </div>
                                     <InputError message={errors.coupon} />
                                 </div>
@@ -653,15 +759,24 @@ export default function Checkout({
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between text-gray-600">
                                     <span>Items ({sellerGroups.length} package{sellerGroups.length === 1 ? '' : 's'})</span>
-                                    <span>{formatPrice(subtotal)}</span>
+                                    <span>{formatPrice(displaySubtotal)}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-600">
                                     <span>Delivery</span>
-                                    <span>{shippingTotal > 0 ? formatPrice(shippingTotal) : formatPrice(0)}</span>
+                                    <span>{displayShipping > 0 ? formatPrice(displayShipping) : formatPrice(0)}</span>
                                 </div>
+                                {displayDiscount > 0 && (
+                                    <div className="flex justify-between text-emerald-700">
+                                        <span>Coupon discount</span>
+                                        <span>-{formatPrice(displayDiscount)}</span>
+                                    </div>
+                                )}
+                                {couponApplyError && (
+                                    <p className="text-xs font-medium text-red-600">{couponApplyError}</p>
+                                )}
                                 <div className="flex justify-between border-t pt-2 text-lg font-bold">
                                     <span>Total</span>
-                                    <span className="text-orange-500">{formatPrice(grandTotal)}</span>
+                                    <span className="text-orange-500">{formatPrice(displayGrandTotal)}</span>
                                 </div>
                             </div>
                             {blockingMessage && (

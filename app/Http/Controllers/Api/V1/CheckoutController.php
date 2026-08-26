@@ -101,6 +101,21 @@ class CheckoutController extends Controller
         ]);
     }
 
+    public function applyCoupons(Request $request): JsonResponse
+    {
+        $request->validate([
+            'seller_coupons' => ['nullable', 'array'],
+            'seller_coupons.*' => ['nullable', 'string', 'max:30'],
+        ]);
+
+        return response()->json(
+            $this->orderService->previewCheckoutTotals(
+                $request->user(),
+                $request->input('seller_coupons', []),
+            ),
+        );
+    }
+
     public function store(Request $request): JsonResponse
     {
         $request->validate([

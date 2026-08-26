@@ -102,6 +102,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/cart/{cartItem}', [CartController::class, 'destroy'])->middleware('buyer.shop')->name('cart.destroy');
 
     Route::get('/checkout', [CheckoutController::class, 'index'])->middleware('buyer.shop')->name('checkout.index');
+    Route::post('/checkout/apply-coupons', [CheckoutController::class, 'applyCoupons'])->middleware('buyer.shop')->name('checkout.apply-coupons');
     Route::post('/checkout', [CheckoutController::class, 'store'])->middleware('buyer.shop')->name('checkout.store');
     Route::get('/checkout/direct-pay', [CheckoutController::class, 'directPay'])->middleware('buyer.shop')->name('checkout.direct-pay');
     Route::post('/checkout/direct-pay/{sellerId}', [CheckoutController::class, 'submitDirectPay'])->middleware('buyer.shop')->name('checkout.direct-pay.submit');
