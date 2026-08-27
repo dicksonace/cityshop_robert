@@ -94,7 +94,8 @@ return [
         'turn_password' => env('WEBRTC_TURN_PASSWORD'),
     ],
 
-    // Optional absolute path when ffmpeg is not on PATH (DirectAdmin: ~/bin/ffmpeg).
+    // Optional absolute path when ffmpeg/ffprobe are not on PATH (DirectAdmin: ~/bin/ffmpeg).
     'ffmpeg_path' => env('FFMPEG_PATH'),
+    'ffprobe_path' => env('FFPROBE_PATH'),
 
 ];

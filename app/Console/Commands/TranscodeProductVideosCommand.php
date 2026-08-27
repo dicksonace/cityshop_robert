@@ -8,9 +8,11 @@ use Illuminate\Console\Command;
 
 class TranscodeProductVideosCommand extends Command
 {
-    protected $signature = 'products:transcode-videos {--dry-run : Only list videos that need conversion}';
+    protected $signature = 'products:transcode-videos
+                            {--dry-run : Only list videos that need conversion}
+                            {--force : Re-encode every product video to H.264 even if detection says OK}';
 
-    protected $description = 'Re-encode product videos that are HEVC/AV1 so they play on PC browsers';
+    protected $description = 'Re-encode product videos that Chrome cannot play (HEVC/AV1/etc.) to H.264';
 
     public function handle(): int
     {
@@ -26,6 +28,14 @@ class TranscodeProductVideosCommand extends Command
             }
         }
 
+        $ffprobe = ProductVideoService::ffprobeBinary();
+        $this->info($ffprobe ? 'Using ffprobe: '.$ffprobe : 'ffprobe not found — falling back to file-marker detection.');
+
+        $force = (bool) $this->option('force');
+        if ($force) {
+            $this->warn('Force mode: every product video will be re-encoded to H.264.');
+        }
+
         $query = Product::query()->whereNotNull('video_path')->where('video_path', '!=', '');
         $total = $query->count();
         $this->info("Scanning {$total} product video(s)…");
@@ -34,7 +44,7 @@ class TranscodeProductVideosCommand extends Command
         $skipped = 0;
         $failed = 0;
 
-        $query->orderBy('id')->each(function (Product $product) use (&$converted, &$skipped, &$failed) {
+        $query->orderBy('id')->each(function (Product $product) use (&$converted, &$skipped, &$failed, $force) {
             $path = (string) $product->video_path;
             $absolute = storage_path('app/public/'.$path);
 
@@ -45,13 +55,17 @@ class TranscodeProductVideosCommand extends Command
                 return;
             }
 
-            if (! ProductVideoService::needsWebCompatTranscode($absolute)) {
+            $codec = ProductVideoService::describeVideoCodec($absolute);
+            $needs = $force || ProductVideoService::needsWebCompatTranscode($absolute);
+
+            if (! $needs) {
                 $skipped++;
+                $this->line("OK (skip): #{$product->id} codec={$codec} {$path}");
 
                 return;
             }
 
-            $this->line("HEVC/incompatible: #{$product->id} {$product->name} ({$path})");
+            $this->line(($force ? 'FORCE' : 'CONVERT').": #{$product->id} {$product->name} codec={$codec} ({$path})");
 
             if ($this->option('dry-run')) {
                 $converted++;
@@ -59,7 +73,7 @@ class TranscodeProductVideosCommand extends Command
                 return;
             }
 
-            $result = ProductVideoService::ensureWebCompatible($path);
+            $result = ProductVideoService::ensureWebCompatible($path, $force);
             if (! ($result['ok'] ?? false)) {
                 $failed++;
                 $this->error('  failed to convert #'.$product->id.': '.($result['reason'] ?? 'unknown error'));
@@ -73,7 +87,9 @@ class TranscodeProductVideosCommand extends Command
                 $converted++;
                 $this->info("  → {$newPath}");
             } else {
+                // force encode can rewrite same relative path only if detection skipped — treat as skipped
                 $skipped++;
+                $this->line('  → unchanged (already compatible)');
             }
         });
 

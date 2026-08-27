@@ -80,7 +80,7 @@ class ProductVideoService
      *
      * @return array{path: string|null, ok: bool, reason: ?string}
      */
-    public static function ensureWebCompatible(string $relativePath): array
+    public static function ensureWebCompatible(string $relativePath, bool $force = false): array
     {
         $disk = Storage::disk('public');
         if (! $disk->exists($relativePath)) {
@@ -88,7 +88,7 @@ class ProductVideoService
         }
 
         $absolute = $disk->path($relativePath);
-        if (! static::needsWebCompatTranscode($absolute)) {
+        if (! $force && ! static::needsWebCompatTranscode($absolute)) {
             return ['path' => $relativePath, 'ok' => true, 'reason' => null];
         }
 
@@ -219,66 +219,184 @@ class ProductVideoService
         return ['path' => $outRelative, 'ok' => true, 'reason' => null];
     }
 
+    /**
+     * True when Chrome/Edge/Firefox are likely to fail (HEVC/AV1/VP9/unknown).
+     * Prefers ffprobe; falls back to MP4 box markers.
+     */
     public static function needsWebCompatTranscode(string $absolutePath): bool
     {
         if (! is_file($absolutePath) || filesize($absolutePath) < 32) {
             return false;
         }
 
+        $codec = static::probeVideoCodec($absolutePath);
+        if ($codec !== null) {
+            return ! static::isChromeSafeVideoCodec($codec);
+        }
+
+        return static::needsWebCompatTranscodeByMarkers($absolutePath);
+    }
+
+    /**
+     * Human-readable codec label for artisan logging (e.g. "hevc", "h264", "unknown").
+     */
+    public static function describeVideoCodec(string $absolutePath): string
+    {
+        $codec = static::probeVideoCodec($absolutePath);
+        if ($codec !== null && $codec !== '') {
+            return $codec;
+        }
+
+        if (! is_file($absolutePath)) {
+            return 'missing';
+        }
+
+        if (static::needsWebCompatTranscodeByMarkers($absolutePath)) {
+            return 'incompatible-markers';
+        }
+
+        return 'unknown';
+    }
+
+    public static function isChromeSafeVideoCodec(string $codec): bool
+    {
+        $codec = strtolower(trim($codec));
+
+        return in_array($codec, ['h264', 'avc', 'avc1', 'avc3', 'avcH'], true);
+    }
+
+    /**
+     * @return string|null Lowercase codec_name from ffprobe, or null if probe unavailable/failed
+     */
+    public static function probeVideoCodec(string $absolutePath): ?string
+    {
+        $ffprobe = static::ffprobeBinary();
+        if ($ffprobe === null || ! is_file($absolutePath)) {
+            return null;
+        }
+
+        try {
+            $result = Process::timeout(30)->run([
+                $ffprobe,
+                '-v', 'error',
+                '-select_streams', 'v:0',
+                '-show_entries', 'stream=codec_name',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                $absolutePath,
+            ]);
+        } catch (Throwable $e) {
+            return null;
+        }
+
+        if (! $result->successful()) {
+            return null;
+        }
+
+        $codec = strtolower(trim($result->output()));
+        if ($codec === '' || str_contains($codec, ' ')) {
+            return null;
+        }
+
+        return $codec;
+    }
+
+    public static function needsWebCompatTranscodeByMarkers(string $absolutePath): bool
+    {
         $handle = fopen($absolutePath, 'rb');
         if ($handle === false) {
             return false;
         }
 
-        $hevc = false;
         $chunkSize = 1024 * 1024;
         // Only scan the first ~8MB — enough for codec boxes, avoids huge reads.
         $scanned = 0;
         $maxScan = 8 * 1024 * 1024;
+        $sawChromeSafe = false;
+        $sawUnsafe = false;
+
         while (! feof($handle) && $scanned < $maxScan) {
             $chunk = fread($handle, $chunkSize);
             if ($chunk === false || $chunk === '') {
                 break;
             }
             $scanned += strlen($chunk);
-            if (str_contains($chunk, 'hvc1') || str_contains($chunk, 'hev1') || str_contains($chunk, 'hvcC')) {
-                $hevc = true;
+
+            if (
+                str_contains($chunk, 'hvc1')
+                || str_contains($chunk, 'hev1')
+                || str_contains($chunk, 'hvcC')
+                || str_contains($chunk, 'dvh1')
+                || str_contains($chunk, 'dvhe')
+                || str_contains($chunk, 'vp09')
+                || str_contains($chunk, 'av01')
+                || str_contains($chunk, 'vp08')
+            ) {
+                $sawUnsafe = true;
                 break;
             }
-            if (str_contains($chunk, 'vp09') || str_contains($chunk, 'av01')) {
-                fclose($handle);
 
-                return true;
+            if (
+                str_contains($chunk, 'avc1')
+                || str_contains($chunk, 'avc3')
+                || str_contains($chunk, 'avcC')
+            ) {
+                $sawChromeSafe = true;
             }
         }
         fclose($handle);
 
-        return $hevc;
+        if ($sawUnsafe) {
+            return true;
+        }
+
+        // No H.264 marker found — treat as unsafe (common for odd phone .mov/.3gp uploads).
+        return ! $sawChromeSafe;
     }
 
     public static function ffmpegBinary(): ?string
     {
-        $configured = trim((string) config('services.ffmpeg_path', env('FFMPEG_PATH', '')));
-        if ($configured !== '' && is_executable($configured)) {
-            return $configured;
-        }
-
-        $candidates = [
+        return static::resolveBinary('ffmpeg', [
+            trim((string) config('services.ffmpeg_path', env('FFMPEG_PATH', ''))),
             base_path('bin/ffmpeg'),
             storage_path('bin/ffmpeg'),
             getenv('HOME') ? rtrim((string) getenv('HOME'), '/').'/bin/ffmpeg' : null,
             '/usr/bin/ffmpeg',
             '/usr/local/bin/ffmpeg',
             '/opt/homebrew/bin/ffmpeg',
-        ];
+        ]);
+    }
 
+    public static function ffprobeBinary(): ?string
+    {
+        $ffmpeg = static::ffmpegBinary();
+        $besideFfmpeg = [];
+        if ($ffmpeg !== null) {
+            $besideFfmpeg[] = dirname($ffmpeg).'/ffprobe';
+        }
+
+        return static::resolveBinary('ffprobe', array_merge($besideFfmpeg, [
+            trim((string) config('services.ffprobe_path', env('FFPROBE_PATH', ''))),
+            base_path('bin/ffprobe'),
+            storage_path('bin/ffprobe'),
+            getenv('HOME') ? rtrim((string) getenv('HOME'), '/').'/bin/ffprobe' : null,
+            '/usr/bin/ffprobe',
+            '/usr/local/bin/ffprobe',
+            '/opt/homebrew/bin/ffprobe',
+        ]));
+    }
+
+    /**
+     * @param  list<string|null>  $candidates
+     */
+    private static function resolveBinary(string $whichName, array $candidates): ?string
+    {
         foreach ($candidates as $bin) {
             if (is_string($bin) && $bin !== '' && is_executable($bin)) {
                 return $bin;
             }
         }
 
-        $result = Process::run(['which', 'ffmpeg']);
+        $result = Process::run(['which', $whichName]);
         $path = trim($result->output());
         if ($result->successful() && $path !== '' && is_executable($path)) {
             return $path;
