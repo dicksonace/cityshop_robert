@@ -61,7 +61,7 @@ export default function ChinaTransferHub({ config, transfers }: Props) {
                 </div>
             )}
             <div className="mx-auto max-w-lg px-4 py-6">
-                <Link href={route('wallet.china-rmb.index')} className="text-sm font-semibold text-orange-600">
+                <Link href={route('wallet.china-rmb.index')} className="text-sm font-semibold text-indigo-600">
                     ← China / RMB
                 </Link>
                 <h1 className="mt-3 text-2xl font-black text-gray-900">Buy RMB</h1>

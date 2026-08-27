@@ -1,5 +1,4 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
 
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
@@ -20,7 +19,6 @@ type BuyTransfer = {
     id: number;
     reference: string;
     status_label: string;
-    funding_source?: string;
     quote: { rmb_amount: number; total_payable_ghs: number };
 };
 
@@ -41,8 +39,6 @@ interface Props {
     buy: {
         config: {
             enabled: boolean;
-            wallet_funding_enabled?: boolean;
-            external_enabled?: boolean;
             rate: BuyRate;
             instructions: string | null;
         };
@@ -60,25 +56,11 @@ function sellPayoutLabel(item: SellTransfer): string {
         : `$${item.quote.usd_payout.toFixed(2)}`;
 }
 
+/** China / RMB entry: Buy RMB (pay GHS → Alipay) or Sell RMB. No convert / no hold. */
 export default function ChinaRmbHub({ buy, sell }: Props) {
     const { flash } = usePage<SharedData>().props;
     const buyRate = buy.config.rate;
     const sellRate = sell.config.rate;
-    const [exchangeType, setExchangeType] = useState<'buy' | 'sell'>('buy');
-
-    const continueExchange = () => {
-        if (exchangeType === 'buy') {
-            if (!buy.config.enabled) {
-                return;
-            }
-            router.visit(route('wallet.china-transfer.create'));
-            return;
-        }
-        if (!sell.config.enabled) {
-            return;
-        }
-        router.visit(route('wallet.sell-rmb.index'));
-    };
 
     return (
         <ShopLayout hideFlash>
@@ -98,77 +80,41 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                 </Link>
                 <h1 className="mt-3 text-2xl font-black text-gray-900">China / RMB</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    Pay GHS at today’s rate for Alipay, or sell RMB for MoMo. No RMB balance is held in your wallet.
+                    Buy RMB for Alipay at today’s rate, or sell RMB for MoMo. No RMB is held in your wallet.
                 </p>
 
-                <div className="mt-5 rounded-2xl bg-gradient-to-br from-teal-800 to-teal-900 p-5 text-white shadow-lg">
-                    <p className="text-xs font-semibold text-white/70">Live rates</p>
-                    <p className="mt-2 text-base font-extrabold leading-relaxed">
-                        {buyRate
-                            ? `Transfer · 1 GHS = ¥${buyRate.rmb_per_ghs.toFixed(3)}`
-                            : 'Transfer rate: not published'}
-                        <br />
-                        {sellRate
-                            ? `Sell · 1 RMB = GH₵${(sellRate.ghs_per_rmb ?? sellRate.usd_per_rmb * sellRate.ghs_per_usd).toFixed(4)}`
-                            : 'Sell rate: not published'}
+                <div className="mt-5 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Buy RMB</p>
+                    <p className="mt-2 text-2xl font-black">
+                        {buyRate ? `1 GHS = ¥${buyRate.rmb_per_ghs.toFixed(2)}` : 'Rate not published'}
                     </p>
-                </div>
-
-                <div className="mt-6">
-                    <p className="text-sm font-bold text-gray-700">What do you want to do?</p>
-                    <div className="mt-3 grid grid-cols-1 gap-2.5">
-                        <button
-                            type="button"
-                            onClick={() => setExchangeType('buy')}
-                            className={`rounded-xl border-2 px-3 py-4 text-left transition ${
-                                exchangeType === 'buy' ? 'border-emerald-600 bg-white' : 'border-gray-200 bg-white'
-                            }`}
-                        >
-                            <p className="text-sm font-extrabold text-gray-900">Transfer RMB to Alipay</p>
-                            <p className="mt-1 text-xs font-semibold text-gray-500">
-                                Pay GHS · recipient gets RMB at today’s rate
-                            </p>
-                            {!buy.config.enabled ? (
-                                <p className="mt-2 text-[10px] font-bold text-amber-700">Paused</p>
-                            ) : (
-                                <p className="mt-2 text-[10px] font-bold text-emerald-700">Live</p>
-                            )}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setExchangeType('sell')}
-                            className={`rounded-xl border-2 px-3 py-4 text-left transition ${
-                                exchangeType === 'sell' ? 'border-emerald-600 bg-white' : 'border-gray-200 bg-white'
-                            }`}
-                        >
-                            <p className="text-sm font-extrabold text-gray-900">Sell RMB → GHS</p>
-                            <p className="mt-1 text-xs font-semibold text-gray-500">
-                                Send RMB to CityShop Alipay, get MoMo payout
-                            </p>
-                            {!sell.config.enabled ? (
-                                <p className="mt-2 text-[10px] font-bold text-amber-700">Paused</p>
-                            ) : (
-                                <p className="mt-2 text-[10px] font-bold text-emerald-700">Live</p>
-                            )}
-                        </button>
-                    </div>
+                    <p className="mt-1 text-sm text-white/80">No hidden fees · Secure transactions</p>
                     <button
                         type="button"
-                        onClick={continueExchange}
-                        disabled={
-                            exchangeType === 'buy' ? !buy.config.enabled : !sell.config.enabled
-                        }
-                        className="mt-4 w-full rounded-xl bg-teal-700 py-3 text-sm font-extrabold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+                        disabled={!buy.config.enabled || !buyRate}
+                        onClick={() => router.visit(route('wallet.china-transfer.index'))}
+                        className="mt-4 w-full rounded-xl bg-white py-3 text-sm font-extrabold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-white"
                     >
-                        {exchangeType === 'buy'
-                            ? buy.config.enabled
-                                ? 'Continue · Transfer to Alipay'
-                                : 'Transfers paused'
-                            : sell.config.enabled
-                              ? 'Continue · Sell RMB'
-                              : 'Sell RMB is paused'}
+                        {buy.config.enabled ? 'Buy RMB →' : 'Buy RMB paused'}
                     </button>
                 </div>
+
+                <button
+                    type="button"
+                    disabled={!sell.config.enabled}
+                    onClick={() => router.visit(route('wallet.sell-rmb.index'))}
+                    className="mt-3 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-4 text-left transition hover:border-emerald-500 disabled:opacity-50"
+                >
+                    <p className="text-sm font-extrabold text-gray-900">Sell RMB → GHS</p>
+                    <p className="mt-1 text-xs font-semibold text-gray-500">
+                        {sellRate
+                            ? `1 RMB = GH₵${(sellRate.ghs_per_rmb ?? sellRate.usd_per_rmb * sellRate.ghs_per_usd).toFixed(4)}`
+                            : 'Send RMB to CityShop, get MoMo payout'}
+                    </p>
+                    {!sell.config.enabled && (
+                        <p className="mt-2 text-[10px] font-bold text-amber-700">Paused</p>
+                    )}
+                </button>
 
                 <h2 className="mt-8 text-lg font-bold text-gray-900">Recent activity</h2>
                 <div className="mt-3 space-y-3">
@@ -183,7 +129,7 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                         >
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="font-bold text-gray-900">Alipay · {item.reference}</p>
+                                    <p className="font-bold text-gray-900">Buy RMB · {item.reference}</p>
                                     <p className="text-sm text-gray-500">
                                         {formatPrice(item.quote.total_payable_ghs)} → ¥
                                         {item.quote.rmb_amount.toFixed(2)}

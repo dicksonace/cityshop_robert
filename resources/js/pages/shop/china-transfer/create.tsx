@@ -35,8 +35,6 @@ type Method = {
 
 type Config = {
     enabled: boolean;
-    wallet_funding_enabled?: boolean;
-    external_enabled?: boolean;
     instructions: string | null;
     rate: {
         ghs_per_rmb: number;
@@ -57,18 +55,30 @@ interface Props {
     wallet: Wallet;
     hasPaymentPin?: boolean;
     kyc?: Kyc;
+    initialGhs?: string | null;
 }
 
 function fieldKey(id: number) {
     return `fields.${id}`;
 }
 
-export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = false, kyc }: Props) {
+function isQrField(field: Field) {
+    const blob = `${field.name} ${field.label}`.toLowerCase();
+    return ['image', 'document', 'files'].includes(field.type) || blob.includes('qr');
+}
+
+/** Buy RMB step 2: QR + optional recipient + pay GHS (rmb-wallet style). */
+export default function ChinaTransferCreate({
+    config,
+    hasPaymentPin = false,
+    kyc,
+    initialGhs,
+}: Props) {
     const { flash } = usePage<SharedData>().props;
 
     const form = useForm({
         funding_source: 'external' as const,
-        ghs_amount: String(config.rate?.min_ghs ?? ''),
+        ghs_amount: String(initialGhs ?? config.rate?.min_ghs ?? ''),
         payment_method_id: String(config.payment_methods[0]?.id ?? ''),
         payment_pin: '',
         fields: {} as Record<string, string>,
@@ -86,6 +96,17 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
     }, [form.data.ghs_amount, config.rate]);
 
     const method = config.payment_methods.find((m) => String(m.id) === form.data.payment_method_id);
+
+    const recipientFields = config.fields.filter((f) => {
+        const g = f.group.toLowerCase();
+        return !['payment', 'payment_proof', 'proof'].includes(g);
+    });
+    const paymentFields = config.fields.filter((f) => {
+        const g = f.group.toLowerCase();
+        return ['payment', 'payment_proof', 'proof'].includes(g);
+    });
+    const qrFields = recipientFields.filter(isQrField);
+    const textFields = recipientFields.filter((f) => !isQrField(f));
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -105,112 +126,6 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
         form.post(route('wallet.china-transfer.store'), { forceFormData: true });
     };
 
-    const setField = (id: number, value: string) => {
-        form.setData('fields', { ...form.data.fields, [id]: value });
-    };
-
-    const renderField = (field: Field) => {
-        const error = form.errors[fieldKey(field.id)] || form.errors[`files.${field.id}`];
-        if (['image', 'document', 'files'].includes(field.type)) {
-            return (
-                <div key={field.id} className="space-y-1.5">
-                    <Label>
-                        {field.label}
-                        {field.required ? ' *' : ''}
-                    </Label>
-                    <input
-                        type="file"
-                        accept={field.type === 'image' ? 'image/*' : undefined}
-                        multiple={field.type === 'files'}
-                        onChange={(e) => {
-                            const file = e.target.files?.[0] ?? null;
-                            form.setData('files', { ...form.data.files, [field.id]: file });
-                        }}
-                    />
-                    {field.help_text && <p className="text-xs text-gray-500">{field.help_text}</p>}
-                    <InputError message={error} />
-                </div>
-            );
-        }
-
-        if (field.type === 'textarea') {
-            return (
-                <div key={field.id} className="space-y-1.5">
-                    <Label>
-                        {field.label}
-                        {field.required ? ' *' : ''}
-                    </Label>
-                    <textarea
-                        className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        placeholder={field.placeholder ?? ''}
-                        value={form.data.fields[field.id] ?? ''}
-                        onChange={(e) => setField(field.id, e.target.value)}
-                    />
-                    {field.help_text && <p className="text-xs text-gray-500">{field.help_text}</p>}
-                    <InputError message={error} />
-                </div>
-            );
-        }
-
-        if (field.type === 'dropdown' || field.type === 'radio') {
-            return (
-                <div key={field.id} className="space-y-1.5">
-                    <Label>
-                        {field.label}
-                        {field.required ? ' *' : ''}
-                    </Label>
-                    <select
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                        value={form.data.fields[field.id] ?? ''}
-                        onChange={(e) => setField(field.id, e.target.value)}
-                    >
-                        <option value="">Select</option>
-                        {field.options.map((opt) => (
-                            <option key={opt} value={opt}>
-                                {opt}
-                            </option>
-                        ))}
-                    </select>
-                    <InputError message={error} />
-                </div>
-            );
-        }
-
-        return (
-            <div key={field.id} className="space-y-1.5">
-                <Label>
-                    {field.label}
-                    {field.required ? ' *' : ''}
-                </Label>
-                <Input
-                    type={
-                        field.type === 'number'
-                            ? 'number'
-                            : field.type === 'email'
-                              ? 'email'
-                              : field.type === 'date'
-                                ? 'date'
-                                : 'text'
-                    }
-                    placeholder={field.placeholder ?? ''}
-                    value={form.data.fields[field.id] ?? ''}
-                    onChange={(e) => setField(field.id, e.target.value)}
-                />
-                {field.help_text && <p className="text-xs text-gray-500">{field.help_text}</p>}
-                <InputError message={error} />
-            </div>
-        );
-    };
-
-    const recipientFields = config.fields.filter((f) => {
-        const g = f.group.toLowerCase();
-        return !['payment', 'payment_proof', 'proof'].includes(g);
-    });
-    const paymentFields = config.fields.filter((f) => {
-        const g = f.group.toLowerCase();
-        return ['payment', 'payment_proof', 'proof'].includes(g);
-    });
-
     const formError =
         flash.error ||
         form.errors.ghs_amount ||
@@ -221,15 +136,16 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
 
     return (
         <ShopLayout hideFlash>
-            <Head title="Transfer to Alipay" />
+            <Head title="Submit Transfer Request" />
             <div className="mx-auto max-w-lg px-4 py-6">
-                <Link href={route('wallet.china-rmb.index')} className="text-sm font-semibold text-orange-600">
-                    ← China / RMB
+                <Link href={route('wallet.china-transfer.index')} className="text-sm font-semibold text-indigo-600">
+                    ← Buy RMB
                 </Link>
-                <h1 className="mt-3 text-2xl font-black text-gray-900">Send via Alipay</h1>
+                <h1 className="mt-3 text-2xl font-black text-gray-900">Submit Transfer Request</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    Pay GHS · recipient gets RMB at today’s rate. No RMB held in wallet. PIN + KYC required.
+                    Upload the recipient Alipay QR, pay GHS — we send RMB at today’s rate.
                 </p>
+
                 {formError && (
                     <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{formError}</p>
                 )}
@@ -247,41 +163,94 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
                     </p>
                 )}
 
-                <form onSubmit={submit} className="mt-5 space-y-6">
-                    <section className="rounded-2xl border border-gray-200 bg-white p-4">
-                        <Label>Amount to send (GHS)</Label>
-                        <Input
-                            className="mt-2"
-                            inputMode="decimal"
-                            value={form.data.ghs_amount}
-                            onChange={(e) => form.setData('ghs_amount', e.target.value)}
-                        />
-                        {quote && (
-                            <dl className="mt-4 space-y-1.5 text-sm">
-                                <div className="flex justify-between text-gray-600">
-                                    <dt>Exchange rate</dt>
-                                    <dd>1 RMB = GH₵{config.rate?.ghs_per_rmb.toFixed(4)}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt>RMB value</dt>
-                                    <dd className="font-semibold">¥{quote.rmb.toFixed(2)}</dd>
-                                </div>
-                                <div className="flex justify-between">
-                                    <dt>Transfer fee</dt>
-                                    <dd>{formatPrice(quote.fee)}</dd>
-                                </div>
-                                <div className="flex justify-between border-t pt-2 font-bold">
-                                    <dt>Total payment</dt>
-                                    <dd>{formatPrice(quote.total)}</dd>
-                                </div>
-                            </dl>
-                        )}
-                    </section>
+                {quote && (
+                    <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm">
+                        <div className="flex justify-between font-bold text-indigo-900">
+                            <span>You send</span>
+                            <span>{formatPrice(quote.ghs)}</span>
+                        </div>
+                        <div className="mt-1 flex justify-between font-bold text-indigo-900">
+                            <span>They receive</span>
+                            <span>¥{quote.rmb.toFixed(2)}</span>
+                        </div>
+                        <p className="mt-2 text-xs text-indigo-700">
+                            Fee {formatPrice(quote.fee)} · Total {formatPrice(quote.total)}
+                        </p>
+                    </div>
+                )}
 
-                    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-                        <h2 className="font-bold text-gray-900">Alipay recipient</h2>
-                        {recipientFields.map(renderField)}
-                    </section>
+                <form onSubmit={submit} className="mt-5 space-y-5">
+                    {qrFields.map((field) => {
+                        const error = form.errors[fieldKey(field.id)] || form.errors[`files.${field.id}`];
+                        const file = form.data.files[field.id];
+                        return (
+                            <section key={field.id} className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                                <Label className="text-base font-bold">
+                                    Upload Alipay QR Code{field.required ? ' *' : ''}
+                                </Label>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    {field.help_text ?? "Upload recipient's Alipay QR code"}
+                                </p>
+                                <div className="mt-3 flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-6">
+                                    <p className="text-sm font-semibold text-gray-600">
+                                        {file ? file.name : 'Choose recipient QR image'}
+                                    </p>
+                                    <label className="cursor-pointer rounded-xl bg-red-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-red-700">
+                                        Choose Image
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const next = e.target.files?.[0] ?? null;
+                                                form.setData('files', { ...form.data.files, [field.id]: next });
+                                            }}
+                                        />
+                                    </label>
+                                </div>
+                                <InputError message={error} />
+                            </section>
+                        );
+                    })}
+
+                    {textFields.map((field) => {
+                        const error = form.errors[fieldKey(field.id)];
+                        const optional = !field.required;
+                        return (
+                            <div key={field.id} className="space-y-1.5">
+                                <Label>
+                                    {field.label}
+                                    {optional ? ' (Optional)' : ' *'}
+                                </Label>
+                                {field.type === 'textarea' ? (
+                                    <textarea
+                                        className="min-h-24 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                        placeholder={field.placeholder ?? ''}
+                                        value={form.data.fields[field.id] ?? ''}
+                                        onChange={(e) =>
+                                            form.setData('fields', {
+                                                ...form.data.fields,
+                                                [field.id]: e.target.value,
+                                            })
+                                        }
+                                    />
+                                ) : (
+                                    <Input
+                                        placeholder={field.placeholder ?? ''}
+                                        value={form.data.fields[field.id] ?? ''}
+                                        onChange={(e) =>
+                                            form.setData('fields', {
+                                                ...form.data.fields,
+                                                [field.id]: e.target.value,
+                                            })
+                                        }
+                                    />
+                                )}
+                                {field.help_text && <p className="text-xs text-gray-500">{field.help_text}</p>}
+                                <InputError message={error} />
+                            </div>
+                        );
+                    })}
 
                     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
                         <h2 className="font-bold text-gray-900">Pay GHS to CityShop</h2>
@@ -291,7 +260,7 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
                                     key={item.id}
                                     className={`block cursor-pointer rounded-xl border px-3 py-3 ${
                                         form.data.payment_method_id === String(item.id)
-                                            ? 'border-orange-400 bg-orange-50'
+                                            ? 'border-indigo-400 bg-indigo-50'
                                             : 'border-gray-200'
                                     }`}
                                 >
@@ -315,7 +284,46 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
                         {method?.qr_url && (
                             <img src={method.qr_url} alt="Pay QR" className="mt-2 h-40 w-40 rounded-xl object-cover" />
                         )}
-                        {paymentFields.map(renderField)}
+                        {paymentFields.map((field) => {
+                            const error = form.errors[fieldKey(field.id)] || form.errors[`files.${field.id}`];
+                            if (['image', 'document', 'files'].includes(field.type)) {
+                                return (
+                                    <div key={field.id} className="space-y-1.5">
+                                        <Label>
+                                            {field.label}
+                                            {field.required ? ' *' : ''}
+                                        </Label>
+                                        <input
+                                            type="file"
+                                            accept={field.type === 'image' ? 'image/*' : undefined}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0] ?? null;
+                                                form.setData('files', { ...form.data.files, [field.id]: file });
+                                            }}
+                                        />
+                                        <InputError message={error} />
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div key={field.id} className="space-y-1.5">
+                                    <Label>
+                                        {field.label}
+                                        {field.required ? ' *' : ''}
+                                    </Label>
+                                    <Input
+                                        value={form.data.fields[field.id] ?? ''}
+                                        onChange={(e) =>
+                                            form.setData('fields', {
+                                                ...form.data.fields,
+                                                [field.id]: e.target.value,
+                                            })
+                                        }
+                                    />
+                                    <InputError message={error} />
+                                </div>
+                            );
+                        })}
                     </section>
 
                     <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
@@ -331,11 +339,10 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
                             placeholder="••••"
                         />
                         <InputError message={form.errors.payment_pin} />
-                        <p className="text-xs text-gray-500">Required to authorize this transfer.</p>
                     </section>
 
-                    <Button disabled={form.processing} className="w-full bg-orange-500 hover:bg-orange-600">
-                        {form.processing ? 'Submitting…' : 'Submit transfer'}
+                    <Button disabled={form.processing} className="w-full bg-red-600 hover:bg-red-700">
+                        {form.processing ? 'Submitting…' : 'Submit Transfer Request'}
                     </Button>
                 </form>
             </div>

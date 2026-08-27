@@ -50,6 +50,7 @@ class ChinaTransferController extends Controller
             'wallet' => WalletService::ensure($request->user())->toFrontendArray(),
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
             'kyc' => KycService::payload($request->user(), withPhotos: false),
+            'initialGhs' => $request->query('ghs_amount'),
         ]);
     }
 
