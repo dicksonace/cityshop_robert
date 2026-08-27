@@ -60,17 +60,13 @@ function sellPayoutLabel(item: SellTransfer): string {
         : `$${item.quote.usd_payout.toFixed(2)}`;
 }
 
-export default function ChinaRmbHub({ wallet, buy, sell }: Props) {
+export default function ChinaRmbHub({ buy, sell }: Props) {
     const { flash } = usePage<SharedData>().props;
     const buyRate = buy.config.rate;
     const sellRate = sell.config.rate;
-    const [exchangeType, setExchangeType] = useState<'buy' | 'sell' | 'convert'>('convert');
+    const [exchangeType, setExchangeType] = useState<'buy' | 'sell'>('buy');
 
     const continueExchange = () => {
-        if (exchangeType === 'convert') {
-            router.visit(route('wallet.convert'));
-            return;
-        }
         if (exchangeType === 'buy') {
             if (!buy.config.enabled) {
                 return;
@@ -102,42 +98,25 @@ export default function ChinaRmbHub({ wallet, buy, sell }: Props) {
                 </Link>
                 <h1 className="mt-3 text-2xl font-black text-gray-900">China / RMB</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    Convert in-wallet, transfer RMB to Alipay, or sell RMB for GHS.
+                    Pay GHS at today’s rate for Alipay, or sell RMB for MoMo. No RMB balance is held in your wallet.
                 </p>
 
-                <div className="mt-5 grid grid-cols-2 gap-3 rounded-2xl bg-gradient-to-br from-teal-800 to-teal-900 p-5 text-white shadow-lg">
-                    <div>
-                        <p className="text-xs font-semibold text-white/70">GHS wallet</p>
-                        <p className="mt-1 text-xl font-black">{formatPrice(wallet.available_balance)}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs font-semibold text-white/70">RMB wallet</p>
-                        <p className="mt-1 text-xl font-black">¥{Number(wallet.rmb_balance ?? 0).toFixed(2)}</p>
-                    </div>
-                    <div className="col-span-2 border-t border-white/15 pt-3 text-sm font-bold leading-relaxed">
+                <div className="mt-5 rounded-2xl bg-gradient-to-br from-teal-800 to-teal-900 p-5 text-white shadow-lg">
+                    <p className="text-xs font-semibold text-white/70">Live rates</p>
+                    <p className="mt-2 text-base font-extrabold leading-relaxed">
                         {buyRate
-                            ? `Buy / convert · 1 GHS = ¥${buyRate.rmb_per_ghs.toFixed(3)}`
-                            : 'GHS → RMB rate: not published'}
+                            ? `Transfer · 1 GHS = ¥${buyRate.rmb_per_ghs.toFixed(3)}`
+                            : 'Transfer rate: not published'}
                         <br />
                         {sellRate
-                            ? `Sell / convert · 1 RMB = GH₵${(sellRate.ghs_per_rmb ?? sellRate.usd_per_rmb * sellRate.ghs_per_usd).toFixed(4)}`
-                            : 'RMB → GHS rate: not published'}
-                    </div>
+                            ? `Sell · 1 RMB = GH₵${(sellRate.ghs_per_rmb ?? sellRate.usd_per_rmb * sellRate.ghs_per_usd).toFixed(4)}`
+                            : 'Sell rate: not published'}
+                    </p>
                 </div>
 
                 <div className="mt-6">
                     <p className="text-sm font-bold text-gray-700">What do you want to do?</p>
                     <div className="mt-3 grid grid-cols-1 gap-2.5">
-                        <button
-                            type="button"
-                            onClick={() => setExchangeType('convert')}
-                            className={`rounded-xl border-2 px-3 py-4 text-left transition ${
-                                exchangeType === 'convert' ? 'border-emerald-600 bg-white' : 'border-gray-200 bg-white'
-                            }`}
-                        >
-                            <p className="text-sm font-extrabold text-gray-900">Convert GHS ↔ RMB</p>
-                            <p className="mt-1 text-xs font-semibold text-gray-500">Instant wallet exchange</p>
-                        </button>
                         <button
                             type="button"
                             onClick={() => setExchangeType('buy')}
@@ -147,7 +126,7 @@ export default function ChinaRmbHub({ wallet, buy, sell }: Props) {
                         >
                             <p className="text-sm font-extrabold text-gray-900">Transfer RMB to Alipay</p>
                             <p className="mt-1 text-xs font-semibold text-gray-500">
-                                Send from RMB balance (or pay GHS externally)
+                                Pay GHS · recipient gets RMB at today’s rate
                             </p>
                             {!buy.config.enabled ? (
                                 <p className="mt-2 text-[10px] font-bold text-amber-700">Paused</p>
@@ -177,23 +156,17 @@ export default function ChinaRmbHub({ wallet, buy, sell }: Props) {
                         type="button"
                         onClick={continueExchange}
                         disabled={
-                            exchangeType === 'buy'
-                                ? !buy.config.enabled
-                                : exchangeType === 'sell'
-                                  ? !sell.config.enabled
-                                  : false
+                            exchangeType === 'buy' ? !buy.config.enabled : !sell.config.enabled
                         }
                         className="mt-4 w-full rounded-xl bg-teal-700 py-3 text-sm font-extrabold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-gray-400"
                     >
-                        {exchangeType === 'convert'
-                            ? 'Continue · Convert'
-                            : exchangeType === 'buy'
-                              ? buy.config.enabled
-                                  ? 'Continue · Transfer to Alipay'
-                                  : 'Transfers paused'
-                              : sell.config.enabled
-                                ? 'Continue · Sell RMB'
-                                : 'Sell RMB is paused'}
+                        {exchangeType === 'buy'
+                            ? buy.config.enabled
+                                ? 'Continue · Transfer to Alipay'
+                                : 'Transfers paused'
+                            : sell.config.enabled
+                              ? 'Continue · Sell RMB'
+                              : 'Sell RMB is paused'}
                     </button>
                 </div>
 
@@ -210,19 +183,13 @@ export default function ChinaRmbHub({ wallet, buy, sell }: Props) {
                         >
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="font-bold text-gray-900">
-                                        Alipay · {item.reference}
-                                        {item.funding_source === 'rmb_wallet' ? ' · Wallet' : ''}
-                                    </p>
+                                    <p className="font-bold text-gray-900">Alipay · {item.reference}</p>
                                     <p className="text-sm text-gray-500">
-                                        {item.funding_source === 'rmb_wallet'
-                                            ? `¥${item.quote.rmb_amount.toFixed(2)} from wallet`
-                                            : `${formatPrice(item.quote.total_payable_ghs)} → ¥${item.quote.rmb_amount.toFixed(2)}`}
+                                        {formatPrice(item.quote.total_payable_ghs)} → ¥
+                                        {item.quote.rmb_amount.toFixed(2)}
                                     </p>
                                 </div>
-                                <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700">
-                                    {item.status_label}
-                                </span>
+                                <p className="text-xs font-semibold text-orange-700">{item.status_label}</p>
                             </div>
                         </Link>
                     ))}
@@ -239,9 +206,7 @@ export default function ChinaRmbHub({ wallet, buy, sell }: Props) {
                                         ¥{item.quote.rmb_amount.toFixed(2)} → {sellPayoutLabel(item)}
                                     </p>
                                 </div>
-                                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                                    {item.status_label}
-                                </span>
+                                <p className="text-xs font-semibold text-emerald-700">{item.status_label}</p>
                             </div>
                         </Link>
                     ))}

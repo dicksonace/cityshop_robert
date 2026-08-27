@@ -1,5 +1,5 @@
 ---
-description: Buyer China / RMB wallet — convert, Alipay transfer from RMB, Sell RMB external
+description: Buyer China / RMB — pay GHS at live rate for Alipay; no RMB wallet hold
 alwaysApply: true
 ---
 
@@ -7,31 +7,26 @@ alwaysApply: true
 
 **Buyers only.** Entry is the **China / RMB** pill on the top-right of the orange wallet balance card (web + app). Do not put this on Withdrawal.
 
-## Dual balance (GHS + RMB)
+## Product model (no RMB hold)
 
-Buyers hold `available_balance` (GHS) and `rmb_balance` on the same wallet. No USDT.
+Buyers **do not** hold an RMB balance in the wallet UI. Wallet shows GHS only (available + pending).
 
-Flow (rmb-wallet style):
+Flow:
 1. Deposit / recharge GHS (manual, Paystack, or admin funding)
-2. **Convert** GHS ↔ RMB instantly (`POST /wallet/convert`) using published rates
-3. **Transfer to Alipay** from RMB balance (`funding_source=rmb_wallet`) — RMB is held on create; admin sends Alipay; reject/cancel/fail refunds RMB
-4. **Sell RMB** stays external: user sends Alipay to CityShop → admin pays MoMo/GHS out (wallet not credited)
+2. **Transfer to Alipay** — pay GHS externally at the published rate; recipient gets RMB value shown on the form (`funding_source=external`)
+3. **Sell RMB** stays external: user sends Alipay to CityShop → admin pays MoMo/GHS out (wallet not credited)
 
-## Convert rates (spread)
-
-- GHS → RMB: China transfer buy rate (`ghs_per_rmb` → `rmb = ghs / ghs_per_rmb`)
-- RMB → GHS: Sell RMB buying rate (`ghsPerRmb()`)
-- Server always recomputes the result — never trust a client-supplied counterpart amount
+Do **not** show Convert or RMB balance on the buyer wallet card. Convert / `rmb_wallet` funding APIs may still exist for admin ops, but buyer UX is rate-direct GHS payment.
 
 ## Transfer to Alipay
 
-Default: pay from RMB wallet. External GHS MoMo/bank remittance remains as `funding_source=external`.
+Buyer pays GHS (MoMo/bank remittance). Form shows live rate → RMB value → fee → total.
 
 **Alipay only** for receiving in China on the buy/transfer path. Do not add WeChat Pay to Buy.
 
 Admin configures:
-- GHS → RMB rate (`ghs_per_rmb`), fees, min/max, limits (also drive convert)
-- GHS payment methods (for external funding)
+- GHS → RMB rate (`ghs_per_rmb`), fees, min/max, limits
+- GHS payment methods
 - Dynamic recipient form fields
 
 ## Sell RMB
@@ -39,13 +34,6 @@ Admin configures:
 User sells RMB to CityShop → receives USD or GHS externally.
 Admin configures a separate **buying rate** (`usd_per_rmb` + `ghs_per_usd`), RMB receive methods (Alipay/WeChat), and dynamic form fields.
 
-Statuses: Submitted → RMB Verification → RMB Received → Payout Processing → Paid → Completed.
-Completing requires admin payout proof. **Do not credit the GHS wallet on sell complete.**
+## Roles
 
-## App / web hub
-
-China / RMB → balances + actions: **Convert**, **Transfer to Alipay**, **Sell RMB**. Keep buy and sell rates independent so admin can set a spread.
-
-## Admin
-
-Wallet funding supports **GHS | RMB** credit/debit. China transfer detail shows `funding_source` (RMB wallet vs external).
+China Transfer + Sell RMB are **buyer-only**. Sellers use seller wallet only.

@@ -124,9 +124,6 @@ export default function BuyerWallet({
                         <div className="inline-flex rounded-xl bg-white/15 px-3 py-2 text-sm font-semibold">
                             Pending: {formatPrice(wallet.pending_balance ?? 0)}
                         </div>
-                        <div className="inline-flex rounded-xl bg-white/15 px-3 py-2 text-sm font-semibold">
-                            RMB: ¥{Number(wallet.rmb_balance ?? 0).toFixed(2)}
-                        </div>
                     </div>
                     <div className="mt-4 flex h-12 overflow-hidden rounded-full bg-white shadow-md">
                         <Link
@@ -149,12 +146,6 @@ export default function BuyerWallet({
                             {canRecharge ? 'Recharge' : 'Unavailable'}
                         </button>
                     </div>
-                    <Link
-                        href={route('wallet.convert')}
-                        className="mt-3 flex w-full items-center justify-center rounded-full bg-white/20 py-2.5 text-sm font-extrabold text-white backdrop-blur-sm hover:bg-white/30"
-                    >
-                        Convert GHS ↔ RMB
-                    </Link>
                 </div>
 
                 {hasPendingWithdrawal && (
@@ -221,7 +212,7 @@ export default function BuyerWallet({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 className="text-base font-extrabold text-gray-900">Transaction History</h3>
                         <div className="flex gap-1">
-                            {(['all', 'GHS', 'RMB'] as const).map((c) => (
+                            {(['all', 'GHS'] as const).map((c) => (
                                 <Link
                                     key={c}
                                     href={route('wallet.index', c === 'all' ? {} : { currency: c })}

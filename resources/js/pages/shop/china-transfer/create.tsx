@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { FormEventHandler, useMemo, useState } from 'react';
+import { FormEventHandler, useMemo } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -65,56 +65,36 @@ function fieldKey(id: number) {
 
 export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = false, kyc }: Props) {
     const { flash } = usePage<SharedData>().props;
-    const rmbBalance = Number(wallet.rmb_balance ?? 0);
-    const walletDefault = (config.wallet_funding_enabled ?? config.enabled) && rmbBalance >= 1;
-    const [fundingSource, setFundingSource] = useState<'rmb_wallet' | 'external'>(
-        walletDefault ? 'rmb_wallet' : 'external',
-    );
 
     const form = useForm({
-        funding_source: walletDefault ? 'rmb_wallet' : 'external',
+        funding_source: 'external' as const,
         ghs_amount: String(config.rate?.min_ghs ?? ''),
-        rmb_amount: '',
         payment_method_id: String(config.payment_methods[0]?.id ?? ''),
         payment_pin: '',
         fields: {} as Record<string, string>,
         files: {} as Record<string, File | null>,
     });
 
-    const setFunding = (source: 'rmb_wallet' | 'external') => {
-        setFundingSource(source);
-        form.setData('funding_source', source);
-    };
-
     const quote = useMemo(() => {
         if (!config.rate) return null;
-        if (fundingSource === 'rmb_wallet') {
-            const rmb = Number(form.data.rmb_amount);
-            if (!Number.isFinite(rmb) || rmb <= 0) return null;
-            return { rmb, fee: 0, total: 0, ghs: rmb * config.rate.ghs_per_rmb };
-        }
         const amount = Number(form.data.ghs_amount);
         if (!Number.isFinite(amount) || amount <= 0) return null;
         const rmb = amount / config.rate.ghs_per_rmb;
         const fee =
             config.rate.fee_mode === 'percent' ? (amount * config.rate.fee_value) / 100 : config.rate.fee_value;
         return { rmb, fee, total: amount + fee, ghs: amount };
-    }, [form.data.ghs_amount, form.data.rmb_amount, config.rate, fundingSource]);
+    }, [form.data.ghs_amount, config.rate]);
 
     const method = config.payment_methods.find((m) => String(m.id) === form.data.payment_method_id);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         const payload: Record<string, unknown> = {
-            funding_source: fundingSource,
+            funding_source: 'external',
             payment_pin: form.data.payment_pin,
+            ghs_amount: form.data.ghs_amount,
+            payment_method_id: form.data.payment_method_id,
         };
-        if (fundingSource === 'rmb_wallet') {
-            payload.rmb_amount = form.data.rmb_amount;
-        } else {
-            payload.ghs_amount = form.data.ghs_amount;
-            payload.payment_method_id = form.data.payment_method_id;
-        }
         Object.entries(form.data.fields).forEach(([id, value]) => {
             payload[`fields[${id}]`] = value;
         });
@@ -234,7 +214,6 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
     const formError =
         flash.error ||
         form.errors.ghs_amount ||
-        form.errors.rmb_amount ||
         form.errors.payment_method_id ||
         form.errors.funding_source ||
         form.errors.payment_pin ||
@@ -249,7 +228,7 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
                 </Link>
                 <h1 className="mt-3 text-2xl font-black text-gray-900">Send via Alipay</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    RMB wallet: ¥{rmbBalance.toFixed(2)} · GHS: {formatPrice(wallet.available_balance)} · PIN + KYC required
+                    Pay GHS · recipient gets RMB at today’s rate. No RMB held in wallet. PIN + KYC required.
                 </p>
                 {formError && (
                     <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{formError}</p>
@@ -268,90 +247,34 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
                     </p>
                 )}
 
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setFunding('rmb_wallet')}
-                        disabled={!(config.wallet_funding_enabled ?? config.enabled)}
-                        className={`rounded-xl border-2 px-3 py-3 text-sm font-extrabold ${
-                            fundingSource === 'rmb_wallet'
-                                ? 'border-orange-500 bg-orange-50 text-orange-700'
-                                : 'border-gray-200'
-                        }`}
-                    >
-                        Pay from RMB wallet
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setFunding('external')}
-                        disabled={!(config.external_enabled ?? config.payment_methods.length > 0)}
-                        className={`rounded-xl border-2 px-3 py-3 text-sm font-extrabold ${
-                            fundingSource === 'external'
-                                ? 'border-orange-500 bg-orange-50 text-orange-700'
-                                : 'border-gray-200'
-                        }`}
-                    >
-                        Pay GHS externally
-                    </button>
-                </div>
-
                 <form onSubmit={submit} className="mt-5 space-y-6">
                     <section className="rounded-2xl border border-gray-200 bg-white p-4">
-                        {fundingSource === 'rmb_wallet' ? (
-                            <>
-                                <Label>RMB to send</Label>
-                                <Input
-                                    className="mt-2"
-                                    inputMode="decimal"
-                                    value={form.data.rmb_amount}
-                                    onChange={(e) => form.setData('rmb_amount', e.target.value)}
-                                    placeholder="Min ¥1.00"
-                                />
-                                <p className="mt-2 text-xs text-gray-500">
-                                    Held from your RMB wallet immediately. Convert first if needed.
-                                </p>
-                                <Link href={route('wallet.convert')} className="mt-2 inline-block text-xs font-semibold text-orange-600">
-                                    Convert GHS → RMB
-                                </Link>
-                                {quote && (
-                                    <dl className="mt-4 space-y-1.5 text-sm">
-                                        <div className="flex justify-between">
-                                            <dt>RMB held</dt>
-                                            <dd className="font-semibold">¥{quote.rmb.toFixed(2)}</dd>
-                                        </div>
-                                    </dl>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <Label>Amount to send (GHS)</Label>
-                                <Input
-                                    className="mt-2"
-                                    inputMode="decimal"
-                                    value={form.data.ghs_amount}
-                                    onChange={(e) => form.setData('ghs_amount', e.target.value)}
-                                />
-                                {quote && (
-                                    <dl className="mt-4 space-y-1.5 text-sm">
-                                        <div className="flex justify-between text-gray-600">
-                                            <dt>Exchange rate</dt>
-                                            <dd>1 RMB = GH₵{config.rate?.ghs_per_rmb.toFixed(4)}</dd>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <dt>RMB value</dt>
-                                            <dd className="font-semibold">¥{quote.rmb.toFixed(2)}</dd>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <dt>Transfer fee</dt>
-                                            <dd>{formatPrice(quote.fee)}</dd>
-                                        </div>
-                                        <div className="flex justify-between border-t pt-2 font-bold">
-                                            <dt>Total payment</dt>
-                                            <dd>{formatPrice(quote.total)}</dd>
-                                        </div>
-                                    </dl>
-                                )}
-                            </>
+                        <Label>Amount to send (GHS)</Label>
+                        <Input
+                            className="mt-2"
+                            inputMode="decimal"
+                            value={form.data.ghs_amount}
+                            onChange={(e) => form.setData('ghs_amount', e.target.value)}
+                        />
+                        {quote && (
+                            <dl className="mt-4 space-y-1.5 text-sm">
+                                <div className="flex justify-between text-gray-600">
+                                    <dt>Exchange rate</dt>
+                                    <dd>1 RMB = GH₵{config.rate?.ghs_per_rmb.toFixed(4)}</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                    <dt>RMB value</dt>
+                                    <dd className="font-semibold">¥{quote.rmb.toFixed(2)}</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                    <dt>Transfer fee</dt>
+                                    <dd>{formatPrice(quote.fee)}</dd>
+                                </div>
+                                <div className="flex justify-between border-t pt-2 font-bold">
+                                    <dt>Total payment</dt>
+                                    <dd>{formatPrice(quote.total)}</dd>
+                                </div>
+                            </dl>
                         )}
                     </section>
 
@@ -360,42 +283,40 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
                         {recipientFields.map(renderField)}
                     </section>
 
-                    {fundingSource === 'external' && (
-                        <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-                            <h2 className="font-bold text-gray-900">Pay GHS to CityShop</h2>
-                            <div className="space-y-2">
-                                {config.payment_methods.map((item) => (
-                                    <label
-                                        key={item.id}
-                                        className={`block cursor-pointer rounded-xl border px-3 py-3 ${
-                                            form.data.payment_method_id === String(item.id)
-                                                ? 'border-orange-400 bg-orange-50'
-                                                : 'border-gray-200'
-                                        }`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            className="mr-2"
-                                            checked={form.data.payment_method_id === String(item.id)}
-                                            onChange={() => form.setData('payment_method_id', String(item.id))}
-                                        />
-                                        <span className="font-semibold">{item.name}</span>
-                                        {item.account_number && (
-                                            <span className="mt-1 block text-sm text-gray-600">
-                                                {item.account_name} · {item.account_number}
-                                                {item.bank_name ? ` · ${item.bank_name}` : ''}
-                                            </span>
-                                        )}
-                                    </label>
-                                ))}
-                            </div>
-                            {method?.instructions && <p className="text-sm text-gray-600">{method.instructions}</p>}
-                            {method?.qr_url && (
-                                <img src={method.qr_url} alt="Pay QR" className="mt-2 h-40 w-40 rounded-xl object-cover" />
-                            )}
-                            {paymentFields.map(renderField)}
-                        </section>
-                    )}
+                    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+                        <h2 className="font-bold text-gray-900">Pay GHS to CityShop</h2>
+                        <div className="space-y-2">
+                            {config.payment_methods.map((item) => (
+                                <label
+                                    key={item.id}
+                                    className={`block cursor-pointer rounded-xl border px-3 py-3 ${
+                                        form.data.payment_method_id === String(item.id)
+                                            ? 'border-orange-400 bg-orange-50'
+                                            : 'border-gray-200'
+                                    }`}
+                                >
+                                    <input
+                                        type="radio"
+                                        className="mr-2"
+                                        checked={form.data.payment_method_id === String(item.id)}
+                                        onChange={() => form.setData('payment_method_id', String(item.id))}
+                                    />
+                                    <span className="font-semibold">{item.name}</span>
+                                    {item.account_number && (
+                                        <span className="mt-1 block text-sm text-gray-600">
+                                            {item.account_name} · {item.account_number}
+                                            {item.bank_name ? ` · ${item.bank_name}` : ''}
+                                        </span>
+                                    )}
+                                </label>
+                            ))}
+                        </div>
+                        {method?.instructions && <p className="text-sm text-gray-600">{method.instructions}</p>}
+                        {method?.qr_url && (
+                            <img src={method.qr_url} alt="Pay QR" className="mt-2 h-40 w-40 rounded-xl object-cover" />
+                        )}
+                        {paymentFields.map(renderField)}
+                    </section>
 
                     <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
                         <Label>Payment PIN *</Label>
@@ -414,11 +335,7 @@ export default function ChinaTransferCreate({ config, wallet, hasPaymentPin = fa
                     </section>
 
                     <Button disabled={form.processing} className="w-full bg-orange-500 hover:bg-orange-600">
-                        {form.processing
-                            ? 'Submitting…'
-                            : fundingSource === 'rmb_wallet'
-                              ? 'Hold RMB & submit'
-                              : 'Submit transfer'}
+                        {form.processing ? 'Submitting…' : 'Submit transfer'}
                     </Button>
                 </form>
             </div>
