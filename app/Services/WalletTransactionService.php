@@ -22,11 +22,13 @@ class WalletTransactionService
         ?int $orderItemId = null,
         ?int $withdrawalId = null,
         ?string $reference = null,
+        string $currency = 'GHS',
     ): WalletTransaction {
         return WalletTransaction::create([
             'user_id' => $userId,
             'type' => $type,
             'amount' => $amount,
+            'currency' => strtoupper($currency) === 'RMB' ? 'RMB' : 'GHS',
             'description' => $description,
             'order_item_id' => $orderItemId,
             'withdrawal_id' => $withdrawalId,
@@ -346,17 +348,65 @@ class WalletTransactionService
 
     public static function labelFor(WalletTransactionType $type): string
     {
-        return match ($type) {
-            WalletTransactionType::SalePending => 'Sale (Pending)',
-            WalletTransactionType::SaleReleased => 'Funds Released',
-            WalletTransactionType::Withdrawal => 'Withdrawal · Processing',
-            WalletTransactionType::WithdrawalCompleted => 'Withdrawal · Completed',
-            WalletTransactionType::WithdrawalRefunded => 'Withdrawal Refunded',
-            WalletTransactionType::FundAdded => 'Funds Credited',
-            WalletTransactionType::OrderPayment => 'Order Payment',
-            WalletTransactionType::OrderRefund => 'Order Refund',
-            WalletTransactionType::SaleReversed => 'Sale Reversed',
-        };
+        return $type->label();
+    }
+
+    public static function recordAdminRmbCredit(int $userId, float $amount, int $adminId, ?string $note = null): WalletTransaction
+    {
+        $description = 'RMB added by admin';
+        if ($note !== null && trim($note) !== '') {
+            $description .= ' — '.trim($note);
+        }
+
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::RmbFundAdded,
+            amount: $amount,
+            description: $description,
+            reference: 'ADMIN-RMB-'.$adminId.'-'.now()->format('YmdHis'),
+            currency: 'RMB',
+        );
+    }
+
+    public static function recordAdminRmbDebit(int $userId, float $amount, int $adminId, ?string $note = null): WalletTransaction
+    {
+        $description = 'RMB removed by admin';
+        if ($note !== null && trim($note) !== '') {
+            $description .= ' — '.trim($note);
+        }
+
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::RmbFundRemoved,
+            amount: -1 * $amount,
+            description: $description,
+            reference: 'ADMIN-RMB-DEBIT-'.$adminId.'-'.now()->format('YmdHis'),
+            currency: 'RMB',
+        );
+    }
+
+    public static function recordRmbTransferOut(int $userId, float $amount, string $reference, string $description): WalletTransaction
+    {
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::RmbTransferOut,
+            amount: -1 * $amount,
+            description: $description,
+            reference: $reference,
+            currency: 'RMB',
+        );
+    }
+
+    public static function recordRmbTransferRefund(int $userId, float $amount, string $reference, string $description): WalletTransaction
+    {
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::RmbTransferRefund,
+            amount: $amount,
+            description: $description,
+            reference: $reference,
+            currency: 'RMB',
+        );
     }
 
     /**
@@ -515,7 +565,7 @@ class WalletTransactionService
     }
 
     /**
-     * Attach before/after available, pending, and total balances to a newest-first page of transactions.
+     * Attach before/after available, pending, RMB, and total balances to a newest-first page of transactions.
      *
      * @param  \Illuminate\Support\Collection<int, WalletTransaction>  $pageNewestFirst
      * @return \Illuminate\Support\Collection<int, WalletTransaction>
@@ -525,6 +575,7 @@ class WalletTransactionService
         $pageNewestFirst,
         float $currentAvailable,
         float $currentPending,
+        float $currentRmb = 0.0,
     ) {
         if ($pageNewestFirst->isEmpty()) {
             return $pageNewestFirst;
@@ -532,6 +583,7 @@ class WalletTransactionService
 
         $available = $currentAvailable;
         $pending = $currentPending;
+        $rmb = $currentRmb;
 
         $newestOnPage = $pageNewestFirst->first();
         $newer = WalletTransaction::query()
@@ -548,16 +600,18 @@ class WalletTransactionService
             ->get();
 
         foreach ($newer as $tx) {
-            static::reverseLedgerEffect($tx->type, (float) $tx->amount, $available, $pending);
+            static::reverseLedgerEffect($tx, $available, $pending, $rmb);
         }
 
         foreach ($pageNewestFirst as $tx) {
             $tx->setAttribute('available_after', round($available, 2));
             $tx->setAttribute('pending_after', round($pending, 2));
+            $tx->setAttribute('rmb_after', round($rmb, 2));
             $tx->setAttribute('balance_after', round($available + $pending, 2));
-            static::reverseLedgerEffect($tx->type, (float) $tx->amount, $available, $pending);
+            static::reverseLedgerEffect($tx, $available, $pending, $rmb);
             $tx->setAttribute('available_before', round($available, 2));
             $tx->setAttribute('pending_before', round($pending, 2));
+            $tx->setAttribute('rmb_before', round($rmb, 2));
             $tx->setAttribute('balance_before', round($available + $pending, 2));
         }
 
@@ -571,16 +625,20 @@ class WalletTransactionService
      *     balance_before: float,
      *     available_after: float,
      *     pending_after: float,
-     *     balance_after: float
+     *     balance_after: float,
+     *     rmb_before: float,
+     *     rmb_after: float
      * }
      */
     public static function balancesAfterTransaction(
         WalletTransaction $transaction,
         float $currentAvailable,
         float $currentPending,
+        float $currentRmb = 0.0,
     ): array {
         $available = $currentAvailable;
         $pending = $currentPending;
+        $rmb = $currentRmb;
 
         $newerAndSelf = WalletTransaction::query()
             ->where('user_id', $transaction->user_id)
@@ -601,35 +659,49 @@ class WalletTransactionService
                     'available_after' => round($available, 2),
                     'pending_after' => round($pending, 2),
                     'balance_after' => round($available + $pending, 2),
+                    'rmb_after' => round($rmb, 2),
                 ];
-                static::reverseLedgerEffect($tx->type, (float) $tx->amount, $available, $pending);
+                static::reverseLedgerEffect($tx, $available, $pending, $rmb);
 
                 return [
                     'available_before' => round($available, 2),
                     'pending_before' => round($pending, 2),
                     'balance_before' => round($available + $pending, 2),
+                    'rmb_before' => round($rmb, 2),
                     ...$after,
                 ];
             }
-            static::reverseLedgerEffect($tx->type, (float) $tx->amount, $available, $pending);
+            static::reverseLedgerEffect($tx, $available, $pending, $rmb);
         }
 
         return [
             'available_before' => round($available, 2),
             'pending_before' => round($pending, 2),
             'balance_before' => round($available + $pending, 2),
+            'rmb_before' => round($rmb, 2),
             'available_after' => round($available, 2),
             'pending_after' => round($pending, 2),
             'balance_after' => round($available + $pending, 2),
+            'rmb_after' => round($rmb, 2),
         ];
     }
 
     private static function reverseLedgerEffect(
-        WalletTransactionType $type,
-        float $amount,
+        WalletTransaction $tx,
         float &$available,
         float &$pending,
+        float &$rmb,
     ): void {
+        $type = $tx->type;
+        $amount = (float) $tx->amount;
+        $currency = strtoupper((string) ($tx->currency ?? 'GHS'));
+
+        if ($currency === 'RMB') {
+            $rmb -= $amount;
+
+            return;
+        }
+
         if ($type === WalletTransactionType::SalePending) {
             $pending -= $amount;
 

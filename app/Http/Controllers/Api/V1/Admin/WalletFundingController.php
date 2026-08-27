@@ -35,6 +35,7 @@ class WalletFundingController extends Controller
                 'email' => $user->email,
                 'role' => $user->role?->value,
                 'available_balance' => (float) ($user->wallet?->available_balance ?? 0),
+                'rmb_balance' => (float) ($user->wallet?->rmb_balance ?? 0),
             ]);
 
         return response()->json(['data' => $users]);
@@ -48,15 +49,25 @@ class WalletFundingController extends Controller
                 Rule::exists('users', 'id')->whereIn('role', [UserRole::Seller->value, UserRole::Buyer->value]),
             ],
             'action' => ['required', Rule::in(['credit', 'debit'])],
+            'currency' => ['nullable', Rule::in(['GHS', 'RMB', 'ghs', 'rmb'])],
             'amount' => ['required', 'numeric', 'min:0.5', 'max:1000000'],
             'note' => ['nullable', 'string', 'max:255'],
         ]);
 
         $target = User::findOrFail($validated['user_id']);
         $amount = (float) $validated['amount'];
+        $currency = strtoupper((string) ($validated['currency'] ?? 'GHS'));
 
         try {
-            if ($validated['action'] === 'debit') {
+            if ($currency === 'RMB') {
+                if ($validated['action'] === 'debit') {
+                    WalletService::adminDebitRmb($target, $amount, $request->user(), $validated['note'] ?? null);
+                    $message = '¥'.number_format($amount, 2).' removed from '.$target->name."'s wallet.";
+                } else {
+                    WalletService::adminCreditRmb($target, $amount, $request->user(), $validated['note'] ?? null);
+                    $message = '¥'.number_format($amount, 2).' added to '.$target->name."'s wallet.";
+                }
+            } elseif ($validated['action'] === 'debit') {
                 WalletService::adminDebit($target, $amount, $request->user(), $validated['note'] ?? null);
                 $message = 'GH₵'.number_format($amount, 2).' removed from '.$target->name."'s wallet.";
             } else {
@@ -72,6 +83,7 @@ class WalletFundingController extends Controller
         return response()->json([
             'message' => $message,
             'available_balance' => (float) $wallet->available_balance,
+            'rmb_balance' => (float) $wallet->rmb_balance,
         ]);
     }
 }

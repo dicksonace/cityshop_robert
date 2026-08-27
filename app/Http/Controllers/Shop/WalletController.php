@@ -8,10 +8,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\KycService;
+use App\Services\PaymentPinService;
 use App\Services\PaystackService;
 use App\Services\PlatformSettings;
-use App\Services\PaymentPinService;
-use App\Services\KycService;
+use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
@@ -32,9 +33,11 @@ class WalletController extends Controller
 
         $userId = $request->user()->id;
         $wallet = WalletService::ensure($request->user());
+        $currency = strtoupper(trim((string) $request->query('currency', 'all')));
 
         $transactions = WalletTransaction::where('user_id', $userId)
             ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)
+            ->when(in_array($currency, ['GHS', 'RMB'], true), fn ($q) => $q->where('currency', $currency))
             ->with('withdrawal:id,status,momo_number,fee')
             ->latest()
             ->paginate(15)
@@ -45,10 +48,12 @@ class WalletController extends Controller
             $transactions->getCollection(),
             (float) $wallet->available_balance,
             (float) $wallet->pending_balance,
+            (float) $wallet->rmb_balance,
         );
         $transactions->getCollection()->each(function (WalletTransaction $tx) {
             $tx->setAttribute('type_label', WalletTransactionService::displayTypeLabel($tx));
             $tx->setAttribute('description', WalletTransactionService::displayDescription($tx));
+            $tx->setAttribute('currency', strtoupper((string) ($tx->currency ?? 'GHS')));
         });
 
         $withdrawals = Withdrawal::where('user_id', $userId)
@@ -65,12 +70,15 @@ class WalletController extends Controller
         return Inertia::render('shop/wallet', [
             'wallet' => $wallet->toFrontendArray(),
             'transactions' => $transactions,
+            'currencyFilter' => in_array($currency, ['GHS', 'RMB'], true) ? $currency : 'all',
             'withdrawals' => $withdrawals,
             'hasPendingWithdrawal' => $hasPendingWithdrawal,
             'paystackConfigured' => $this->paystack->isAvailable(),
             'paystackPublicKey' => config('services.paystack.public_key'),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
+            'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
+            'kyc' => KycService::payload($request->user(), withPhotos: false),
         ]);
     }
 
@@ -248,5 +256,107 @@ class WalletController extends Controller
         }
 
         return redirect()->route('wallet.index')->with('success', $result['message']);
+    }
+
+    public function convertForm(Request $request): Response
+    {
+        abort_unless($request->user()->isBuyer(), 403);
+
+        $wallet = WalletService::ensure($request->user());
+
+        $ghsToRmb = null;
+        $rmbToGhs = null;
+        try {
+            $ghsToRmb = WalletService::convertQuote('ghs_to_rmb', 100);
+        } catch (\RuntimeException) {
+        }
+        try {
+            $rmbToGhs = WalletService::convertQuote('rmb_to_ghs', 100);
+        } catch (\RuntimeException) {
+        }
+
+        return Inertia::render('shop/wallet/convert', [
+            'wallet' => $wallet->toFrontendArray(),
+            'sampleQuotes' => [
+                'ghs_to_rmb' => $ghsToRmb,
+                'rmb_to_ghs' => $rmbToGhs,
+            ],
+            'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
+            'kyc' => KycService::payload($request->user(), withPhotos: false),
+        ]);
+    }
+
+    public function convertQuote(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->isBuyer(), 403);
+
+        $validated = $request->validate([
+            'direction' => ['required', 'in:ghs_to_rmb,rmb_to_ghs'],
+            'amount' => ['required', 'numeric', 'min:1'],
+        ]);
+
+        try {
+            $quote = WalletService::convertQuote($validated['direction'], (float) $validated['amount']);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $wallet = WalletService::ensure($request->user());
+
+        return response()->json([
+            'data' => [
+                ...$quote,
+                'available_balance' => (float) $wallet->available_balance,
+                'rmb_balance' => (float) $wallet->rmb_balance,
+            ],
+        ]);
+    }
+
+    public function convert(Request $request): RedirectResponse|JsonResponse
+    {
+        abort_unless($request->user()->isBuyer(), 403);
+
+        if ($denied = RmbWalletGuard::denyRedirect($request->user())) {
+            if ($request->expectsJson()) {
+                return RmbWalletGuard::denyJson($request->user()) ?? response()->json(['message' => 'KYC required'], 403);
+            }
+
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'direction' => ['required', 'in:ghs_to_rmb,rmb_to_ghs'],
+            'amount' => ['required', 'numeric', 'min:1'],
+            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+        ]);
+
+        PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);
+        RmbWalletGuard::assertConvertVelocity($request->user());
+
+        try {
+            $result = WalletService::convert(
+                $request->user(),
+                $validated['direction'],
+                (float) $validated['amount'],
+                RmbWalletGuard::requestMeta($request),
+            );
+        } catch (\RuntimeException $e) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            return back()->with('error', $e->getMessage());
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $result['message'],
+                'data' => $result,
+            ]);
+        }
+
+        return redirect()
+            ->route('wallet.china-rmb.index')
+            ->with('success', $result['message']);
     }
 }

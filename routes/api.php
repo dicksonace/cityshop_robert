@@ -443,6 +443,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/wallet/manual-top-up', [WalletController::class, 'manualTopUp']);
         Route::get('/wallet/manual-top-up/{topUp}', [WalletController::class, 'showManualTopUp']);
         Route::post('/wallet/manual-top-up/{topUp}/cancel', [WalletController::class, 'cancelManualTopUp']);
+        Route::post('/wallet/convert/quote', [WalletController::class, 'convertQuote']);
+        Route::post('/wallet/convert', [WalletController::class, 'convert']);
         Route::get('/wallet/china-transfer', [ChinaTransferController::class, 'index']);
         Route::post('/wallet/china-transfer/quote', [ChinaTransferController::class, 'quote']);
         Route::post('/wallet/china-transfer', [ChinaTransferController::class, 'store']);

@@ -12,6 +12,7 @@ class WalletTransaction extends Model
         'user_id',
         'type',
         'amount',
+        'currency',
         'description',
         'order_item_id',
         'withdrawal_id',
@@ -24,6 +25,11 @@ class WalletTransaction extends Model
             'type' => WalletTransactionType::class,
             'amount' => 'decimal:2',
         ];
+    }
+
+    public function isRmb(): bool
+    {
+        return strtoupper((string) ($this->currency ?? 'GHS')) === 'RMB';
     }
 
     public function user(): BelongsTo

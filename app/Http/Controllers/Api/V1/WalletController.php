@@ -12,10 +12,11 @@ use App\Models\WalletTopUpRequest;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\AdminNotifier;
-use App\Services\PaystackService;
-use App\Services\PaymentPinService;
-use App\Services\PlatformSettings;
 use App\Services\KycService;
+use App\Services\PaymentPinService;
+use App\Services\PaystackService;
+use App\Services\PlatformSettings;
+use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
@@ -46,6 +47,7 @@ class WalletController extends Controller
                 'pending_balance' => (float) $wallet->pending_balance,
                 'total_earnings' => (float) $wallet->total_earnings,
                 'withdrawn_amount' => (float) $wallet->withdrawn_amount,
+                'rmb_balance' => (float) $wallet->rmb_balance,
                 'paystack_configured' => $this->paystack->isAvailable(),
                 'paystack_fee' => $this->paystack->rechargeFeePayload(),
                 'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
@@ -65,9 +67,11 @@ class WalletController extends Controller
 
         $wallet = WalletService::ensure($user);
         $perPage = min(max((int) $request->integer('per_page', 20), 1), 50);
+        $currency = strtoupper(trim((string) $request->query('currency', 'all')));
 
         $transactions = WalletTransaction::where('user_id', $user->id)
             ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)
+            ->when(in_array($currency, ['GHS', 'RMB'], true), fn ($q) => $q->where('currency', $currency))
             ->with('withdrawal:id,status,momo_number,fee')
             ->latest()
             ->paginate($perPage);
@@ -77,6 +81,7 @@ class WalletController extends Controller
             $transactions->getCollection(),
             (float) $wallet->available_balance,
             (float) $wallet->pending_balance,
+            (float) $wallet->rmb_balance,
         );
         WalletTransactionService::attachCounterpartyMobiles($transactions->getCollection());
 
@@ -86,11 +91,14 @@ class WalletController extends Controller
                 'type' => $tx->type->value,
                 'type_label' => WalletTransactionService::displayTypeLabel($tx),
                 'amount' => (float) $tx->amount,
+                'currency' => strtoupper((string) ($tx->currency ?? 'GHS')),
                 'description' => WalletTransactionService::displayDescription($tx),
                 'reference' => $tx->reference,
                 'created_at' => $tx->created_at?->toIso8601String(),
                 'balance_before' => $tx->getAttribute('balance_before'),
                 'balance_after' => $tx->getAttribute('balance_after'),
+                'rmb_before' => $tx->getAttribute('rmb_before'),
+                'rmb_after' => $tx->getAttribute('rmb_after'),
                 'counterparty' => WalletTransactionService::counterpartyPayload($tx),
             ])->values(),
             'meta' => [
@@ -130,6 +138,7 @@ class WalletController extends Controller
             collect([$tx]),
             (float) $wallet->available_balance,
             (float) $wallet->pending_balance,
+            (float) $wallet->rmb_balance,
         );
         WalletTransactionService::attachCounterpartyMobiles(collect([$tx]));
 
@@ -139,13 +148,78 @@ class WalletController extends Controller
                 'type' => $tx->type->value,
                 'type_label' => WalletTransactionService::displayTypeLabel($tx),
                 'amount' => (float) $tx->amount,
+                'currency' => strtoupper((string) ($tx->currency ?? 'GHS')),
                 'description' => WalletTransactionService::displayDescription($tx),
                 'reference' => $tx->reference,
                 'created_at' => $tx->created_at?->toIso8601String(),
                 'balance_before' => $tx->getAttribute('balance_before'),
                 'balance_after' => $tx->getAttribute('balance_after'),
+                'rmb_before' => $tx->getAttribute('rmb_before'),
+                'rmb_after' => $tx->getAttribute('rmb_after'),
                 'counterparty' => WalletTransactionService::counterpartyPayload($tx),
             ],
+        ]);
+    }
+
+    /** Quote GHS ↔ RMB convert (buyers only). */
+    public function convertQuote(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->isBuyer(), 403);
+
+        $validated = $request->validate([
+            'direction' => ['required', 'in:ghs_to_rmb,rmb_to_ghs'],
+            'amount' => ['required', 'numeric', 'min:1'],
+        ]);
+
+        try {
+            $quote = WalletService::convertQuote($validated['direction'], (float) $validated['amount']);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $wallet = WalletService::ensure($request->user());
+
+        return response()->json([
+            'data' => [
+                ...$quote,
+                'available_balance' => (float) $wallet->available_balance,
+                'rmb_balance' => (float) $wallet->rmb_balance,
+            ],
+        ]);
+    }
+
+    /** Instant GHS ↔ RMB convert (buyers only). Requires KYC + payment PIN. */
+    public function convert(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->isBuyer(), 403);
+
+        if ($denied = RmbWalletGuard::denyJson($request->user())) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'direction' => ['required', 'in:ghs_to_rmb,rmb_to_ghs'],
+            'amount' => ['required', 'numeric', 'min:1'],
+            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+        ]);
+
+        PaymentPinService::assertValidForAction($request->user(), $validated['payment_pin']);
+        RmbWalletGuard::assertConvertVelocity($request->user());
+
+        try {
+            $result = WalletService::convert(
+                $request->user(),
+                $validated['direction'],
+                (float) $validated['amount'],
+                RmbWalletGuard::requestMeta($request),
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => $result['message'],
+            'data' => $result,
         ]);
     }
 

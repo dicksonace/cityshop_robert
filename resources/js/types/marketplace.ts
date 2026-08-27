@@ -94,6 +94,7 @@ export interface Wallet {
     pending_balance: number;
     total_earnings: number;
     withdrawn_amount: number;
+    rmb_balance?: number;
 }
 
 export interface Withdrawal {
@@ -120,6 +121,7 @@ export interface WalletTransaction {
     type: string;
     type_label?: string | null;
     amount: number;
+    currency?: string;
     description: string;
     reference?: string | null;
     order_item_id?: number | null;
@@ -131,6 +133,8 @@ export interface WalletTransaction {
     available_after?: number | null;
     pending_after?: number | null;
     balance_after?: number | null;
+    rmb_before?: number | null;
+    rmb_after?: number | null;
 }
 
 export const walletTransactionLabels: Record<string, string> = {
@@ -146,6 +150,12 @@ export const walletTransactionLabels: Record<string, string> = {
     order_refund: 'Order Refund',
     sale_reversed: 'Sale Reversed',
     direct_cancel_debit: 'Pay-to-seller Cancel',
+    convert_ghs_to_rmb: 'Convert GHS → RMB',
+    convert_rmb_to_ghs: 'Convert RMB → GHS',
+    rmb_transfer_out: 'RMB Transfer · Held',
+    rmb_transfer_refund: 'RMB Transfer Refunded',
+    rmb_fund_added: 'RMB Credited',
+    rmb_fund_removed: 'RMB Debited',
 };
 
 export function formatWalletTransactionType(type: string, typeLabel?: string | null): string {

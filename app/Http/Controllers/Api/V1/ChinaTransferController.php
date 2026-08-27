@@ -25,6 +25,7 @@ class ChinaTransferController extends Controller
 
         return response()->json([
             'config' => $this->transfers->configPayload(),
+            'wallet' => \App\Services\WalletService::ensure($request->user())->toFrontendArray(),
             'transfers' => $transfers,
         ]);
     }
@@ -45,6 +46,20 @@ class ChinaTransferController extends Controller
     public function store(Request $request): JsonResponse
     {
         $this->assertBuyer($request);
+
+        if ($denied = \App\Services\RmbWalletGuard::denyJson($request->user())) {
+            return $denied;
+        }
+
+        $request->validate([
+            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+            'funding_source' => ['nullable', 'in:external,rmb_wallet'],
+        ]);
+
+        \App\Services\PaymentPinService::assertValidForAction(
+            $request->user(),
+            $request->input('payment_pin'),
+        );
 
         $transfer = $this->transfers->create($request->user(), $request);
 

@@ -10,12 +10,17 @@ class ChinaTransferSetting extends Model
         'enabled',
         'channel',
         'instructions',
+        'max_converts_per_day',
+        'max_rmb_out_per_day',
+        'max_rmb_out_per_month',
     ];
 
     protected function casts(): array
     {
         return [
             'enabled' => 'boolean',
+            'max_rmb_out_per_day' => 'decimal:2',
+            'max_rmb_out_per_month' => 'decimal:2',
         ];
     }
 
@@ -25,6 +30,7 @@ class ChinaTransferSetting extends Model
             'enabled' => true,
             'channel' => 'alipay',
             'instructions' => null,
+            'max_converts_per_day' => 30,
         ]);
     }
 }

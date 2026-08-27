@@ -43,16 +43,20 @@ class WalletFundingController extends Controller
                 'role' => $user->role->value,
                 'store_name' => $user->sellerProfile?->business_name ?? $user->sellerProfile?->store_name,
                 'available_balance' => (float) ($user->wallet?->available_balance ?? 0),
+                'rmb_balance' => (float) ($user->wallet?->rmb_balance ?? 0),
             ]);
 
         $recentFundings = WalletTransaction::query()
             ->whereIn('type', [
                 \App\Enums\WalletTransactionType::FundAdded,
                 \App\Enums\WalletTransactionType::FundRemoved,
+                \App\Enums\WalletTransactionType::RmbFundAdded,
+                \App\Enums\WalletTransactionType::RmbFundRemoved,
             ])
             ->where(function ($q) {
                 $q->where('reference', 'like', 'ADMIN-%')
-                    ->orWhere('reference', 'like', 'ADMIN-DEBIT-%');
+                    ->orWhere('reference', 'like', 'ADMIN-DEBIT-%')
+                    ->orWhere('reference', 'like', 'ADMIN-RMB-%');
             })
             ->with('user:id,name,email,role')
             ->latest()
@@ -61,6 +65,7 @@ class WalletFundingController extends Controller
             ->map(fn (WalletTransaction $tx) => [
                 'id' => $tx->id,
                 'amount' => (float) $tx->amount,
+                'currency' => strtoupper((string) ($tx->currency ?? 'GHS')),
                 'type' => $tx->type->value,
                 'description' => $tx->description,
                 'created_at' => $tx->created_at?->toIso8601String(),
@@ -87,6 +92,7 @@ class WalletFundingController extends Controller
                 Rule::exists('users', 'id')->whereIn('role', [UserRole::Seller->value, UserRole::Buyer->value]),
             ],
             'action' => ['required', Rule::in(['credit', 'debit'])],
+            'currency' => ['nullable', Rule::in(['GHS', 'RMB', 'ghs', 'rmb'])],
             'amount' => ['required', 'numeric', 'min:0.5', 'max:1000000'],
             'note' => ['nullable', 'string', 'max:255'],
         ]);
@@ -94,8 +100,37 @@ class WalletFundingController extends Controller
         $target = User::findOrFail($validated['user_id']);
         $amount = (float) $validated['amount'];
         $action = $validated['action'];
+        $currency = strtoupper((string) ($validated['currency'] ?? 'GHS'));
 
         try {
+            if ($currency === 'RMB') {
+                if ($action === 'debit') {
+                    WalletService::adminDebitRmb(
+                        $target,
+                        $amount,
+                        $request->user(),
+                        $validated['note'] ?? null,
+                    );
+
+                    return back()->with(
+                        'success',
+                        '¥'.number_format($amount, 2).' removed from '.$target->name."'s wallet.",
+                    );
+                }
+
+                WalletService::adminCreditRmb(
+                    $target,
+                    $amount,
+                    $request->user(),
+                    $validated['note'] ?? null,
+                );
+
+                return back()->with(
+                    'success',
+                    '¥'.number_format($amount, 2).' added to '.$target->name."'s wallet.",
+                );
+            }
+
             if ($action === 'debit') {
                 WalletService::adminDebit(
                     $target,

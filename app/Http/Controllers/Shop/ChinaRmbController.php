@@ -7,6 +7,7 @@ use App\Models\ChinaTransfer;
 use App\Models\SellRmbTransfer;
 use App\Services\ChinaTransferService;
 use App\Services\SellRmbService;
+use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,7 +23,9 @@ class ChinaRmbController extends Controller
     {
         abort_unless($request->user()?->isBuyer(), 403);
 
-        $userId = $request->user()->id;
+        $user = $request->user();
+        $userId = $user->id;
+        $wallet = WalletService::ensure($user);
 
         $buyTransfers = ChinaTransfer::query()
             ->where('user_id', $userId)
@@ -43,6 +46,7 @@ class ChinaRmbController extends Controller
             ->all();
 
         return Inertia::render('shop/china-rmb/index', [
+            'wallet' => $wallet->toFrontendArray(),
             'buy' => [
                 'config' => $this->buyRmb->configPayload(),
                 'transfers' => $buyTransfers,

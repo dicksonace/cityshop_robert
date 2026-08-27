@@ -152,6 +152,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/wallet/manual-top-up/{topUp}', [WalletManualTopUpController::class, 'showRequest'])->name('wallet.manual-top-up.show');
     Route::post('/wallet/manual-top-up/{topUp}/cancel', [WalletManualTopUpController::class, 'cancel'])->name('wallet.manual-top-up.cancel');
     Route::get('/wallet/china-rmb', [BuyerChinaRmbController::class, 'index'])->name('wallet.china-rmb.index');
+    Route::get('/wallet/convert', [BuyerWalletController::class, 'convertForm'])->name('wallet.convert');
+    Route::post('/wallet/convert/quote', [BuyerWalletController::class, 'convertQuote'])->name('wallet.convert.quote');
+    Route::post('/wallet/convert', [BuyerWalletController::class, 'convert'])->name('wallet.convert.store');
     Route::get('/wallet/china-transfer', [BuyerChinaTransferController::class, 'index'])->name('wallet.china-transfer.index');
     Route::get('/wallet/china-transfer/create', [BuyerChinaTransferController::class, 'create'])->name('wallet.china-transfer.create');
     Route::post('/wallet/china-transfer', [BuyerChinaTransferController::class, 'store'])->name('wallet.china-transfer.store');
@@ -332,6 +335,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/wallet-funding', [AdminWalletFundingController::class, 'index'])->name('wallet-funding.index');
     Route::post('/wallet-funding', [AdminWalletFundingController::class, 'store'])->name('wallet-funding.store');
+    Route::get('/rmb-ops/conversions', [\App\Http\Controllers\Admin\RmbOpsController::class, 'conversions'])->name('rmb-ops.conversions');
+    Route::get('/rmb-ops/reconciliation', [\App\Http\Controllers\Admin\RmbOpsController::class, 'reconciliation'])->name('rmb-ops.reconciliation');
+    Route::get('/rmb-ops/rate-history', [\App\Http\Controllers\Admin\RmbOpsController::class, 'rateHistory'])->name('rmb-ops.rate-history');
     Route::get('/transactions', [\App\Http\Controllers\Admin\TransactionController::class, 'index'])->name('transactions.index');
 
     Route::get('/withdrawal-fees/settings', [WithdrawalFeeSettingsController::class, 'edit'])->name('withdrawal-fees.settings');

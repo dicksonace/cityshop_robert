@@ -54,7 +54,13 @@ type Field = {
 };
 
 interface Props {
-    settings: { enabled: boolean; instructions: string | null };
+    settings: {
+        enabled: boolean;
+        instructions: string | null;
+        max_converts_per_day?: number;
+        max_rmb_out_per_day?: number | null;
+        max_rmb_out_per_month?: number | null;
+    };
     currentRate: Rate | null;
     rates: Rate[];
     methods: Method[];
@@ -78,6 +84,9 @@ export default function ChinaTransferSettings({
     const settingsForm = useForm({
         enabled: settings.enabled,
         instructions: settings.instructions ?? '',
+        max_converts_per_day: String(settings.max_converts_per_day ?? 30),
+        max_rmb_out_per_day: String(settings.max_rmb_out_per_day ?? ''),
+        max_rmb_out_per_month: String(settings.max_rmb_out_per_month ?? ''),
     });
 
     const rateForm = useForm({
@@ -178,7 +187,35 @@ export default function ChinaTransferSettings({
                                     onChange={(e) => settingsForm.setData('instructions', e.target.value)}
                                 />
                             </div>
-                            <Button disabled={settingsForm.processing}>Save instructions</Button>
+                            <div className="grid gap-3 sm:grid-cols-3">
+                                <div>
+                                    <Label>Max converts / day</Label>
+                                    <Input
+                                        className="mt-1"
+                                        value={settingsForm.data.max_converts_per_day}
+                                        onChange={(e) => settingsForm.setData('max_converts_per_day', e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Max RMB out / day (wallet)</Label>
+                                    <Input
+                                        className="mt-1"
+                                        value={settingsForm.data.max_rmb_out_per_day}
+                                        onChange={(e) => settingsForm.setData('max_rmb_out_per_day', e.target.value)}
+                                        placeholder="Unlimited"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Max RMB out / month</Label>
+                                    <Input
+                                        className="mt-1"
+                                        value={settingsForm.data.max_rmb_out_per_month}
+                                        onChange={(e) => settingsForm.setData('max_rmb_out_per_month', e.target.value)}
+                                        placeholder="Unlimited"
+                                    />
+                                </div>
+                            </div>
+                            <Button disabled={settingsForm.processing}>Save instructions & limits</Button>
                         </form>
 
                         <form onSubmit={publishRate} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">

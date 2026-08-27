@@ -49,8 +49,17 @@ class ChinaTransferService
 
         return $settings->enabled
             && $settings->channel === 'alipay'
-            && $this->currentRate() !== null
-            && ChinaTransferPaymentMethod::query()->where('active', true)->exists();
+            && $this->currentRate() !== null;
+    }
+
+    public function hasExternalPaymentMethods(): bool
+    {
+        return ChinaTransferPaymentMethod::query()->where('active', true)->exists();
+    }
+
+    public function isExternalOpen(): bool
+    {
+        return $this->isOpen() && $this->hasExternalPaymentMethods();
     }
 
     /**
@@ -109,6 +118,21 @@ class ChinaTransferService
         }
 
         $rate = $this->currentRate();
+        $fundingSource = $request->input('funding_source', 'external');
+        if (! in_array($fundingSource, ['external', 'rmb_wallet'], true)) {
+            $fundingSource = 'external';
+        }
+
+        if ($fundingSource === 'rmb_wallet') {
+            return $this->createFromRmbWallet($user, $request, $rate);
+        }
+
+        if (! $this->hasExternalPaymentMethods()) {
+            throw ValidationException::withMessages([
+                'payment_method_id' => 'External GHS payment methods are not configured. Pay from your RMB wallet instead.',
+            ]);
+        }
+
         $validated = $request->validate([
             'ghs_amount' => ['required', 'numeric', 'min:1'],
             'payment_method_id' => ['required', 'integer', 'exists:china_transfer_payment_methods,id'],
@@ -152,6 +176,7 @@ class ChinaTransferService
                 'fee_value' => $quote['fee_value'],
                 'rate_id' => $rate->id,
                 'payment_method_id' => $method->id,
+                'funding_source' => 'external',
                 'payment_reference' => $this->fieldText($request, $fields, 'payment_reference'),
                 'needs_approval' => $needsApproval,
                 'paid_at' => $status === ChinaTransferStatus::PaymentSubmitted ? now() : null,
@@ -171,14 +196,132 @@ class ChinaTransferService
         });
     }
 
+    /**
+     * Hold RMB from wallet and create an Alipay transfer ticket (rmb-wallet style).
+     * Caller must assert KYC + payment PIN before calling.
+     */
+    private function createFromRmbWallet(User $user, Request $request, ChinaTransferRate $rate): ChinaTransfer
+    {
+        $validated = $request->validate([
+            'rmb_amount' => ['required', 'numeric', 'min:1'],
+        ]);
+
+        $rmbAmount = round((float) $validated['rmb_amount'], 2);
+        $ghsPerRmb = (float) $rate->ghs_per_rmb;
+        if ($ghsPerRmb <= 0) {
+            throw ValidationException::withMessages(['rmb_amount' => 'The published rate is invalid.']);
+        }
+
+        RmbWalletGuard::assertRmbOutLimits($user, $rmbAmount);
+
+        // Equivalent GHS for limit checks (no fee on wallet-funded transfers).
+        $ghsAmount = round($rmbAmount * $ghsPerRmb, 2);
+        $quote = [
+            'ghs_amount' => $ghsAmount,
+            'ghs_per_rmb' => $ghsPerRmb,
+            'rmb_amount' => $rmbAmount,
+            'fee_ghs' => 0.0,
+            'total_payable_ghs' => 0.0,
+            'fee_mode' => 'flat',
+            'fee_value' => 0.0,
+        ];
+        $this->assertLimits($user, $quote, $rate);
+
+        $needsApproval = $rate->approval_above_ghs !== null
+            && $ghsAmount >= (float) $rate->approval_above_ghs;
+
+        // Recipient fields only — skip payment-proof group for wallet funding.
+        $fields = $this->activeFields()->filter(function (ChinaTransferFormField $field) {
+            $group = strtolower((string) $field->group);
+
+            return ! in_array($group, ['payment', 'payment_proof', 'proof'], true);
+        })->values();
+        $this->validateFields($request, $fields, null);
+
+        $meta = RmbWalletGuard::requestMeta($request);
+
+        return DB::transaction(function () use ($user, $request, $quote, $rate, $fields, $rmbAmount, $needsApproval, $meta) {
+            try {
+                WalletService::ensure($user);
+                WalletService::debitRmb(
+                    $user,
+                    $rmbAmount,
+                    'Insufficient RMB balance. Convert GHS to RMB first, then transfer. You need ¥'.number_format($rmbAmount, 2).'.'
+                );
+            } catch (\RuntimeException $e) {
+                throw ValidationException::withMessages(['rmb_amount' => $e->getMessage()]);
+            }
+
+            // Large transfers wait for admin approval before processing.
+            $status = $needsApproval
+                ? ChinaTransferStatus::PaymentVerification
+                : ChinaTransferStatus::Processing;
+
+            $transfer = ChinaTransfer::create([
+                'reference' => $this->nextReference(),
+                'user_id' => $user->id,
+                'status' => $status,
+                'ghs_amount' => $quote['ghs_amount'],
+                'rmb_amount' => $quote['rmb_amount'],
+                'fee_ghs' => 0,
+                'total_payable_ghs' => 0,
+                'ghs_per_rmb' => $quote['ghs_per_rmb'],
+                'fee_mode' => 'flat',
+                'fee_value' => 0,
+                'rate_id' => $rate->id,
+                'payment_method_id' => null,
+                'funding_source' => 'rmb_wallet',
+                'needs_approval' => $needsApproval,
+                'ip_address' => $meta['ip_address'],
+                'user_agent' => $meta['user_agent'],
+                'paid_at' => now(),
+                'verified_at' => $needsApproval ? null : now(),
+                'processing_at' => $needsApproval ? null : now(),
+            ]);
+
+            WalletTransactionService::recordRmbTransferOut(
+                $user->id,
+                $rmbAmount,
+                'CT-'.$transfer->id,
+                'RMB transfer held for '.$transfer->reference.' (Alipay)',
+            );
+
+            $note = $needsApproval
+                ? 'Large wallet transfer — awaiting admin approval'
+                : 'Transfer created from RMB wallet';
+
+            $this->storeFieldValues($transfer, $request, $fields);
+            $this->recordHistory($transfer, null, $status, $note, $user->id);
+            $this->notifyUser($transfer, $status);
+            $this->notifyAdmins($transfer, $status);
+
+            return $transfer->fresh([
+                'fieldValues.field',
+                'proofs',
+                'statusHistory',
+                'paymentMethod',
+            ]);
+        });
+    }
+
     public function cancel(ChinaTransfer $transfer, User $actor, ?string $note = null): ChinaTransfer
     {
         $this->assertMutable($transfer);
 
-        if ($actor->id === $transfer->user_id && $transfer->status !== ChinaTransferStatus::PendingPayment) {
-            throw ValidationException::withMessages([
-                'status' => 'You can only cancel before submitting payment proof.',
-            ]);
+        $walletFunded = $transfer->funding_source === 'rmb_wallet';
+
+        if ($actor->id === $transfer->user_id) {
+            $allowed = $walletFunded
+                ? [ChinaTransferStatus::Processing, ChinaTransferStatus::PaymentVerification]
+                : [ChinaTransferStatus::PendingPayment];
+
+            if (! in_array($transfer->status, $allowed, true)) {
+                throw ValidationException::withMessages([
+                    'status' => $walletFunded
+                        ? 'You can only cancel while the transfer is awaiting approval or processing.'
+                        : 'You can only cancel before submitting payment proof.',
+                ]);
+            }
         }
 
         if (! in_array($transfer->status, [
@@ -190,9 +333,13 @@ class ChinaTransferService
             throw ValidationException::withMessages(['status' => 'This transfer cannot be cancelled.']);
         }
 
-        return $this->transition($transfer, ChinaTransferStatus::Cancelled, $actor, $note ?: 'Cancelled', [
-            'cancelled_at' => now(),
-        ]);
+        return DB::transaction(function () use ($transfer, $actor, $note) {
+            $this->refundRmbWalletHold($transfer, 'Transfer cancelled — RMB returned to wallet');
+
+            return $this->transition($transfer, ChinaTransferStatus::Cancelled, $actor, $note ?: 'Cancelled', [
+                'cancelled_at' => now(),
+            ]);
+        });
     }
 
     public function verifyPayment(ChinaTransfer $transfer, User $admin): ChinaTransfer
@@ -210,12 +357,17 @@ class ChinaTransferService
         $this->assertAdminAction($transfer, [
             ChinaTransferStatus::PaymentSubmitted,
             ChinaTransferStatus::PaymentVerification,
+            ChinaTransferStatus::Processing,
         ]);
 
-        return $this->transition($transfer, ChinaTransferStatus::PaymentRejected, $admin, $reason, [
-            'rejection_reason' => $reason,
-            'assigned_admin_id' => $admin->id,
-        ]);
+        return DB::transaction(function () use ($transfer, $admin, $reason) {
+            $this->refundRmbWalletHold($transfer, 'Transfer rejected — RMB returned to wallet');
+
+            return $this->transition($transfer, ChinaTransferStatus::PaymentRejected, $admin, $reason, [
+                'rejection_reason' => $reason,
+                'assigned_admin_id' => $admin->id,
+            ]);
+        });
     }
 
     public function startProcessing(ChinaTransfer $transfer, User $admin): ChinaTransfer
@@ -229,6 +381,7 @@ class ChinaTransferService
             'processing_at' => now(),
             'assigned_admin_id' => $admin->id,
             'verified_at' => $transfer->verified_at ?? now(),
+            'needs_approval' => false,
         ]);
     }
 
@@ -289,9 +442,47 @@ class ChinaTransferService
             ChinaTransferStatus::RmbSent,
         ]);
 
-        return $this->transition($transfer, ChinaTransferStatus::TransferFailed, $admin, $reason, [
-            'rejection_reason' => $reason,
-        ]);
+        return DB::transaction(function () use ($transfer, $admin, $reason) {
+            $this->refundRmbWalletHold($transfer, 'Transfer failed — RMB returned to wallet');
+
+            return $this->transition($transfer, ChinaTransferStatus::TransferFailed, $admin, $reason, [
+                'rejection_reason' => $reason,
+            ]);
+        });
+    }
+
+    /**
+     * Refund held RMB once when a wallet-funded transfer is cancelled / rejected / failed.
+     */
+    private function refundRmbWalletHold(ChinaTransfer $transfer, string $description): void
+    {
+        if ($transfer->funding_source !== 'rmb_wallet' || $transfer->rmb_wallet_refunded) {
+            return;
+        }
+
+        $amount = (float) $transfer->rmb_amount;
+        if ($amount <= 0) {
+            $transfer->rmb_wallet_refunded = true;
+            $transfer->save();
+
+            return;
+        }
+
+        $user = $transfer->user ?? User::query()->find($transfer->user_id);
+        if (! $user) {
+            return;
+        }
+
+        WalletService::creditRmb($user, $amount);
+        WalletTransactionService::recordRmbTransferRefund(
+            $user->id,
+            $amount,
+            'CT-'.$transfer->id,
+            $description.' ('.$transfer->reference.')',
+        );
+
+        $transfer->rmb_wallet_refunded = true;
+        $transfer->save();
     }
 
     public function addNote(ChinaTransfer $transfer, User $admin, string $note): ChinaTransferAdminNote
@@ -342,6 +533,8 @@ class ChinaTransferService
 
         return [
             'enabled' => $this->isOpen(),
+            'external_enabled' => $this->isExternalOpen(),
+            'wallet_funding_enabled' => $this->isOpen(),
             'channel' => 'alipay',
             'channel_label' => 'Alipay',
             'instructions' => $settings->instructions,
@@ -400,6 +593,10 @@ class ChinaTransferService
             'reference' => $transfer->reference,
             'status' => $transfer->status->value,
             'status_label' => $transfer->status->label(),
+            'funding_source' => $transfer->funding_source ?? 'external',
+            'funding_source_label' => ($transfer->funding_source ?? 'external') === 'rmb_wallet'
+                ? 'RMB wallet'
+                : 'External GHS payment',
             'quote' => $quote,
             'channel' => 'alipay',
             'needs_approval' => $transfer->needs_approval,
@@ -417,7 +614,12 @@ class ChinaTransferService
             'sent_at' => $transfer->sent_at?->toIso8601String(),
             'completed_at' => $transfer->completed_at?->toIso8601String(),
             'cancelled_at' => $transfer->cancelled_at?->toIso8601String(),
-            'can_cancel' => $transfer->status === ChinaTransferStatus::PendingPayment,
+            'can_cancel' => ($transfer->funding_source ?? 'external') === 'rmb_wallet'
+                ? in_array($transfer->status, [
+                    ChinaTransferStatus::Processing,
+                    ChinaTransferStatus::PaymentVerification,
+                ], true)
+                : $transfer->status === ChinaTransferStatus::PendingPayment,
             'timeline' => $this->timelinePayload($transfer),
             'fields' => $transfer->fieldValues->map(fn (ChinaTransferFieldValue $v) => [
                 'id' => $v->id,
@@ -455,6 +657,8 @@ class ChinaTransferService
                 'email' => $transfer->user->email,
                 'mobile' => $transfer->user->mobile,
             ] : null;
+            $payload['ip_address'] = $transfer->ip_address;
+            $payload['user_agent'] = $transfer->user_agent;
             $payload['assigned_admin'] = $transfer->assignedAdmin?->name;
             $payload['admin_notes'] = $transfer->adminNotes->map(fn (ChinaTransferAdminNote $n) => [
                 'id' => $n->id,
@@ -694,7 +898,7 @@ class ChinaTransferService
     /**
      * @param  \Illuminate\Support\Collection<int, ChinaTransferFormField>  $fields
      */
-    private function validateFields(Request $request, $fields, ChinaTransferPaymentMethod $method): void
+    private function validateFields(Request $request, $fields, ?ChinaTransferPaymentMethod $method): void
     {
         $rules = [];
 
@@ -702,7 +906,7 @@ class ChinaTransferService
             $key = $field->isFile() ? 'files.'.$field->id : 'fields.'.$field->id;
             $required = $field->required ? 'required' : 'nullable';
 
-            if ($field->name === 'payment_screenshot' && $method->proof_required) {
+            if ($field->name === 'payment_screenshot' && $method?->proof_required) {
                 $required = 'required';
             }
 

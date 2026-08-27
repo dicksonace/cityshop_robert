@@ -26,6 +26,13 @@ class ChinaTransferSettingsController extends Controller
                 'enabled' => $settings->enabled,
                 'channel' => 'alipay',
                 'instructions' => $settings->instructions,
+                'max_converts_per_day' => (int) ($settings->max_converts_per_day ?? 30),
+                'max_rmb_out_per_day' => $settings->max_rmb_out_per_day !== null
+                    ? (float) $settings->max_rmb_out_per_day
+                    : null,
+                'max_rmb_out_per_month' => $settings->max_rmb_out_per_month !== null
+                    ? (float) $settings->max_rmb_out_per_month
+                    : null,
             ],
             'currentRate' => ($rate = $this->transfers->currentRate())
                 ? $this->transfers->ratePayload($rate)
@@ -54,13 +61,25 @@ class ChinaTransferSettingsController extends Controller
         $validated = $request->validate([
             'enabled' => ['required', 'boolean'],
             'instructions' => ['nullable', 'string', 'max:2000'],
+            'max_converts_per_day' => ['nullable', 'integer', 'min:1', 'max:500'],
+            'max_rmb_out_per_day' => ['nullable', 'numeric', 'min:1'],
+            'max_rmb_out_per_month' => ['nullable', 'numeric', 'min:1'],
         ]);
+
+        foreach (['max_rmb_out_per_day', 'max_rmb_out_per_month'] as $key) {
+            if ($request->input($key) === '') {
+                $validated[$key] = null;
+            }
+        }
 
         $settings = $this->transfers->settings();
         $settings->update([
             'enabled' => $validated['enabled'],
             'channel' => 'alipay',
             'instructions' => $validated['instructions'] ?? null,
+            'max_converts_per_day' => $validated['max_converts_per_day'] ?? 30,
+            'max_rmb_out_per_day' => $validated['max_rmb_out_per_day'] ?? null,
+            'max_rmb_out_per_month' => $validated['max_rmb_out_per_month'] ?? null,
         ]);
 
         return back()->with(

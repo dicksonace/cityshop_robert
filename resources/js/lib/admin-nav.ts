@@ -28,6 +28,9 @@ export type AdminNavKey =
     | 'paystack-fees'
     | 'sms'
     | 'wallet-funding'
+    | 'rmb-conversions'
+    | 'rmb-reconciliation'
+    | 'rmb-rate-history'
     | 'transactions'
     | 'manual-funding-settings'
     | 'manual-top-ups'
@@ -61,6 +64,9 @@ const sectionMap: Record<AdminNavKey, string> = {
     'paystack-fees': 'finance',
     sms: 'support',
     'wallet-funding': 'finance',
+    'rmb-conversions': 'finance',
+    'rmb-reconciliation': 'finance',
+    'rmb-rate-history': 'finance',
     transactions: 'finance',
     'manual-funding-settings': 'finance',
     'manual-top-ups': 'finance',
@@ -176,6 +182,9 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'pending-funds', label: 'Pending Funds', href: route('admin.pending-funds.index'), badgeKey: 'pending_fund_releases', defaultOnPath: true },
                 { key: 'china-transfers', label: 'China Transfer', href: route('admin.china-transfers.index'), badgeKey: 'pending_china_transfers', defaultOnPath: true },
                 { key: 'china-transfer-settings', label: 'China Transfer Settings', href: route('admin.china-transfer.settings') },
+                { key: 'rmb-conversions', label: 'RMB Conversions', href: route('admin.rmb-ops.conversions') },
+                { key: 'rmb-reconciliation', label: 'RMB Reconciliation', href: route('admin.rmb-ops.reconciliation') },
+                { key: 'rmb-rate-history', label: 'RMB Rate History', href: route('admin.rmb-ops.rate-history') },
                 { key: 'sell-rmb', label: 'Sell RMB', href: route('admin.sell-rmb.index'), badgeKey: 'pending_sell_rmb', defaultOnPath: true },
                 { key: 'sell-rmb-settings', label: 'Sell RMB Settings', href: route('admin.sell-rmb.settings') },
                 { key: 'transactions', label: 'Transactions', href: route('admin.transactions.index'), defaultOnPath: true },

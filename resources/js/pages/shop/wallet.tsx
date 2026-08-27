@@ -21,6 +21,7 @@ import {
 interface BuyerWalletProps {
     wallet: Wallet;
     transactions: Paginated<WalletTransaction>;
+    currencyFilter?: 'all' | 'GHS' | 'RMB';
     withdrawals: Paginated<Withdrawal>;
     hasPendingWithdrawal: boolean;
     paystackConfigured: boolean;
@@ -58,6 +59,7 @@ const statusLabel: Record<string, string> = {
 export default function BuyerWallet({
     wallet,
     transactions,
+    currencyFilter = 'all',
     withdrawals,
     hasPendingWithdrawal,
     paystackConfigured,
@@ -118,8 +120,13 @@ export default function BuyerWallet({
                     <p className="mt-2 text-[2.125rem] font-black leading-none tracking-tight">
                         {formatPrice(wallet.available_balance)}
                     </p>
-                    <div className="mt-2.5 inline-flex rounded-xl bg-white/15 px-3 py-2 text-sm font-semibold">
-                        Pending: {formatPrice(wallet.pending_balance ?? 0)}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="inline-flex rounded-xl bg-white/15 px-3 py-2 text-sm font-semibold">
+                            Pending: {formatPrice(wallet.pending_balance ?? 0)}
+                        </div>
+                        <div className="inline-flex rounded-xl bg-white/15 px-3 py-2 text-sm font-semibold">
+                            RMB: ¥{Number(wallet.rmb_balance ?? 0).toFixed(2)}
+                        </div>
                     </div>
                     <div className="mt-4 flex h-12 overflow-hidden rounded-full bg-white shadow-md">
                         <Link
@@ -142,6 +149,12 @@ export default function BuyerWallet({
                             {canRecharge ? 'Recharge' : 'Unavailable'}
                         </button>
                     </div>
+                    <Link
+                        href={route('wallet.convert')}
+                        className="mt-3 flex w-full items-center justify-center rounded-full bg-white/20 py-2.5 text-sm font-extrabold text-white backdrop-blur-sm hover:bg-white/30"
+                    >
+                        Convert GHS ↔ RMB
+                    </Link>
                 </div>
 
                 {hasPendingWithdrawal && (
@@ -205,7 +218,24 @@ export default function BuyerWallet({
                 </div>
 
                 <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                    <h3 className="text-base font-extrabold text-gray-900">Transaction History</h3>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-base font-extrabold text-gray-900">Transaction History</h3>
+                        <div className="flex gap-1">
+                            {(['all', 'GHS', 'RMB'] as const).map((c) => (
+                                <Link
+                                    key={c}
+                                    href={route('wallet.index', c === 'all' ? {} : { currency: c })}
+                                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                                        currencyFilter === c
+                                            ? 'bg-orange-500 text-white'
+                                            : 'bg-gray-100 text-gray-700'
+                                    }`}
+                                >
+                                    {c === 'all' ? 'All' : c}
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
                     {transactions.data.length === 0 ? (
                         <p className="mt-3 text-sm text-gray-500">No transactions yet.</p>
                     ) : (
@@ -250,20 +280,26 @@ export default function BuyerWallet({
                                                     )}
                                                 >
                                                     {isCredit ? '+' : ''}
-                                                    {formatPrice(tx.amount)}
+                                                    {(tx.currency ?? 'GHS') === 'RMB'
+                                                        ? `¥${Math.abs(tx.amount).toFixed(2)}`
+                                                        : formatPrice(tx.amount)}
                                                 </p>
                                             </div>
                                             <div className="mt-2 grid grid-cols-2 gap-2 rounded-[10px] bg-gray-50 px-3 py-2 text-xs">
                                                 <div>
                                                     <p className="text-gray-500">Before balance</p>
                                                     <p className="font-bold text-gray-900">
-                                                        {formatPrice(tx.balance_before ?? 0)}
+                                                        {(tx.currency ?? 'GHS') === 'RMB'
+                                                            ? `¥${Number(tx.rmb_before ?? tx.balance_before ?? 0).toFixed(2)}`
+                                                            : formatPrice(tx.balance_before ?? 0)}
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-gray-500">After balance</p>
                                                     <p className="font-bold text-gray-900">
-                                                        {formatPrice(tx.balance_after ?? 0)}
+                                                        {(tx.currency ?? 'GHS') === 'RMB'
+                                                            ? `¥${Number(tx.rmb_after ?? tx.balance_after ?? 0).toFixed(2)}`
+                                                            : formatPrice(tx.balance_after ?? 0)}
                                                     </p>
                                                 </div>
                                             </div>

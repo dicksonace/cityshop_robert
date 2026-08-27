@@ -22,6 +22,13 @@ enum WalletTransactionType: string
     /** Annual seller service / activation fee. */
     case ServiceFee = 'service_fee';
 
+    case ConvertGhsToRmb = 'convert_ghs_to_rmb';
+    case ConvertRmbToGhs = 'convert_rmb_to_ghs';
+    case RmbTransferOut = 'rmb_transfer_out';
+    case RmbTransferRefund = 'rmb_transfer_refund';
+    case RmbFundAdded = 'rmb_fund_added';
+    case RmbFundRemoved = 'rmb_fund_removed';
+
     /** Mirrors the labels the web wallet shows, for API clients. */
     public function label(): string
     {
@@ -40,6 +47,24 @@ enum WalletTransactionType: string
             self::TransferOut => 'Money Sent',
             self::TransferIn => 'Money Received',
             self::ServiceFee => 'Seller Service Fee',
+            self::ConvertGhsToRmb => 'Convert GHS → RMB',
+            self::ConvertRmbToGhs => 'Convert RMB → GHS',
+            self::RmbTransferOut => 'RMB Transfer · Held',
+            self::RmbTransferRefund => 'RMB Transfer Refunded',
+            self::RmbFundAdded => 'RMB Credited',
+            self::RmbFundRemoved => 'RMB Debited',
         };
+    }
+
+    public function isRmbLedger(): bool
+    {
+        return in_array($this, [
+            self::ConvertGhsToRmb,
+            self::ConvertRmbToGhs,
+            self::RmbTransferOut,
+            self::RmbTransferRefund,
+            self::RmbFundAdded,
+            self::RmbFundRemoved,
+        ], true);
     }
 }

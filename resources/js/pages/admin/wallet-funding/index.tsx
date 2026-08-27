@@ -18,11 +18,13 @@ interface WalletUser {
     role: 'seller' | 'buyer';
     store_name?: string | null;
     available_balance: number;
+    rmb_balance?: number;
 }
 
 interface RecentFunding {
     id: number;
     amount: number;
+    currency?: string;
     type: string;
     description: string;
     created_at: string | null;
@@ -50,6 +52,7 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
     const form = useForm({
         user_id: 0,
         action: 'credit' as 'credit' | 'debit',
+        currency: 'GHS' as 'GHS' | 'RMB',
         amount: '',
         note: '',
     });
@@ -65,7 +68,7 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
 
     const openFund = (user: WalletUser, action: 'credit' | 'debit' = 'credit') => {
         setTarget(user);
-        form.setData({ user_id: user.id, action, amount: '', note: '' });
+        form.setData({ user_id: user.id, action, currency: 'GHS', amount: '', note: '' });
         form.clearErrors();
     };
 
@@ -150,14 +153,15 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                                 <tr>
                                     <th className="px-4 py-3 text-left font-medium text-gray-500">User</th>
                                     <th className="px-4 py-3 text-left font-medium text-gray-500">Role</th>
-                                    <th className="px-4 py-3 text-left font-medium text-gray-500">Balance</th>
+                                    <th className="px-4 py-3 text-left font-medium text-gray-500">GHS</th>
+                                    <th className="px-4 py-3 text-left font-medium text-gray-500">RMB</th>
                                     <th className="px-4 py-3 text-right font-medium text-gray-500">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
                                 {users.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="px-4 py-10 text-center text-gray-500">
+                                        <td colSpan={5} className="px-4 py-10 text-center text-gray-500">
                                             No users found.
                                         </td>
                                     </tr>
@@ -190,6 +194,9 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                                             <td className="px-4 py-3 font-medium text-green-600">
                                                 {formatPrice(user.available_balance)}
                                             </td>
+                                            <td className="px-4 py-3 font-medium text-teal-700">
+                                                ¥{Number(user.rmb_balance ?? 0).toFixed(2)}
+                                            </td>
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex flex-wrap justify-end gap-2">
                                                     <Button
@@ -207,7 +214,10 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                                                         variant="outline"
                                                         onClick={() => openFund(user, 'debit')}
                                                         className="border-red-200 text-red-700 hover:bg-red-50"
-                                                        disabled={user.available_balance <= 0}
+                                                        disabled={
+                                                            user.available_balance <= 0 &&
+                                                            Number(user.rmb_balance ?? 0) <= 0
+                                                        }
                                                     >
                                                         Remove
                                                     </Button>
@@ -256,7 +266,9 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                                                 tx.amount < 0 ? 'text-red-600' : 'text-green-600'
                                             }`}
                                         >
-                                            {formatPrice(tx.amount)}
+                                            {(tx.currency ?? 'GHS') === 'RMB'
+                                                ? `¥${Math.abs(tx.amount).toFixed(2)}${tx.amount < 0 ? ' −' : ''}`
+                                                : formatPrice(tx.amount)}
                                         </p>
                                     </div>
                                     <p className="text-xs text-gray-500">{tx.description}</p>
@@ -294,11 +306,46 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                         </div>
 
                         <div className="mt-4 rounded-lg bg-gray-50 px-4 py-3 text-sm">
-                            <span className="text-gray-500">Current balance: </span>
-                            <span className="font-semibold text-green-600">{formatPrice(target.available_balance)}</span>
+                            <p>
+                                <span className="text-gray-500">GHS: </span>
+                                <span className="font-semibold text-green-600">{formatPrice(target.available_balance)}</span>
+                            </p>
+                            <p className="mt-1">
+                                <span className="text-gray-500">RMB: </span>
+                                <span className="font-semibold text-teal-700">
+                                    ¥{Number(target.rmb_balance ?? 0).toFixed(2)}
+                                </span>
+                            </p>
                         </div>
 
                         <form className="mt-4 space-y-4" onSubmit={submitFund}>
+                            <div>
+                                <Label>Currency *</Label>
+                                <div className="mt-2 flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('currency', 'GHS')}
+                                        className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ring-1 ${
+                                            form.data.currency === 'GHS'
+                                                ? 'bg-orange-500 text-white ring-orange-500'
+                                                : 'bg-white text-gray-700 ring-gray-200'
+                                        }`}
+                                    >
+                                        GHS
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('currency', 'RMB')}
+                                        className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ring-1 ${
+                                            form.data.currency === 'RMB'
+                                                ? 'bg-teal-700 text-white ring-teal-700'
+                                                : 'bg-white text-gray-700 ring-gray-200'
+                                        }`}
+                                    >
+                                        RMB
+                                    </button>
+                                </div>
+                            </div>
                             <div>
                                 <Label>Action *</Label>
                                 <div className="mt-2 flex gap-2">
@@ -327,13 +374,21 @@ export default function AdminWalletFunding({ users, role, search, recentFundings
                                 </div>
                             </div>
                             <div>
-                                <Label htmlFor="amount">Amount (GH₵) *</Label>
+                                <Label htmlFor="amount">
+                                    Amount ({form.data.currency === 'RMB' ? '¥' : 'GH₵'}) *
+                                </Label>
                                 <Input
                                     id="amount"
                                     type="number"
                                     step="0.01"
                                     min="0.5"
-                                    max={isDebit ? target.available_balance : undefined}
+                                    max={
+                                        isDebit
+                                            ? form.data.currency === 'RMB'
+                                                ? Number(target.rmb_balance ?? 0)
+                                                : target.available_balance
+                                            : undefined
+                                    }
                                     value={form.data.amount}
                                     onChange={(e) => form.setData('amount', e.target.value)}
                                     className="mt-1"

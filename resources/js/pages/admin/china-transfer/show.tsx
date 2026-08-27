@@ -13,6 +13,11 @@ type Transfer = {
     reference: string;
     status: string;
     status_label: string;
+    funding_source?: string;
+    funding_source_label?: string;
+    needs_approval?: boolean;
+    ip_address?: string | null;
+    user_agent?: string | null;
     quote: {
         ghs_amount: number;
         ghs_per_rmb: number;
@@ -69,13 +74,33 @@ export default function ChinaTransferShow({ transfer }: Props) {
                         <div>
                             <h1 className="text-xl font-bold text-gray-900">{transfer.reference}</h1>
                             <p className="text-sm text-orange-700">{transfer.status_label}</p>
+                            <p className="mt-1 text-xs font-semibold text-teal-700">
+                                {transfer.funding_source_label ??
+                                    (transfer.funding_source === 'rmb_wallet'
+                                        ? 'RMB wallet'
+                                        : 'External GHS payment')}
+                                {transfer.funding_source === 'rmb_wallet' ? ' · RMB held from wallet' : ''}
+                                {transfer.needs_approval ? ' · Needs large-transfer approval' : ''}
+                            </p>
                             <p className="mt-1 text-sm text-gray-600">
                                 {transfer.user?.name} · {transfer.user?.mobile} · {transfer.user?.email}
                             </p>
+                            {(transfer.ip_address || transfer.user_agent) && (
+                                <p className="mt-1 text-xs text-gray-500">
+                                    IP {transfer.ip_address ?? '—'}
+                                    {transfer.user_agent ? ` · ${transfer.user_agent.slice(0, 80)}` : ''}
+                                </p>
+                            )}
                         </div>
                         <div className="text-right">
-                            <p className="text-lg font-black">{formatPrice(transfer.quote.total_payable_ghs)}</p>
-                            <p className="text-sm">¥{transfer.quote.rmb_amount.toFixed(2)}</p>
+                            {transfer.funding_source === 'rmb_wallet' ? (
+                                <p className="text-lg font-black">¥{transfer.quote.rmb_amount.toFixed(2)}</p>
+                            ) : (
+                                <>
+                                    <p className="text-lg font-black">{formatPrice(transfer.quote.total_payable_ghs)}</p>
+                                    <p className="text-sm">¥{transfer.quote.rmb_amount.toFixed(2)}</p>
+                                </>
+                            )}
                             <p className="text-xs text-gray-500">1 RMB = GH₵{transfer.quote.ghs_per_rmb.toFixed(4)}</p>
                         </div>
                     </div>

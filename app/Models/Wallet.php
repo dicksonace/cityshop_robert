@@ -13,6 +13,7 @@ class Wallet extends Model
         'pending_balance',
         'total_earnings',
         'withdrawn_amount',
+        'rmb_balance',
     ];
 
     protected function casts(): array
@@ -22,6 +23,7 @@ class Wallet extends Model
             'pending_balance' => 'decimal:2',
             'total_earnings' => 'decimal:2',
             'withdrawn_amount' => 'decimal:2',
+            'rmb_balance' => 'decimal:2',
         ];
     }
 
@@ -33,7 +35,7 @@ class Wallet extends Model
     /**
      * Inertia/JSON payload with numeric balances (decimal casts otherwise serialize as strings).
      *
-     * @return array{available_balance: float, pending_balance: float, total_earnings: float, withdrawn_amount: float}
+     * @return array{available_balance: float, pending_balance: float, total_earnings: float, withdrawn_amount: float, rmb_balance: float}
      */
     public function toFrontendArray(): array
     {
@@ -42,11 +44,12 @@ class Wallet extends Model
             'pending_balance' => (float) $this->pending_balance,
             'total_earnings' => (float) $this->total_earnings,
             'withdrawn_amount' => (float) $this->withdrawn_amount,
+            'rmb_balance' => (float) $this->rmb_balance,
         ];
     }
 
     /**
-     * @return array{available_balance: float, pending_balance: float, total_earnings: float, withdrawn_amount: float}
+     * @return array{available_balance: float, pending_balance: float, total_earnings: float, withdrawn_amount: float, rmb_balance: float}
      */
     public static function emptyFrontendArray(): array
     {
@@ -55,6 +58,7 @@ class Wallet extends Model
             'pending_balance' => 0.0,
             'total_earnings' => 0.0,
             'withdrawn_amount' => 0.0,
+            'rmb_balance' => 0.0,
         ];
     }
 }

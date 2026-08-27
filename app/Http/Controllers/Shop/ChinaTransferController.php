@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\ChinaTransfer;
 use App\Services\ChinaTransferService;
+use App\Services\KycService;
+use App\Services\PaymentPinService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,6 +31,7 @@ class ChinaTransferController extends Controller
 
         return Inertia::render('shop/china-transfer/index', [
             'config' => $this->transfers->configPayload(),
+            'wallet' => WalletService::ensure($request->user())->toFrontendArray(),
             'transfers' => $transfers,
         ]);
     }
@@ -43,6 +47,9 @@ class ChinaTransferController extends Controller
 
         return Inertia::render('shop/china-transfer/create', [
             'config' => $this->transfers->configPayload(),
+            'wallet' => WalletService::ensure($request->user())->toFrontendArray(),
+            'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
+            'kyc' => KycService::payload($request->user(), withPhotos: false),
         ]);
     }
 
@@ -62,6 +69,19 @@ class ChinaTransferController extends Controller
     public function store(Request $request): RedirectResponse
     {
         abort_unless($request->user()?->isBuyer(), 403);
+
+        if ($denied = \App\Services\RmbWalletGuard::denyRedirect($request->user())) {
+            return $denied;
+        }
+
+        $request->validate([
+            'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+        ]);
+
+        \App\Services\PaymentPinService::assertValidForAction(
+            $request->user(),
+            $request->input('payment_pin'),
+        );
 
         $transfer = $this->transfers->create($request->user(), $request);
 

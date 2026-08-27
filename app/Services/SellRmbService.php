@@ -157,7 +157,8 @@ class SellRmbService
         $this->validateFields($request, $fields, $method);
 
         return DB::transaction(function () use ($user, $request, $quote, $rate, $method, $fields) {
-            // No RMB wallet — buyer sends RMB to Alipay, then admin processes.
+            // External sell (rmb-wallet style): buyer sends RMB to Alipay outside the app;
+            // CityShop pays MoMo/GHS out. Does not debit/credit wallet balances.
             $status = SellRmbStatus::PayoutProcessing;
 
             $needsApproval = $rate->approval_above_rmb !== null
