@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { FormEventHandler, useMemo } from 'react';
+import { FormEventHandler, useEffect, useMemo, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,22 @@ import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 import { formatPrice, Wallet } from '@/types/marketplace';
+
+function LocalImagePreview({ file }: { file: File }) {
+    const [url, setUrl] = useState<string | null>(null);
+    useEffect(() => {
+        const next = URL.createObjectURL(file);
+        setUrl(next);
+        return () => URL.revokeObjectURL(next);
+    }, [file]);
+    if (!url) return null;
+    return (
+        <a href={url} target="_blank" rel="noreferrer" className="block">
+            <img src={url} alt="Alipay QR preview" className="h-44 w-full rounded-xl object-cover" />
+            <p className="mt-2 text-center text-xs font-semibold text-gray-500">Click image to view full size</p>
+        </a>
+    );
+}
 
 type Field = {
     id: number;
@@ -67,9 +83,10 @@ function isQrField(field: Field) {
     return ['image', 'document', 'files'].includes(field.type) || blob.includes('qr');
 }
 
-/** Buy RMB step 2: QR + optional recipient + pay GHS (rmb-wallet style). */
+/** Buy RMB step 2: QR + optional recipient + pay from GHS wallet. */
 export default function ChinaTransferCreate({
     config,
+    wallet,
     hasPaymentPin = false,
     kyc,
     initialGhs,
@@ -77,9 +94,9 @@ export default function ChinaTransferCreate({
     const { flash } = usePage<SharedData>().props;
 
     const form = useForm({
-        funding_source: 'external' as const,
+        funding_source: 'ghs_wallet' as const,
         ghs_amount: String(initialGhs ?? config.rate?.min_ghs ?? ''),
-        payment_method_id: String(config.payment_methods[0]?.id ?? ''),
+        payment_method_id: '',
         payment_pin: '',
         fields: {} as Record<string, string>,
         files: {} as Record<string, File | null>,
@@ -89,32 +106,52 @@ export default function ChinaTransferCreate({
         if (!config.rate) return null;
         const amount = Number(form.data.ghs_amount);
         if (!Number.isFinite(amount) || amount <= 0) return null;
+        // Same as rmb-wallet: They receive = You send × (1 GHS → RMB).
         const rmb = amount / config.rate.ghs_per_rmb;
         const fee =
             config.rate.fee_mode === 'percent' ? (amount * config.rate.fee_value) / 100 : config.rate.fee_value;
-        return { rmb, fee, total: amount + fee, ghs: amount };
+        return {
+            rmb,
+            fee,
+            total: amount + fee,
+            ghs: amount,
+            rmbPerGhs: config.rate.rmb_per_ghs,
+        };
     }, [form.data.ghs_amount, config.rate]);
-
-    const method = config.payment_methods.find((m) => String(m.id) === form.data.payment_method_id);
 
     const recipientFields = config.fields.filter((f) => {
         const g = f.group.toLowerCase();
         return !['payment', 'payment_proof', 'proof'].includes(g);
     });
-    const paymentFields = config.fields.filter((f) => {
-        const g = f.group.toLowerCase();
-        return ['payment', 'payment_proof', 'proof'].includes(g);
-    });
     const qrFields = recipientFields.filter(isQrField);
-    const textFields = recipientFields.filter((f) => !isQrField(f));
+    const textFields = recipientFields.filter((f) => {
+        if (isQrField(f)) return false;
+        const name = f.name.toLowerCase();
+        return !name.includes('phone') && name !== 'recipient_address';
+    });
+
+    function optionalRecipientLabel(field: Field) {
+        const name = field.name.toLowerCase();
+        if (name.includes('alipay') || name.includes('account')) return 'Alipay Account';
+        if (name.includes('name')) return 'Recipient Name';
+        if (name.includes('note')) return 'Notes';
+        return field.label.replace(/\s*\*$/, '');
+    }
+
+    function optionalRecipientHint(field: Field) {
+        const name = field.name.toLowerCase();
+        if (name.includes('alipay') || name.includes('account')) return "Recipient's Alipay ID";
+        if (name.includes('name')) return 'Name of recipient';
+        if (name.includes('note')) return 'Any additional information';
+        return field.placeholder ?? '';
+    }
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         const payload: Record<string, unknown> = {
-            funding_source: 'external',
+            funding_source: 'ghs_wallet',
             payment_pin: form.data.payment_pin,
             ghs_amount: form.data.ghs_amount,
-            payment_method_id: form.data.payment_method_id,
         };
         Object.entries(form.data.fields).forEach(([id, value]) => {
             payload[`fields[${id}]`] = value;
@@ -173,7 +210,10 @@ export default function ChinaTransferCreate({
                             <span>They receive</span>
                             <span>¥{quote.rmb.toFixed(2)}</span>
                         </div>
-                        <p className="mt-2 text-xs text-indigo-700">
+                        <p className="mt-2 text-xs font-semibold text-indigo-700">
+                            Rate 1 GHS → {Number(quote.rmbPerGhs.toFixed(4))} RMB
+                        </p>
+                        <p className="mt-1 text-xs text-indigo-700">
                             Fee {formatPrice(quote.fee)} · Total {formatPrice(quote.total)}
                         </p>
                     </div>
@@ -184,29 +224,87 @@ export default function ChinaTransferCreate({
                         const error = form.errors[fieldKey(field.id)] || form.errors[`files.${field.id}`];
                         const file = form.data.files[field.id];
                         return (
-                            <section key={field.id} className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                            <section key={field.id} className="space-y-2">
                                 <Label className="text-base font-bold">
-                                    Upload Alipay QR Code{field.required ? ' *' : ''}
+                                    Upload Alipay QR Code
+                                    {field.required ? <span className="text-red-600"> *</span> : null}
                                 </Label>
-                                <p className="mt-1 text-sm text-gray-500">
-                                    {field.help_text ?? "Upload recipient's Alipay QR code"}
+                                <p className="text-sm text-gray-500">
+                                    {field.help_text ?? 'Upload a clear Alipay receive QR'}
                                 </p>
-                                <div className="mt-3 flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-6">
-                                    <p className="text-sm font-semibold text-gray-600">
-                                        {file ? file.name : 'Choose recipient QR image'}
-                                    </p>
-                                    <label className="cursor-pointer rounded-xl bg-red-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-red-700">
-                                        Choose Image
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={(e) => {
-                                                const next = e.target.files?.[0] ?? null;
-                                                form.setData('files', { ...form.data.files, [field.id]: next });
-                                            }}
-                                        />
-                                    </label>
+                                <div
+                                    className={`rounded-2xl border p-3 ${
+                                        file
+                                            ? 'border-emerald-300 bg-emerald-50'
+                                            : 'border-gray-200 bg-white'
+                                    }`}
+                                >
+                                    {file ? (
+                                        <div className="space-y-3">
+                                            <div className="flex items-start gap-3">
+                                                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white">
+                                                    ✓
+                                                </span>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-extrabold text-gray-900">
+                                                        {file.name}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {(file.size / 1024).toFixed(2)} KB
+                                                    </p>
+                                                </div>
+                                                <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-blue-700">
+                                                    ✎ Change
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => {
+                                                            const next = e.target.files?.[0] ?? null;
+                                                            form.setData('files', {
+                                                                ...form.data.files,
+                                                                [field.id]: next,
+                                                            });
+                                                        }}
+                                                    />
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-sm font-bold text-white hover:bg-red-700"
+                                                    onClick={() =>
+                                                        form.setData('files', {
+                                                            ...form.data.files,
+                                                            [field.id]: null,
+                                                        })
+                                                    }
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                            <LocalImagePreview file={file} />
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-2 px-4 py-6">
+                                            <p className="text-sm font-semibold text-gray-600">
+                                                Upload recipient&apos;s Alipay QR code
+                                            </p>
+                                            <label className="cursor-pointer rounded-xl bg-red-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-red-700">
+                                                Choose Image
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const next = e.target.files?.[0] ?? null;
+                                                        form.setData('files', {
+                                                            ...form.data.files,
+                                                            [field.id]: next,
+                                                        });
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    )}
                                 </div>
                                 <InputError message={error} />
                             </section>
@@ -215,17 +313,13 @@ export default function ChinaTransferCreate({
 
                     {textFields.map((field) => {
                         const error = form.errors[fieldKey(field.id)];
-                        const optional = !field.required;
                         return (
                             <div key={field.id} className="space-y-1.5">
-                                <Label>
-                                    {field.label}
-                                    {optional ? ' (Optional)' : ' *'}
-                                </Label>
+                                <Label>{optionalRecipientLabel(field)} (Optional)</Label>
                                 {field.type === 'textarea' ? (
                                     <textarea
                                         className="min-h-24 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
-                                        placeholder={field.placeholder ?? ''}
+                                        placeholder={optionalRecipientHint(field)}
                                         value={form.data.fields[field.id] ?? ''}
                                         onChange={(e) =>
                                             form.setData('fields', {
@@ -236,7 +330,7 @@ export default function ChinaTransferCreate({
                                     />
                                 ) : (
                                     <Input
-                                        placeholder={field.placeholder ?? ''}
+                                        placeholder={optionalRecipientHint(field)}
                                         value={form.data.fields[field.id] ?? ''}
                                         onChange={(e) =>
                                             form.setData('fields', {
@@ -246,84 +340,30 @@ export default function ChinaTransferCreate({
                                         }
                                     />
                                 )}
-                                {field.help_text && <p className="text-xs text-gray-500">{field.help_text}</p>}
                                 <InputError message={error} />
                             </div>
                         );
                     })}
 
-                    <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-                        <h2 className="font-bold text-gray-900">Pay GHS to CityShop</h2>
-                        <div className="space-y-2">
-                            {config.payment_methods.map((item) => (
-                                <label
-                                    key={item.id}
-                                    className={`block cursor-pointer rounded-xl border px-3 py-3 ${
-                                        form.data.payment_method_id === String(item.id)
-                                            ? 'border-indigo-400 bg-indigo-50'
-                                            : 'border-gray-200'
-                                    }`}
-                                >
-                                    <input
-                                        type="radio"
-                                        className="mr-2"
-                                        checked={form.data.payment_method_id === String(item.id)}
-                                        onChange={() => form.setData('payment_method_id', String(item.id))}
-                                    />
-                                    <span className="font-semibold">{item.name}</span>
-                                    {item.account_number && (
-                                        <span className="mt-1 block text-sm text-gray-600">
-                                            {item.account_name} · {item.account_number}
-                                            {item.bank_name ? ` · ${item.bank_name}` : ''}
-                                        </span>
-                                    )}
-                                </label>
-                            ))}
-                        </div>
-                        {method?.instructions && <p className="text-sm text-gray-600">{method.instructions}</p>}
-                        {method?.qr_url && (
-                            <img src={method.qr_url} alt="Pay QR" className="mt-2 h-40 w-40 rounded-xl object-cover" />
+                    <section className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                        <h2 className="font-bold text-emerald-950">Pay from wallet balance</h2>
+                        <p className="text-sm font-semibold text-emerald-800">
+                            Available: {formatPrice(wallet.available_balance)}
+                        </p>
+                        {quote && (
+                            <p className="text-sm text-emerald-700">
+                                Total debit: {formatPrice(quote.total)}
+                            </p>
                         )}
-                        {paymentFields.map((field) => {
-                            const error = form.errors[fieldKey(field.id)] || form.errors[`files.${field.id}`];
-                            if (['image', 'document', 'files'].includes(field.type)) {
-                                return (
-                                    <div key={field.id} className="space-y-1.5">
-                                        <Label>
-                                            {field.label}
-                                            {field.required ? ' *' : ''}
-                                        </Label>
-                                        <input
-                                            type="file"
-                                            accept={field.type === 'image' ? 'image/*' : undefined}
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0] ?? null;
-                                                form.setData('files', { ...form.data.files, [field.id]: file });
-                                            }}
-                                        />
-                                        <InputError message={error} />
-                                    </div>
-                                );
-                            }
-                            return (
-                                <div key={field.id} className="space-y-1.5">
-                                    <Label>
-                                        {field.label}
-                                        {field.required ? ' *' : ''}
-                                    </Label>
-                                    <Input
-                                        value={form.data.fields[field.id] ?? ''}
-                                        onChange={(e) =>
-                                            form.setData('fields', {
-                                                ...form.data.fields,
-                                                [field.id]: e.target.value,
-                                            })
-                                        }
-                                    />
-                                    <InputError message={error} />
-                                </div>
-                            );
-                        })}
+                        {quote && wallet.available_balance + 0.0001 < quote.total && (
+                            <p className="text-sm font-semibold text-amber-800">
+                                Not enough balance.{' '}
+                                <Link href={route('wallet.manual-top-up')} className="underline">
+                                    Top up wallet
+                                </Link>
+                            </p>
+                        )}
+                        <InputError message={form.errors.ghs_amount} />
                     </section>
 
                     <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">

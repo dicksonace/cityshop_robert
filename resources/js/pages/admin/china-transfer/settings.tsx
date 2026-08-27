@@ -90,9 +90,15 @@ export default function ChinaTransferSettings({
     });
 
     const rateForm = useForm({
-        ghs_per_rmb: String(currentRate?.ghs_per_rmb ?? '1.85'),
+        // Admin enters like rmb-wallet: 1 GHS = X RMB (stored as ghs_per_rmb = 1/X).
+        rmb_per_ghs: String(
+            currentRate?.rmb_per_ghs ??
+                (currentRate?.ghs_per_rmb && currentRate.ghs_per_rmb > 0
+                    ? 1 / currentRate.ghs_per_rmb
+                    : '0.559'),
+        ),
         fee_mode: currentRate?.fee_mode ?? 'flat',
-        fee_value: String(currentRate?.fee_value ?? '50'),
+        fee_value: String(currentRate?.fee_value ?? '0'),
         min_ghs: String(currentRate?.min_ghs ?? '50'),
         max_ghs: String(currentRate?.max_ghs ?? '50000'),
         daily_max_ghs: String(currentRate?.daily_max_ghs ?? ''),
@@ -136,7 +142,8 @@ export default function ChinaTransferSettings({
         rateForm.post(route('admin.china-transfer.rates.store'), { preserveScroll: true });
     };
 
-    const rmbPerGhs = Number(rateForm.data.ghs_per_rmb) > 0 ? 1 / Number(rateForm.data.ghs_per_rmb) : 0;
+    const rmbPerGhs = Number(rateForm.data.rmb_per_ghs);
+    const impliedGhsPerRmb = rmbPerGhs > 0 ? 1 / rmbPerGhs : 0;
 
     return (
         <AdminLayout title="China Transfer settings" active="china-transfer-settings">
@@ -220,18 +227,26 @@ export default function ChinaTransferSettings({
 
                         <form onSubmit={publishRate} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
                             <h2 className="font-bold">Publish new rate</h2>
-                            <p className="text-xs text-gray-500">Publishing locks a new rate. Open transfers keep the old rate.</p>
+                            <p className="text-xs text-gray-500">
+                                Same as rmb-wallet: set GHS → RMB for Buy RMB. Open transfers keep the old rate.
+                            </p>
                             <div>
-                                <Label>GHS per 1 RMB</Label>
-                                <Input
-                                    className="mt-1"
-                                    value={rateForm.data.ghs_per_rmb}
-                                    onChange={(e) => rateForm.setData('ghs_per_rmb', e.target.value)}
-                                />
+                                <Label>GHS to RMB Rate</Label>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-semibold text-gray-700">1 GHS =</span>
+                                    <Input
+                                        className="max-w-[10rem] text-lg font-bold"
+                                        value={rateForm.data.rmb_per_ghs}
+                                        onChange={(e) => rateForm.setData('rmb_per_ghs', e.target.value)}
+                                        placeholder="0.559"
+                                    />
+                                    <span className="text-sm font-semibold text-gray-700">RMB</span>
+                                </div>
                                 <p className="mt-1 text-xs text-gray-500">
-                                    Displayed as 1 GHS → {rmbPerGhs.toFixed(3)} RMB
+                                    Accepts any decimal precision (e.g. 0.565, 0.5802). Implies 1 RMB ≈ GH₵
+                                    {impliedGhsPerRmb > 0 ? impliedGhsPerRmb.toFixed(4) : '—'}
                                 </p>
-                                <InputError message={rateForm.errors.ghs_per_rmb} />
+                                <InputError message={rateForm.errors.rmb_per_ghs ?? rateForm.errors.ghs_per_rmb} />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
@@ -293,7 +308,8 @@ export default function ChinaTransferSettings({
                             <table className="mt-3 w-full text-left text-sm">
                                 <thead>
                                     <tr className="text-gray-500">
-                                        <th className="py-2">1 RMB = GHS</th>
+                                        <th className="py-2">1 GHS = RMB</th>
+                                        <th>1 RMB = GHS</th>
                                         <th>From</th>
                                         <th>To</th>
                                         <th>Status</th>
@@ -302,7 +318,8 @@ export default function ChinaTransferSettings({
                                 <tbody>
                                     {rates.map((rate) => (
                                         <tr key={rate.id} className="border-t">
-                                            <td className="py-2">{rate.ghs_per_rmb.toFixed(4)}</td>
+                                            <td className="py-2 font-semibold">¥{rate.rmb_per_ghs.toFixed(4)}</td>
+                                            <td className="py-2">GH₵{rate.ghs_per_rmb.toFixed(4)}</td>
                                             <td>{rate.effective_from ? new Date(rate.effective_from).toLocaleString('en-GH') : '—'}</td>
                                             <td>{rate.effective_to ? new Date(rate.effective_to).toLocaleString('en-GH') : 'Current'}</td>
                                             <td>{rate.active ? 'Active' : 'Expired'}</td>

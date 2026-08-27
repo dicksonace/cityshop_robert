@@ -99,7 +99,8 @@ class ChinaTransferSettingsController extends Controller
         }
 
         $validated = $request->validate([
-            'ghs_per_rmb' => ['required', 'numeric', 'min:0.0001'],
+            'rmb_per_ghs' => ['nullable', 'numeric', 'min:0.0001'],
+            'ghs_per_rmb' => ['nullable', 'numeric', 'min:0.0001'],
             'fee_mode' => ['required', 'in:flat,percent'],
             'fee_value' => ['required', 'numeric', 'min:0'],
             'min_ghs' => ['required', 'numeric', 'min:1'],
@@ -110,6 +111,16 @@ class ChinaTransferSettingsController extends Controller
             'approval_above_ghs' => ['nullable', 'numeric', 'min:1'],
             'effective_from' => ['nullable', 'date'],
         ]);
+
+        if (isset($validated['rmb_per_ghs']) && (float) $validated['rmb_per_ghs'] > 0) {
+            $validated['ghs_per_rmb'] = 1 / (float) $validated['rmb_per_ghs'];
+        }
+
+        if (! isset($validated['ghs_per_rmb']) || (float) $validated['ghs_per_rmb'] <= 0) {
+            return back()->withErrors(['rmb_per_ghs' => 'Enter a valid GHS → RMB rate (e.g. 0.559).']);
+        }
+
+        unset($validated['rmb_per_ghs']);
 
         $this->transfers->publishRate($request->user(), $validated);
 

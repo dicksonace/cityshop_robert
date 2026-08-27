@@ -148,20 +148,22 @@ return new class extends Migration
 
         $now = now();
         $fields = [
-            ['recipient', 'text', 'recipient_name', 'Recipient name', 'Name on Alipay', 'Name shown on the Alipay account', 1, 10],
-            ['recipient', 'phone', 'recipient_phone', 'Recipient phone', 'Chinese or Ghana number', null, 1, 20],
-            ['recipient', 'text', 'alipay_id', 'Alipay account / ID', 'Alipay email, phone or ID', 'Alipay only. WeChat Pay is not available.', 1, 30],
-            ['recipient', 'image', 'alipay_qr', 'Alipay QR code', null, 'Upload a clear Alipay receive QR', 1, 40],
-            ['recipient', 'textarea', 'recipient_address', 'Recipient address', 'Optional', null, 0, 50],
+            ['recipient', 'image', 'alipay_qr', 'Alipay QR Code', null, "Upload recipient's Alipay QR code", 1, 10],
+            ['recipient', 'text', 'alipay_id', 'Alipay Account', "Recipient's Alipay ID", null, 0, 20],
+            ['recipient', 'text', 'recipient_name', 'Recipient Name', 'Name of recipient', null, 0, 30],
+            ['recipient', 'textarea', 'notes', 'Notes', 'Any additional information', null, 0, 40],
+            ['recipient', 'phone', 'recipient_phone', 'Recipient phone', 'Chinese or Ghana number', null, 0, 50],
+            ['recipient', 'textarea', 'recipient_address', 'Recipient address', 'Optional', null, 0, 60],
             ['payment', 'text', 'payment_reference', 'Payment reference', 'MoMo or bank reference', 'The exact reference from your GHS payment', 1, 10],
             ['payment', 'image', 'payment_screenshot', 'Payment screenshot', null, 'Screenshot of the GHS payment you sent', 1, 20],
         ];
 
         foreach ($fields as $field) {
+            $name = $field[2];
             DB::table('china_transfer_form_fields')->insert([
                 'group' => $field[0],
                 'type' => $field[1],
-                'name' => $field[2],
+                'name' => $name,
                 'label' => $field[3],
                 'placeholder' => $field[4],
                 'help_text' => $field[5],
@@ -171,7 +173,7 @@ return new class extends Migration
                     : null,
                 'max_size_kb' => in_array($field[1], ['image', 'document', 'files'], true) ? 5120 : null,
                 'sort_order' => $field[7],
-                'active' => true,
+                'active' => ! in_array($name, ['recipient_phone', 'recipient_address'], true),
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);

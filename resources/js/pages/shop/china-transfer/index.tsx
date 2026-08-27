@@ -67,10 +67,6 @@ export default function ChinaTransferHub({ config, transfers }: Props) {
                 <h1 className="mt-3 text-2xl font-black text-gray-900">Buy RMB</h1>
                 <p className="mt-1 text-sm text-gray-500">Send GHS, receive CNY in China via Alipay.</p>
 
-                {config.instructions && (
-                    <p className="mt-4 rounded-xl bg-orange-50 px-4 py-3 text-sm text-orange-900">{config.instructions}</p>
-                )}
-
                 {config.rate ? (
                     <BuyRmbCalculator
                         className="mt-5"

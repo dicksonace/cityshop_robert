@@ -206,22 +206,23 @@ export default function SellRmbSettings({
                                 Same as rmb-wallet: set how much GHS you pay for 1 RMB. Open requests keep their old rate.
                             </p>
                             <div className="flex flex-wrap items-end gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
-                                <div className="text-center">
-                                    <p className="text-2xl font-black text-gray-900">1</p>
-                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500">RMB</p>
-                                </div>
-                                <p className="pb-2 text-lg font-bold text-gray-400">=</p>
-                                <div className="min-w-[9rem] flex-1">
-                                    <Label>GHS per 1 RMB</Label>
-                                    <Input
-                                        className="mt-1 text-lg font-bold"
-                                        value={rateForm.data.ghs_per_rmb}
-                                        onChange={(e) => rateForm.setData('ghs_per_rmb', e.target.value)}
-                                        placeholder="1.712"
-                                    />
+                                <div className="min-w-[12rem] flex-1">
+                                    <Label>RMB to GHS Rate</Label>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-semibold text-gray-700">1 RMB =</span>
+                                        <Input
+                                            className="max-w-[10rem] text-lg font-bold"
+                                            value={rateForm.data.ghs_per_rmb}
+                                            onChange={(e) => rateForm.setData('ghs_per_rmb', e.target.value)}
+                                            placeholder="1.701"
+                                        />
+                                        <span className="text-sm font-semibold text-gray-700">GHS</span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Accepts any decimal precision (e.g. 2.300, 1.7702)
+                                    </p>
                                     <InputError message={rateForm.errors.ghs_per_rmb} />
                                 </div>
-                                <p className="pb-2 text-sm font-bold text-gray-600">GHS</p>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>

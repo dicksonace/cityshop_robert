@@ -86,7 +86,7 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                 <div className="mt-5 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
                     <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Buy RMB</p>
                     <p className="mt-2 text-2xl font-black">
-                        {buyRate ? `1 GHS = ¥${buyRate.rmb_per_ghs.toFixed(2)}` : 'Rate not published'}
+                        {buyRate ? `1 GHS → ¥${Number(buyRate.rmb_per_ghs.toFixed(4))} RMB` : 'Rate not published'}
                     </p>
                     <p className="mt-1 text-sm text-white/80">No hidden fees · Secure transactions</p>
                     <button

@@ -53,7 +53,7 @@ class ChinaTransferController extends Controller
 
         $request->validate([
             'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
-            'funding_source' => ['nullable', 'in:external,rmb_wallet'],
+            'funding_source' => ['nullable', 'in:external,rmb_wallet,ghs_wallet'],
         ]);
 
         \App\Services\PaymentPinService::assertValidForAction(

@@ -26,6 +26,11 @@ function formatAmount(n: number) {
     return String(round2(n));
 }
 
+function formatRate(n: number, digits = 4) {
+    if (!Number.isFinite(n) || n <= 0) return '—';
+    return n.toFixed(digits).replace(/\.?0+$/, '') || '0';
+}
+
 /**
  * Buy-rmb.com-style calculator: Today's Rate, You send / They receive, arrival copy, Continue.
  */
@@ -74,10 +79,10 @@ export default function BuyRmbCalculator({ rate, enabled, initialGhs = '', onCon
 
     return (
         <div className={cn('rounded-3xl border border-gray-200 bg-white p-5 shadow-sm', className)}>
-            <div className="text-center">
-                <p className="text-sm font-semibold text-gray-500">Today&apos;s Rate</p>
-                <p className="mt-1 text-lg font-extrabold tracking-tight text-indigo-600">
-                    1 GHS = {rate.rmb_per_ghs.toFixed(2)} CNY
+            <div className="rounded-2xl border border-violet-400/60 bg-violet-800 px-5 py-5 text-center text-white shadow-sm">
+                <p className="text-sm font-semibold tracking-wide">GHS to RMB</p>
+                <p className="mt-2 text-2xl font-black tracking-tight">
+                    1 GHS → {formatRate(rate.rmb_per_ghs)} RMB
                 </p>
             </div>
 

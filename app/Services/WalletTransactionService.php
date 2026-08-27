@@ -409,6 +409,28 @@ class WalletTransactionService
         );
     }
 
+    public static function recordChinaTransferDebit(int $userId, float $amount, string $reference, string $description): WalletTransaction
+    {
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::ChinaTransferDebit,
+            amount: -1 * $amount,
+            description: $description,
+            reference: $reference,
+        );
+    }
+
+    public static function recordChinaTransferRefund(int $userId, float $amount, string $reference, string $description): WalletTransaction
+    {
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::ChinaTransferRefund,
+            amount: $amount,
+            description: $description,
+            reference: $reference,
+        );
+    }
+
     /**
      * For transfer rows, look up the other party's profile once per page so the
      * wallet history can show their photo / Tel even on older ledger lines.

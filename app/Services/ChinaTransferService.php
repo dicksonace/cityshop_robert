@@ -118,18 +118,22 @@ class ChinaTransferService
         }
 
         $rate = $this->currentRate();
-        $fundingSource = $request->input('funding_source', 'external');
-        if (! in_array($fundingSource, ['external', 'rmb_wallet'], true)) {
-            $fundingSource = 'external';
+        $fundingSource = $request->input('funding_source', 'ghs_wallet');
+        if (! in_array($fundingSource, ['external', 'rmb_wallet', 'ghs_wallet'], true)) {
+            $fundingSource = 'ghs_wallet';
         }
 
         if ($fundingSource === 'rmb_wallet') {
             return $this->createFromRmbWallet($user, $request, $rate);
         }
 
+        if ($fundingSource === 'ghs_wallet') {
+            return $this->createFromGhsWallet($user, $request, $rate);
+        }
+
         if (! $this->hasExternalPaymentMethods()) {
             throw ValidationException::withMessages([
-                'payment_method_id' => 'External GHS payment methods are not configured. Pay from your RMB wallet instead.',
+                'payment_method_id' => 'External GHS payment methods are not configured. Pay from your wallet balance instead.',
             ]);
         }
 
@@ -304,11 +308,100 @@ class ChinaTransferService
         });
     }
 
+    /**
+     * Debit GHS wallet balance and create Alipay transfer (Buy RMB — no MoMo screenshot).
+     */
+    private function createFromGhsWallet(User $user, Request $request, ChinaTransferRate $rate): ChinaTransfer
+    {
+        $validated = $request->validate([
+            'ghs_amount' => ['required', 'numeric', 'min:1'],
+        ]);
+
+        $quote = $this->quote((float) $validated['ghs_amount'], $rate);
+        $this->assertLimits($user, $quote, $rate);
+
+        $needsApproval = $rate->approval_above_ghs !== null
+            && $quote['ghs_amount'] >= (float) $rate->approval_above_ghs;
+
+        $fields = $this->activeFields()->filter(function (ChinaTransferFormField $field) {
+            $group = strtolower((string) $field->group);
+
+            return ! in_array($group, ['payment', 'payment_proof', 'proof'], true);
+        })->values();
+        $this->validateFields($request, $fields, null);
+
+        $meta = RmbWalletGuard::requestMeta($request);
+        $total = (float) $quote['total_payable_ghs'];
+
+        return DB::transaction(function () use ($user, $request, $quote, $rate, $fields, $needsApproval, $meta, $total) {
+            try {
+                WalletService::ensure($user);
+                WalletService::debitAvailable(
+                    $user,
+                    $total,
+                    'Insufficient wallet balance. You need GH₵'.number_format($total, 2)
+                        .' for this Buy RMB transfer. Top up your wallet first.'
+                );
+            } catch (\RuntimeException $e) {
+                throw ValidationException::withMessages(['ghs_amount' => $e->getMessage()]);
+            }
+
+            $status = $needsApproval
+                ? ChinaTransferStatus::PaymentVerification
+                : ChinaTransferStatus::Processing;
+
+            $transfer = ChinaTransfer::create([
+                'reference' => $this->nextReference(),
+                'user_id' => $user->id,
+                'status' => $status,
+                'ghs_amount' => $quote['ghs_amount'],
+                'rmb_amount' => $quote['rmb_amount'],
+                'fee_ghs' => $quote['fee_ghs'],
+                'total_payable_ghs' => $quote['total_payable_ghs'],
+                'ghs_per_rmb' => $quote['ghs_per_rmb'],
+                'fee_mode' => $quote['fee_mode'],
+                'fee_value' => $quote['fee_value'],
+                'rate_id' => $rate->id,
+                'payment_method_id' => null,
+                'funding_source' => 'ghs_wallet',
+                'needs_approval' => $needsApproval,
+                'ip_address' => $meta['ip_address'],
+                'user_agent' => $meta['user_agent'],
+                'paid_at' => now(),
+                'verified_at' => $needsApproval ? null : now(),
+                'processing_at' => $needsApproval ? null : now(),
+            ]);
+
+            WalletTransactionService::recordChinaTransferDebit(
+                $user->id,
+                $total,
+                'CT-'.$transfer->id,
+                'Buy RMB paid from wallet for '.$transfer->reference,
+            );
+
+            $note = $needsApproval
+                ? 'Paid from GHS wallet — awaiting admin approval'
+                : 'Paid from GHS wallet — processing Alipay send';
+
+            $this->storeFieldValues($transfer, $request, $fields);
+            $this->recordHistory($transfer, null, $status, $note, $user->id);
+            $this->notifyUser($transfer, $status);
+            $this->notifyAdmins($transfer, $status);
+
+            return $transfer->fresh([
+                'fieldValues.field',
+                'proofs',
+                'statusHistory',
+                'paymentMethod',
+            ]);
+        });
+    }
+
     public function cancel(ChinaTransfer $transfer, User $actor, ?string $note = null): ChinaTransfer
     {
         $this->assertMutable($transfer);
 
-        $walletFunded = $transfer->funding_source === 'rmb_wallet';
+        $walletFunded = in_array($transfer->funding_source, ['rmb_wallet', 'ghs_wallet'], true);
 
         if ($actor->id === $transfer->user_id) {
             $allowed = $walletFunded
@@ -334,7 +427,7 @@ class ChinaTransferService
         }
 
         return DB::transaction(function () use ($transfer, $actor, $note) {
-            $this->refundRmbWalletHold($transfer, 'Transfer cancelled — RMB returned to wallet');
+            $this->refundWalletFunding($transfer, 'Transfer cancelled — funds returned to wallet');
 
             return $this->transition($transfer, ChinaTransferStatus::Cancelled, $actor, $note ?: 'Cancelled', [
                 'cancelled_at' => now(),
@@ -361,7 +454,7 @@ class ChinaTransferService
         ]);
 
         return DB::transaction(function () use ($transfer, $admin, $reason) {
-            $this->refundRmbWalletHold($transfer, 'Transfer rejected — RMB returned to wallet');
+            $this->refundWalletFunding($transfer, 'Transfer rejected — funds returned to wallet');
 
             return $this->transition($transfer, ChinaTransferStatus::PaymentRejected, $admin, $reason, [
                 'rejection_reason' => $reason,
@@ -443,12 +536,60 @@ class ChinaTransferService
         ]);
 
         return DB::transaction(function () use ($transfer, $admin, $reason) {
-            $this->refundRmbWalletHold($transfer, 'Transfer failed — RMB returned to wallet');
+            $this->refundWalletFunding($transfer, 'Transfer failed — funds returned to wallet');
 
             return $this->transition($transfer, ChinaTransferStatus::TransferFailed, $admin, $reason, [
                 'rejection_reason' => $reason,
             ]);
         });
+    }
+
+    /**
+     * Refund wallet funding once when cancelled / rejected / failed.
+     */
+    private function refundWalletFunding(ChinaTransfer $transfer, string $description): void
+    {
+        if ($transfer->funding_source === 'ghs_wallet') {
+            $this->refundGhsWalletHold($transfer, $description);
+
+            return;
+        }
+
+        $this->refundRmbWalletHold($transfer, $description);
+    }
+
+    private function refundGhsWalletHold(ChinaTransfer $transfer, string $description): void
+    {
+        if ($transfer->funding_source !== 'ghs_wallet' || $transfer->rmb_wallet_refunded) {
+            return;
+        }
+
+        $amount = (float) $transfer->total_payable_ghs;
+        if ($amount <= 0) {
+            $transfer->rmb_wallet_refunded = true;
+            $transfer->save();
+
+            return;
+        }
+
+        $user = $transfer->user ?? User::query()->find($transfer->user_id);
+        if (! $user) {
+            return;
+        }
+
+        $wallet = \App\Models\Wallet::where('user_id', $user->id)->lockForUpdate()->first()
+            ?? WalletService::ensure($user);
+        $wallet->increment('available_balance', $amount);
+
+        WalletTransactionService::recordChinaTransferRefund(
+            $user->id,
+            $amount,
+            'CT-'.$transfer->id,
+            $description.' ('.$transfer->reference.')',
+        );
+
+        $transfer->rmb_wallet_refunded = true;
+        $transfer->save();
     }
 
     /**
@@ -594,9 +735,11 @@ class ChinaTransferService
             'status' => $transfer->status->value,
             'status_label' => $transfer->status->label(),
             'funding_source' => $transfer->funding_source ?? 'external',
-            'funding_source_label' => ($transfer->funding_source ?? 'external') === 'rmb_wallet'
-                ? 'RMB wallet'
-                : 'External GHS payment',
+            'funding_source_label' => match ($transfer->funding_source ?? 'external') {
+                'ghs_wallet' => 'GHS wallet',
+                'rmb_wallet' => 'RMB wallet',
+                default => 'External GHS payment',
+            },
             'quote' => $quote,
             'channel' => 'alipay',
             'needs_approval' => $transfer->needs_approval,
@@ -614,7 +757,7 @@ class ChinaTransferService
             'sent_at' => $transfer->sent_at?->toIso8601String(),
             'completed_at' => $transfer->completed_at?->toIso8601String(),
             'cancelled_at' => $transfer->cancelled_at?->toIso8601String(),
-            'can_cancel' => ($transfer->funding_source ?? 'external') === 'rmb_wallet'
+            'can_cancel' => in_array($transfer->funding_source ?? 'external', ['rmb_wallet', 'ghs_wallet'], true)
                 ? in_array($transfer->status, [
                     ChinaTransferStatus::Processing,
                     ChinaTransferStatus::PaymentVerification,
@@ -908,6 +1051,13 @@ class ChinaTransferService
 
             if ($field->name === 'payment_screenshot' && $method?->proof_required) {
                 $required = 'required';
+            }
+
+            // Buy RMB (rmb-wallet): QR required; account / name / notes optional.
+            if (strtolower((string) $field->group) === 'recipient') {
+                $blob = strtolower($field->name.' '.$field->label);
+                $isQr = $field->isFile() || str_contains($blob, 'qr');
+                $required = $isQr ? 'required' : 'nullable';
             }
 
             $rules[$key] = match ($field->type) {
