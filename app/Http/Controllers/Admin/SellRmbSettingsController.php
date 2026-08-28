@@ -119,12 +119,32 @@ class SellRmbSettingsController extends Controller
     {
         $validated = $this->methodRules($request, false);
         if ($request->hasFile('qr')) {
-            $validated['qr_path'] = $this->storeQr($request);
+            $file = $request->file('qr');
+            if ($file instanceof \Illuminate\Http\UploadedFile) {
+                $this->sellRmb->replaceMethodQr($method, $file);
+            }
+            unset($validated['qr']);
         }
         unset($validated['qr']);
-        $method->update($validated);
+        if ($validated !== []) {
+            $method->update($validated);
+        }
 
         return back()->with('success', 'Receive method updated.');
+    }
+
+    public function replaceMethodQr(Request $request, SellRmbReceiveMethod $method): RedirectResponse
+    {
+        $request->validate([
+            'qr' => ['required', 'image', 'max:4096'],
+        ]);
+
+        $file = $request->file('qr');
+        if ($file instanceof \Illuminate\Http\UploadedFile) {
+            $this->sellRmb->replaceMethodQr($method, $file);
+        }
+
+        return back()->with('success', 'Alipay QR updated. Buyers see the new code on their next refresh.');
     }
 
     public function destroyMethod(SellRmbReceiveMethod $method): RedirectResponse

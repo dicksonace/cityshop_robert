@@ -1,7 +1,8 @@
-import { Check } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 
 import MomoNetworkLogo from '@/components/wallet/momo-network-logo';
-import { MOMO_NETWORKS } from '@/lib/momo-networks';
+import { MOMO_NETWORKS, momoNetworkLabel } from '@/lib/momo-networks';
 import { cn } from '@/lib/utils';
 
 interface MomoNetworkPickerProps {
@@ -12,8 +13,8 @@ interface MomoNetworkPickerProps {
     className?: string;
     /** When set, networks not in this list are shown disabled and cannot be selected. */
     enabledNetworks?: string[];
-    /** App-style stacked tiles (buyer withdraw page). */
-    variant?: 'grid' | 'list';
+    /** grid = three chips; list = stacked tiles; selected = one network + change action. */
+    variant?: 'grid' | 'list' | 'selected';
 }
 
 const checkTone: Record<string, string> = {
@@ -31,40 +32,76 @@ export default function MomoNetworkPicker({
     enabledNetworks,
     variant = 'grid',
 }: MomoNetworkPickerProps) {
-    if (variant === 'list') {
+    const [changing, setChanging] = useState(false);
+    const selectedMeta = MOMO_NETWORKS.find((n) => n.id === value);
+
+    if (variant === 'selected' && value && selectedMeta && !changing) {
         return (
             <div className={className}>
-                <p className="text-[15px] font-extrabold text-gray-900">{label}</p>
-                {hint && <p className="mt-1 text-[13px] leading-snug text-gray-500">{hint}</p>}
-                <div className="mt-3 space-y-2">
+                <button
+                    type="button"
+                    onClick={() => setChanging(true)}
+                    className={cn(
+                        'flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2.5 text-left transition hover:opacity-95',
+                        selectedMeta.selectedClass,
+                    )}
+                >
+                    <MomoNetworkLogo network={value} size="md" />
+                    <span className="min-w-0 flex-1 text-sm font-bold text-gray-900">
+                        {momoNetworkLabel(value)}
+                    </span>
+                    <span className="text-xs font-bold text-gray-600">Change</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
+                </button>
+            </div>
+        );
+    }
+
+    if (variant === 'list' || (variant === 'selected' && changing)) {
+        return (
+            <div className={className}>
+                {variant === 'selected' ? (
+                    <p className="mb-2 text-xs font-semibold text-gray-500">Choose network</p>
+                ) : (
+                    <>
+                        <p className="text-[15px] font-extrabold text-gray-900">{label}</p>
+                        {hint && <p className="mt-1 text-[13px] leading-snug text-gray-500">{hint}</p>}
+                    </>
+                )}
+                <div className={cn(variant === 'selected' ? 'space-y-2' : 'mt-3 space-y-2')}>
                     {MOMO_NETWORKS.map((network) => {
                         const selected = value === network.id;
+                        const disabled = enabledNetworks ? !enabledNetworks.includes(network.id) : false;
 
                         return (
                             <button
                                 key={network.id}
                                 type="button"
-                                onClick={() => onChange(network.id)}
+                                disabled={disabled}
+                                onClick={() => {
+                                    if (disabled) return;
+                                    onChange(network.id);
+                                    if (variant === 'selected') setChanging(false);
+                                }}
                                 className={cn(
                                     'flex w-full items-center gap-3 rounded-[14px] px-3 py-3 text-left transition',
-                                    selected
-                                        ? cn('border-2', network.selectedClass)
-                                        : 'border-[1.4px] border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50',
+                                    disabled && 'cursor-not-allowed opacity-40',
+                                    !disabled &&
+                                        (selected
+                                            ? cn('border-2', network.selectedClass)
+                                            : 'border-[1.4px] border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'),
                                 )}
                             >
                                 <MomoNetworkLogo network={network.id} size="md" />
                                 <span className="min-w-0 flex-1">
-                                    {network.id === 'mtn' && (
-                                        <span className={cn('block text-[10px] font-extrabold tracking-[0.07em]', selected ? network.accent : 'text-gray-400')}>
-                                            MOST COMMON
-                                        </span>
-                                    )}
                                     <span className="block text-sm font-semibold text-gray-900">{network.label}</span>
                                 </span>
                                 <span
                                     className={cn(
                                         'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
-                                        selected ? (checkTone[network.id] ?? 'border-orange-500 bg-orange-500 text-white') : 'border-gray-300 bg-white',
+                                        selected
+                                            ? (checkTone[network.id] ?? 'border-orange-500 bg-orange-500 text-white')
+                                            : 'border-gray-300 bg-white',
                                     )}
                                 >
                                     {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
@@ -73,6 +110,15 @@ export default function MomoNetworkPicker({
                         );
                     })}
                 </div>
+                {variant === 'selected' && (
+                    <button
+                        type="button"
+                        onClick={() => setChanging(false)}
+                        className="mt-2 text-xs font-semibold text-gray-500 hover:text-gray-700"
+                    >
+                        Cancel
+                    </button>
+                )}
             </div>
         );
     }

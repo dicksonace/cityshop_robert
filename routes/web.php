@@ -381,6 +381,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/sell-rmb/rates', [AdminSellRmbSettingsController::class, 'publishRate'])->name('sell-rmb.rates.store');
     Route::post('/sell-rmb/methods', [AdminSellRmbSettingsController::class, 'storeMethod'])->name('sell-rmb.methods.store');
     Route::post('/sell-rmb/methods/{method}', [AdminSellRmbSettingsController::class, 'updateMethod'])->name('sell-rmb.methods.update');
+    Route::post('/sell-rmb/methods/{method}/qr', [AdminSellRmbSettingsController::class, 'replaceMethodQr'])->name('sell-rmb.methods.qr');
     Route::post('/sell-rmb/methods/{method}/deactivate', [AdminSellRmbSettingsController::class, 'destroyMethod'])->name('sell-rmb.methods.destroy');
     Route::post('/sell-rmb/fields', [AdminSellRmbSettingsController::class, 'storeField'])->name('sell-rmb.fields.store');
     Route::post('/sell-rmb/fields/{field}', [AdminSellRmbSettingsController::class, 'updateField'])->name('sell-rmb.fields.update');

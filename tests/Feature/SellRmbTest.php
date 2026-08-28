@@ -172,6 +172,7 @@ class SellRmbTest extends TestCase
             'proof_required' => true,
             'active' => true,
             'sort_order' => 1,
+            'qr_path' => 'sell-rmb/methods/test-qr.png',
         ]);
 
         return ['admin' => $admin, 'method' => $method];

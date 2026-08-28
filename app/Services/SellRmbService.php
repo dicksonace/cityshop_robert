@@ -18,6 +18,7 @@ use App\Notifications\SellRmbUserNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class SellRmbService
@@ -49,7 +50,32 @@ class SellRmbService
 
         return $settings->enabled
             && $this->currentRate() !== null
-            && SellRmbReceiveMethod::query()->where('active', true)->exists();
+            && $this->hasReadyReceiveMethod();
+    }
+
+    public function hasReadyReceiveMethod(): bool
+    {
+        return SellRmbReceiveMethod::query()
+            ->where('active', true)
+            ->where(function ($q) {
+                $q->whereIn('type', ['bank', 'other'])
+                    ->orWhereNotNull('qr_path');
+            })
+            ->exists();
+    }
+
+    public function replaceMethodQr(SellRmbReceiveMethod $method, UploadedFile $file): SellRmbReceiveMethod
+    {
+        if ($method->qr_path) {
+            Storage::disk('public')->delete($method->qr_path);
+        }
+
+        $method->update([
+            'qr_path' => $file->store('sell-rmb/methods', 'public'),
+            'active' => true,
+        ]);
+
+        return $method->fresh();
     }
 
     /**
@@ -631,6 +657,7 @@ class SellRmbService
             'network' => $method->network,
             'instructions' => $method->instructions,
             'qr_url' => $method->qrUrl(),
+            'qr_updated_at' => $method->updated_at?->toIso8601String(),
             'proof_required' => $method->proof_required,
             'sort_order' => $method->sort_order,
             'active' => $method->active,

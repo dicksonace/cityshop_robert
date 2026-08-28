@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
-import { momoNetworkLabel, normalizeMomoNetworkId } from '@/lib/momo-networks';
+import { normalizeMomoNetworkId } from '@/lib/momo-networks';
 import { formatPrice } from '@/types/marketplace';
 import { SharedData } from '@/types';
 
@@ -157,9 +157,6 @@ export default function ManualTopUpForm({
 
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">Manual deposit</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                    Choose MTN, Telecel, or AirtelTigo — we show the CityShop number to pay. Then submit proof.
-                </p>
             </div>
 
             {showFlash && flash.success && (
@@ -179,30 +176,22 @@ export default function ManualTopUpForm({
 
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
                 <h2 className="font-semibold text-gray-900">1. Choose payment method</h2>
-                <p className="mt-1 text-sm text-gray-500">
-                    Tap a network, copy the CityShop number, send payment, then submit proof below.
-                </p>
 
                 <MomoNetworkPicker
-                    className="mt-4"
+                    className="mt-3"
                     value={selectedNetwork ?? ''}
                     onChange={selectNetwork}
                     enabledNetworks={Object.keys(momoAccountsByNetwork)}
-                    label="Pay with"
-                    hint="Tap to change network"
+                    variant="selected"
                 />
                 <InputError message={form.errors.network} className="mt-2" />
 
                 {selectedAccount && selectedNetwork && (
-                    <div className="mt-4">
-                        <p className="mb-2 text-sm font-semibold text-gray-900">
-                            Paying via {momoNetworkLabel(selectedNetwork)}
-                        </p>
+                    <div className="mt-3">
                         <DirectPaymentDetails
                             accountNumber={selectedAccount.account_number}
                             accountName={selectedAccount.account_name}
                             network={selectedNetwork}
-                            hint="Send the exact amount, then fill the proof form below."
                         />
                     </div>
                 )}
@@ -225,7 +214,6 @@ export default function ManualTopUpForm({
 
             <form onSubmit={submit} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
                 <h2 className="font-semibold text-gray-900">2. After you pay — submit proof</h2>
-                <p className="mt-1 text-sm text-gray-500">We credit your wallet once an admin verifies the transfer.</p>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div>

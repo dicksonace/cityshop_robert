@@ -11,6 +11,7 @@ use App\Models\SellRmbTransfer;
 use App\Services\SellRmbService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 
 class SellRmbController extends Controller
@@ -114,19 +115,27 @@ class SellRmbController extends Controller
     {
         $settings = $this->sellRmb->settings();
 
+        $rate = $this->sellRmb->currentRate();
+        $activeMethods = SellRmbReceiveMethod::query()->where('active', true)->get();
+        $qrMethod = $activeMethods->first(fn (SellRmbReceiveMethod $m) => filled($m->qr_path) || in_array($m->type, ['bank', 'other'], true));
+
         return response()->json([
             'settings' => [
                 'enabled' => $settings->enabled,
                 'instructions' => $settings->instructions,
                 'receive_instructions' => $settings->receive_instructions,
             ],
-            'current_rate' => ($rate = $this->sellRmb->currentRate())
-                ? $this->sellRmb->ratePayload($rate)
-                : null,
+            'current_rate' => $rate ? $this->sellRmb->ratePayload($rate) : null,
             'rates' => SellRmbRate::query()->latest('id')->limit(10)->get()->map(fn (SellRmbRate $rate) => $this->sellRmb->ratePayload($rate)),
             'methods' => SellRmbReceiveMethod::query()->orderBy('sort_order')->get()->map(fn (SellRmbReceiveMethod $m) => $this->sellRmb->methodPayload($m)),
             'fields' => SellRmbFormField::query()->orderBy('group')->orderBy('sort_order')->get()->map(fn (SellRmbFormField $f) => $this->sellRmb->fieldPayload($f)),
             'open' => $this->sellRmb->isOpen(),
+            'readiness' => [
+                'live_toggle' => (bool) $settings->enabled,
+                'rate_published' => $rate !== null,
+                'alipay_qr' => $qrMethod !== null,
+                'open' => $this->sellRmb->isOpen(),
+            ],
         ]);
     }
 
@@ -174,6 +183,62 @@ class SellRmbController extends Controller
         return response()->json(['message' => 'Buying rate published. Existing requests keep their locked rate.']);
     }
 
+    public function storeMethod(Request $request): JsonResponse
+    {
+        $validated = $this->methodRules($request);
+        $validated['qr_path'] = $this->storeQr($request);
+        $validated['sort_order'] = $validated['sort_order'] ?? ((int) SellRmbReceiveMethod::max('sort_order')) + 1;
+        unset($validated['qr']);
+
+        $method = SellRmbReceiveMethod::create($validated);
+
+        return response()->json([
+            'message' => 'Alipay receive method saved.',
+            'data' => $this->sellRmb->methodPayload($method),
+        ], 201);
+    }
+
+    public function updateMethod(Request $request, SellRmbReceiveMethod $method): JsonResponse
+    {
+        $validated = $this->methodRules($request, false);
+        if ($request->hasFile('qr')) {
+            $file = $request->file('qr');
+            if ($file instanceof UploadedFile) {
+                $method = $this->sellRmb->replaceMethodQr($method, $file);
+            }
+            unset($validated['qr']);
+        }
+        if ($validated !== []) {
+            unset($validated['qr']);
+            $method->update($validated);
+            $method = $method->fresh();
+        }
+
+        return response()->json([
+            'message' => 'Receive method updated.',
+            'data' => $this->sellRmb->methodPayload($method),
+        ]);
+    }
+
+    public function replaceMethodQr(Request $request, SellRmbReceiveMethod $method): JsonResponse
+    {
+        $validated = $request->validate([
+            'qr' => ['required', 'image', 'max:4096'],
+        ]);
+
+        $file = $validated['qr'];
+        if (! $file instanceof UploadedFile) {
+            return response()->json(['message' => 'Invalid QR image.'], 422);
+        }
+
+        $method = $this->sellRmb->replaceMethodQr($method, $file);
+
+        return response()->json([
+            'message' => 'Alipay QR updated. Buyers see the new code on their next refresh.',
+            'data' => $this->sellRmb->methodPayload($method),
+        ]);
+    }
+
     public function deactivateMethod(SellRmbReceiveMethod $method): JsonResponse
     {
         $method->update(['active' => false]);
@@ -186,6 +251,46 @@ class SellRmbController extends Controller
         $field->update(['active' => false]);
 
         return response()->json(['message' => 'Form field deactivated.']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function methodRules(Request $request, bool $creating = true): array
+    {
+        $required = $creating ? 'required' : 'sometimes';
+
+        $validated = $request->validate([
+            'name' => [$required, 'string', 'max:120'],
+            'type' => [$required, 'in:alipay,wechat,bank,other'],
+            'account_name' => ['nullable', 'string', 'max:120'],
+            'account_number' => ['nullable', 'string', 'max:80'],
+            'network' => ['nullable', 'string', 'max:40'],
+            'instructions' => ['nullable', 'string', 'max:2000'],
+            'proof_required' => ['sometimes', 'boolean'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+            'active' => ['sometimes', 'boolean'],
+            'qr' => ['nullable', 'image', 'max:4096'],
+        ]);
+
+        $validated['proof_required'] = $request->boolean('proof_required', true);
+        $validated['active'] = $request->boolean('active', true);
+
+        return $validated;
+    }
+
+    private function storeQr(Request $request): ?string
+    {
+        if (! $request->hasFile('qr')) {
+            return null;
+        }
+
+        $file = $request->file('qr');
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        return $file->store('sell-rmb/methods', 'public');
     }
 
     private function run(callable $action, string $message, SellRmbTransfer $transfer): JsonResponse

@@ -316,6 +316,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/sell-rmb/settings', [AdminSellRmbController::class, 'settings']);
             Route::post('/sell-rmb/settings', [AdminSellRmbController::class, 'updateSettings']);
             Route::post('/sell-rmb/rates', [AdminSellRmbController::class, 'publishRate']);
+            Route::post('/sell-rmb/methods', [AdminSellRmbController::class, 'storeMethod']);
+            Route::post('/sell-rmb/methods/{method}', [AdminSellRmbController::class, 'updateMethod']);
+            Route::post('/sell-rmb/methods/{method}/qr', [AdminSellRmbController::class, 'replaceMethodQr']);
             Route::post('/sell-rmb/methods/{method}/deactivate', [AdminSellRmbController::class, 'deactivateMethod']);
             Route::post('/sell-rmb/fields/{field}/deactivate', [AdminSellRmbController::class, 'deactivateField']);
             Route::get('/sell-rmb/{sellRmbTransfer}', [AdminSellRmbController::class, 'show']);

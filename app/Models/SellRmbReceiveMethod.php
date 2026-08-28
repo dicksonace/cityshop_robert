@@ -30,6 +30,13 @@ class SellRmbReceiveMethod extends Model
 
     public function qrUrl(): ?string
     {
-        return $this->qr_path ? Storage::disk('public')->url($this->qr_path) : null;
+        if (! $this->qr_path) {
+            return null;
+        }
+
+        $url = Storage::disk('public')->url($this->qr_path);
+        $version = $this->updated_at?->timestamp ?? time();
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'v='.$version;
     }
 }

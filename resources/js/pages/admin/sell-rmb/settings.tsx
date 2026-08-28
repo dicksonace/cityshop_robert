@@ -36,6 +36,7 @@ type Method = {
     network: string | null;
     instructions: string | null;
     qr_url: string | null;
+    qr_updated_at?: string | null;
     proof_required: boolean;
     active: boolean;
 };
@@ -61,6 +62,48 @@ interface Props {
     fields: Field[];
     fieldTypes: string[];
     open: boolean;
+}
+
+function MethodQrReplace({ method }: { method: Method }) {
+    const qrForm = useForm({ qr: null as File | null });
+
+    if (!method.active || !['alipay', 'wechat'].includes(method.type)) {
+        return null;
+    }
+
+    return (
+        <form
+            className="mt-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3"
+            onSubmit={(e) => {
+                e.preventDefault();
+                qrForm.post(route('admin.sell-rmb.methods.qr', method.id), {
+                    forceFormData: true,
+                    preserveScroll: true,
+                    onSuccess: () => qrForm.reset('qr'),
+                });
+            }}
+        >
+            <p className="text-xs font-semibold text-amber-900">
+                Alipay QR codes expire or hit limits. Replace anytime — buyers see the new code on refresh.
+            </p>
+            {method.qr_url ? (
+                <img
+                    src={method.qr_url}
+                    alt="Current Alipay QR"
+                    className="mx-auto h-40 w-40 rounded-lg border bg-white object-contain"
+                />
+            ) : null}
+            {method.qr_updated_at ? (
+                <p className="text-xs text-amber-800">
+                    Last updated: {new Date(method.qr_updated_at).toLocaleString()}
+                </p>
+            ) : null}
+            <input type="file" accept="image/*" onChange={(e) => qrForm.setData('qr', e.target.files?.[0] ?? null)} />
+            <Button type="submit" size="sm" disabled={!qrForm.data.qr || qrForm.processing}>
+                {qrForm.processing ? 'Publishing…' : 'Publish new QR'}
+            </Button>
+        </form>
+    );
 }
 
 export default function SellRmbSettings({
@@ -373,6 +416,7 @@ export default function SellRmbSettings({
                                     <p className="text-sm text-gray-600">
                                         {method.type} · {method.account_name} · {method.account_number}
                                     </p>
+                                    <MethodQrReplace method={method} />
                                     {!method.active ? null : (
                                         <form
                                             className="mt-2"

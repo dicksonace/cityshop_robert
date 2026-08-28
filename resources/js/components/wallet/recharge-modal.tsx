@@ -163,7 +163,7 @@ export default function RechargeModal({
                         )}
                         {showManual && (
                             <p className="mt-0.5 text-xs leading-snug text-gray-500">
-                                Choose network, copy the CityShop number, then submit proof.
+                                Copy the CityShop number, then submit proof.
                             </p>
                         )}
                     </div>
@@ -213,8 +213,7 @@ export default function RechargeModal({
                             value={selectedNetwork ?? ''}
                             onChange={setSelectedNetwork}
                             enabledNetworks={Object.keys(momoAccountsByNetwork)}
-                            label="Pay with"
-                            hint="Tap to change network"
+                            variant="selected"
                         />
 
                         {selectedAccount && selectedNetwork ? (
@@ -222,7 +221,6 @@ export default function RechargeModal({
                                 accountNumber={selectedAccount.account_number}
                                 accountName={selectedAccount.account_name}
                                 network={selectedNetwork}
-                                hint="Send payment from your phone, then continue to upload proof."
                             />
                         ) : null}
 
