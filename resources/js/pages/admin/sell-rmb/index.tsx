@@ -1,5 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
+
+import { RmbAutoRefreshChip, RmbTransferStatusBadge } from '@/components/china/rmb-transfer-status-badge';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +59,17 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
     const { flash } = usePage<SharedData>().props;
     const [q, setQ] = useState(search);
 
+    useEffect(() => {
+        const id = window.setInterval(() => {
+            router.reload({
+                only: ['transfers', 'dashboard', 'status', 'search'],
+                preserveScroll: true,
+                preserveState: true,
+            });
+        }, 8000);
+        return () => window.clearInterval(id);
+    }, [status, search]);
+
     const submitSearch = (e: FormEvent) => {
         e.preventDefault();
         router.get(route('admin.sell-rmb.index'), { status, q }, { preserveState: true });
@@ -71,9 +84,12 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                         <h1 className="text-xl font-bold text-gray-900">Sell RMB</h1>
                         <p className="text-sm text-gray-500">Buyers send RMB (Alipay), then admin pays GHS.</p>
                     </div>
-                    <Link href={route('admin.sell-rmb.settings')}>
-                        <Button variant="outline">Settings</Button>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <RmbAutoRefreshChip />
+                        <Link href={route('admin.sell-rmb.settings')}>
+                            <Button variant="outline">Settings</Button>
+                        </Link>
+                    </div>
                 </div>
 
                 {flash?.success && <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{flash.success}</p>}
@@ -130,7 +146,9 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                             <div className="text-right">
                                 <p className="font-semibold">¥{item.quote.rmb_amount.toFixed(2)}</p>
                                 <p className="text-xs text-gray-600">{formatPayout(item)}</p>
-                                <p className="text-xs text-orange-700">{item.status_label}</p>
+                                <div className="mt-1 flex justify-end">
+                                    <RmbTransferStatusBadge status={item.status} label={item.status_label} />
+                                </div>
                             </div>
                         </Link>
                     ))}

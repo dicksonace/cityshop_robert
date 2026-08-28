@@ -1,6 +1,11 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
+import {
+    RmbAutoRefreshChip,
+    RmbTransferStatusBadge,
+    rmbTransferStatusTone,
+} from '@/components/china/rmb-transfer-status-badge';
 import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
@@ -33,6 +38,7 @@ type Transfer = {
     fields: { id: number; label: string; value: string | null; file_url: string | null; group: string }[];
     proofs: { id: number; type: string; url: string; original_name: string | null; note: string | null }[];
     created_at: string | null;
+    completed_at: string | null;
 };
 
 interface Props {
@@ -47,18 +53,30 @@ function formatGhs(n: number) {
     return `GH₵${n.toFixed(2)}`;
 }
 
+function formatWhen(raw: string | null): string {
+    if (!raw) return '—';
+    try {
+        return new Date(raw).toLocaleString();
+    } catch {
+        return raw;
+    }
+}
+
+const TERMINAL = ['completed', 'cancelled', 'rejected', 'failed'];
+
 export default function SellRmbShow({ transfer: initial }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [transfer, setTransfer] = useState(initial);
+    const [proofPreview, setProofPreview] = useState<string | null>(null);
 
     useEffect(() => {
         setTransfer(initial);
     }, [initial]);
 
+    const autoRefresh = !TERMINAL.includes(transfer.status);
+
     useEffect(() => {
-        if (['completed', 'cancelled', 'rejected', 'failed'].includes(transfer.status)) {
-            return;
-        }
+        if (!autoRefresh) return;
         const timer = window.setInterval(() => {
             fetch(`${route('wallet.sell-rmb.show', transfer.id)}?json=1`, {
                 headers: { Accept: 'application/json' },
@@ -70,7 +88,7 @@ export default function SellRmbShow({ transfer: initial }: Props) {
                 .catch(() => undefined);
         }, 8000);
         return () => window.clearInterval(timer);
-    }, [transfer.id, transfer.status]);
+    }, [transfer.id, transfer.status, autoRefresh]);
 
     const payoutProofs = transfer.proofs.filter((p) => p.type === 'payout_sent');
     const expectedPayout =
@@ -83,14 +101,18 @@ export default function SellRmbShow({ transfer: initial }: Props) {
                 ? formatGhs(transfer.payout_amount)
                 : formatUsd(transfer.payout_amount)
             : null;
+    const tone = rmbTransferStatusTone(transfer.status);
 
     return (
         <ShopLayout hideFlash>
             <Head title={transfer.reference} />
             <div className="mx-auto max-w-lg px-4 py-6">
-                <Link href={route('wallet.sell-rmb.index')} className="text-sm font-semibold text-emerald-700">
-                    ← Sell RMB
-                </Link>
+                <div className="flex items-center justify-between gap-3">
+                    <Link href={route('wallet.sell-rmb.index')} className="text-sm font-semibold text-emerald-700">
+                        ← Sell RMB
+                    </Link>
+                    {autoRefresh && <RmbAutoRefreshChip />}
+                </div>
                 {(flash.success || flash.error) && (
                     <p
                         className={`mt-3 rounded-xl px-4 py-3 text-sm ${
@@ -101,34 +123,30 @@ export default function SellRmbShow({ transfer: initial }: Props) {
                     </p>
                 )}
                 <h1 className="mt-3 text-2xl font-black text-gray-900">{transfer.reference}</h1>
-                <p className="mt-1 text-sm font-semibold text-emerald-700">{transfer.status_label}</p>
+
+                {!TERMINAL.includes(transfer.status) && (
+                    <div className={`mt-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${tone.badge}`}>
+                        <RmbTransferStatusBadge status={transfer.status} label={transfer.status_label} />
+                        <p className="text-sm font-medium">We&apos;ll update this page automatically.</p>
+                    </div>
+                )}
 
                 <div className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
-                    <dl className="space-y-1.5 text-sm">
-                        <div className="flex justify-between">
-                            <dt className="text-gray-500">RMB sold</dt>
-                            <dd className="font-semibold">¥{transfer.quote.rmb_amount.toFixed(2)}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                            <dt className="text-gray-500">Buying rate</dt>
-                            <dd>
-                                1 RMB = GH₵
-                                {(
-                                    transfer.quote.ghs_per_rmb ??
-                                    transfer.quote.usd_per_rmb * transfer.quote.ghs_per_usd
-                                ).toFixed(4)}
-                            </dd>
-                        </div>
+                    <p className="text-3xl font-black text-emerald-700">¥{transfer.quote.rmb_amount.toFixed(2)}</p>
+                    <p className="mt-1 text-lg font-bold text-gray-900">Expected payout: {expectedPayout}</p>
+                    {transfer.quote.breakdown?.rate && (
+                        <p className="mt-2 text-sm text-gray-500">{transfer.quote.breakdown.rate}</p>
+                    )}
+                    {transfer.status === 'completed' && transfer.completed_at && (
+                        <p className="mt-2 text-sm text-gray-500">Completed {formatWhen(transfer.completed_at)}</p>
+                    )}
+                    <dl className="mt-4 space-y-1.5 border-t pt-4 text-sm">
                         <div className="flex justify-between">
                             <dt className="text-gray-500">Fee</dt>
                             <dd>{formatUsd(transfer.quote.fee_usd)}</dd>
                         </div>
-                        <div className="flex justify-between">
-                            <dt className="text-gray-500">Expected payout</dt>
-                            <dd className="font-semibold">{expectedPayout}</dd>
-                        </div>
                         {paidLabel && (
-                            <div className="flex justify-between border-t pt-2 font-bold">
+                            <div className="flex justify-between font-bold">
                                 <dt>Paid</dt>
                                 <dd>{paidLabel}</dd>
                             </div>
@@ -148,20 +166,32 @@ export default function SellRmbShow({ transfer: initial }: Props) {
                     </dl>
                 </div>
 
-                <ol className="mt-6 space-y-3">
+                <h2 className="mt-6 text-base font-black text-gray-900">Progress</h2>
+                <ol className="mt-3 space-y-2">
                     {transfer.timeline.map((step) => (
-                        <li key={step.key} className="flex items-start gap-3">
+                        <li
+                            key={step.key}
+                            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                                step.failed
+                                    ? 'border-red-200 bg-red-50'
+                                    : step.current
+                                      ? 'border-emerald-200 bg-emerald-50'
+                                      : step.done
+                                        ? 'border-emerald-100 bg-emerald-50/50'
+                                        : 'border-gray-200 bg-white'
+                            }`}
+                        >
                             <span
-                                className={`mt-0.5 h-3 w-3 rounded-full ${
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${
                                     step.failed
                                         ? 'bg-red-500'
-                                        : step.current
-                                          ? 'bg-emerald-500'
-                                          : step.done
-                                            ? 'bg-emerald-500'
-                                            : 'bg-gray-300'
+                                        : step.done || step.current
+                                          ? 'bg-emerald-600'
+                                          : 'bg-gray-300'
                                 }`}
-                            />
+                            >
+                                {step.failed ? '!' : step.done ? '✓' : step.current ? '…' : ''}
+                            </span>
                             <span className={step.current ? 'font-bold text-gray-900' : 'text-gray-600'}>
                                 {step.label}
                             </span>
@@ -170,25 +200,29 @@ export default function SellRmbShow({ transfer: initial }: Props) {
                 </ol>
 
                 {transfer.rejection_reason && (
-                    <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">
-                        {transfer.rejection_reason}
-                    </p>
+                    <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{transfer.rejection_reason}</p>
                 )}
 
                 {payoutProofs.length > 0 && (
                     <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                         <h2 className="font-bold text-emerald-900">Payout proof</h2>
-                        <div className="mt-3 space-y-2">
+                        <div className="mt-3 grid gap-3">
                             {payoutProofs.map((proof) => (
-                                <a
+                                <button
                                     key={proof.id}
-                                    href={proof.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="block text-sm font-semibold text-emerald-800"
+                                    type="button"
+                                    onClick={() => setProofPreview(proof.url)}
+                                    className="overflow-hidden rounded-xl border border-emerald-200 bg-white text-left"
                                 >
-                                    {proof.original_name || 'View proof'}
-                                </a>
+                                    <img
+                                        src={proof.url}
+                                        alt={proof.original_name || 'Payout proof'}
+                                        className="max-h-64 w-full object-contain"
+                                    />
+                                    <p className="px-3 py-2 text-sm font-semibold text-emerald-800">
+                                        {proof.original_name || 'View proof'}
+                                    </p>
+                                </button>
                             ))}
                         </div>
                     </div>
@@ -202,14 +236,13 @@ export default function SellRmbShow({ transfer: initial }: Props) {
                                 <dt className="text-gray-500">{field.label}</dt>
                                 <dd>
                                     {field.file_url ? (
-                                        <a
-                                            href={field.file_url}
-                                            target="_blank"
-                                            rel="noreferrer"
+                                        <button
+                                            type="button"
+                                            onClick={() => setProofPreview(field.file_url!)}
                                             className="font-semibold text-emerald-700"
                                         >
                                             View file
-                                        </a>
+                                        </button>
                                     ) : (
                                         field.value || '—'
                                     )}
@@ -233,6 +266,22 @@ export default function SellRmbShow({ transfer: initial }: Props) {
                     </Button>
                 )}
             </div>
+
+            {proofPreview && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+                    onClick={() => setProofPreview(null)}
+                    onKeyDown={(e) => e.key === 'Escape' && setProofPreview(null)}
+                    role="presentation"
+                >
+                    <img
+                        src={proofPreview}
+                        alt="Proof preview"
+                        className="max-h-[90vh] max-w-full rounded-lg object-contain"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
         </ShopLayout>
     );
 }

@@ -1,6 +1,8 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
 
+import { RmbAutoRefreshChip } from '@/components/china/rmb-transfer-status-badge';
+import { RmbTransferListItem } from '@/components/china/rmb-transfer-list-item';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 import { formatPrice, Wallet } from '@/types/marketplace';
@@ -32,6 +34,7 @@ type SellRate = {
 type BuyTransfer = {
     id: number;
     reference: string;
+    status: string;
     status_label: string;
     quote: { rmb_amount: number; total_payable_ghs: number };
 };
@@ -39,6 +42,7 @@ type BuyTransfer = {
 type SellTransfer = {
     id: number;
     reference: string;
+    status: string;
     status_label: string;
     quote: {
         rmb_amount: number;
@@ -151,49 +155,32 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
 
                 <div className="mt-8 flex items-center justify-between gap-3">
                     <h2 className="text-lg font-bold text-gray-900">Recent activity</h2>
-                    <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-800">
-                        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-sky-500" />
-                        Auto refresh
-                    </span>
+                    <RmbAutoRefreshChip />
                 </div>
                 <div className="mt-3 space-y-3">
                     {buy.transfers.length === 0 && sell.transfers.length === 0 && (
                         <p className="text-sm text-gray-500">No China / RMB transactions yet.</p>
                     )}
                     {buy.transfers.map((item) => (
-                        <Link
+                        <RmbTransferListItem
                             key={`buy-${item.id}`}
                             href={route('wallet.china-transfer.show', item.id)}
-                            className="block rounded-2xl border border-gray-200 bg-white p-4"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <p className="font-bold text-gray-900">Buy RMB · {item.reference}</p>
-                                    <p className="text-sm text-gray-500">
-                                        {formatPrice(item.quote.total_payable_ghs)} → ¥
-                                        {item.quote.rmb_amount.toFixed(2)}
-                                    </p>
-                                </div>
-                                <p className="text-xs font-semibold text-orange-700">{item.status_label}</p>
-                            </div>
-                        </Link>
+                            reference={`Buy RMB · ${item.reference}`}
+                            subtitle={`${formatPrice(item.quote.total_payable_ghs)} → ¥${item.quote.rmb_amount.toFixed(2)}`}
+                            status={item.status}
+                            statusLabel={item.status_label}
+                        />
                     ))}
                     {sell.transfers.map((item) => (
-                        <Link
+                        <RmbTransferListItem
                             key={`sell-${item.id}`}
                             href={route('wallet.sell-rmb.show', item.id)}
-                            className="block rounded-2xl border border-gray-200 bg-white p-4"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <p className="font-bold text-gray-900">Sell · {item.reference}</p>
-                                    <p className="text-sm text-gray-500">
-                                        ¥{item.quote.rmb_amount.toFixed(2)} → {sellPayoutLabel(item)}
-                                    </p>
-                                </div>
-                                <p className="text-xs font-semibold text-emerald-700">{item.status_label}</p>
-                            </div>
-                        </Link>
+                            reference={`Sell · ${item.reference}`}
+                            subtitle={`¥${item.quote.rmb_amount.toFixed(2)} → ${sellPayoutLabel(item)}`}
+                            status={item.status}
+                            statusLabel={item.status_label}
+                            sellFlow
+                        />
                     ))}
                 </div>
             </div>

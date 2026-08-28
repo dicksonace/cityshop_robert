@@ -1,6 +1,8 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { RmbAutoRefreshChip } from '@/components/china/rmb-transfer-status-badge';
+import { RmbTransferListItem } from '@/components/china/rmb-transfer-list-item';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ShopLayout from '@/layouts/shop-layout';
@@ -57,10 +59,11 @@ function formatGhs(n: number) {
     return `GH₵${n.toFixed(2)}`;
 }
 
+const TERMINAL = ['completed', 'cancelled', 'rejected', 'failed'];
+
 export default function SellRmbHub({ config, transfers }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [rmb, setRmb] = useState(String(config.rate?.min_rmb ?? 1000));
-    const payoutCurrency = 'ghs' as const;
 
     const quote = useMemo(() => {
         const amount = Number(rmb);
@@ -78,6 +81,21 @@ export default function SellRmbHub({ config, transfers }: Props) {
         return { usdGross, fee, usdPayout, ghsPayout, ghsPerRmb };
     }, [rmb, config.rate]);
 
+    useEffect(() => {
+        const hasOpen = transfers.data.some((item) => !TERMINAL.includes(item.status));
+        if (!hasOpen && transfers.data.length > 0) {
+            return;
+        }
+        const id = window.setInterval(() => {
+            router.reload({
+                only: ['config', 'transfers'],
+                preserveScroll: true,
+                preserveState: true,
+            });
+        }, 8000);
+        return () => window.clearInterval(id);
+    }, [transfers.data]);
+
     return (
         <ShopLayout hideFlash>
             <Head title="Sell RMB" />
@@ -91,24 +109,24 @@ export default function SellRmbHub({ config, transfers }: Props) {
                 </div>
             )}
             <div className="mx-auto max-w-lg px-4 py-6">
-                <Link href={route('wallet.china-rmb.index')} className="text-sm font-semibold text-emerald-700">
-                    ← China / RMB
-                </Link>
+                <div className="flex items-center justify-between gap-3">
+                    <Link href={route('wallet.china-rmb.index')} className="text-sm font-semibold text-emerald-700">
+                        ← China / RMB
+                    </Link>
+                    <RmbAutoRefreshChip />
+                </div>
                 <h1 className="mt-3 text-2xl font-black text-gray-900">Sell RMB</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                    Send RMB to our Alipay QR, upload your screenshot — we pay GHS after verification. No RMB wallet needed.
+                    Send RMB to our Alipay QR, upload your screenshot — we pay GHS after verification.
                 </p>
 
                 <div className="mt-5 rounded-2xl bg-gradient-to-br from-emerald-700 to-emerald-900 p-5 text-white shadow-lg">
                     <p className="text-sm font-semibold text-white/80">We buy your RMB</p>
-                    <p className="mt-1 text-xs uppercase tracking-wide text-white/60">Buying rate</p>
+                    <p className="mt-1 text-xs uppercase tracking-wide text-white/60">Send RMB · receive GHS</p>
                     {config.rate ? (
                         <p className="mt-4 text-3xl font-black tracking-tight">
                             1 RMB = GH₵
-                            {(
-                                config.rate.ghs_per_rmb ??
-                                config.rate.usd_per_rmb * config.rate.ghs_per_usd
-                            ).toFixed(4)}
+                            {(config.rate.ghs_per_rmb ?? config.rate.usd_per_rmb * config.rate.ghs_per_usd).toFixed(4)}
                         </p>
                     ) : (
                         <p className="mt-4 text-lg font-semibold">Buying rate not published yet.</p>
@@ -116,9 +134,7 @@ export default function SellRmbHub({ config, transfers }: Props) {
                 </div>
 
                 {config.instructions && (
-                    <p className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                        {config.instructions}
-                    </p>
+                    <p className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{config.instructions}</p>
                 )}
 
                 {config.rate && (
@@ -130,6 +146,9 @@ export default function SellRmbHub({ config, transfers }: Props) {
                             value={rmb}
                             onChange={(e) => setRmb(e.target.value)}
                         />
+                        <p className="mt-2 text-xs text-gray-500">
+                            Min ¥{config.rate.min_rmb.toFixed(0)} · Max ¥{config.rate.max_rmb.toFixed(0)}
+                        </p>
                         <p className="mt-4 text-sm font-semibold text-gray-700">You receive (GHS)</p>
                         {quote && (
                             <div className="mt-3 flex justify-between border-t pt-3 text-sm">
@@ -151,17 +170,24 @@ export default function SellRmbHub({ config, transfers }: Props) {
                                 Continue
                             </Button>
                         ) : (
-                            <p className="mt-4 text-sm text-amber-700">
-                                Sell RMB is paused until admin activates this service.
-                            </p>
+                            <p className="mt-4 text-sm text-amber-700">Sell RMB is paused until admin activates this service.</p>
                         )}
                     </div>
                 )}
 
-                <h2 className="mt-8 text-lg font-bold text-gray-900">Your Sell RMB requests</h2>
+                <div className="mt-8 flex items-center justify-between gap-3">
+                    <h2 className="text-lg font-bold text-gray-900">Your Sell RMB requests</h2>
+                    {transfers.data.length > 0 && (
+                        <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700">
+                            {transfers.data.length}
+                        </span>
+                    )}
+                </div>
                 <div className="mt-3 space-y-3">
                     {transfers.data.length === 0 && (
-                        <p className="text-sm text-gray-500">No Sell RMB requests yet.</p>
+                        <p className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+                            No Sell RMB requests yet.
+                        </p>
                     )}
                     {transfers.data.map((item) => {
                         const payout =
@@ -169,23 +195,15 @@ export default function SellRmbHub({ config, transfers }: Props) {
                                 ? formatGhs(item.quote.ghs_payout)
                                 : formatUsd(item.quote.usd_payout);
                         return (
-                            <Link
+                            <RmbTransferListItem
                                 key={item.id}
                                 href={route('wallet.sell-rmb.show', item.id)}
-                                className="block rounded-2xl border border-gray-200 bg-white p-4"
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p className="font-bold text-gray-900">{item.reference}</p>
-                                        <p className="text-sm text-gray-500">
-                                            ¥{item.quote.rmb_amount.toFixed(2)} → {payout}
-                                        </p>
-                                    </div>
-                                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                                        {item.status_label}
-                                    </span>
-                                </div>
-                            </Link>
+                                reference={item.reference}
+                                subtitle={`¥${item.quote.rmb_amount.toFixed(2)} → ${payout}`}
+                                status={item.status}
+                                statusLabel={item.status_label}
+                                sellFlow
+                            />
                         );
                     })}
                 </div>
