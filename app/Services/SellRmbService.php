@@ -262,13 +262,23 @@ class SellRmbService
         $this->assertAdminAction($transfer, [SellRmbStatus::PayoutProcessing]);
 
         $validated = $request->validate([
-            'payout_amount' => ['required', 'numeric', 'min:0.01'],
+            'payout_amount' => ['nullable', 'numeric', 'min:0.01'],
             'payout_ref' => ['nullable', 'string', 'max:120'],
             'payout_channel' => ['nullable', 'string', 'max:80'],
             'payout_paid_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
             'proof' => ['required', 'file', 'max:8192', 'mimes:jpg,jpeg,png,webp,pdf'],
         ]);
+
+        $payoutAmount = isset($validated['payout_amount']) && (float) $validated['payout_amount'] > 0
+            ? (float) $validated['payout_amount']
+            : $transfer->expectedPayoutAmount();
+
+        if ($payoutAmount <= 0) {
+            throw ValidationException::withMessages([
+                'payout_amount' => 'This transfer has no payout amount.',
+            ]);
+        }
 
         $file = $request->file('proof');
         $path = $file->store('sell-rmb/'.$transfer->id.'/payout-proof', 'public');
@@ -284,7 +294,7 @@ class SellRmbService
         ]);
 
         return $this->transition($transfer, SellRmbStatus::Paid, $admin, $validated['note'] ?? 'Payout sent', [
-            'payout_amount' => round((float) $validated['payout_amount'], 2),
+            'payout_amount' => round($payoutAmount, 2),
             'payout_ref' => $validated['payout_ref'] ?? null,
             'payout_channel' => $validated['payout_channel'] ?? null,
             'payout_paid_at' => $validated['payout_paid_at'] ?? now(),

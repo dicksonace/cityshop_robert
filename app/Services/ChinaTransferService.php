@@ -538,12 +538,22 @@ class ChinaTransferService
         $this->assertAdminAction($transfer, [ChinaTransferStatus::Processing]);
 
         $validated = $request->validate([
-            'rmb_sent_amount' => ['required', 'numeric', 'min:0.01'],
+            'rmb_sent_amount' => ['nullable', 'numeric', 'min:0.01'],
             'rmb_transfer_ref' => ['nullable', 'string', 'max:120'],
             'rmb_sent_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
             'proof' => ['required', 'file', 'max:8192', 'mimes:jpg,jpeg,png,webp,pdf'],
         ]);
+
+        $sentAmount = isset($validated['rmb_sent_amount']) && (float) $validated['rmb_sent_amount'] > 0
+            ? (float) $validated['rmb_sent_amount']
+            : (float) $transfer->rmb_amount;
+
+        if ($sentAmount <= 0) {
+            throw ValidationException::withMessages([
+                'rmb_sent_amount' => 'This transfer has no RMB amount to mark as sent.',
+            ]);
+        }
 
         $file = $request->file('proof');
         $path = $file->store('china-transfers/'.$transfer->id.'/rmb-proof', 'public');
@@ -559,7 +569,7 @@ class ChinaTransferService
         ]);
 
         return $this->transition($transfer, ChinaTransferStatus::RmbSent, $admin, $validated['note'] ?? 'RMB sent', [
-            'rmb_sent_amount' => round((float) $validated['rmb_sent_amount'], 2),
+            'rmb_sent_amount' => round($sentAmount, 2),
             'rmb_transfer_ref' => $validated['rmb_transfer_ref'] ?? null,
             'rmb_sent_at' => $validated['rmb_sent_at'] ?? now(),
             'sent_at' => now(),
