@@ -119,7 +119,8 @@ class ChinaTransferSettingsController extends Controller
         ]);
 
         if (isset($validated['rmb_per_ghs']) && (float) $validated['rmb_per_ghs'] > 0) {
-            $validated['ghs_per_rmb'] = 1 / (float) $validated['rmb_per_ghs'];
+            $rmbPerGhs = round((float) $validated['rmb_per_ghs'], 3);
+            $validated['ghs_per_rmb'] = round(1 / $rmbPerGhs, 6);
         }
 
         if (! isset($validated['ghs_per_rmb']) || (float) $validated['ghs_per_rmb'] <= 0) {

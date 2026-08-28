@@ -61,11 +61,11 @@ class ChinaTransferRate extends Model
         return round($stored, 6);
     }
 
-    /** RMB received per 1 GHS — matches rmb-wallet "Current Rate: 0.556 RMB". */
+    /** RMB received per 1 GHS — buyer-facing; 3 decimals so math matches the rate shown. */
     public function rmbPerGhs(): float
     {
         $ghsPerRmb = $this->effectiveGhsPerRmb();
 
-        return $ghsPerRmb > 0 ? round(1 / $ghsPerRmb, 6) : 0.0;
+        return $ghsPerRmb > 0 ? round(1 / $ghsPerRmb, 3) : 0.0;
     }
 }

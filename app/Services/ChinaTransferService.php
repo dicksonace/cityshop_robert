@@ -95,7 +95,7 @@ class ChinaTransferService
             'close_time_label' => $closeToday->format('g:i A'),
             'closed_message' => $isOpenNow
                 ? null
-                : "We're currently closed. Orders placed now will be processed tomorrow by {$openLabel}.",
+                : "Sorry, we're closed. We continue at {$openLabel}.",
         ];
     }
 

@@ -18,7 +18,7 @@ export default function BuyRmbClosedBanner({ transferHours, className = '' }: Pr
 
     const message =
         transferHours.closed_message ??
-        "We're currently closed. Orders placed now will be processed when we reopen.";
+        "Sorry, we're closed. We continue when we reopen.";
 
     return (
         <div

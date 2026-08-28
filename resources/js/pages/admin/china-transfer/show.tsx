@@ -1,4 +1,5 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { FormEventHandler, useEffect, useRef, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -78,6 +79,25 @@ async function downloadQr(url: string, reference: string) {
     URL.revokeObjectURL(objectUrl);
 }
 
+function formatProofFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function downloadProofFile(file: File) {
+    const objectUrl = URL.createObjectURL(file);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = file.name;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
+}
+
+const TERMINAL_TRANSFER_STATUSES = ['completed', 'cancelled', 'payment_rejected', 'transfer_failed', 'refunded'];
+
 export default function ChinaTransferShow({ transfer }: Props) {
     const { flash } = usePage<SharedData>().props;
     const rejectForm = useForm({ reason: '' });
@@ -89,10 +109,32 @@ export default function ChinaTransferShow({ transfer }: Props) {
         note: '',
         proof: null as File | null,
     });
+    const proofInputRef = useRef<HTMLInputElement>(null);
+    const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        const file = finishForm.data.proof;
+        if (!file || !file.type.startsWith('image/')) {
+            setProofPreviewUrl(null);
+            return;
+        }
+        const url = URL.createObjectURL(file);
+        setProofPreviewUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [finishForm.data.proof]);
 
     const canUploadProofAndComplete = ['processing', 'payment_submitted', 'payment_verification'].includes(
         transfer.status,
     );
+    const autoRefresh = !TERMINAL_TRANSFER_STATUSES.includes(transfer.status);
+
+    useEffect(() => {
+        if (!autoRefresh) return;
+        const id = window.setInterval(() => {
+            router.reload({ only: ['transfer'], preserveScroll: true, preserveState: true });
+        }, 8000);
+        return () => window.clearInterval(id);
+    }, [autoRefresh, transfer.id, transfer.status]);
 
     const post = (url: string) => (e: React.FormEvent) => {
         e.preventDefault();
@@ -112,9 +154,26 @@ export default function ChinaTransferShow({ transfer }: Props) {
         <AdminLayout title={transfer.reference} active="china-transfers">
             <Head title={transfer.reference} />
             <div className="mx-auto max-w-4xl space-y-6">
-                <Link href={route('admin.china-transfers.index')} className="text-sm font-semibold text-orange-600">
-                    ← All transfers
-                </Link>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Link href={route('admin.china-transfers.index')} className="text-sm font-semibold text-orange-600">
+                        ← All transfers
+                    </Link>
+                    {autoRefresh && (
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-800">
+                                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-sky-500" />
+                                Auto refresh
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => router.reload({ only: ['transfer'], preserveScroll: true, preserveState: true })}
+                                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                                Refresh now
+                            </button>
+                        </div>
+                    )}
+                </div>
                 {flash?.success && <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{flash.success}</p>}
                 {flash?.error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">{flash.error}</p>}
 
@@ -226,6 +285,7 @@ export default function ChinaTransferShow({ transfer }: Props) {
                                 className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4"
                                 onSubmit={(e) => {
                                     e.preventDefault();
+                                    if (!finishForm.data.proof) return;
                                     finishForm.post(route('admin.china-transfers.complete-with-proof', transfer.id), {
                                         forceFormData: true,
                                     });
@@ -233,7 +293,7 @@ export default function ChinaTransferShow({ transfer }: Props) {
                             >
                                 <h2 className="font-bold text-emerald-950">Upload proof & complete</h2>
                                 <p className="text-xs text-emerald-900">
-                                    Pick your Alipay screenshot. The transfer is marked sent and completed automatically.
+                                    Add your Alipay screenshot, review it, then complete the transfer.
                                 </p>
                                 <div>
                                     <Label>RMB amount sent</Label>
@@ -253,16 +313,101 @@ export default function ChinaTransferShow({ transfer }: Props) {
                                 </div>
                                 <div>
                                     <Label>Proof image or PDF</Label>
+                                    {!finishForm.data.proof ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => proofInputRef.current?.click()}
+                                            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-emerald-300 bg-white px-4 py-8 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+                                        >
+                                            Add proof screenshot
+                                        </button>
+                                    ) : (
+                                        <div className="mt-2 space-y-3 rounded-xl border border-emerald-300 bg-white p-3">
+                                            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+                                                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 text-xs text-white">
+                                                    ✓
+                                                </span>
+                                                Proof ready for review
+                                            </div>
+                                            {proofPreviewUrl ? (
+                                                <a href={proofPreviewUrl} target="_blank" rel="noreferrer" className="block">
+                                                    <img
+                                                        src={proofPreviewUrl}
+                                                        alt="Proof preview"
+                                                        className="max-h-72 w-full rounded-lg border object-contain"
+                                                    />
+                                                </a>
+                                            ) : (
+                                                <div className="flex h-32 items-center justify-center rounded-lg border bg-gray-50 text-sm font-semibold text-gray-600">
+                                                    PDF selected
+                                                </div>
+                                            )}
+                                            <div>
+                                                <p className="truncate text-sm font-semibold text-gray-900">
+                                                    {finishForm.data.proof.name}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {formatProofFileSize(finishForm.data.proof.size)}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => proofInputRef.current?.click()}
+                                                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    Change
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        finishForm.setData('proof', null);
+                                                        if (proofInputRef.current) proofInputRef.current.value = '';
+                                                    }}
+                                                    className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                                >
+                                                    Remove
+                                                </button>
+                                                {proofPreviewUrl && (
+                                                    <a
+                                                        href={proofPreviewUrl}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                                                    >
+                                                        View full size
+                                                    </a>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => downloadProofFile(finishForm.data.proof!)}
+                                                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    Download
+                                                </button>
+                                            </div>
+                                            <p className="text-center text-xs text-emerald-900">
+                                                Check this is the correct screenshot before completing.
+                                            </p>
+                                        </div>
+                                    )}
                                     <input
-                                        className="mt-1 block w-full rounded-md border bg-white px-3 py-2 text-sm"
+                                        ref={proofInputRef}
+                                        className="hidden"
                                         type="file"
                                         accept="image/*,.pdf"
-                                        onChange={(e) => finishForm.setData('proof', e.target.files?.[0] ?? null)}
+                                        onChange={(e) =>
+                                            finishForm.setData('proof', e.target.files?.[0] ?? null)
+                                        }
                                     />
                                     <InputError message={finishForm.errors.proof} />
                                 </div>
-                                <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
-                                    Upload proof & complete
+                                <Button
+                                    type="submit"
+                                    disabled={!finishForm.data.proof || finishForm.processing}
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300"
+                                >
+                                    {finishForm.processing ? 'Completing…' : 'Complete transfer'}
                                 </Button>
                             </form>
                         )}

@@ -42,6 +42,12 @@ function formatRate(n: number, digits = 3) {
     return n.toFixed(digits);
 }
 
+/** Match displayed 3-decimal rate so 71,000 × 0.561 = 39,831 exactly. */
+function quoteRmbPerGhs(rate: number) {
+    if (!Number.isFinite(rate) || rate <= 0) return 0;
+    return Math.round(rate * 1000) / 1000;
+}
+
 function LiveStatusChip({ live, serviceEnabled }: { live: boolean; serviceEnabled: boolean }) {
     if (!serviceEnabled) {
         return (
@@ -74,11 +80,12 @@ export default function BuyRmbCalculator({
     onContinue,
     className,
 }: Props) {
+    const calcRate = quoteRmbPerGhs(rate.rmb_per_ghs);
     const [ghs, setGhs] = useState(initialGhs);
     const [cny, setCny] = useState(() => {
         const amount = Number(initialGhs);
-        if (!Number.isFinite(amount) || amount <= 0 || rate.rmb_per_ghs <= 0) return '';
-        return formatAmount(amount * rate.rmb_per_ghs);
+        if (!Number.isFinite(amount) || amount <= 0 || calcRate <= 0) return '';
+        return formatAmount(amount * calcRate);
     });
     const [focus, setFocus] = useState<'ghs' | 'cny' | null>('ghs');
 
@@ -87,34 +94,34 @@ export default function BuyRmbCalculator({
 
     const quote = useMemo(() => {
         const send = Number(ghs);
-        if (!Number.isFinite(send) || send <= 0 || rate.rmb_per_ghs <= 0) return null;
-        const receive = round2(send * rate.rmb_per_ghs);
+        if (!Number.isFinite(send) || send <= 0 || calcRate <= 0) return null;
+        const receive = round2(send * calcRate);
         const feeValue = rate.fee_value ?? 0;
         const fee =
             rate.fee_mode === 'percent' ? round2((send * feeValue) / 100) : round2(feeValue);
         return { send, receive, fee, total: round2(send + fee) };
-    }, [ghs, rate]);
+    }, [ghs, rate, calcRate]);
 
     const onGhsChange = (raw: string) => {
         const cleaned = raw.replace(/[^\d.]/g, '');
         setGhs(cleaned);
         const amount = Number(cleaned);
-        if (!Number.isFinite(amount) || amount <= 0 || rate.rmb_per_ghs <= 0) {
+        if (!Number.isFinite(amount) || amount <= 0 || calcRate <= 0) {
             setCny('');
             return;
         }
-        setCny(formatAmount(amount * rate.rmb_per_ghs));
+        setCny(formatAmount(amount * calcRate));
     };
 
     const onCnyChange = (raw: string) => {
         const cleaned = raw.replace(/[^\d.]/g, '');
         setCny(cleaned);
         const amount = Number(cleaned);
-        if (!Number.isFinite(amount) || amount <= 0 || rate.rmb_per_ghs <= 0) {
+        if (!Number.isFinite(amount) || amount <= 0 || calcRate <= 0) {
             setGhs('');
             return;
         }
-        setGhs(formatAmount(amount / rate.rmb_per_ghs));
+        setGhs(formatAmount(amount / calcRate));
     };
 
     const canContinue = enabled && quote !== null && quote.send > 0;
@@ -125,10 +132,10 @@ export default function BuyRmbCalculator({
             <div className="rounded-2xl border border-violet-400/60 bg-violet-800 px-5 py-5 text-center text-white shadow-sm">
                 <p className="text-sm font-semibold tracking-wide">GHS to RMB</p>
                 <p className="mt-2 text-2xl font-black tracking-tight">
-                    1 GHS → {formatRate(rate.rmb_per_ghs)} RMB
+                    1 GHS → {formatRate(calcRate)} RMB
                 </p>
                 <p className="mt-1 text-xs font-semibold text-violet-200">
-                    Current rate: {formatRate(rate.rmb_per_ghs)} RMB
+                    Current rate: {formatRate(calcRate)} RMB
                 </p>
             </div>
 

@@ -54,6 +54,28 @@ class ChinaTransferTest extends TestCase
         $this->assertEqualsWithDelta(0.559, $quote['rmb_per_ghs'], 0.001);
     }
 
+    public function test_large_ghs_quote_matches_displayed_three_decimal_rate(): void
+    {
+        ChinaTransferSetting::current()->update(['enabled' => true]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.china-transfer.rates.store'), [
+                'rmb_per_ghs' => 0.561,
+                'fee_mode' => 'flat',
+                'fee_value' => 0,
+                'min_ghs' => 50,
+                'max_ghs' => 500000,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $quote = app(ChinaTransferService::class)->quote(71000);
+
+        $this->assertEqualsWithDelta(0.561, $quote['rmb_per_ghs'], 0.0001);
+        $this->assertEqualsWithDelta(39831.0, $quote['rmb_amount'], 0.01);
+    }
+
     public function test_legacy_inverted_ghs_per_rmb_still_quotes_like_rmb_wallet(): void
     {
         ChinaTransferSetting::current()->update(['enabled' => true]);
@@ -110,7 +132,8 @@ class ChinaTransferTest extends TestCase
 
         $this->assertEquals(5000.0, $quote['ghs_amount']);
         $this->assertEquals(1.85, $quote['ghs_per_rmb']);
-        $this->assertEqualsWithDelta(2702.70, $quote['rmb_amount'], 0.001);
+        $this->assertEqualsWithDelta(0.541, $quote['rmb_per_ghs'], 0.001);
+        $this->assertEqualsWithDelta(2705.0, $quote['rmb_amount'], 0.01);
         $this->assertEquals(50.0, $quote['fee_ghs']);
         $this->assertEquals(5050.0, $quote['total_payable_ghs']);
     }
