@@ -192,8 +192,8 @@ class ChinaTransferController extends Controller
         return response()->json([
             'message' => sprintf(
                 'Rate published: 1 GHS → ¥%s RMB (1 CNY ≈ GH₵%s). Existing transfers keep their locked rate.',
-                rtrim(rtrim(number_format($rmbPerGhs, 4, '.', ''), '0'), '.'),
-                number_format((float) $rate->ghs_per_rmb, 4),
+                number_format($rmbPerGhs, 3, '.', ''),
+                number_format($rate->effectiveGhsPerRmb(), 3, '.', ''),
             ),
         ]);
     }

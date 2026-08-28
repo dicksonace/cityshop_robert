@@ -93,14 +93,13 @@ export default function ChinaTransferSettings({
         transfer_close_time: settings.transfer_close_time ?? '17:00',
     });
 
+    const formatRate = (n: number) => (n > 0 ? n.toFixed(3) : '—');
+
+    const formatRateInput = (n: number) => (n > 0 ? n.toFixed(3) : '');
+
     const rateForm = useForm({
-        // Admin enters like rmb-wallet: 1 GHS = X RMB (stored as ghs_per_rmb = 1/X).
-        rmb_per_ghs: String(
-            currentRate?.rmb_per_ghs ??
-                (currentRate?.ghs_per_rmb && currentRate.ghs_per_rmb > 0
-                    ? 1 / currentRate.ghs_per_rmb
-                    : '0.559'),
-        ),
+        rmb_per_ghs: formatRateInput(currentRate?.rmb_per_ghs ?? 0.559) || '0.559',
+        ghs_per_rmb: formatRateInput(currentRate?.ghs_per_rmb ?? 1.789) || '1.789',
         fee_mode: currentRate?.fee_mode ?? 'flat',
         fee_value: String(currentRate?.fee_value ?? '0'),
         min_ghs: String(currentRate?.min_ghs ?? '50'),
@@ -110,6 +109,24 @@ export default function ChinaTransferSettings({
         max_per_day: String(currentRate?.max_per_day ?? ''),
         approval_above_ghs: String(currentRate?.approval_above_ghs ?? '10000'),
     });
+
+    const syncFromGhsToRmb = (raw: string) => {
+        const cleaned = raw.replace(/[^\d.]/g, '');
+        const n = Number(cleaned);
+        rateForm.setData({
+            rmb_per_ghs: cleaned,
+            ghs_per_rmb: n > 0 ? (1 / n).toFixed(3) : '',
+        });
+    };
+
+    const syncFromRmbToGhs = (raw: string) => {
+        const cleaned = raw.replace(/[^\d.]/g, '');
+        const n = Number(cleaned);
+        rateForm.setData({
+            ghs_per_rmb: cleaned,
+            rmb_per_ghs: n > 0 ? (1 / n).toFixed(3) : '',
+        });
+    };
 
     const methodForm = useForm({
         name: 'MTN MoMo',
@@ -147,12 +164,9 @@ export default function ChinaTransferSettings({
     };
 
     const rmbPerGhs = Number(rateForm.data.rmb_per_ghs);
-    const impliedGhsPerRmb = rmbPerGhs > 0 ? 1 / rmbPerGhs : 0;
-    const currentRmbPerGhs =
-        currentRate?.rmb_per_ghs ??
-        (currentRate?.ghs_per_rmb && currentRate.ghs_per_rmb > 0 ? 1 / currentRate.ghs_per_rmb : 0);
-    const formatRate = (n: number) =>
-        n > 0 ? n.toFixed(4).replace(/\.?0+$/, '') : '—';
+    const ghsPerRmb = Number(rateForm.data.ghs_per_rmb);
+    const currentRmbPerGhs = currentRate?.rmb_per_ghs ?? 0;
+    const currentGhsPerRmb = currentRate?.ghs_per_rmb ?? 0;
 
     return (
         <AdminLayout title="China Transfer settings" active="china-transfer-settings">
@@ -187,33 +201,187 @@ export default function ChinaTransferSettings({
                                 tab === id ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
                             }`}
                         >
-                            {id === 'rate' ? 'Rate & limits' : id === 'methods' ? 'GHS payment methods' : 'Form fields'}
+                            {id === 'rate' ? 'Conversion rates' : id === 'methods' ? 'GHS payment methods' : 'Form fields'}
                         </button>
                     ))}
                 </div>
 
                 {tab === 'rate' && (
                     <>
-                        {currentRate && currentRmbPerGhs > 0 && (
-                            <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5">
-                                <p className="text-xs font-bold uppercase tracking-wide text-violet-700">
-                                    Buyers currently see
-                                </p>
-                                <p className="mt-2 text-2xl font-black text-violet-950">
-                                    1 GHS → ¥{formatRate(currentRmbPerGhs)} RMB
-                                </p>
-                                <p className="mt-1 text-sm text-violet-800">
-                                    Example: GH₵100 → ¥{(100 * currentRmbPerGhs).toFixed(2)} · 1 CNY → GH₵
-                                    {formatRate(currentRate.ghs_per_rmb)}
-                                </p>
-                                {currentRmbPerGhs > 1 && (
-                                    <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900">
-                                        This rate looks inverted (too high). Republish as ~0.559 RMB per GHS if buyers
-                                        should pay ~GH₵1.79 for ¥1.
+                        <form
+                            onSubmit={publishRate}
+                            className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+                        >
+                            <div className="border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white px-6 py-5">
+                                <div className="flex items-start gap-3">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-xl text-indigo-600">
+                                        ⇄
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-bold text-gray-900">Conversion Rates</h2>
+                                        <p className="mt-0.5 text-sm font-semibold text-emerald-700">GHS ⇄ RMB</p>
+                                        {currentRate && currentRmbPerGhs > 0 && (
+                                            <p className="mt-2 text-sm text-gray-600">
+                                                Live for buyers:{' '}
+                                                <span className="font-bold text-gray-900">
+                                                    1 GHS = ¥{formatRate(currentRmbPerGhs)} RMB
+                                                </span>
+                                                {' · '}
+                                                1 RMB = GH₵{formatRate(currentGhsPerRmb)}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6 px-6 py-6">
+                                <div>
+                                    <Label className="text-sm font-bold text-gray-800">GHS to RMB Rate</Label>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        <span className="text-lg font-black text-gray-900">1</span>
+                                        <span className="text-sm font-bold text-gray-600">GHS</span>
+                                        <span className="text-gray-400">=</span>
+                                        <Input
+                                            className="max-w-[11rem] text-lg font-bold"
+                                            inputMode="decimal"
+                                            value={rateForm.data.rmb_per_ghs}
+                                            onChange={(e) => syncFromGhsToRmb(e.target.value)}
+                                            placeholder="0.558"
+                                        />
+                                        <span className="text-sm font-bold text-gray-600">RMB</span>
+                                    </div>
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Shown to buyers with 3 decimals (e.g., 0.558, 0.565, 0.580)
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <Label className="text-sm font-bold text-gray-800">RMB to GHS Rate</Label>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        <span className="text-lg font-black text-gray-900">1</span>
+                                        <span className="text-sm font-bold text-gray-600">RMB</span>
+                                        <span className="text-gray-400">=</span>
+                                        <Input
+                                            className="max-w-[11rem] text-lg font-bold"
+                                            inputMode="decimal"
+                                            value={rateForm.data.ghs_per_rmb}
+                                            onChange={(e) => syncFromRmbToGhs(e.target.value)}
+                                            placeholder="1.701"
+                                        />
+                                        <span className="text-sm font-bold text-gray-600">GHS</span>
+                                    </div>
+                                    <p className="mt-2 text-xs text-gray-500">
+                                        Synced from RMB rate — 3 decimals (e.g., 1.789, 1.770, 2.300)
+                                    </p>
+                                </div>
+
+                                {rmbPerGhs > 0 && ghsPerRmb > 0 && (
+                                    <p className="rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+                                        Preview: buyers will see{' '}
+                                        <span className="font-black">1 GHS → ¥{formatRate(rmbPerGhs)} RMB</span>
+                                        {' · '}
+                                        GH₵100 → ¥{(100 * rmbPerGhs).toFixed(2)}
+                                        {' · '}
+                                        1 CNY → GH₵{formatRate(ghsPerRmb)}
                                     </p>
                                 )}
+
+                                {rmbPerGhs > 1 && (
+                                    <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                                        Rate above 1 RMB per GHS is unusual. Use ~0.558 if one cedi should buy about
+                                        ¥0.56.
+                                    </p>
+                                )}
+
+                                <InputError message={rateForm.errors.rmb_per_ghs ?? rateForm.errors.ghs_per_rmb} />
+
+                                <details className="rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+                                    <summary className="cursor-pointer text-sm font-bold text-gray-800">
+                                        Fees & transfer limits
+                                    </summary>
+                                    <div className="mt-4 space-y-4">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <Label>Fee mode</Label>
+                                                <select
+                                                    className="mt-1 h-10 w-full rounded-md border px-3 text-sm"
+                                                    value={rateForm.data.fee_mode}
+                                                    onChange={(e) => rateForm.setData('fee_mode', e.target.value)}
+                                                >
+                                                    <option value="flat">Fixed GHS</option>
+                                                    <option value="percent">Percent of GHS sent</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <Label>Fee value</Label>
+                                                <Input
+                                                    className="mt-1"
+                                                    value={rateForm.data.fee_value}
+                                                    onChange={(e) => rateForm.setData('fee_value', e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <Label>Min GHS</Label>
+                                                <Input
+                                                    value={rateForm.data.min_ghs}
+                                                    onChange={(e) => rateForm.setData('min_ghs', e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label>Max GHS</Label>
+                                                <Input
+                                                    value={rateForm.data.max_ghs}
+                                                    onChange={(e) => rateForm.setData('max_ghs', e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label>Daily max GHS / user</Label>
+                                                <Input
+                                                    value={rateForm.data.daily_max_ghs}
+                                                    onChange={(e) =>
+                                                        rateForm.setData('daily_max_ghs', e.target.value)
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label>Monthly max GHS / user</Label>
+                                                <Input
+                                                    value={rateForm.data.monthly_max_ghs}
+                                                    onChange={(e) =>
+                                                        rateForm.setData('monthly_max_ghs', e.target.value)
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label>Max transfers / day</Label>
+                                                <Input
+                                                    value={rateForm.data.max_per_day}
+                                                    onChange={(e) => rateForm.setData('max_per_day', e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <Label>Manual approval above GHS</Label>
+                                                <Input
+                                                    value={rateForm.data.approval_above_ghs}
+                                                    onChange={(e) =>
+                                                        rateForm.setData('approval_above_ghs', e.target.value)
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </details>
+
+                                <Button
+                                    disabled={rateForm.processing}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 sm:w-auto"
+                                >
+                                    Publish rate
+                                </Button>
                             </div>
-                        )}
+                        </form>
 
                         <form onSubmit={saveSettings} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
                             <div>
@@ -288,100 +456,6 @@ export default function ChinaTransferSettings({
                             <Button disabled={settingsForm.processing}>Save instructions & limits</Button>
                         </form>
 
-                        <form onSubmit={publishRate} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
-                            <h2 className="font-bold">Publish new rate</h2>
-                            <p className="text-xs text-gray-500">
-                                Same as rmb-wallet: set GHS → RMB for Buy RMB. Open transfers keep the old rate.
-                            </p>
-                            <div>
-                                <Label>GHS to RMB Rate</Label>
-                                <div className="mt-1 flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-semibold text-gray-700">1 GHS =</span>
-                                    <Input
-                                        className="max-w-[10rem] text-lg font-bold"
-                                        value={rateForm.data.rmb_per_ghs}
-                                        onChange={(e) => rateForm.setData('rmb_per_ghs', e.target.value)}
-                                        placeholder="0.559"
-                                    />
-                                    <span className="text-sm font-semibold text-gray-700">RMB</span>
-                                </div>
-                                <p className="mt-1 text-xs text-gray-500">
-                                    Accepts any decimal precision (e.g. 0.565, 0.5802). Implies 1 RMB ≈ GH₵
-                                    {impliedGhsPerRmb > 0 ? impliedGhsPerRmb.toFixed(4) : '—'}
-                                </p>
-                                {rmbPerGhs > 0 && (
-                                    <p className="mt-2 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-900">
-                                        Preview: buyers will see{' '}
-                                        <span className="font-black">1 GHS → ¥{formatRate(rmbPerGhs)} RMB</span>
-                                        {' · '}
-                                        GH₵100 → ¥{(100 * rmbPerGhs).toFixed(2)}
-                                        {' · '}
-                                        1 CNY → GH₵{impliedGhsPerRmb.toFixed(2)}
-                                    </p>
-                                )}
-                                {rmbPerGhs > 1 && (
-                                    <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
-                                        Rate above 1 RMB per GHS is unusual. Enter ~0.559 if one cedi should buy about
-                                        ¥0.56.
-                                    </p>
-                                )}
-                                <InputError message={rateForm.errors.rmb_per_ghs ?? rateForm.errors.ghs_per_rmb} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <Label>Fee mode</Label>
-                                    <select
-                                        className="mt-1 h-10 w-full rounded-md border px-3 text-sm"
-                                        value={rateForm.data.fee_mode}
-                                        onChange={(e) => rateForm.setData('fee_mode', e.target.value)}
-                                    >
-                                        <option value="flat">Fixed GHS</option>
-                                        <option value="percent">Percent of GHS sent</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <Label>Fee value</Label>
-                                    <Input
-                                        className="mt-1"
-                                        value={rateForm.data.fee_value}
-                                        onChange={(e) => rateForm.setData('fee_value', e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <Label>Min GHS</Label>
-                                    <Input value={rateForm.data.min_ghs} onChange={(e) => rateForm.setData('min_ghs', e.target.value)} />
-                                </div>
-                                <div>
-                                    <Label>Max GHS</Label>
-                                    <Input value={rateForm.data.max_ghs} onChange={(e) => rateForm.setData('max_ghs', e.target.value)} />
-                                </div>
-                                <div>
-                                    <Label>Daily max GHS / user</Label>
-                                    <Input value={rateForm.data.daily_max_ghs} onChange={(e) => rateForm.setData('daily_max_ghs', e.target.value)} />
-                                </div>
-                                <div>
-                                    <Label>Monthly max GHS / user</Label>
-                                    <Input value={rateForm.data.monthly_max_ghs} onChange={(e) => rateForm.setData('monthly_max_ghs', e.target.value)} />
-                                </div>
-                                <div>
-                                    <Label>Max transfers / day</Label>
-                                    <Input value={rateForm.data.max_per_day} onChange={(e) => rateForm.setData('max_per_day', e.target.value)} />
-                                </div>
-                                <div>
-                                    <Label>Manual approval above GHS</Label>
-                                    <Input
-                                        value={rateForm.data.approval_above_ghs}
-                                        onChange={(e) => rateForm.setData('approval_above_ghs', e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                            <Button disabled={rateForm.processing} className="bg-orange-500 hover:bg-orange-600">
-                                Publish rate
-                            </Button>
-                        </form>
-
                         <div className="rounded-2xl border border-gray-200 bg-white p-5">
                             <h2 className="font-bold">Rate history</h2>
                             <table className="mt-3 w-full text-left text-sm">
@@ -397,8 +471,8 @@ export default function ChinaTransferSettings({
                                 <tbody>
                                     {rates.map((rate) => (
                                         <tr key={rate.id} className="border-t">
-                                            <td className="py-2 font-semibold">¥{rate.rmb_per_ghs.toFixed(4)}</td>
-                                            <td className="py-2">GH₵{rate.ghs_per_rmb.toFixed(4)}</td>
+                                            <td className="py-2 font-semibold">¥{rate.rmb_per_ghs.toFixed(3)}</td>
+                                            <td className="py-2">GH₵{rate.ghs_per_rmb.toFixed(3)}</td>
                                             <td>{rate.effective_from ? new Date(rate.effective_from).toLocaleString('en-GH') : '—'}</td>
                                             <td>{rate.effective_to ? new Date(rate.effective_to).toLocaleString('en-GH') : 'Current'}</td>
                                             <td>{rate.active ? 'Active' : 'Expired'}</td>

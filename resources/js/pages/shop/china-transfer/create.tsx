@@ -211,7 +211,7 @@ export default function ChinaTransferCreate({
                             <span>¥{quote.rmb.toFixed(2)}</span>
                         </div>
                         <p className="mt-2 text-xs font-semibold text-indigo-700">
-                            Rate 1 GHS → {Number(quote.rmbPerGhs.toFixed(4))} RMB
+                            Rate 1 GHS → {quote.rmbPerGhs.toFixed(3)} RMB
                         </p>
                         <p className="mt-1 text-xs text-indigo-700">
                             Fee {formatPrice(quote.fee)} · Total {formatPrice(quote.total)}

@@ -37,9 +37,9 @@ function formatAmount(n: number) {
     return String(round2(n));
 }
 
-function formatRate(n: number, digits = 4) {
+function formatRate(n: number, digits = 3) {
     if (!Number.isFinite(n) || n <= 0) return '—';
-    return n.toFixed(digits).replace(/\.?0+$/, '') || '0';
+    return n.toFixed(digits);
 }
 
 function LiveStatusChip({ live, serviceEnabled }: { live: boolean; serviceEnabled: boolean }) {
@@ -128,7 +128,7 @@ export default function BuyRmbCalculator({
                     1 GHS → {formatRate(rate.rmb_per_ghs)} RMB
                 </p>
                 <p className="mt-1 text-xs font-semibold text-violet-200">
-                    Current rate: {formatRate(rate.rmb_per_ghs, 3)} RMB
+                    Current rate: {formatRate(rate.rmb_per_ghs)} RMB
                 </p>
             </div>
 
@@ -192,10 +192,6 @@ export default function BuyRmbCalculator({
                     ? 'Arrives in 5–30 minutes'
                     : 'Orders outside hours are queued for the next open window.'}
             </p>
-
-            {instructions?.trim() && (
-                <p className="mt-3 text-center text-xs leading-relaxed text-gray-500">{instructions.trim()}</p>
-            )}
 
             <div className="mt-5 flex items-center justify-between gap-3">
                 <LiveStatusChip live={isLiveNow} serviceEnabled={enabled} />
