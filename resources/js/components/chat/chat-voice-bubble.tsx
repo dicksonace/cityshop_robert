@@ -104,7 +104,7 @@ export default function ChatVoiceBubble({ src, durationSeconds, mine = false, wa
     const timeLabel = playing || position > 0 ? clock(position) : clock(duration);
 
     return (
-        <div className="flex w-[min(100%,15.5rem)] items-center gap-2">
+        <div className="flex w-fit max-w-[14.5rem] items-center gap-2">
             <audio ref={audioRef} src={src} preload="metadata" data-chat-voice hidden />
             <button
                 type="button"
@@ -117,7 +117,7 @@ export default function ChatVoiceBubble({ src, durationSeconds, mine = false, wa
             >
                 {playing ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
             </button>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="flex w-[10.5rem] shrink-0 flex-col gap-1">
                 <VoiceWaveformBars
                     samples={samples}
                     progress={playing || position > 0 ? progress : null}

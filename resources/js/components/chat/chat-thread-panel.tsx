@@ -1209,6 +1209,7 @@ export default function ChatThreadPanel() {
                                     <div
                                         className={cn(
                                             'overflow-hidden rounded-2xl text-sm',
+                                            isVoice && 'w-fit',
                                             isImage || isVideo || isViewOnce
                                                 ? 'p-1'
                                                 : isProduct || isTransfer || isFile
@@ -1404,7 +1405,9 @@ export default function ChatThreadPanel() {
                                                 'flex items-center gap-1.5 text-[10px]',
                                                 isImage || isVideo || isProduct || isTransfer || isFile
                                                     ? 'px-2 pb-1.5'
-                                                    : 'mt-0.5',
+                                                    : isVoice
+                                                      ? 'justify-end px-1 pb-0.5'
+                                                      : 'mt-0.5',
                                                 isProduct || isTransfer || isFile || !mine
                                                     ? 'text-gray-400'
                                                     : 'text-[#667781]',
