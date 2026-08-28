@@ -74,6 +74,9 @@ class WalletController extends Controller
                 ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
                 ->exists(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
+            'manualFundingAccounts' => ($funding['enabled'] && count($funding['accounts']) > 0)
+                ? $funding['accounts']
+                : [],
             'paystackConfigured' => $this->paystack->isAvailable(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),

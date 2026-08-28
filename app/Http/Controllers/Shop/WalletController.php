@@ -77,6 +77,9 @@ class WalletController extends Controller
             'paystackPublicKey' => config('services.paystack.public_key'),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
+            'manualFundingAccounts' => ($funding['enabled'] && count($funding['accounts']) > 0)
+                ? $funding['accounts']
+                : [],
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
             'kyc' => KycService::payload($request->user(), withPhotos: false),
         ]);

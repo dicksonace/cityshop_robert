@@ -1,12 +1,16 @@
-import { Link, router, useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { LoaderCircle, Smartphone, Upload, X } from 'lucide-react';
-import { FormEventHandler, useEffect, useState } from 'react';
+import { FormEventHandler, useEffect, useMemo, useState } from 'react';
 
 import InputError from '@/components/input-error';
+import DirectPaymentDetails from '@/components/shop/direct-payment-details';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { type FundingAccount } from '@/components/wallet/manual-top-up-form';
+import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import { csrfHeaders } from '@/lib/csrf';
+import { normalizeMomoNetworkId } from '@/lib/momo-networks';
 import { paystackRechargeQuote, type PaystackFeeSettings } from '@/lib/paystack-fees';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +19,7 @@ interface RechargeModalProps {
     onClose: () => void;
     paystackConfigured: boolean;
     manualTopUpEnabled: boolean;
+    manualFundingAccounts?: FundingAccount[];
     manualHref: string;
     paystackRoute: string;
     chooseHint?: string;
@@ -22,28 +27,44 @@ interface RechargeModalProps {
     paystackFee?: PaystackFeeSettings | null;
 }
 
+type RechargeStep = 'choose' | 'paystack' | 'manual';
+
 /**
- * Same Recharge flow as mobile: choose Auto Paystack vs Manual,
- * then Paystack amount form. Skips the chooser when only one path exists.
+ * Recharge flow: Auto Paystack vs Manual. Manual shows the compact MoMo picker
+ * and pay-to details inline (same as manual deposit), then continues to proof.
  */
 export default function RechargeModal({
     open,
     onClose,
     paystackConfigured,
     manualTopUpEnabled,
+    manualFundingAccounts = [],
     manualHref,
     paystackRoute,
     chooseHint = 'Choose how you want to add funds.',
     amountInputId = 'recharge-amount',
     paystackFee,
 }: RechargeModalProps) {
-    const [step, setStep] = useState<'choose' | 'paystack'>('choose');
+    const [step, setStep] = useState<RechargeStep>('choose');
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
+    const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
     const form = useForm({
         amount: '',
         method: 'momo' as 'momo' | 'card',
     });
+
+    const momoAccountsByNetwork = useMemo(() => {
+        const map: Record<string, FundingAccount> = {};
+        for (const account of manualFundingAccounts) {
+            if (account.type !== 'momo') continue;
+            const id = normalizeMomoNetworkId(account.network);
+            if (id && !map[id]) map[id] = account;
+        }
+        return map;
+    }, [manualFundingAccounts]);
+
+    const selectedAccount = selectedNetwork ? momoAccountsByNetwork[selectedNetwork] ?? null : null;
 
     useEffect(() => {
         if (!open) return;
@@ -58,24 +79,28 @@ export default function RechargeModal({
             return;
         }
         if (!paystackConfigured && manualTopUpEnabled) {
-            onClose();
-            router.visit(manualHref);
+            setStep('manual');
             return;
         }
         setStep('choose');
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-init when opened
-    }, [open]);
+    }, [open, paystackConfigured, manualTopUpEnabled]);
+
+    useEffect(() => {
+        if (!open || step !== 'manual') return;
+        if (selectedNetwork && momoAccountsByNetwork[selectedNetwork]) return;
+        const defaultId = ['mtn', 'telecel', 'airteltigo'].find((id) => momoAccountsByNetwork[id]);
+        if (defaultId) setSelectedNetwork(defaultId);
+    }, [open, step, momoAccountsByNetwork, selectedNetwork]);
 
     if (!open) return null;
-
-    // Manual-only redirects away; don't flash an empty modal.
-    if (!paystackConfigured && manualTopUpEnabled) return null;
 
     const close = () => {
         form.reset();
         form.clearErrors();
         setSubmitting(false);
         setSubmitError('');
+        setSelectedNetwork(null);
         setStep('choose');
         onClose();
     };
@@ -122,18 +147,24 @@ export default function RechargeModal({
     };
 
     const showChooser = paystackConfigured && manualTopUpEnabled && step === 'choose';
+    const showManual = manualTopUpEnabled && step === 'manual';
     const quote = paystackRechargeQuote(Number(form.data.amount) || 0, paystackFee);
+
+    const title = showChooser ? 'Recharge' : showManual ? 'Manual deposit' : 'Paystack recharge';
 
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 pt-14 sm:items-start sm:pt-20">
-            <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl sm:p-5">
+            <div className="max-h-[calc(100vh-4rem)] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-5">
                 <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                        <h3 className="text-base font-bold text-gray-900">
-                            {showChooser ? 'Recharge' : 'Paystack recharge'}
-                        </h3>
+                        <h3 className="text-base font-bold text-gray-900">{title}</h3>
                         {showChooser && (
                             <p className="mt-0.5 text-xs leading-snug text-gray-500">{chooseHint}</p>
+                        )}
+                        {showManual && (
+                            <p className="mt-0.5 text-xs leading-snug text-gray-500">
+                                Choose network, copy the CityShop number, then submit proof.
+                            </p>
                         )}
                     </div>
                     <button
@@ -162,9 +193,9 @@ export default function RechargeModal({
                             </span>
                         </button>
 
-                        <Link
-                            href={manualHref}
-                            onClick={close}
+                        <button
+                            type="button"
+                            onClick={() => setStep('manual')}
                             className="flex w-full items-center gap-3 rounded-xl border border-sky-100 bg-white px-3.5 py-3 text-left transition hover:border-sky-200 hover:bg-sky-50"
                         >
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white">
@@ -174,7 +205,50 @@ export default function RechargeModal({
                                 <span className="block text-sm font-semibold text-gray-900">Manual</span>
                                 <span className="block text-xs text-gray-500">MoMo / bank + upload proof</span>
                             </span>
-                        </Link>
+                        </button>
+                    </div>
+                ) : showManual ? (
+                    <div className="mt-4 space-y-4">
+                        <MomoNetworkPicker
+                            value={selectedNetwork ?? ''}
+                            onChange={setSelectedNetwork}
+                            enabledNetworks={Object.keys(momoAccountsByNetwork)}
+                            label="Pay with"
+                            hint="Tap to change network"
+                        />
+
+                        {selectedAccount && selectedNetwork ? (
+                            <DirectPaymentDetails
+                                accountNumber={selectedAccount.account_number}
+                                accountName={selectedAccount.account_name}
+                                network={selectedNetwork}
+                                hint="Send payment from your phone, then continue to upload proof."
+                            />
+                        ) : null}
+
+                        <div className="flex gap-2 pt-0.5">
+                            {paystackConfigured ? (
+                                <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setStep('choose')}>
+                                    Back
+                                </Button>
+                            ) : (
+                                <Button type="button" variant="outline" size="sm" className="flex-1" onClick={close}>
+                                    Cancel
+                                </Button>
+                            )}
+                            <Button
+                                type="button"
+                                size="sm"
+                                disabled={!selectedNetwork}
+                                className="flex-1 bg-green-600 hover:bg-green-700"
+                                onClick={() => {
+                                    close();
+                                    router.visit(manualHref);
+                                }}
+                            >
+                                Continue — submit proof
+                            </Button>
+                        </div>
                     </div>
                 ) : (
                     <form onSubmit={submitPaystack} className="mt-4 space-y-3">

@@ -10,6 +10,8 @@ interface MomoNetworkPickerProps {
     label?: string;
     hint?: string;
     className?: string;
+    /** When set, networks not in this list are shown disabled and cannot be selected. */
+    enabledNetworks?: string[];
     /** App-style stacked tiles (buyer withdraw page). */
     variant?: 'grid' | 'list';
 }
@@ -26,6 +28,7 @@ export default function MomoNetworkPicker({
     label = 'Mobile money network',
     hint = 'Choose the network for your MoMo wallet — MTN is most common.',
     className,
+    enabledNetworks,
     variant = 'grid',
 }: MomoNetworkPickerProps) {
     if (variant === 'list') {
@@ -76,35 +79,37 @@ export default function MomoNetworkPicker({
 
     return (
         <div className={className}>
-            <div className="mb-3 flex items-center gap-2">
-                <MomoNetworkLogo network={value || 'mtn'} size="sm" />
-                <div>
-                    <p className="text-sm font-semibold text-gray-900">{label}</p>
-                    {hint && <p className="text-xs text-gray-500">{hint}</p>}
-                </div>
+            <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-gray-900">{label}</p>
+                {value && hint ? <p className="text-xs text-gray-500">{hint}</p> : null}
             </div>
             <div className="grid grid-cols-3 gap-2">
                 {MOMO_NETWORKS.map((network) => {
                     const selected = value === network.id;
+                    const disabled = enabledNetworks ? !enabledNetworks.includes(network.id) : false;
 
                     return (
                         <button
                             key={network.id}
                             type="button"
-                            onClick={() => onChange(network.id)}
+                            disabled={disabled}
+                            onClick={() => !disabled && onChange(network.id)}
                             className={cn(
-                                'flex min-h-[3.25rem] flex-col items-center justify-center gap-1 rounded-xl border-2 px-1.5 py-2 text-center transition sm:min-h-[4.25rem] sm:flex-row sm:items-center sm:gap-3 sm:px-3 sm:py-3 sm:text-left',
-                                selected ? network.selectedClass : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50',
+                                'flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-xl border-2 px-2 py-2.5 text-center transition',
+                                disabled && 'cursor-not-allowed opacity-40',
+                                !disabled &&
+                                    (selected
+                                        ? network.selectedClass
+                                        : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'),
                             )}
                         >
                             <MomoNetworkLogo network={network.id} size="sm" />
-                            <span className="min-w-0">
-                                <span className={cn('hidden text-[10px] font-bold uppercase tracking-wide sm:block', selected ? network.accent : 'text-gray-400')}>
-                                    {network.id === 'mtn' ? 'Recommended' : 'MoMo'}
-                                </span>
-                                <span className="block text-xs font-semibold text-gray-900 sm:mt-0.5 sm:text-sm">{network.shortLabel}</span>
-                                <span className="hidden text-xs text-gray-500 sm:block">{network.label}</span>
+                            <span className="text-xs font-bold text-gray-900">
+                                {network.id === 'airteltigo' ? 'AT' : network.shortLabel.split(' ')[0]}
                             </span>
+                            {selected ? (
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Selected</span>
+                            ) : null}
                         </button>
                     );
                 })}

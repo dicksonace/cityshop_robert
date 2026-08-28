@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
 import RechargeModal from '@/components/wallet/recharge-modal';
+import { type FundingAccount } from '@/components/wallet/manual-top-up-form';
 import { WalletTransactionReceiptButton } from '@/components/wallet/wallet-receipt-modal';
 import ShopLayout from '@/layouts/shop-layout';
 import { type PaystackFeeSettings } from '@/lib/paystack-fees';
@@ -28,6 +29,7 @@ interface BuyerWalletProps {
     paystackPublicKey: string;
     paystackFee?: PaystackFeeSettings | null;
     manualTopUpEnabled?: boolean;
+    manualFundingAccounts?: FundingAccount[];
 }
 
 function formatDate(value?: string): string {
@@ -65,6 +67,7 @@ export default function BuyerWallet({
     paystackConfigured,
     paystackFee,
     manualTopUpEnabled,
+    manualFundingAccounts = [],
 }: BuyerWalletProps) {
     const { flash } = usePage<SharedData>().props;
     const [refreshing, setRefreshing] = useState(false);
@@ -166,6 +169,7 @@ export default function BuyerWallet({
                     onClose={() => setRechargeOpen(false)}
                     paystackConfigured={paystackConfigured}
                     manualTopUpEnabled={!!manualTopUpEnabled}
+                    manualFundingAccounts={manualFundingAccounts}
                     manualHref={route('wallet.manual-top-up')}
                     paystackRoute={route('wallet.add-funds')}
                     amountInputId="buyer-recharge-amount"

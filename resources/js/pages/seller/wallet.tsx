@@ -13,6 +13,7 @@ import WithdrawalFeeNotice, { type WithdrawalFeeSettings } from '@/components/wa
 import WithdrawalBalanceAlert, { withdrawalBalanceMessage } from '@/components/wallet/withdrawal-balance-alert';
 import WithdrawalHighlight from '@/components/wallet/withdrawal-highlight';
 import WalletBalanceCard from '@/components/seller/wallet-balance-card';
+import { type FundingAccount } from '@/components/wallet/manual-top-up-form';
 import SellerLayout from '@/layouts/seller-layout';
 import { GHANA_BANKS, isGhanaBank, payoutNetworkLabel } from '@/lib/ghana-banks';
 import { momoNetworkMeta } from '@/lib/momo-networks';
@@ -46,6 +47,7 @@ interface WalletProps {
     hasPendingWithdrawal: boolean;
     paystackConfigured?: boolean;
     manualTopUpEnabled?: boolean;
+    manualFundingAccounts?: FundingAccount[];
     paystackFee?: PaystackFeeSettings | null;
     withdrawalFee?: WithdrawalFeeSettings;
     hasPaymentPin?: boolean;
@@ -74,6 +76,7 @@ export default function SellerWallet({
     hasPendingWithdrawal,
     paystackConfigured = false,
     manualTopUpEnabled = false,
+    manualFundingAccounts = [],
     paystackFee,
     withdrawalFee,
     hasPaymentPin = false,
@@ -268,6 +271,7 @@ export default function SellerWallet({
                     refreshing={refreshing}
                     paystackConfigured={paystackConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
+                    manualFundingAccounts={manualFundingAccounts}
                     paystackFee={paystackFee}
                 />
             </div>
