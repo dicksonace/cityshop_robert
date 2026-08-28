@@ -54,6 +54,25 @@ class ChinaTransferTest extends TestCase
         $this->assertEqualsWithDelta(0.559, $quote['rmb_per_ghs'], 0.001);
     }
 
+    public function test_legacy_inverted_ghs_per_rmb_still_quotes_like_rmb_wallet(): void
+    {
+        ChinaTransferSetting::current()->update(['enabled' => true]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        app(ChinaTransferService::class)->publishRate($admin, [
+            'ghs_per_rmb' => 0.559,
+            'fee_mode' => 'flat',
+            'fee_value' => 0,
+            'min_ghs' => 50,
+            'max_ghs' => 50000,
+        ]);
+
+        $quote = app(ChinaTransferService::class)->quote(50);
+
+        $this->assertEqualsWithDelta(0.559, $quote['rmb_per_ghs'], 0.001);
+        $this->assertEqualsWithDelta(27.95, $quote['rmb_amount'], 0.05);
+    }
+
     public function test_transfer_hours_closed_message_uses_open_time(): void
     {
         ChinaTransferSetting::current()->update([

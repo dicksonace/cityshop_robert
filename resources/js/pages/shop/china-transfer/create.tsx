@@ -106,8 +106,8 @@ export default function ChinaTransferCreate({
         if (!config.rate) return null;
         const amount = Number(form.data.ghs_amount);
         if (!Number.isFinite(amount) || amount <= 0) return null;
-        // Same as rmb-wallet: They receive = You send × (1 GHS → RMB).
-        const rmb = amount / config.rate.ghs_per_rmb;
+        // Same as rmb-wallet: RMB = GHS × (RMB per 1 GHS).
+        const rmb = amount * config.rate.rmb_per_ghs;
         const fee =
             config.rate.fee_mode === 'percent' ? (amount * config.rate.fee_value) / 100 : config.rate.fee_value;
         return {

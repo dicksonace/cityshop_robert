@@ -129,12 +129,13 @@ class ChinaTransferService
         }
 
         $ghs = round($ghsAmount, 2);
-        $ghsPerRmb = (float) $rate->ghs_per_rmb;
+        $ghsPerRmb = $rate->effectiveGhsPerRmb();
         if ($ghsPerRmb <= 0) {
             throw ValidationException::withMessages(['ghs_amount' => 'The published rate is invalid.']);
         }
 
-        $rmb = round($ghs / $ghsPerRmb, 2);
+        $rmbPerGhs = $rate->rmbPerGhs();
+        $rmb = round($ghs * $rmbPerGhs, 2);
         $fee = $rate->fee_mode === 'percent'
             ? round($ghs * ((float) $rate->fee_value) / 100, 2)
             : round((float) $rate->fee_value, 2);
@@ -143,7 +144,7 @@ class ChinaTransferService
         return [
             'ghs_amount' => $ghs,
             'ghs_per_rmb' => $ghsPerRmb,
-            'rmb_per_ghs' => $rate->rmbPerGhs(),
+            'rmb_per_ghs' => $rmbPerGhs,
             'rmb_amount' => $rmb,
             'fee_mode' => $rate->fee_mode,
             'fee_value' => (float) $rate->fee_value,
@@ -922,7 +923,7 @@ class ChinaTransferService
     {
         return [
             'id' => $rate->id,
-            'ghs_per_rmb' => (float) $rate->ghs_per_rmb,
+            'ghs_per_rmb' => $rate->effectiveGhsPerRmb(),
             'rmb_per_ghs' => $rate->rmbPerGhs(),
             'fee_mode' => $rate->fee_mode,
             'fee_value' => (float) $rate->fee_value,

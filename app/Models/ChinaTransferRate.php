@@ -44,10 +44,28 @@ class ChinaTransferRate extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * GHS cost of 1 RMB. Some legacy rows stored RMB-per-GHS (e.g. 0.559) in ghs_per_rmb.
+     */
+    public function effectiveGhsPerRmb(): float
+    {
+        $stored = (float) $this->ghs_per_rmb;
+        if ($stored <= 0) {
+            return 0.0;
+        }
+
+        if ($stored < 1) {
+            return round(1 / $stored, 6);
+        }
+
+        return round($stored, 6);
+    }
+
+    /** RMB received per 1 GHS — matches rmb-wallet "Current Rate: 0.556 RMB". */
     public function rmbPerGhs(): float
     {
-        $rate = (float) $this->ghs_per_rmb;
+        $ghsPerRmb = $this->effectiveGhsPerRmb();
 
-        return $rate > 0 ? round(1 / $rate, 6) : 0.0;
+        return $ghsPerRmb > 0 ? round(1 / $ghsPerRmb, 6) : 0.0;
     }
 }

@@ -77,18 +77,18 @@ export default function BuyRmbCalculator({
     const [ghs, setGhs] = useState(initialGhs);
     const [cny, setCny] = useState(() => {
         const amount = Number(initialGhs);
-        if (!Number.isFinite(amount) || amount <= 0 || rate.ghs_per_rmb <= 0) return '';
-        return formatAmount(amount / rate.ghs_per_rmb);
+        if (!Number.isFinite(amount) || amount <= 0 || rate.rmb_per_ghs <= 0) return '';
+        return formatAmount(amount * rate.rmb_per_ghs);
     });
-    const [focus, setFocus] = useState<'ghs' | 'cny' | null>('cny');
+    const [focus, setFocus] = useState<'ghs' | 'cny' | null>('ghs');
 
     const hoursOpen = !transferHours?.configured || transferHours.is_open_now !== false;
     const isLiveNow = enabled && hoursOpen;
 
     const quote = useMemo(() => {
         const send = Number(ghs);
-        if (!Number.isFinite(send) || send <= 0 || rate.ghs_per_rmb <= 0) return null;
-        const receive = round2(send / rate.ghs_per_rmb);
+        if (!Number.isFinite(send) || send <= 0 || rate.rmb_per_ghs <= 0) return null;
+        const receive = round2(send * rate.rmb_per_ghs);
         const feeValue = rate.fee_value ?? 0;
         const fee =
             rate.fee_mode === 'percent' ? round2((send * feeValue) / 100) : round2(feeValue);
@@ -99,22 +99,22 @@ export default function BuyRmbCalculator({
         const cleaned = raw.replace(/[^\d.]/g, '');
         setGhs(cleaned);
         const amount = Number(cleaned);
-        if (!Number.isFinite(amount) || amount <= 0 || rate.ghs_per_rmb <= 0) {
+        if (!Number.isFinite(amount) || amount <= 0 || rate.rmb_per_ghs <= 0) {
             setCny('');
             return;
         }
-        setCny(formatAmount(amount / rate.ghs_per_rmb));
+        setCny(formatAmount(amount * rate.rmb_per_ghs));
     };
 
     const onCnyChange = (raw: string) => {
         const cleaned = raw.replace(/[^\d.]/g, '');
         setCny(cleaned);
         const amount = Number(cleaned);
-        if (!Number.isFinite(amount) || amount <= 0 || rate.ghs_per_rmb <= 0) {
+        if (!Number.isFinite(amount) || amount <= 0 || rate.rmb_per_ghs <= 0) {
             setGhs('');
             return;
         }
-        setGhs(formatAmount(amount * rate.ghs_per_rmb));
+        setGhs(formatAmount(amount / rate.rmb_per_ghs));
     };
 
     const canContinue = enabled && quote !== null && quote.send > 0;
@@ -127,31 +127,12 @@ export default function BuyRmbCalculator({
                 <p className="mt-2 text-2xl font-black tracking-tight">
                     1 GHS → {formatRate(rate.rmb_per_ghs)} RMB
                 </p>
+                <p className="mt-1 text-xs font-semibold text-violet-200">
+                    Current rate: {formatRate(rate.rmb_per_ghs, 3)} RMB
+                </p>
             </div>
 
-            <label className="mt-6 block text-sm font-semibold text-gray-600">They receive</label>
-            <div
-                className={cn(
-                    'mt-2 flex items-center gap-2 rounded-2xl border-2 bg-gray-50 px-4 py-3 transition',
-                    focus === 'cny' ? 'border-indigo-500 bg-white' : 'border-gray-200',
-                )}
-            >
-                <span className="text-xl font-bold text-gray-400">¥</span>
-                <input
-                    inputMode="decimal"
-                    value={cny}
-                    onFocus={() => setFocus('cny')}
-                    onBlur={() => setFocus(null)}
-                    onChange={(e) => onCnyChange(e.target.value)}
-                    placeholder="0.00"
-                    className="min-w-0 flex-1 bg-transparent text-2xl font-bold text-gray-900 outline-none placeholder:text-gray-300"
-                />
-                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-extrabold text-gray-600">
-                    CNY
-                </span>
-            </div>
-
-            <label className="mt-4 block text-sm font-semibold text-gray-600">You send</label>
+            <label className="mt-6 block text-sm font-semibold text-gray-600">Amount in GHS (GH₵)</label>
             <div
                 className={cn(
                     'mt-2 flex items-center gap-2 rounded-2xl border-2 bg-gray-50 px-4 py-3 transition',
@@ -170,6 +151,28 @@ export default function BuyRmbCalculator({
                 />
                 <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-extrabold text-gray-600">
                     GHS
+                </span>
+            </div>
+
+            <label className="mt-4 block text-sm font-semibold text-gray-600">RMB equivalent (¥)</label>
+            <div
+                className={cn(
+                    'mt-2 flex items-center gap-2 rounded-2xl border-2 bg-gray-50 px-4 py-3 transition',
+                    focus === 'cny' ? 'border-indigo-500 bg-white' : 'border-gray-200',
+                )}
+            >
+                <span className="text-xl font-bold text-gray-400">¥</span>
+                <input
+                    inputMode="decimal"
+                    value={cny}
+                    onFocus={() => setFocus('cny')}
+                    onBlur={() => setFocus(null)}
+                    onChange={(e) => onCnyChange(e.target.value)}
+                    placeholder="0.00"
+                    className="min-w-0 flex-1 bg-transparent text-2xl font-bold text-gray-900 outline-none placeholder:text-gray-300"
+                />
+                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-extrabold text-gray-600">
+                    CNY
                 </span>
             </div>
 
