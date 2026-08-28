@@ -352,6 +352,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/china-transfers/{chinaTransfer}/process', [AdminChinaTransferController::class, 'process'])->name('china-transfers.process');
     Route::post('/china-transfers/{chinaTransfer}/sent', [AdminChinaTransferController::class, 'markSent'])->name('china-transfers.sent');
     Route::post('/china-transfers/{chinaTransfer}/complete', [AdminChinaTransferController::class, 'complete'])->name('china-transfers.complete');
+    Route::post('/china-transfers/{chinaTransfer}/complete-with-proof', [AdminChinaTransferController::class, 'completeWithProof'])->name('china-transfers.complete-with-proof');
     Route::post('/china-transfers/{chinaTransfer}/fail', [AdminChinaTransferController::class, 'fail'])->name('china-transfers.fail');
     Route::post('/china-transfers/{chinaTransfer}/cancel', [AdminChinaTransferController::class, 'cancel'])->name('china-transfers.cancel');
     Route::post('/china-transfers/{chinaTransfer}/note', [AdminChinaTransferController::class, 'note'])->name('china-transfers.note');

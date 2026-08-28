@@ -85,6 +85,15 @@ class ChinaTransferController extends Controller
         return $this->run(fn () => $this->transfers->complete($chinaTransfer, $request->user()), 'Transfer completed.', $chinaTransfer);
     }
 
+    public function completeWithProof(Request $request, ChinaTransfer $chinaTransfer): JsonResponse
+    {
+        return $this->run(
+            fn () => $this->transfers->uploadProofAndComplete($chinaTransfer, $request->user(), $request),
+            'Proof uploaded. Transfer completed.',
+            $chinaTransfer,
+        );
+    }
+
     public function fail(Request $request, ChinaTransfer $chinaTransfer): JsonResponse
     {
         $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);

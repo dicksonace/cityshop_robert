@@ -593,6 +593,41 @@ class ChinaTransferService
         ]);
     }
 
+    public function uploadProofAndComplete(ChinaTransfer $transfer, User $admin, Request $request): ChinaTransfer
+    {
+        return DB::transaction(function () use ($transfer, $admin, $request) {
+            $transfer = $transfer->fresh(['proofs']);
+
+            if (in_array($transfer->status, [
+                ChinaTransferStatus::PaymentSubmitted,
+                ChinaTransferStatus::PaymentVerification,
+            ], true)) {
+                if ($transfer->status === ChinaTransferStatus::PaymentSubmitted) {
+                    $transfer = $this->verifyPayment($transfer->fresh(), $admin);
+                }
+                $transfer = $this->startProcessing($transfer->fresh(), $admin);
+            }
+
+            $transfer = $transfer->fresh(['proofs']);
+
+            if ($transfer->status === ChinaTransferStatus::Processing) {
+                $transfer = $this->markSent($transfer, $admin, $request);
+            } elseif ($transfer->status === ChinaTransferStatus::RmbSent) {
+                if (! $transfer->proofs()->where('type', 'rmb_sent')->exists()) {
+                    throw ValidationException::withMessages([
+                        'proof' => 'Upload RMB transfer proof before completing.',
+                    ]);
+                }
+            } else {
+                throw ValidationException::withMessages([
+                    'status' => 'This transfer cannot be completed from its current status.',
+                ]);
+            }
+
+            return $this->complete($transfer->fresh(['proofs']), $admin);
+        });
+    }
+
     public function fail(ChinaTransfer $transfer, User $admin, string $reason): ChinaTransfer
     {
         $this->assertAdminAction($transfer, [
@@ -829,6 +864,11 @@ class ChinaTransferService
                     ChinaTransferStatus::PaymentVerification,
                 ], true)
                 : $transfer->status === ChinaTransferStatus::PendingPayment,
+            'can_upload_proof_and_complete' => in_array($transfer->status, [
+                ChinaTransferStatus::PaymentSubmitted,
+                ChinaTransferStatus::PaymentVerification,
+                ChinaTransferStatus::Processing,
+            ], true),
             'timeline' => $this->timelinePayload($transfer),
             'fields' => $transfer->fieldValues->map(fn (ChinaTransferFieldValue $v) => [
                 'id' => $v->id,

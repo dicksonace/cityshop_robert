@@ -83,12 +83,16 @@ export default function ChinaTransferShow({ transfer }: Props) {
     const rejectForm = useForm({ reason: '' });
     const failForm = useForm({ reason: '' });
     const noteForm = useForm({ note: '' });
-    const sentForm = useForm({
+    const finishForm = useForm({
         rmb_sent_amount: String(transfer.quote.rmb_amount),
         rmb_transfer_ref: '',
         note: '',
         proof: null as File | null,
     });
+
+    const canUploadProofAndComplete = ['processing', 'payment_submitted', 'payment_verification'].includes(
+        transfer.status,
+    );
 
     const post = (url: string) => (e: React.FormEvent) => {
         e.preventDefault();
@@ -217,78 +221,62 @@ export default function ChinaTransferShow({ transfer }: Props) {
                     </div>
 
                     <div className="space-y-4">
-                        {transfer.status === 'payment_submitted' && (
-                            <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                                <form
-                                    onSubmit={(e) => {
-                                        e.preventDefault();
-                                        rejectForm.transform(() => ({}));
-                                        rejectForm.post(route('admin.china-transfers.verify', transfer.id));
-                                    }}
-                                >
-                                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Verify payment</Button>
-                                </form>
-                                <form className="mt-3 space-y-2" onSubmit={post(route('admin.china-transfers.reject', transfer.id))}>
-                                    <Input
-                                        placeholder="Reject reason"
-                                        value={rejectForm.data.reason}
-                                        onChange={(e) => rejectForm.setData('reason', e.target.value)}
-                                    />
-                                    <Button variant="outline" className="w-full text-red-700">
-                                        Reject payment
-                                    </Button>
-                                </form>
-                            </div>
-                        )}
-
-                        {['payment_verification', 'payment_submitted'].includes(transfer.status) && (
+                        {canUploadProofAndComplete && (
                             <form
+                                className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4"
                                 onSubmit={(e) => {
                                     e.preventDefault();
-                                    rejectForm.post(route('admin.china-transfers.process', transfer.id));
+                                    finishForm.post(route('admin.china-transfers.complete-with-proof', transfer.id), {
+                                        forceFormData: true,
+                                    });
                                 }}
                             >
-                                <Button className="w-full">Start processing</Button>
-                            </form>
-                        )}
-
-                        {transfer.status === 'processing' && (
-                            <form
-                                className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4"
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    sentForm.post(route('admin.china-transfers.sent', transfer.id), { forceFormData: true });
-                                }}
-                            >
-                                <h2 className="font-bold">Mark RMB sent</h2>
-                                <p className="text-xs text-gray-500">Proof is required before this can be completed.</p>
+                                <h2 className="font-bold text-emerald-950">Upload proof & complete</h2>
+                                <p className="text-xs text-emerald-900">
+                                    Pick your Alipay screenshot. The transfer is marked sent and completed automatically.
+                                </p>
                                 <div>
                                     <Label>RMB amount sent</Label>
                                     <Input
-                                        className="mt-1"
-                                        value={sentForm.data.rmb_sent_amount}
-                                        onChange={(e) => sentForm.setData('rmb_sent_amount', e.target.value)}
+                                        className="mt-1 bg-white"
+                                        value={finishForm.data.rmb_sent_amount}
+                                        onChange={(e) => finishForm.setData('rmb_sent_amount', e.target.value)}
                                     />
                                 </div>
                                 <div>
-                                    <Label>Alipay / transfer reference</Label>
+                                    <Label>Alipay / transfer reference (optional)</Label>
                                     <Input
-                                        className="mt-1"
-                                        value={sentForm.data.rmb_transfer_ref}
-                                        onChange={(e) => sentForm.setData('rmb_transfer_ref', e.target.value)}
+                                        className="mt-1 bg-white"
+                                        value={finishForm.data.rmb_transfer_ref}
+                                        onChange={(e) => finishForm.setData('rmb_transfer_ref', e.target.value)}
                                     />
                                 </div>
                                 <div>
                                     <Label>Proof image or PDF</Label>
                                     <input
-                                        className="mt-1 block w-full text-sm"
+                                        className="mt-1 block w-full rounded-md border bg-white px-3 py-2 text-sm"
                                         type="file"
                                         accept="image/*,.pdf"
-                                        onChange={(e) => sentForm.setData('proof', e.target.files?.[0] ?? null)}
+                                        onChange={(e) => finishForm.setData('proof', e.target.files?.[0] ?? null)}
                                     />
-                                    <InputError message={sentForm.errors.proof} />
+                                    <InputError message={finishForm.errors.proof} />
                                 </div>
-                                <Button className="w-full bg-orange-500 hover:bg-orange-600">Upload proof & mark sent</Button>
+                                <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
+                                    Upload proof & complete
+                                </Button>
+                            </form>
+                        )}
+
+                        {transfer.status === 'payment_submitted' && (
+                            <form className="space-y-2" onSubmit={post(route('admin.china-transfers.reject', transfer.id))}>
+                                <Input
+                                    placeholder="Reject reason"
+                                    value={rejectForm.data.reason}
+                                    onChange={(e) => rejectForm.setData('reason', e.target.value)}
+                                />
+                                <Button variant="outline" className="w-full text-red-700">
+                                    Reject payment
+                                </Button>
                             </form>
                         )}
 

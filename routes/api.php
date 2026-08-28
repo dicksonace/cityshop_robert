@@ -307,6 +307,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/china-transfers/{chinaTransfer}/process', [AdminChinaTransferController::class, 'process']);
             Route::post('/china-transfers/{chinaTransfer}/sent', [AdminChinaTransferController::class, 'markSent']);
             Route::post('/china-transfers/{chinaTransfer}/complete', [AdminChinaTransferController::class, 'complete']);
+            Route::post('/china-transfers/{chinaTransfer}/complete-with-proof', [AdminChinaTransferController::class, 'completeWithProof']);
             Route::post('/china-transfers/{chinaTransfer}/fail', [AdminChinaTransferController::class, 'fail']);
             Route::post('/china-transfers/{chinaTransfer}/cancel', [AdminChinaTransferController::class, 'cancel']);
             Route::post('/china-transfers/{chinaTransfer}/note', [AdminChinaTransferController::class, 'note']);
