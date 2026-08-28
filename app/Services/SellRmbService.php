@@ -157,9 +157,8 @@ class SellRmbService
         $this->validateFields($request, $fields, $method);
 
         return DB::transaction(function () use ($user, $request, $quote, $rate, $method, $fields) {
-            // External sell (rmb-wallet style): buyer sends RMB to Alipay outside the app;
-            // CityShop pays MoMo/GHS out. Does not debit/credit wallet balances.
-            $status = SellRmbStatus::PayoutProcessing;
+            // External sell: buyer sends RMB to Alipay; CityShop pays MoMo/GHS out.
+            $status = SellRmbStatus::Submitted;
 
             $needsApproval = $rate->approval_above_rmb !== null
                 && $quote['rmb_amount'] >= (float) $rate->approval_above_rmb;
@@ -182,11 +181,10 @@ class SellRmbService
                 'payment_reference' => $this->fieldText($request, $fields, 'payment_reference'),
                 'needs_approval' => $needsApproval,
                 'submitted_at' => now(),
-                'payout_processing_at' => now(),
             ]);
 
             $this->storeFieldValues($transfer, $request, $fields);
-            $this->recordHistory($transfer, null, $status, 'Sell RMB submitted — awaiting admin processing', $user->id);
+            $this->recordHistory($transfer, null, $status, 'Sell RMB submitted — awaiting admin verification', $user->id);
             $this->notifyUser($transfer, $status);
             $this->notifyAdmins($transfer, $status);
 
@@ -205,6 +203,8 @@ class SellRmbService
 
         if ($actor->id === $transfer->user_id && ! in_array($transfer->status, [
             SellRmbStatus::Submitted,
+            SellRmbStatus::RmbVerification,
+            SellRmbStatus::RmbReceived,
             SellRmbStatus::PayoutProcessing,
         ], true)) {
             throw ValidationException::withMessages([
@@ -486,8 +486,15 @@ class SellRmbService
             'cancelled_at' => $transfer->cancelled_at?->toIso8601String(),
             'can_cancel' => in_array($transfer->status, [
                 SellRmbStatus::Submitted,
+                SellRmbStatus::RmbVerification,
+                SellRmbStatus::RmbReceived,
                 SellRmbStatus::PayoutProcessing,
             ], true),
+            'can_verify' => $transfer->status === SellRmbStatus::Submitted,
+            'can_mark_received' => $transfer->status === SellRmbStatus::RmbVerification,
+            'can_start_payout' => $transfer->status === SellRmbStatus::RmbReceived,
+            'can_mark_paid' => $transfer->status === SellRmbStatus::PayoutProcessing,
+            'can_complete' => $transfer->status === SellRmbStatus::Paid,
             'timeline' => $this->timelinePayload($transfer),
             'fields' => $transfer->fieldValues->map(fn (SellRmbFieldValue $v) => [
                 'id' => $v->id,
@@ -532,6 +539,7 @@ class SellRmbService
                 'admin' => $n->admin?->name,
                 'created_at' => $n->created_at?->toIso8601String(),
             ])->values()->all();
+            $payload['flow'] = 'sell_rmb';
         }
 
         return $payload;
@@ -919,32 +927,33 @@ class SellRmbService
     private function timelinePayload(SellRmbTransfer $transfer): array
     {
         $current = $transfer->status;
-        $failed = $current->isTerminal() && $current !== SellRmbStatus::Completed;
+        $failed = in_array($current, [
+            SellRmbStatus::Rejected,
+            SellRmbStatus::Cancelled,
+            SellRmbStatus::Failed,
+        ], true);
 
-        return collect(SellRmbStatus::timeline())->map(function (SellRmbStatus $step) use ($transfer, $current, $failed) {
-            $reached = false;
-            foreach (SellRmbStatus::timeline() as $item) {
-                if ($item === $step) {
-                    $reached = true;
-                    break;
-                }
-                if ($item === $current) {
-                    break;
-                }
-            }
+        $currentIndex = match ($current) {
+            SellRmbStatus::Submitted => 0,
+            SellRmbStatus::RmbVerification, SellRmbStatus::RmbReceived => 1,
+            SellRmbStatus::PayoutProcessing => 2,
+            SellRmbStatus::Paid => 3,
+            SellRmbStatus::Completed => 4,
+            default => -1,
+        };
 
-            if ($current === SellRmbStatus::Completed) {
-                $reached = true;
-            }
+        return collect(SellRmbStatus::timeline())->values()->map(function (SellRmbStatus $step, int $index) use ($current, $currentIndex, $failed) {
+            $done = $currentIndex > $index || $current === SellRmbStatus::Completed;
+            $isCurrent = $currentIndex === $index;
 
             return [
                 'key' => $step->value,
                 'label' => $step->label(),
-                'done' => $reached && $current !== $step && ! $failed,
-                'current' => $current === $step,
-                'failed' => $failed && $current === $step,
+                'done' => $done && ! $failed,
+                'current' => $isCurrent && ! $failed,
+                'failed' => $failed && $isCurrent,
             ];
-        })->values()->all();
+        })->all();
     }
 
     private function nextReference(): string
