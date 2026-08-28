@@ -10,6 +10,7 @@ use App\Models\ChinaTransferPaymentMethod;
 use App\Models\ChinaTransferSetting;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Notifications\ChinaTransferUserNotification;
 use App\Services\ChinaTransferService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -225,6 +226,12 @@ class ChinaTransferTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertEquals(ChinaTransferStatus::Completed, $transfer->fresh()->status);
+
+        Notification::assertNotSentTo(
+            $buyer,
+            ChinaTransferUserNotification::class,
+            fn (ChinaTransferUserNotification $notification) => $notification->status === ChinaTransferStatus::Completed,
+        );
 
         $this->actingAs($admin)
             ->post(route('admin.china-transfers.verify', $transfer->fresh()))

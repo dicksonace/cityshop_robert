@@ -1364,6 +1364,11 @@ class ChinaTransferService
 
     private function notifyUser(ChinaTransfer $transfer, ChinaTransferStatus $status): void
     {
+        // Buyers are already notified at RMB sent (with proof). Skip the extra "complete" SMS/push.
+        if ($status === ChinaTransferStatus::Completed) {
+            return;
+        }
+
         $transfer->loadMissing('user');
         if (! $transfer->user) {
             return;

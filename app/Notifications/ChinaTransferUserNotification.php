@@ -54,8 +54,7 @@ class ChinaTransferUserNotification extends Notification implements ShouldQueue
     private function subject(): string
     {
         return match ($this->status) {
-            ChinaTransferStatus::Completed => 'Your RMB has been sent',
-            ChinaTransferStatus::RmbSent => 'RMB transfer proof is ready',
+            ChinaTransferStatus::Completed, ChinaTransferStatus::RmbSent => 'Your RMB has been sent',
             ChinaTransferStatus::PaymentRejected => 'China Transfer payment rejected',
             default => 'China Transfer '.$this->status->label(),
         };
@@ -69,7 +68,7 @@ class ChinaTransferUserNotification extends Notification implements ShouldQueue
             ChinaTransferStatus::PaymentVerification => 'Your GHS payment was verified. We are preparing the Alipay transfer.',
             ChinaTransferStatus::Processing => 'Your RMB transfer is processing.',
             ChinaTransferStatus::RmbSent => 'Your RMB has been sent successfully. Open the app to view proof.',
-            ChinaTransferStatus::Completed => 'Your Transfer to China is complete.',
+            ChinaTransferStatus::Completed => 'Your RMB has been sent successfully. Open the app to view proof.',
             ChinaTransferStatus::PaymentRejected => $this->transfer->rejection_reason ?: 'Your GHS payment could not be verified.',
             ChinaTransferStatus::Cancelled => 'Your Transfer to China was cancelled.',
             ChinaTransferStatus::TransferFailed => $this->transfer->rejection_reason ?: 'The RMB transfer failed.',
