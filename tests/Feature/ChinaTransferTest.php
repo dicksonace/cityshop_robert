@@ -28,6 +28,62 @@ class ChinaTransferTest extends TestCase
         $this->withoutVite();
     }
 
+    public function test_publish_rate_from_rmb_per_ghs_matches_buyer_calculator(): void
+    {
+        ChinaTransferSetting::current()->update(['enabled' => true]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.china-transfer.rates.store'), [
+                'rmb_per_ghs' => 0.559,
+                'fee_mode' => 'flat',
+                'fee_value' => 0,
+                'min_ghs' => 50,
+                'max_ghs' => 50000,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $rate = app(ChinaTransferService::class)->currentRate();
+        $this->assertNotNull($rate);
+        $this->assertEqualsWithDelta(1 / 0.559, (float) $rate->ghs_per_rmb, 0.001);
+        $this->assertEqualsWithDelta(0.559, $rate->rmbPerGhs(), 0.001);
+
+        $quote = app(ChinaTransferService::class)->quote(100, $rate);
+        $this->assertEqualsWithDelta(55.90, $quote['rmb_amount'], 0.05);
+        $this->assertEqualsWithDelta(0.559, $quote['rmb_per_ghs'], 0.001);
+    }
+
+    public function test_transfer_hours_closed_message_uses_open_time(): void
+    {
+        ChinaTransferSetting::current()->update([
+            'enabled' => true,
+            'transfer_open_time' => '04:30:00',
+            'transfer_close_time' => '17:00:00',
+        ]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        app(ChinaTransferService::class)->publishRate($admin, [
+            'ghs_per_rmb' => 1.85,
+            'fee_mode' => 'flat',
+            'fee_value' => 0,
+            'min_ghs' => 50,
+            'max_ghs' => 50000,
+        ]);
+
+        $this->travelTo(now('Africa/Accra')->setTime(20, 0));
+        $hours = app(ChinaTransferService::class)->transferHoursPayload();
+
+        $this->assertFalse($hours['is_open_now']);
+        $this->assertStringContainsString('4:30 AM', $hours['closed_message']);
+        $this->assertSame('4:30 AM', $hours['open_time_label']);
+        $this->assertSame('5:00 PM', $hours['close_time_label']);
+
+        $this->travelTo(now('Africa/Accra')->setTime(10, 0));
+        $openHours = app(ChinaTransferService::class)->transferHoursPayload();
+        $this->assertTrue($openHours['is_open_now']);
+        $this->assertNull($openHours['closed_message']);
+    }
+
     public function test_quote_uses_ghs_per_rmb_and_adds_flat_fee(): void
     {
         $this->openService();

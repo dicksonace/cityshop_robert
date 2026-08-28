@@ -32,6 +32,13 @@ import ChatTransferBubble from '@/components/chat/chat-transfer-bubble';
 import ChatTransferSheet from '@/components/chat/chat-transfer-sheet';
 import ChatVideoBubble from '@/components/chat/chat-video-bubble';
 import ChatVoiceBubble from '@/components/chat/chat-voice-bubble';
+import VoiceWaveformBars from '@/components/chat/voice-waveform-bars';
+import {
+    cacheVoiceWaveform,
+    downsampleWaveform,
+    normalizeAmplitudeDb,
+    rmsFromTimeDomain,
+} from '@/lib/voice-waveform';
 import { useChat } from '@/contexts/chat-context';
 import { useToastOptional } from '@/contexts/toast-context';
 import { useChatVoiceCall } from '@/hooks/use-chat-voice-call';
@@ -92,6 +99,7 @@ export default function ChatThreadPanel() {
     const [uploadingVoice, setUploadingVoice] = useState(false);
     const [recordingVoice, setRecordingVoice] = useState(false);
     const [voiceSeconds, setVoiceSeconds] = useState(0);
+    const [liveVoiceSamples, setLiveVoiceSamples] = useState<number[]>([]);
     const [showTransfer, setShowTransfer] = useState(false);
     const [other, setOther] = useState(activeConversation?.other);
     const [menuMessageId, setMenuMessageId] = useState<number | null>(null);
@@ -113,6 +121,11 @@ export default function ChatThreadPanel() {
     const voiceChunksRef = useRef<Blob[]>([]);
     const voiceStartedAtRef = useRef<number>(0);
     const voiceTimerRef = useRef<number | null>(null);
+    const voiceSamplesRef = useRef<number[]>([]);
+    const voiceAnalyserRef = useRef<AnalyserNode | null>(null);
+    const voiceAudioContextRef = useRef<AudioContext | null>(null);
+    const voiceAnalyserRafRef = useRef<number | null>(null);
+    const voiceWaveformByMessageRef = useRef<Map<number, number[]>>(new Map());
     const lastIdRef = useRef(messages.at(-1)?.id ?? 0);
     const updatedAfterRef = useRef(new Date().toISOString());
     const announcedSoundIdsRef = useRef<Set<number>>(new Set());
@@ -566,11 +579,26 @@ export default function ChatThreadPanel() {
         }
     };
 
+    const stopVoiceAnalyser = () => {
+        if (voiceAnalyserRafRef.current != null) {
+            window.cancelAnimationFrame(voiceAnalyserRafRef.current);
+            voiceAnalyserRafRef.current = null;
+        }
+        voiceAnalyserRef.current = null;
+        const ctx = voiceAudioContextRef.current;
+        voiceAudioContextRef.current = null;
+        if (ctx) {
+            void ctx.close().catch(() => undefined);
+        }
+    };
+
     const cancelVoiceRecording = () => {
         stopVoiceTimer();
+        stopVoiceAnalyser();
         const recorder = mediaRecorderRef.current;
         mediaRecorderRef.current = null;
         voiceChunksRef.current = [];
+        voiceSamplesRef.current = [];
         if (recorder && recorder.state !== 'inactive') {
             recorder.ondataavailable = null;
             recorder.onstop = null;
@@ -583,6 +611,7 @@ export default function ChatThreadPanel() {
         }
         setRecordingVoice(false);
         setVoiceSeconds(0);
+        setLiveVoiceSamples([]);
     };
 
     const finishVoiceRecording = async () => {
@@ -593,6 +622,7 @@ export default function ChatThreadPanel() {
         }
 
         stopVoiceTimer();
+        stopVoiceAnalyser();
         const startedAt = voiceStartedAtRef.current;
         const mimeType = recorder.mimeType || 'audio/webm';
 
@@ -620,9 +650,16 @@ export default function ChatThreadPanel() {
         }
 
         const durationSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+        const recordedWaveform = downsampleWaveform(voiceSamplesRef.current, 36);
+        voiceSamplesRef.current = [];
+        setLiveVoiceSamples([]);
         setUploadingVoice(true);
         try {
             const message = await chatApi.uploadChatVoice(activeConversation.id, blob, durationSeconds);
+            if (recordedWaveform.length && message.voice_url) {
+                cacheVoiceWaveform(message.voice_url, recordedWaveform);
+                voiceWaveformByMessageRef.current.set(message.id, recordedWaveform);
+            }
             setMessages((prev) => [...prev, message]);
             lastIdRef.current = Math.max(lastIdRef.current, message.id);
             refreshConversations();
@@ -661,9 +698,32 @@ export default function ChatThreadPanel() {
             };
             mediaRecorderRef.current = recorder;
             voiceStartedAtRef.current = Date.now();
+            voiceSamplesRef.current = [];
+            setLiveVoiceSamples([]);
             setVoiceSeconds(0);
             setRecordingVoice(true);
             recorder.start(250);
+
+            const audioContext = new AudioContext();
+            const source = audioContext.createMediaStreamSource(stream);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            voiceAudioContextRef.current = audioContext;
+            voiceAnalyserRef.current = analyser;
+            const timeData = new Uint8Array(analyser.fftSize);
+
+            const tickAnalyser = () => {
+                if (!voiceAnalyserRef.current) return;
+                voiceAnalyserRef.current.getByteTimeDomainData(timeData);
+                const rms = rmsFromTimeDomain(timeData);
+                const next = normalizeAmplitudeDb(20 * Math.log10(Math.max(rms, 0.0001)));
+                voiceSamplesRef.current = downsampleWaveform([...voiceSamplesRef.current, next], 48);
+                setLiveVoiceSamples(voiceSamplesRef.current.slice());
+                voiceAnalyserRafRef.current = window.requestAnimationFrame(tickAnalyser);
+            };
+            voiceAnalyserRafRef.current = window.requestAnimationFrame(tickAnalyser);
+
             voiceTimerRef.current = window.setInterval(() => {
                 setVoiceSeconds(Math.floor((Date.now() - voiceStartedAtRef.current) / 1000));
             }, 250);
@@ -1328,6 +1388,7 @@ export default function ChatThreadPanel() {
                                                 src={msg.voice_url!}
                                                 durationSeconds={msg.duration_seconds}
                                                 mine={mine}
+                                                waveform={voiceWaveformByMessageRef.current.get(msg.id)}
                                             />
                                         ) : (
                                             <ChatLinkedText
@@ -1659,13 +1720,22 @@ export default function ChatThreadPanel() {
                         </button>
                     )}
                     {recordingVoice ? (
-                        <div className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-                            <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                            Recording {Math.floor(voiceSeconds / 60)}:{String(voiceSeconds % 60).padStart(2, '0')}
+                        <div className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-2 py-1.5">
+                            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+                            <VoiceWaveformBars
+                                samples={liveVoiceSamples.length ? liveVoiceSamples : [0.12]}
+                                activeClassName="bg-red-600"
+                                inactiveClassName="bg-red-300"
+                                barCount={40}
+                                className="h-6"
+                            />
+                            <span className="shrink-0 text-xs font-extrabold tabular-nums text-red-700">
+                                {Math.floor(voiceSeconds / 60)}:{String(voiceSeconds % 60).padStart(2, '0')}
+                            </span>
                             <button
                                 type="button"
                                 onClick={cancelVoiceRecording}
-                                className="ml-auto text-xs font-medium text-red-600 underline"
+                                className="shrink-0 text-[11px] font-semibold text-red-600 underline"
                             >
                                 Cancel
                             </button>

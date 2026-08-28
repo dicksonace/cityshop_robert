@@ -114,6 +114,8 @@ class ChinaTransferController extends Controller
                 'enabled' => $settings->enabled,
                 'channel' => 'alipay',
                 'instructions' => $settings->instructions,
+                'transfer_open_time' => $settings->transfer_open_time ? substr((string) $settings->transfer_open_time, 0, 5) : '04:30',
+                'transfer_close_time' => $settings->transfer_close_time ? substr((string) $settings->transfer_close_time, 0, 5) : '17:00',
             ],
             'current_rate' => ($rate = $this->transfers->currentRate())
                 ? $this->transfers->ratePayload($rate)
@@ -130,12 +132,21 @@ class ChinaTransferController extends Controller
         $validated = $request->validate([
             'enabled' => ['required', 'boolean'],
             'instructions' => ['nullable', 'string', 'max:2000'],
+            'transfer_open_time' => ['nullable', 'date_format:H:i'],
+            'transfer_close_time' => ['nullable', 'date_format:H:i', 'different:transfer_open_time'],
         ]);
-        $this->transfers->settings()->update([
+        $payload = [
             'enabled' => $validated['enabled'],
             'channel' => 'alipay',
             'instructions' => $validated['instructions'] ?? null,
-        ]);
+        ];
+        if (isset($validated['transfer_open_time'])) {
+            $payload['transfer_open_time'] = $validated['transfer_open_time'].':00';
+        }
+        if (isset($validated['transfer_close_time'])) {
+            $payload['transfer_close_time'] = $validated['transfer_close_time'].':00';
+        }
+        $this->transfers->settings()->update($payload);
 
         return response()->json([
             'message' => $validated['enabled']
@@ -175,9 +186,16 @@ class ChinaTransferController extends Controller
 
         unset($validated['rmb_per_ghs']);
 
-        $this->transfers->publishRate($request->user(), $validated);
+        $rate = $this->transfers->publishRate($request->user(), $validated);
+        $rmbPerGhs = $rate->rmbPerGhs();
 
-        return response()->json(['message' => 'New rate published. Existing transfers keep their locked rate.']);
+        return response()->json([
+            'message' => sprintf(
+                'Rate published: 1 GHS → ¥%s RMB (1 CNY ≈ GH₵%s). Existing transfers keep their locked rate.',
+                rtrim(rtrim(number_format($rmbPerGhs, 4, '.', ''), '0'), '.'),
+                number_format((float) $rate->ghs_per_rmb, 4),
+            ),
+        ]);
     }
 
     public function deactivateMethod(ChinaTransferPaymentMethod $method): JsonResponse

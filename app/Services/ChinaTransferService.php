@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ChinaTransferStatus;
+use App\Enums\WalletTransactionType;
 use App\Models\ChinaTransfer;
 use App\Models\ChinaTransferAdminNote;
 use App\Models\ChinaTransferFieldValue;
@@ -13,6 +14,7 @@ use App\Models\ChinaTransferRate;
 use App\Models\ChinaTransferSetting;
 use App\Models\ChinaTransferStatusHistory;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use App\Notifications\ChinaTransferAdminNotification;
 use App\Notifications\ChinaTransferUserNotification;
 use Illuminate\Http\Request;
@@ -50,6 +52,58 @@ class ChinaTransferService
         return $settings->enabled
             && $settings->channel === 'alipay'
             && $this->currentRate() !== null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function transferHoursPayload(): array
+    {
+        $settings = $this->settings();
+        $timezone = config('app.timezone', 'Africa/Accra');
+        $openRaw = $settings->transfer_open_time;
+        $closeRaw = $settings->transfer_close_time;
+
+        if (! $openRaw || ! $closeRaw) {
+            return [
+                'configured' => false,
+                'timezone' => $timezone,
+                'is_open_now' => true,
+                'open_time' => null,
+                'close_time' => null,
+                'open_time_label' => null,
+                'close_time_label' => null,
+                'closed_message' => null,
+            ];
+        }
+
+        $openTime = $this->normalizeTimeString((string) $openRaw);
+        $closeTime = $this->normalizeTimeString((string) $closeRaw);
+        $now = now($timezone);
+        $openToday = $now->copy()->setTimeFromTimeString($openTime);
+        $closeToday = $now->copy()->setTimeFromTimeString($closeTime);
+        $isOpenNow = $now->greaterThanOrEqualTo($openToday) && $now->lessThan($closeToday);
+        $openLabel = $openToday->format('g:i A');
+
+        return [
+            'configured' => true,
+            'timezone' => $timezone,
+            'is_open_now' => $isOpenNow,
+            'open_time' => substr($openTime, 0, 5),
+            'close_time' => substr($closeTime, 0, 5),
+            'open_time_label' => $openLabel,
+            'close_time_label' => $closeToday->format('g:i A'),
+            'closed_message' => $isOpenNow
+                ? null
+                : "We're currently closed. Orders placed now will be processed tomorrow by {$openLabel}.",
+        ];
+    }
+
+    private function normalizeTimeString(string $time): string
+    {
+        $parts = explode(':', $time);
+
+        return sprintf('%02d:%02d:00', (int) ($parts[0] ?? 0), (int) ($parts[1] ?? 0));
     }
 
     public function hasExternalPaymentMethods(): bool
@@ -679,6 +733,7 @@ class ChinaTransferService
             'channel' => 'alipay',
             'channel_label' => 'Alipay',
             'instructions' => $settings->instructions,
+            'transfer_hours' => $this->transferHoursPayload(),
             'rate' => $rate ? $this->ratePayload($rate) : null,
             'sample_quote' => $quote,
             'payment_methods' => ChinaTransferPaymentMethod::query()
@@ -791,6 +846,7 @@ class ChinaTransferService
                 'actor' => $h->actor?->name,
                 'created_at' => $h->created_at?->toIso8601String(),
             ])->values()->all(),
+            'wallet_receipt' => $this->walletReceiptPayload($transfer),
         ];
 
         if ($forAdmin) {
@@ -1316,5 +1372,56 @@ class ChinaTransferService
                 ?: 'Your GHS payment could not be verified.',
             default => "{$transfer->reference} is now {$status->label()}.",
         };
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function walletReceiptPayload(ChinaTransfer $transfer): ?array
+    {
+        if (! in_array($transfer->funding_source, ['ghs_wallet', 'rmb_wallet'], true)) {
+            return null;
+        }
+
+        $transaction = WalletTransaction::query()
+            ->where('user_id', $transfer->user_id)
+            ->where('reference', 'CT-'.$transfer->id)
+            ->whereIn('type', [
+                WalletTransactionType::ChinaTransferDebit,
+                WalletTransactionType::RmbTransferOut,
+            ])
+            ->orderBy('id')
+            ->first();
+
+        if (! $transaction) {
+            return null;
+        }
+
+        $user = $transfer->user ?? User::query()->find($transfer->user_id);
+        if (! $user) {
+            return null;
+        }
+
+        $wallet = WalletService::ensure($user);
+        $balances = WalletTransactionService::balancesAfterTransaction(
+            $transaction,
+            (float) $wallet->available_balance,
+            (float) $wallet->pending_balance,
+            (float) $wallet->rmb_balance,
+        );
+
+        $currency = strtoupper((string) ($transaction->currency ?? 'GHS'));
+
+        return [
+            'wallet_transaction_id' => $transaction->id,
+            'currency' => $currency,
+            'amount' => round(abs((float) $transaction->amount), 2),
+            'type_label' => $transaction->type->label(),
+            'debited_at' => $transaction->created_at?->toIso8601String(),
+            'balance_before' => $balances['balance_before'],
+            'balance_after' => $balances['balance_after'],
+            'rmb_before' => $balances['rmb_before'],
+            'rmb_after' => $balances['rmb_after'],
+        ];
     }
 }

@@ -60,6 +60,8 @@ interface Props {
         max_converts_per_day?: number;
         max_rmb_out_per_day?: number | null;
         max_rmb_out_per_month?: number | null;
+        transfer_open_time?: string;
+        transfer_close_time?: string;
     };
     currentRate: Rate | null;
     rates: Rate[];
@@ -87,6 +89,8 @@ export default function ChinaTransferSettings({
         max_converts_per_day: String(settings.max_converts_per_day ?? 30),
         max_rmb_out_per_day: String(settings.max_rmb_out_per_day ?? ''),
         max_rmb_out_per_month: String(settings.max_rmb_out_per_month ?? ''),
+        transfer_open_time: settings.transfer_open_time ?? '04:30',
+        transfer_close_time: settings.transfer_close_time ?? '17:00',
     });
 
     const rateForm = useForm({
@@ -144,6 +148,11 @@ export default function ChinaTransferSettings({
 
     const rmbPerGhs = Number(rateForm.data.rmb_per_ghs);
     const impliedGhsPerRmb = rmbPerGhs > 0 ? 1 / rmbPerGhs : 0;
+    const currentRmbPerGhs =
+        currentRate?.rmb_per_ghs ??
+        (currentRate?.ghs_per_rmb && currentRate.ghs_per_rmb > 0 ? 1 / currentRate.ghs_per_rmb : 0);
+    const formatRate = (n: number) =>
+        n > 0 ? n.toFixed(4).replace(/\.?0+$/, '') : '—';
 
     return (
         <AdminLayout title="China Transfer settings" active="china-transfer-settings">
@@ -152,8 +161,8 @@ export default function ChinaTransferSettings({
                 <div>
                     <h1 className="text-xl font-bold text-gray-900">China Transfer settings</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Alipay only. Buyers send GHS to your accounts, then you send RMB and upload proof.
-                        {open ? ' Service is live.' : ' Not live yet — enable, publish a rate, and add a payment method.'}
+                        Alipay only. Buyers pay from their GHS wallet; you send RMB and upload proof.
+                        {open ? ' Service is live.' : ' Not live yet — enable and publish a rate.'}
                     </p>
                 </div>
 
@@ -185,6 +194,27 @@ export default function ChinaTransferSettings({
 
                 {tab === 'rate' && (
                     <>
+                        {currentRate && currentRmbPerGhs > 0 && (
+                            <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5">
+                                <p className="text-xs font-bold uppercase tracking-wide text-violet-700">
+                                    Buyers currently see
+                                </p>
+                                <p className="mt-2 text-2xl font-black text-violet-950">
+                                    1 GHS → ¥{formatRate(currentRmbPerGhs)} RMB
+                                </p>
+                                <p className="mt-1 text-sm text-violet-800">
+                                    Example: GH₵100 → ¥{(100 * currentRmbPerGhs).toFixed(2)} · 1 CNY → GH₵
+                                    {formatRate(currentRate.ghs_per_rmb)}
+                                </p>
+                                {currentRmbPerGhs > 1 && (
+                                    <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900">
+                                        This rate looks inverted (too high). Republish as ~0.559 RMB per GHS if buyers
+                                        should pay ~GH₵1.79 for ¥1.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         <form onSubmit={saveSettings} className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
                             <div>
                                 <Label>Buyer instructions</Label>
@@ -193,6 +223,39 @@ export default function ChinaTransferSettings({
                                     value={settingsForm.data.instructions}
                                     onChange={(e) => settingsForm.setData('instructions', e.target.value)}
                                 />
+                            </div>
+                            <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4">
+                                <h3 className="font-bold text-gray-900">Transfer hours</h3>
+                                <p className="mt-1 text-xs text-gray-600">
+                                    Outside these hours buyers see a &quot;We&apos;re currently closed&quot; banner. They
+                                    can still submit — orders queue until open time.
+                                </p>
+                                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <Label>Open time</Label>
+                                        <Input
+                                            type="time"
+                                            className="mt-1"
+                                            value={settingsForm.data.transfer_open_time}
+                                            onChange={(e) =>
+                                                settingsForm.setData('transfer_open_time', e.target.value)
+                                            }
+                                        />
+                                        <InputError message={settingsForm.errors.transfer_open_time} />
+                                    </div>
+                                    <div>
+                                        <Label>Close time</Label>
+                                        <Input
+                                            type="time"
+                                            className="mt-1"
+                                            value={settingsForm.data.transfer_close_time}
+                                            onChange={(e) =>
+                                                settingsForm.setData('transfer_close_time', e.target.value)
+                                            }
+                                        />
+                                        <InputError message={settingsForm.errors.transfer_close_time} />
+                                    </div>
+                                </div>
                             </div>
                             <div className="grid gap-3 sm:grid-cols-3">
                                 <div>
@@ -246,6 +309,22 @@ export default function ChinaTransferSettings({
                                     Accepts any decimal precision (e.g. 0.565, 0.5802). Implies 1 RMB ≈ GH₵
                                     {impliedGhsPerRmb > 0 ? impliedGhsPerRmb.toFixed(4) : '—'}
                                 </p>
+                                {rmbPerGhs > 0 && (
+                                    <p className="mt-2 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-900">
+                                        Preview: buyers will see{' '}
+                                        <span className="font-black">1 GHS → ¥{formatRate(rmbPerGhs)} RMB</span>
+                                        {' · '}
+                                        GH₵100 → ¥{(100 * rmbPerGhs).toFixed(2)}
+                                        {' · '}
+                                        1 CNY → GH₵{impliedGhsPerRmb.toFixed(2)}
+                                    </p>
+                                )}
+                                {rmbPerGhs > 1 && (
+                                    <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                                        Rate above 1 RMB per GHS is unusual. Enter ~0.559 if one cedi should buy about
+                                        ¥0.56.
+                                    </p>
+                                )}
                                 <InputError message={rateForm.errors.rmb_per_ghs ?? rateForm.errors.ghs_per_rmb} />
                             </div>
                             <div className="grid grid-cols-2 gap-3">

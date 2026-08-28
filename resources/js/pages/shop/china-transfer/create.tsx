@@ -219,6 +219,25 @@ export default function ChinaTransferCreate({
                     </div>
                 )}
 
+                <section className="mt-4 space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                    <h2 className="font-bold text-emerald-950">Pay from wallet balance</h2>
+                    <p className="text-sm font-semibold text-emerald-800">
+                        Available: {formatPrice(wallet.available_balance)}
+                    </p>
+                    {quote && (
+                        <p className="text-sm text-emerald-700">Total debit: {formatPrice(quote.total)}</p>
+                    )}
+                    {quote && wallet.available_balance + 0.0001 < quote.total && (
+                        <p className="text-sm font-semibold text-amber-800">
+                            Not enough balance.{' '}
+                            <Link href={route('wallet.manual-top-up')} className="underline">
+                                Top up wallet
+                            </Link>
+                        </p>
+                    )}
+                    <InputError message={form.errors.ghs_amount} />
+                </section>
+
                 <form onSubmit={submit} className="mt-5 space-y-5">
                     {qrFields.map((field) => {
                         const error = form.errors[fieldKey(field.id)] || form.errors[`files.${field.id}`];
@@ -344,27 +363,6 @@ export default function ChinaTransferCreate({
                             </div>
                         );
                     })}
-
-                    <section className="space-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                        <h2 className="font-bold text-emerald-950">Pay from wallet balance</h2>
-                        <p className="text-sm font-semibold text-emerald-800">
-                            Available: {formatPrice(wallet.available_balance)}
-                        </p>
-                        {quote && (
-                            <p className="text-sm text-emerald-700">
-                                Total debit: {formatPrice(quote.total)}
-                            </p>
-                        )}
-                        {quote && wallet.available_balance + 0.0001 < quote.total && (
-                            <p className="text-sm font-semibold text-amber-800">
-                                Not enough balance.{' '}
-                                <Link href={route('wallet.manual-top-up')} className="underline">
-                                    Top up wallet
-                                </Link>
-                            </p>
-                        )}
-                        <InputError message={form.errors.ghs_amount} />
-                    </section>
 
                     <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4">
                         <Label>Payment PIN *</Label>

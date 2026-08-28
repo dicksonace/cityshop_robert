@@ -10,6 +10,8 @@ class ChinaTransferSetting extends Model
         'enabled',
         'channel',
         'instructions',
+        'transfer_open_time',
+        'transfer_close_time',
         'max_converts_per_day',
         'max_rmb_out_per_day',
         'max_rmb_out_per_month',
@@ -30,6 +32,8 @@ class ChinaTransferSetting extends Model
             'enabled' => true,
             'channel' => 'alipay',
             'instructions' => null,
+            'transfer_open_time' => '04:30:00',
+            'transfer_close_time' => '17:00:00',
             'max_converts_per_day' => 30,
         ]);
     }

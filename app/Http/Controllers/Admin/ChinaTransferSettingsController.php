@@ -33,6 +33,8 @@ class ChinaTransferSettingsController extends Controller
                 'max_rmb_out_per_month' => $settings->max_rmb_out_per_month !== null
                     ? (float) $settings->max_rmb_out_per_month
                     : null,
+                'transfer_open_time' => $this->timeForInput($settings->transfer_open_time),
+                'transfer_close_time' => $this->timeForInput($settings->transfer_close_time),
             ],
             'currentRate' => ($rate = $this->transfers->currentRate())
                 ? $this->transfers->ratePayload($rate)
@@ -64,6 +66,8 @@ class ChinaTransferSettingsController extends Controller
             'max_converts_per_day' => ['nullable', 'integer', 'min:1', 'max:500'],
             'max_rmb_out_per_day' => ['nullable', 'numeric', 'min:1'],
             'max_rmb_out_per_month' => ['nullable', 'numeric', 'min:1'],
+            'transfer_open_time' => ['required', 'date_format:H:i'],
+            'transfer_close_time' => ['required', 'date_format:H:i', 'different:transfer_open_time'],
         ]);
 
         foreach (['max_rmb_out_per_day', 'max_rmb_out_per_month'] as $key) {
@@ -80,6 +84,8 @@ class ChinaTransferSettingsController extends Controller
             'max_converts_per_day' => $validated['max_converts_per_day'] ?? 30,
             'max_rmb_out_per_day' => $validated['max_rmb_out_per_day'] ?? null,
             'max_rmb_out_per_month' => $validated['max_rmb_out_per_month'] ?? null,
+            'transfer_open_time' => $validated['transfer_open_time'].':00',
+            'transfer_close_time' => $validated['transfer_close_time'].':00',
         ]);
 
         return back()->with(
@@ -122,9 +128,17 @@ class ChinaTransferSettingsController extends Controller
 
         unset($validated['rmb_per_ghs']);
 
-        $this->transfers->publishRate($request->user(), $validated);
+        $rate = $this->transfers->publishRate($request->user(), $validated);
+        $rmbPerGhs = $rate->rmbPerGhs();
 
-        return back()->with('success', 'New rate published. Existing transfers keep their locked rate.');
+        return back()->with(
+            'success',
+            sprintf(
+                'Rate published: 1 GHS → ¥%s RMB (1 CNY ≈ GH₵%s). Existing transfers keep their locked rate.',
+                rtrim(rtrim(number_format($rmbPerGhs, 4, '.', ''), '0'), '.'),
+                number_format((float) $rate->ghs_per_rmb, 4),
+            ),
+        );
     }
 
     public function storeMethod(Request $request): RedirectResponse
@@ -246,5 +260,14 @@ class ChinaTransferSettingsController extends Controller
         }
 
         return $request->file('qr')->store('china-transfers/methods', 'public');
+    }
+
+    private function timeForInput(?string $time): string
+    {
+        if (! $time) {
+            return '04:30';
+        }
+
+        return substr($time, 0, 5);
     }
 }

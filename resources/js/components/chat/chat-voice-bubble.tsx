@@ -1,12 +1,15 @@
 import { Pause, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import VoiceWaveformBars from '@/components/chat/voice-waveform-bars';
 import { cn } from '@/lib/utils';
+import { extractWaveformFromUrl, fallbackWaveform } from '@/lib/voice-waveform';
 
 type ChatVoiceBubbleProps = {
     src: string;
     durationSeconds?: number | null;
     mine?: boolean;
+    waveform?: number[];
 };
 
 function clock(totalSeconds: number): string {
@@ -16,12 +19,29 @@ function clock(totalSeconds: number): string {
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-export default function ChatVoiceBubble({ src, durationSeconds, mine = false }: ChatVoiceBubbleProps) {
+export default function ChatVoiceBubble({ src, durationSeconds, mine = false, waveform }: ChatVoiceBubbleProps) {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [playing, setPlaying] = useState(false);
     const [position, setPosition] = useState(0);
     const [duration, setDuration] = useState(durationSeconds ?? 0);
     const [speed, setSpeed] = useState(1);
+    const [samples, setSamples] = useState<number[]>(
+        waveform?.length ? waveform : fallbackWaveform(36, durationSeconds ?? 0, src),
+    );
+
+    useEffect(() => {
+        if (waveform?.length) {
+            setSamples(waveform);
+            return;
+        }
+        let cancelled = false;
+        void extractWaveformFromUrl(src).then((next) => {
+            if (!cancelled) setSamples(next);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [src, waveform]);
 
     useEffect(() => {
         const audio = audioRef.current;
@@ -72,43 +92,41 @@ export default function ChatVoiceBubble({ src, durationSeconds, mine = false }: 
         if (audioRef.current) audioRef.current.playbackRate = next;
     };
 
+    const seek = (progress: number) => {
+        const audio = audioRef.current;
+        if (!audio || duration <= 0) return;
+        const next = progress * duration;
+        audio.currentTime = next;
+        setPosition(next);
+    };
+
     const progress = duration > 0 ? Math.min(1, position / duration) : 0;
+    const timeLabel = playing || position > 0 ? clock(position) : clock(duration);
 
     return (
-        <div className="flex min-w-[13.5rem] items-center gap-2">
+        <div className="flex w-[min(100%,15.5rem)] items-center gap-2">
             <audio ref={audioRef} src={src} preload="metadata" data-chat-voice hidden />
             <button
                 type="button"
                 onClick={() => void toggle()}
                 className={cn(
-                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
-                    'bg-[#25D366] text-white',
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+                    mine ? 'bg-[#25D366] text-white' : 'bg-[#25D366] text-white',
                 )}
                 aria-label={playing ? 'Pause voice note' : 'Play voice note'}
             >
-                {playing ? <Pause className="h-5 w-5" fill="currentColor" /> : <Play className="ml-0.5 h-5 w-5" fill="currentColor" />}
+                {playing ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
             </button>
-            <div className="min-w-0 flex-1">
-                <input
-                    type="range"
-                    min={0}
-                    max={1000}
-                    value={Math.round(progress * 1000)}
-                    onChange={(e) => {
-                        const audio = audioRef.current;
-                        if (!audio || duration <= 0) return;
-                        const next = (Number(e.target.value) / 1000) * duration;
-                        audio.currentTime = next;
-                        setPosition(next);
-                    }}
-                    className={cn(
-                        'h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[#c5c9c6]',
-                    )}
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <VoiceWaveformBars
+                    samples={samples}
+                    progress={playing || position > 0 ? progress : null}
+                    activeClassName={mine ? 'bg-[#111B21]' : 'bg-[#111B21]'}
+                    inactiveClassName={mine ? 'bg-[#667781]/35' : 'bg-[#667781]/35'}
+                    onSeek={duration > 0 ? seek : undefined}
                 />
-                <div className="mt-1 flex items-center justify-between text-[11px] font-semibold text-[#667781]">
-                    <span>
-                        {clock(position)} / {clock(duration)}
-                    </span>
+                <div className="flex items-center justify-between text-[11px] font-semibold text-[#667781]">
+                    <span>{timeLabel}</span>
                     <button type="button" onClick={cycleSpeed} className="font-extrabold text-[#111B21]">
                         {speed === 1 ? '1' : speed === 1.5 ? '1.5' : '2'}x
                     </button>

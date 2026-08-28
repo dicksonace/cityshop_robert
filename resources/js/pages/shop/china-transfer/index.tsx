@@ -19,6 +19,13 @@ type Config = {
     enabled: boolean;
     channel_label: string;
     instructions: string | null;
+    transfer_hours?: {
+        configured?: boolean;
+        is_open_now?: boolean;
+        open_time_label?: string | null;
+        close_time_label?: string | null;
+        closed_message?: string | null;
+    } | null;
     rate: {
         ghs_per_rmb: number;
         rmb_per_ghs: number;
@@ -72,6 +79,8 @@ export default function ChinaTransferHub({ config, transfers }: Props) {
                         className="mt-5"
                         rate={config.rate}
                         enabled={config.enabled}
+                        transferHours={config.transfer_hours}
+                        instructions={config.instructions}
                         initialGhs={String(config.rate.min_ghs || '')}
                         onContinue={(ghsAmount) =>
                             router.get(route('wallet.china-transfer.create'), { ghs_amount: ghsAmount })

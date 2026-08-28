@@ -8,6 +8,16 @@ import AdminLayout from '@/layouts/admin-layout';
 import { SharedData } from '@/types';
 import { formatPrice } from '@/types/marketplace';
 
+type TransferField = {
+    id: number;
+    name?: string | null;
+    label: string;
+    type?: string | null;
+    group?: string | null;
+    value: string | null;
+    file_url: string | null;
+};
+
 type Transfer = {
     id: number;
     reference: string;
@@ -32,7 +42,7 @@ type Transfer = {
     rmb_sent_amount: number | null;
     rmb_transfer_ref: string | null;
     user: { id: number; name: string; email: string; mobile: string | null } | null;
-    fields: { id: number; label: string; value: string | null; file_url: string | null }[];
+    fields: TransferField[];
     proofs: { id: number; type: string; url: string; original_name: string | null }[];
     history: { to_label: string; note: string | null; actor: string | null; created_at: string | null }[];
     admin_notes: { id: number; note: string; admin: string | null; created_at: string | null }[];
@@ -40,6 +50,32 @@ type Transfer = {
 
 interface Props {
     transfer: Transfer;
+}
+
+function isQrField(field: TransferField): boolean {
+    if (!field.file_url) {
+        return false;
+    }
+    const blob = `${field.name ?? ''} ${field.label ?? ''}`.toLowerCase();
+    const type = (field.type ?? '').toLowerCase();
+    return ['image', 'document', 'files'].includes(type) || blob.includes('qr');
+}
+
+async function downloadQr(url: string, reference: string) {
+    const res = await fetch(url);
+    if (!res.ok) {
+        throw new Error('Could not download QR');
+    }
+    const blob = await res.blob();
+    const ext = url.toLowerCase().includes('.png') ? 'png' : 'jpg';
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = `alipay_qr_${reference}.${ext}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
 }
 
 export default function ChinaTransferShow({ transfer }: Props) {
@@ -58,6 +94,15 @@ export default function ChinaTransferShow({ transfer }: Props) {
         e.preventDefault();
         rejectForm.post(url);
     };
+
+    const qrFields = transfer.fields.filter(isQrField);
+    const textFields = transfer.fields.filter((field) => {
+        if (isQrField(field)) {
+            return false;
+        }
+        const group = (field.group ?? '').toLowerCase();
+        return !['payment', 'payment_proof', 'proof'].includes(group);
+    });
 
     return (
         <AdminLayout title={transfer.reference} active="china-transfers">
@@ -106,22 +151,51 @@ export default function ChinaTransferShow({ transfer }: Props) {
                     </div>
                 </div>
 
+                {qrFields.map((field) => (
+                    <div key={field.id} className="rounded-2xl border border-gray-200 bg-white p-5">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl" aria-hidden>
+                                ▦
+                            </span>
+                            <h2 className="text-lg font-bold text-gray-900">{field.label || 'Alipay QR code'}</h2>
+                        </div>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Scan or save this QR when sending RMB on Alipay.
+                        </p>
+                        <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                            <a href={field.file_url!} target="_blank" rel="noreferrer" className="block shrink-0">
+                                <img
+                                    src={field.file_url!}
+                                    alt={field.label || 'Alipay QR code'}
+                                    className="max-h-72 w-72 rounded-xl border border-gray-100 bg-slate-50 object-contain p-4"
+                                />
+                            </a>
+                            <div className="flex w-full flex-col gap-2 sm:w-auto">
+                                <Button
+                                    type="button"
+                                    className="bg-orange-600 hover:bg-orange-700"
+                                    onClick={() => downloadQr(field.file_url!, transfer.reference).catch(() => window.open(field.file_url!, '_blank'))}
+                                >
+                                    Download QR
+                                </Button>
+                                <Button type="button" variant="outline" asChild>
+                                    <a href={field.file_url!} target="_blank" rel="noreferrer">
+                                        View full size
+                                    </a>
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+
                 <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-2xl border border-gray-200 bg-white p-4">
                         <h2 className="font-bold">Buyer details</h2>
                         <dl className="mt-3 space-y-2 text-sm">
-                            {transfer.fields.map((field) => (
+                            {textFields.map((field) => (
                                 <div key={field.id}>
                                     <dt className="text-gray-500">{field.label}</dt>
-                                    <dd>
-                                        {field.file_url ? (
-                                            <a href={field.file_url} target="_blank" rel="noreferrer" className="font-semibold text-orange-700">
-                                                Open file
-                                            </a>
-                                        ) : (
-                                            field.value || '—'
-                                        )}
-                                    </dd>
+                                    <dd>{field.value || '—'}</dd>
                                 </div>
                             ))}
                             <div>
