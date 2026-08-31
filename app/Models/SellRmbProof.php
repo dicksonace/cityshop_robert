@@ -28,8 +28,12 @@ class SellRmbProof extends Model
         return $this->belongsTo(User::class, 'uploaded_by');
     }
 
-    public function url(): string
+    public function url(): ?string
     {
+        if (! filled($this->path)) {
+            return null;
+        }
+
         return Storage::disk('public')->url($this->path);
     }
 }

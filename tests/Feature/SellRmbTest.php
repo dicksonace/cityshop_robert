@@ -152,6 +152,49 @@ class SellRmbTest extends TestCase
         $this->assertEquals(0.15, (float) app(SellRmbService::class)->currentRate()->usd_per_rmb);
     }
 
+    public function test_buyer_show_returns_processing_payload_after_ghs_submit(): void
+    {
+        Storage::fake('public');
+        Notification::fake();
+
+        $opened = $this->openService();
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        app(SellRmbService::class)->publishRate($opened['admin'], [
+            'ghs_per_rmb' => 1.712,
+            'fee_mode' => 'flat',
+            'fee_value' => 0,
+            'min_rmb' => 20,
+            'max_rmb' => 50000,
+        ]);
+
+        $payload = [
+            'rmb_amount' => 500,
+            'payout_currency' => 'ghs',
+            'receive_method_id' => $opened['method']->id,
+            'fields' => [],
+            'files' => [],
+        ];
+
+        foreach (SellRmbFormField::query()->where('active', true)->get() as $field) {
+            if ($field->isFile()) {
+                $payload['files'][$field->id] = UploadedFile::fake()->image($field->name.'.jpg');
+            } elseif ($field->required) {
+                $payload['fields'][$field->id] = $field->type === 'phone' ? '0530790002' : 'Robert Asare';
+            }
+        }
+
+        Sanctum::actingAs($buyer);
+        $create = $this->postJson('/api/v1/wallet/sell-rmb', $payload)->assertCreated();
+        $id = $create->json('data.id');
+
+        $this->getJson("/api/v1/wallet/sell-rmb/{$id}")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'submitted')
+            ->assertJsonPath('data.status_label', 'Processing')
+            ->assertJsonPath('data.processing', true)
+            ->assertJsonPath('data.quote.payout_currency', 'ghs');
+    }
+
     public function test_admin_mark_paid_requires_proof_and_complete_requires_paid_proof(): void
     {
         Storage::fake('public');

@@ -539,7 +539,8 @@ class SellRmbService
             'id' => $transfer->id,
             'reference' => $transfer->reference,
             'status' => $transfer->status->value,
-            'status_label' => $transfer->status->label(),
+            'status_label' => $forAdmin ? $transfer->status->label() : $transfer->status->buyerLabel(),
+            'processing' => ! $forAdmin && $transfer->status->isProcessingForBuyer(),
             'quote' => $quote,
             'needs_approval' => $transfer->needs_approval,
             'receive_method' => $transfer->receiveMethod ? $this->methodPayload($transfer->receiveMethod) : null,
@@ -588,7 +589,7 @@ class SellRmbService
                 'mime' => $p->mime,
                 'note' => $p->note,
                 'created_at' => $p->created_at?->toIso8601String(),
-            ])->values()->all(),
+            ])->filter(fn (array $row) => filled($row['url']))->values()->all(),
             'history' => $transfer->statusHistory->map(fn (SellRmbStatusHistory $h) => [
                 'from' => $h->from_status?->value,
                 'to' => $h->to_status->value,

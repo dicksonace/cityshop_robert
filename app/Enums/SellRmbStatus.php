@@ -29,6 +29,32 @@ enum SellRmbStatus: string
         };
     }
 
+    /** Buyer-facing label (rmb-wallet style). */
+    public function buyerLabel(): string
+    {
+        return match ($this) {
+            self::Submitted => 'Processing',
+            self::RmbVerification, self::RmbReceived => 'Verifying payment',
+            self::PayoutProcessing => 'Processing payout',
+            self::Paid => 'Payout sent',
+            self::Completed => 'Completed',
+            self::Rejected => 'Rejected',
+            self::Cancelled => 'Cancelled',
+            self::Failed => 'Failed',
+        };
+    }
+
+    public function isProcessingForBuyer(): bool
+    {
+        return in_array($this, [
+            self::Submitted,
+            self::RmbVerification,
+            self::RmbReceived,
+            self::PayoutProcessing,
+            self::Paid,
+        ], true);
+    }
+
     public function isOpen(): bool
     {
         return in_array($this, [
