@@ -63,7 +63,7 @@ const TERMINAL = ['completed', 'cancelled', 'rejected', 'failed'];
 
 export default function SellRmbHub({ config, transfers }: Props) {
     const { flash } = usePage<SharedData>().props;
-    const [rmb, setRmb] = useState(String(config.rate?.min_rmb ?? 1000));
+    const [rmb, setRmb] = useState(String(config.rate?.min_rmb ?? 50));
 
     const quote = useMemo(() => {
         const amount = Number(rmb);

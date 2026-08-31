@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Check, Clock, Eye, Play, Smartphone, X } from 'lucide-react';
+import { Check, Clock, Copy, Eye, Play, Smartphone, X } from 'lucide-react';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { RmbAutoRefreshChip, RmbTransferStatusBadge } from '@/components/china/rmb-transfer-status-badge';
@@ -69,14 +69,44 @@ function formatDate(value: string | null): string {
     return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function momoLine(account?: PayoutAccount): string {
-    if (!account?.number) return 'Not provided';
-    const parts = [account.network, account.number].filter(Boolean);
-    return parts.join(' · ');
-}
-
 function canProcess(item: Transfer): boolean {
     return ['submitted', 'rmb_verification'].includes(item.status);
+}
+
+function MomoPayoutCopy({
+    account,
+    copyKey,
+    copiedKey,
+    onCopy,
+    title = 'MoMo payout',
+}: {
+    account: PayoutAccount;
+    copyKey: string;
+    copiedKey: string | null;
+    onCopy: (value: string, key: string) => void;
+    title?: string;
+}) {
+    const number = account.number?.trim() ?? '';
+    if (!number) return null;
+
+    return (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">{title}</p>
+            {account.network && <p className="mt-0.5 text-xs text-gray-500">{account.network}</p>}
+            <div className="mt-2 flex items-center gap-2">
+                <p className="min-w-0 flex-1 truncate font-mono text-lg font-bold tracking-wide text-gray-900">{number}</p>
+                <button
+                    type="button"
+                    onClick={() => onCopy(number, copyKey)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white hover:bg-slate-800"
+                >
+                    {copiedKey === copyKey ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedKey === copyKey ? 'Copied' : 'Copy'}
+                </button>
+            </div>
+            {account.account_name && <p className="mt-1 text-xs text-gray-500">{account.account_name}</p>}
+        </div>
+    );
 }
 
 function canApprove(item: Transfer): boolean {
@@ -91,8 +121,37 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
     const [rejectTarget, setRejectTarget] = useState<ModalTransfer>(null);
     const [rejectReason, setRejectReason] = useState('');
     const [approveProof, setApproveProof] = useState<File | null>(null);
+    const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [copiedKey, setCopiedKey] = useState<string | null>(null);
     const proofInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (!approveProof || !approveProof.type.startsWith('image/')) {
+            setProofPreviewUrl(null);
+            return;
+        }
+        const url = URL.createObjectURL(approveProof);
+        setProofPreviewUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [approveProof]);
+
+    const copyNumber = async (value: string, key: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopiedKey(key);
+            window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 1600);
+        } catch {
+            const input = document.createElement('textarea');
+            input.value = value;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            setCopiedKey(key);
+            window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 1600);
+        }
+    };
 
     useEffect(() => {
         const id = window.setInterval(() => {
@@ -198,6 +257,13 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
 
     const onProofChange = (event: ChangeEvent<HTMLInputElement>) => {
         setApproveProof(event.target.files?.[0] ?? null);
+        event.target.value = '';
+    };
+
+    const formatProofSize = (bytes: number) => {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     };
 
     const openCount = dashboard.open_count ?? transfers.data.length;
@@ -350,12 +416,13 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                                     </div>
 
                                     {item.payout_account?.number && (
-                                        <div className="mb-3 rounded-lg bg-green-50 p-3 text-sm">
-                                            <p className="text-xs text-gray-600">MoMo payout</p>
-                                            <p className="font-medium text-green-800">{momoLine(item.payout_account)}</p>
-                                            {item.payout_account.account_name && (
-                                                <p className="text-xs text-gray-500">{item.payout_account.account_name}</p>
-                                            )}
+                                        <div className="mb-3">
+                                            <MomoPayoutCopy
+                                                account={item.payout_account}
+                                                copyKey={`list-${item.id}`}
+                                                copiedKey={copiedKey}
+                                                onCopy={copyNumber}
+                                            />
                                         </div>
                                     )}
 
@@ -431,16 +498,13 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                                 </p>
                             </div>
                             {processTarget.payout_account?.number && (
-                                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
-                                    <p className="flex items-center gap-2 font-semibold text-emerald-800">
-                                        <Smartphone className="h-4 w-4" />
-                                        Send payout to:
-                                    </p>
-                                    <p className="mt-1 font-medium">{momoLine(processTarget.payout_account)}</p>
-                                    {processTarget.payout_account.account_name && (
-                                        <p className="text-gray-600">{processTarget.payout_account.account_name}</p>
-                                    )}
-                                </div>
+                                <MomoPayoutCopy
+                                    account={processTarget.payout_account}
+                                    copyKey={`process-${processTarget.id}`}
+                                    copiedKey={copiedKey}
+                                    onCopy={copyNumber}
+                                    title="Send payout to"
+                                />
                             )}
                             <p className="text-xs text-gray-500">The user will be notified that their payout is being processed.</p>
                             <DialogFooter className="gap-2 sm:gap-2">
@@ -475,28 +539,83 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                                 Money (not wallet credit).
                             </p>
                             {approveTarget.payout_account?.number && (
-                                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
-                                    <p className="font-semibold text-emerald-800">Send GHS to MoMo:</p>
-                                    <p className="mt-1">{momoLine(approveTarget.payout_account)}</p>
-                                    {approveTarget.payout_account.account_name && (
-                                        <p className="text-gray-600">Name: {approveTarget.payout_account.account_name}</p>
-                                    )}
-                                </div>
+                                <MomoPayoutCopy
+                                    account={approveTarget.payout_account}
+                                    copyKey={`approve-${approveTarget.id}`}
+                                    copiedKey={copiedKey}
+                                    onCopy={copyNumber}
+                                    title="Send GHS to MoMo"
+                                />
                             )}
                             <p className="text-xs text-gray-500">Only complete after MoMo payment is sent. Proof upload is optional.</p>
                             <div>
-                                <p className="mb-2 text-sm font-medium">Upload MoMo Receipt/Proof (Optional)</p>
-                                <button
-                                    type="button"
-                                    onClick={() => proofInputRef.current?.click()}
-                                    className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 px-4 py-8 text-sm text-gray-600 hover:border-blue-400 hover:bg-blue-50/40"
-                                >
-                                    <span className="font-medium text-blue-600">
-                                        {approveProof ? approveProof.name : 'Click to upload MoMo payment screenshot'}
-                                    </span>
-                                    <span className="mt-1 text-xs">JPG, PNG, or PDF · max 5MB</span>
-                                </button>
-                                <input ref={proofInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" className="hidden" onChange={onProofChange} />
+                                <p className="mb-1 text-sm font-semibold text-gray-900">Upload MoMo proof (optional)</p>
+                                <p className="mb-3 text-xs text-gray-500">
+                                    Add MoMo payment screenshot if you want a record. Preview before completing.
+                                </p>
+                                <input
+                                    ref={proofInputRef}
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.webp,.pdf"
+                                    className="hidden"
+                                    onChange={onProofChange}
+                                />
+                                {!approveProof ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => proofInputRef.current?.click()}
+                                        className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-sm text-gray-600 hover:border-emerald-400 hover:bg-emerald-50/40"
+                                    >
+                                        <span className="font-semibold text-gray-700">Upload MoMo payment screenshot</span>
+                                        <span className="mt-1 text-xs text-gray-500">JPG, PNG, or PDF · max 5MB</span>
+                                        <span className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white">
+                                            Choose Image
+                                        </span>
+                                    </button>
+                                ) : (
+                                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                                        <div className="flex items-start gap-3">
+                                            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+                                                <Check className="h-4 w-4" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-semibold text-gray-900">{approveProof.name}</p>
+                                                <p className="text-xs text-gray-500">{formatProofSize(approveProof.size)}</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => proofInputRef.current?.click()}
+                                                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700"
+                                            >
+                                                Change
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setApproveProof(null)}
+                                                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700"
+                                                aria-label="Remove proof"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                        {proofPreviewUrl && (
+                                            <button
+                                                type="button"
+                                                onClick={() => window.open(proofPreviewUrl, '_blank')}
+                                                className="mt-3 block w-full overflow-hidden rounded-xl border border-emerald-100 bg-white"
+                                            >
+                                                <img
+                                                    src={proofPreviewUrl}
+                                                    alt="MoMo proof preview"
+                                                    className="max-h-48 w-full object-contain"
+                                                />
+                                            </button>
+                                        )}
+                                        <p className="mt-2 text-center text-xs font-medium text-gray-500">
+                                            {proofPreviewUrl ? 'Click image to view full size' : 'PDF selected — no image preview'}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                             <DialogFooter className="gap-2 sm:gap-2">
                                 <Button variant="outline" onClick={() => setApproveTarget(null)} disabled={busy}>
