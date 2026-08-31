@@ -149,13 +149,17 @@ export default function SellRmbHub({ config, transfers }: Props) {
                         <p className="mt-2 text-xs text-gray-500">
                             Min ¥{config.rate.min_rmb.toFixed(0)} · Max ¥{config.rate.max_rmb.toFixed(0)}
                         </p>
-                        <p className="mt-4 text-sm font-semibold text-gray-700">You receive (GHS)</p>
-                        {quote && (
-                            <div className="mt-3 flex justify-between border-t pt-3 text-sm">
-                                <span className="font-bold text-gray-800">Estimated payout</span>
-                                <span className="font-black text-emerald-700">{formatGhs(quote.ghsPayout)}</span>
-                            </div>
-                        )}
+                        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4">
+                            <p className="text-sm font-bold text-emerald-800">You receive (GHS)</p>
+                            <p className="mt-1 text-3xl font-black tracking-tight text-emerald-900">
+                                {quote ? formatGhs(quote.ghsPayout) : 'GH₵0.00'}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-500">
+                                {quote
+                                    ? `Estimated MoMo payout for ¥${Number(rmb || 0).toFixed(2)}`
+                                    : 'Enter RMB above to see your GHS payout'}
+                            </p>
+                        </div>
                         {config.enabled ? (
                             <Button
                                 className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700"
