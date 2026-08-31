@@ -54,6 +54,30 @@ class SellRmbTest extends TestCase
             ->assertJsonValidationErrors('rmb_amount');
     }
 
+    public function test_admin_can_store_alipay_method_from_multipart_form(): void
+    {
+        Storage::fake('public');
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        Sanctum::actingAs($admin);
+
+        $this->post('/api/v1/admin/sell-rmb/methods', [
+            'name' => 'Alipay',
+            'type' => 'alipay',
+            'account_name' => 'RMB Wallet',
+            'proof_required' => 'true',
+            'active' => 'true',
+            'qr' => UploadedFile::fake()->image('alipay-qr.jpg'),
+        ])->assertCreated()
+            ->assertJsonPath('data.account_name', 'RMB Wallet');
+
+        $this->assertDatabaseHas('sell_rmb_receive_methods', [
+            'type' => 'alipay',
+            'account_name' => 'RMB Wallet',
+            'proof_required' => true,
+            'active' => true,
+        ]);
+    }
+
     public function test_config_exposes_live_separately_from_open(): void
     {
         Storage::fake('public');

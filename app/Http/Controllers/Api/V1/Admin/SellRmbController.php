@@ -266,9 +266,9 @@ class SellRmbController extends Controller
             'account_number' => ['nullable', 'string', 'max:80'],
             'network' => ['nullable', 'string', 'max:40'],
             'instructions' => ['nullable', 'string', 'max:2000'],
-            'proof_required' => ['sometimes', 'boolean'],
+            'proof_required' => ['sometimes'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'active' => ['sometimes', 'boolean'],
+            'active' => ['sometimes'],
             'qr' => ['nullable', 'image', 'max:4096'],
         ]);
 
