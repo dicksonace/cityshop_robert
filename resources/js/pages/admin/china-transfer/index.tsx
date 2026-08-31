@@ -106,24 +106,39 @@ export default function ChinaTransferIndex({ transfers, status, search, dashboar
                     <Button type="submit">Search</Button>
                 </form>
 
-                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                    {transfers.data.length === 0 && <p className="p-6 text-sm text-gray-500">No transfers.</p>}
+                <div className="space-y-3">
+                    {transfers.data.length === 0 && (
+                        <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+                            No transfers.
+                        </div>
+                    )}
                     {transfers.data.map((item) => (
                         <Link
                             key={item.id}
                             href={route('admin.china-transfers.show', item.id)}
-                            className="flex items-center justify-between gap-4 border-b border-gray-100 px-4 py-3 last:border-0 hover:bg-gray-50"
+                            className="block rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/30"
                         >
-                            <div>
-                                <p className="font-bold text-gray-900">{item.reference}</p>
-                                <p className="text-sm text-gray-500">
-                                    {item.user?.name} · {item.user?.mobile || 'no phone'}
-                                </p>
+                            <div className="mb-2 flex items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-base font-bold text-gray-900">{item.reference}</p>
+                                    <p className="mt-1 text-sm font-semibold text-gray-800">{item.user?.name ?? 'Buyer'}</p>
+                                    {item.user?.mobile && <p className="text-xs text-gray-500">{item.user.mobile}</p>}
+                                </div>
+                                <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">
+                                    {item.status_label}
+                                </span>
                             </div>
-                            <div className="text-right">
-                                <p className="font-semibold">{formatPrice(item.quote.total_payable_ghs)}</p>
-                                <p className="text-xs text-orange-700">{item.status_label}</p>
+                            <div className="my-3 grid grid-cols-2 gap-2">
+                                <div className="rounded-xl bg-orange-50 p-3 text-center">
+                                    <p className="text-xs text-gray-600">GHS paid</p>
+                                    <p className="text-base font-bold text-orange-700">{formatPrice(item.quote.total_payable_ghs)}</p>
+                                </div>
+                                <div className="rounded-xl bg-red-50 p-3 text-center">
+                                    <p className="text-xs text-gray-600">RMB to send</p>
+                                    <p className="text-base font-bold text-red-700">¥{item.quote.rmb_amount.toFixed(2)}</p>
+                                </div>
                             </div>
+                            <div className="rounded-xl bg-blue-600 px-4 py-2.5 text-center text-sm font-bold text-white">Open transfer</div>
                         </Link>
                     ))}
                 </div>

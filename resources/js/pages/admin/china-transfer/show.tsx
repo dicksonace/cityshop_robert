@@ -285,15 +285,14 @@ export default function ChinaTransferShow({ transfer }: Props) {
                                 className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4"
                                 onSubmit={(e) => {
                                     e.preventDefault();
-                                    if (!finishForm.data.proof) return;
                                     finishForm.post(route('admin.china-transfers.complete-with-proof', transfer.id), {
-                                        forceFormData: true,
+                                        forceFormData: Boolean(finishForm.data.proof),
                                     });
                                 }}
                             >
-                                <h2 className="font-bold text-emerald-950">Upload proof & complete</h2>
+                                <h2 className="font-bold text-emerald-950">Complete transfer</h2>
                                 <p className="text-xs text-emerald-900">
-                                    Add your Alipay screenshot, review it, then complete the transfer.
+                                    Send Alipay RMB, then Complete. Proof screenshot is optional (same as Sell RMB).
                                 </p>
                                 <div>
                                     <Label>RMB amount sent</Label>
@@ -312,14 +311,14 @@ export default function ChinaTransferShow({ transfer }: Props) {
                                     />
                                 </div>
                                 <div>
-                                    <Label>Proof image or PDF</Label>
+                                    <Label>Proof image or PDF (optional)</Label>
                                     {!finishForm.data.proof ? (
                                         <button
                                             type="button"
                                             onClick={() => proofInputRef.current?.click()}
                                             className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-emerald-300 bg-white px-4 py-8 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
                                         >
-                                            Add proof screenshot
+                                            Add proof screenshot (optional)
                                         </button>
                                     ) : (
                                         <div className="mt-2 space-y-3 rounded-xl border border-emerald-300 bg-white p-3">
@@ -404,10 +403,10 @@ export default function ChinaTransferShow({ transfer }: Props) {
                                 </div>
                                 <Button
                                     type="submit"
-                                    disabled={!finishForm.data.proof || finishForm.processing}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300"
+                                    disabled={finishForm.processing}
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700"
                                 >
-                                    {finishForm.processing ? 'Completing…' : 'Complete transfer'}
+                                    {finishForm.processing ? 'Completing…' : 'Complete'}
                                 </Button>
                             </form>
                         )}

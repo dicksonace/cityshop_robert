@@ -89,7 +89,7 @@ class ChinaTransferController extends Controller
     {
         return $this->run(
             fn () => $this->transfers->uploadProofAndComplete($chinaTransfer, $request->user(), $request),
-            'Proof uploaded. Transfer completed.',
+            'Transfer completed.',
             $chinaTransfer,
         );
     }

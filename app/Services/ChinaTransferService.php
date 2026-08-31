@@ -547,7 +547,8 @@ class ChinaTransferService
             'rmb_transfer_ref' => ['nullable', 'string', 'max:120'],
             'rmb_sent_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
-            'proof' => ['required', 'file', 'max:8192', 'mimes:jpg,jpeg,png,webp,pdf'],
+            // Alipay send proof is optional — same idea as Sell RMB MoMo proof.
+            'proof' => ['nullable', 'file', 'max:8192', 'mimes:jpg,jpeg,png,webp,pdf'],
         ]);
 
         $sentAmount = isset($validated['rmb_sent_amount']) && (float) $validated['rmb_sent_amount'] > 0
@@ -560,18 +561,20 @@ class ChinaTransferService
             ]);
         }
 
-        $file = $request->file('proof');
-        $path = $file->store('china-transfers/'.$transfer->id.'/rmb-proof', 'public');
+        if ($request->hasFile('proof')) {
+            $file = $request->file('proof');
+            $path = $file->store('china-transfers/'.$transfer->id.'/rmb-proof', 'public');
 
-        ChinaTransferProof::create([
-            'china_transfer_id' => $transfer->id,
-            'type' => 'rmb_sent',
-            'path' => $path,
-            'original_name' => $file->getClientOriginalName(),
-            'mime' => $file->getMimeType(),
-            'note' => $validated['note'] ?? null,
-            'uploaded_by' => $admin->id,
-        ]);
+            ChinaTransferProof::create([
+                'china_transfer_id' => $transfer->id,
+                'type' => 'rmb_sent',
+                'path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime' => $file->getMimeType(),
+                'note' => $validated['note'] ?? null,
+                'uploaded_by' => $admin->id,
+            ]);
+        }
 
         return $this->transition($transfer, ChinaTransferStatus::RmbSent, $admin, $validated['note'] ?? 'RMB sent', [
             'rmb_sent_amount' => round($sentAmount, 2),
@@ -585,12 +588,6 @@ class ChinaTransferService
     public function complete(ChinaTransfer $transfer, User $admin): ChinaTransfer
     {
         $this->assertAdminAction($transfer, [ChinaTransferStatus::RmbSent]);
-
-        if (! $transfer->proofs()->where('type', 'rmb_sent')->exists()) {
-            throw ValidationException::withMessages([
-                'proof' => 'Upload RMB transfer proof before completing.',
-            ]);
-        }
 
         return $this->transition($transfer, ChinaTransferStatus::Completed, $admin, 'Completed', [
             'completed_at' => now(),
@@ -618,9 +615,22 @@ class ChinaTransferService
             if ($transfer->status === ChinaTransferStatus::Processing) {
                 $transfer = $this->markSent($transfer, $admin, $request);
             } elseif ($transfer->status === ChinaTransferStatus::RmbSent) {
-                if (! $transfer->proofs()->where('type', 'rmb_sent')->exists()) {
-                    throw ValidationException::withMessages([
-                        'proof' => 'Upload RMB transfer proof before completing.',
+                // Optional late proof upload before completing.
+                if ($request->hasFile('proof') && ! $transfer->proofs()->where('type', 'rmb_sent')->exists()) {
+                    $request->validate([
+                        'proof' => ['file', 'max:8192', 'mimes:jpg,jpeg,png,webp,pdf'],
+                        'note' => ['nullable', 'string', 'max:1000'],
+                    ]);
+                    $file = $request->file('proof');
+                    $path = $file->store('china-transfers/'.$transfer->id.'/rmb-proof', 'public');
+                    ChinaTransferProof::create([
+                        'china_transfer_id' => $transfer->id,
+                        'type' => 'rmb_sent',
+                        'path' => $path,
+                        'original_name' => $file->getClientOriginalName(),
+                        'mime' => $file->getMimeType(),
+                        'note' => $request->input('note'),
+                        'uploaded_by' => $admin->id,
                     ]);
                 }
             } else {

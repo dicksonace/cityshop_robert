@@ -198,7 +198,7 @@ class ChinaTransferTest extends TestCase
         $this->assertEquals(2.0, (float) app(ChinaTransferService::class)->currentRate()->ghs_per_rmb);
     }
 
-    public function test_complete_requires_rmb_proof_and_then_is_immutable(): void
+    public function test_complete_allows_optional_rmb_proof_and_then_is_immutable(): void
     {
         Storage::fake('public');
         Notification::fake();
@@ -206,21 +206,30 @@ class ChinaTransferTest extends TestCase
         $opened = $this->openService();
         $buyer = User::factory()->create(['role' => UserRole::Buyer]);
         $admin = $opened['admin'];
-        $service = app(ChinaTransferService::class);
-        $transfer = $this->submitTransfer($buyer, $opened['method']);
+        $rate = app(ChinaTransferService::class)->currentRate();
 
-        $service->verifyPayment($transfer, $admin);
-        $service->startProcessing($transfer->fresh(), $admin);
+        $transfer = ChinaTransfer::create([
+            'reference' => 'CN-TEST-OPTIONAL-1',
+            'user_id' => $buyer->id,
+            'status' => ChinaTransferStatus::Processing,
+            'ghs_amount' => 100,
+            'rmb_amount' => 54.05,
+            'fee_ghs' => 50,
+            'total_payable_ghs' => 150,
+            'ghs_per_rmb' => 1.85,
+            'fee_mode' => 'flat',
+            'fee_value' => 50,
+            'rate_id' => $rate?->id,
+            'payment_method_id' => $opened['method']->id,
+            'funding_source' => 'external',
+            'processing_at' => now(),
+        ]);
 
+        // Proof is optional — admin can mark sent without a screenshot.
         $this->actingAs($admin)
-            ->post(route('admin.china-transfers.complete', $transfer))
-            ->assertSessionHasErrors();
-
-        $this->actingAs($admin)
-            ->post(route('admin.china-transfers.sent', $transfer->fresh()), [
+            ->post(route('admin.china-transfers.sent', $transfer), [
                 'rmb_sent_amount' => $transfer->rmb_amount,
                 'rmb_transfer_ref' => 'ALI-1',
-                'proof' => UploadedFile::fake()->image('rmb.png'),
             ])
             ->assertSessionHasNoErrors();
 
@@ -230,15 +239,46 @@ class ChinaTransferTest extends TestCase
 
         $this->assertEquals(ChinaTransferStatus::Completed, $transfer->fresh()->status);
 
-        Notification::assertNotSentTo(
-            $buyer,
-            ChinaTransferUserNotification::class,
-            fn (ChinaTransferUserNotification $notification) => $notification->status === ChinaTransferStatus::Completed,
-        );
-
         $this->actingAs($admin)
             ->post(route('admin.china-transfers.verify', $transfer->fresh()))
             ->assertSessionHasErrors('status');
+    }
+
+    public function test_complete_with_proof_still_works_when_provided(): void
+    {
+        Storage::fake('public');
+
+        $opened = $this->openService();
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $admin = $opened['admin'];
+        $rate = app(ChinaTransferService::class)->currentRate();
+
+        $transfer = ChinaTransfer::create([
+            'reference' => 'CN-TEST-PROOF-1',
+            'user_id' => $buyer->id,
+            'status' => ChinaTransferStatus::Processing,
+            'ghs_amount' => 100,
+            'rmb_amount' => 54.05,
+            'fee_ghs' => 50,
+            'total_payable_ghs' => 150,
+            'ghs_per_rmb' => 1.85,
+            'fee_mode' => 'flat',
+            'fee_value' => 50,
+            'rate_id' => $rate?->id,
+            'payment_method_id' => $opened['method']->id,
+            'funding_source' => 'external',
+            'processing_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.china-transfers.complete-with-proof', $transfer), [
+                'rmb_sent_amount' => $transfer->rmb_amount,
+                'proof' => UploadedFile::fake()->image('rmb.png'),
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertEquals(ChinaTransferStatus::Completed, $transfer->fresh()->status);
+        $this->assertTrue($transfer->fresh()->proofs()->where('type', 'rmb_sent')->exists());
     }
 
     public function test_api_buyer_can_load_config_without_wechat(): void

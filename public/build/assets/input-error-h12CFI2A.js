@@ -1,1 +1,0 @@
-import{j as n,t as s}from"./app-CbcFsyGi.js";function o({message:t,className:r="",...e}){return t?n.jsx("p",{...e,className:s("text-sm text-red-600 dark:text-red-400",r),children:t}):null}export{o as I};

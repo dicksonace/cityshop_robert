@@ -103,7 +103,7 @@ class ChinaTransferController extends Controller
     {
         $this->transfers->uploadProofAndComplete($chinaTransfer, $request->user(), $request);
 
-        return back()->with('success', 'Proof uploaded. Transfer completed.');
+        return back()->with('success', 'Transfer completed.');
     }
 
     public function fail(Request $request, ChinaTransfer $chinaTransfer): RedirectResponse
