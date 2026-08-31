@@ -116,8 +116,6 @@ class SellRmbController extends Controller
         $settings = $this->sellRmb->settings();
 
         $rate = $this->sellRmb->currentRate();
-        $activeMethods = SellRmbReceiveMethod::query()->where('active', true)->get();
-        $qrMethod = $activeMethods->first(fn (SellRmbReceiveMethod $m) => filled($m->qr_path) || in_array($m->type, ['bank', 'other'], true));
 
         return response()->json([
             'settings' => [
@@ -130,12 +128,7 @@ class SellRmbController extends Controller
             'methods' => SellRmbReceiveMethod::query()->orderBy('sort_order')->get()->map(fn (SellRmbReceiveMethod $m) => $this->sellRmb->methodPayload($m)),
             'fields' => SellRmbFormField::query()->orderBy('group')->orderBy('sort_order')->get()->map(fn (SellRmbFormField $f) => $this->sellRmb->fieldPayload($f)),
             'open' => $this->sellRmb->isOpen(),
-            'readiness' => [
-                'live_toggle' => (bool) $settings->enabled,
-                'rate_published' => $rate !== null,
-                'alipay_qr' => $qrMethod !== null,
-                'open' => $this->sellRmb->isOpen(),
-            ],
+            'readiness' => $this->sellRmb->readinessPayload(),
         ]);
     }
 
@@ -189,6 +182,12 @@ class SellRmbController extends Controller
         $validated['qr_path'] = $this->storeQr($request);
         $validated['sort_order'] = $validated['sort_order'] ?? ((int) SellRmbReceiveMethod::max('sort_order')) + 1;
         unset($validated['qr']);
+
+        if (in_array($validated['type'], ['alipay', 'wechat'], true) && blank($validated['qr_path'])) {
+            throw ValidationException::withMessages([
+                'qr' => 'Upload a QR code for Alipay or WeChat receive methods.',
+            ]);
+        }
 
         $method = SellRmbReceiveMethod::create($validated);
 

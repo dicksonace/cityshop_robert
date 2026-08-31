@@ -54,6 +54,54 @@ class SellRmbTest extends TestCase
             ->assertJsonValidationErrors('rmb_amount');
     }
 
+    public function test_config_exposes_live_separately_from_open(): void
+    {
+        Storage::fake('public');
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        SellRmbSetting::current()->update(['enabled' => true]);
+        app(SellRmbService::class)->publishRate(User::factory()->create(['role' => UserRole::Admin]), [
+            'ghs_per_rmb' => 1.25,
+            'fee_mode' => 'flat',
+            'fee_value' => 0,
+            'min_rmb' => 100,
+            'max_rmb' => 50000,
+        ]);
+
+        Sanctum::actingAs($buyer);
+        $this->getJson('/api/v1/wallet/sell-rmb')
+            ->assertOk()
+            ->assertJsonPath('config.live', true)
+            ->assertJsonPath('config.open', false)
+            ->assertJsonPath('config.enabled', false)
+            ->assertJsonPath('config.readiness.rate_published', true)
+            ->assertJsonPath('config.readiness.alipay_qr', false)
+            ->assertJsonPath('config.status_message', 'Alipay QR not uploaded yet.')
+            ->assertJsonCount(0, 'config.receive_methods');
+
+        SellRmbReceiveMethod::create([
+            'name' => 'Alipay',
+            'type' => 'alipay',
+            'account_name' => 'CityShop',
+            'active' => true,
+            'sort_order' => 1,
+            'qr_path' => 'sell-rmb/methods/test-qr.png',
+        ]);
+
+        $this->getJson('/api/v1/wallet/sell-rmb')
+            ->assertOk()
+            ->assertJsonPath('config.live', true)
+            ->assertJsonPath('config.open', true)
+            ->assertJsonPath('config.enabled', true);
+
+        SellRmbSetting::current()->update(['enabled' => false]);
+
+        $this->getJson('/api/v1/wallet/sell-rmb')
+            ->assertOk()
+            ->assertJsonPath('config.live', false)
+            ->assertJsonPath('config.open', false)
+            ->assertJsonPath('config.enabled', false);
+    }
+
     public function test_create_locks_rate_snapshot(): void
     {
         Storage::fake('public');

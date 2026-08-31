@@ -93,9 +93,9 @@ export default function StatusViewer({
                     </p>
                 )}
                 {item.type === 'image' && item.body?.trim() && (
-                    <p className="absolute inset-x-0 bottom-6 px-4 text-center text-sm font-medium text-white">
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-4 pb-6 pt-10 text-center text-sm font-medium text-white">
                         {item.body}
-                    </p>
+                    </div>
                 )}
             </div>
         </div>,

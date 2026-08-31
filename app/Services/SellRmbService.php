@@ -55,13 +55,58 @@ class SellRmbService
 
     public function hasReadyReceiveMethod(): bool
     {
+        return $this->readyReceiveMethodsQuery()->exists();
+    }
+
+    /**
+     * Active receive methods buyers can use (Alipay/WeChat must have a QR uploaded).
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<SellRmbReceiveMethod>
+     */
+    public function readyReceiveMethodsQuery()
+    {
         return SellRmbReceiveMethod::query()
             ->where('active', true)
             ->where(function ($q) {
-                $q->whereIn('type', ['bank', 'other'])
-                    ->orWhereNotNull('qr_path');
-            })
-            ->exists();
+                $q->where(function ($inner) {
+                    $inner->whereIn('type', ['alipay', 'wechat'])
+                        ->whereNotNull('qr_path');
+                })->orWhereIn('type', ['bank', 'other']);
+            });
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    public function readinessPayload(): array
+    {
+        $settings = $this->settings();
+
+        return [
+            'live' => (bool) $settings->enabled,
+            'rate_published' => $this->currentRate() !== null,
+            'alipay_qr' => $this->hasReadyReceiveMethod(),
+            'open' => $this->isOpen(),
+        ];
+    }
+
+    public function buyerStatusMessage(): ?string
+    {
+        $readiness = $this->readinessPayload();
+
+        if (! $readiness['live']) {
+            return 'Sell RMB is paused by admin.';
+        }
+
+        if (! $readiness['rate_published']) {
+            return 'Buying rate not published yet.';
+        }
+
+        if (! $readiness['alipay_qr']) {
+            return 'Alipay QR not uploaded yet.';
+        }
+
+        return null;
     }
 
     public function replaceMethodQr(SellRmbReceiveMethod $method, UploadedFile $file): SellRmbReceiveMethod
@@ -430,14 +475,17 @@ class SellRmbService
         $quote = $rate ? $this->quote((float) $rate->min_rmb, 'ghs', $rate) : null;
 
         return [
+            'live' => (bool) $settings->enabled,
+            'open' => $this->isOpen(),
             'enabled' => $this->isOpen(),
+            'readiness' => $this->readinessPayload(),
+            'status_message' => $this->buyerStatusMessage(),
             'instructions' => $settings->instructions,
             'receive_instructions' => $settings->receive_instructions,
             'rate' => $rate ? $this->ratePayload($rate) : null,
             'sample_quote' => $quote,
             'default_payout_currency' => 'ghs',
-            'receive_methods' => SellRmbReceiveMethod::query()
-                ->where('active', true)
+            'receive_methods' => $this->readyReceiveMethodsQuery()
                 ->orderBy('sort_order')
                 ->get()
                 ->map(fn (SellRmbReceiveMethod $m) => $this->methodPayload($m))

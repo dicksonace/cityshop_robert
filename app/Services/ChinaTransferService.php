@@ -778,6 +778,8 @@ class ChinaTransferService
         $quote = $rate ? $this->quote((float) $rate->min_ghs, $rate) : null;
 
         return [
+            'live' => (bool) $settings->enabled,
+            'open' => $this->isOpen(),
             'enabled' => $this->isOpen(),
             'external_enabled' => $this->isExternalOpen(),
             'wallet_funding_enabled' => $this->isOpen(),

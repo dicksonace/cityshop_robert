@@ -110,6 +110,12 @@ class SellRmbSettingsController extends Controller
         $validated['sort_order'] = $validated['sort_order'] ?? SellRmbReceiveMethod::max('sort_order') + 1;
         unset($validated['qr']);
 
+        if (in_array($validated['type'], ['alipay', 'wechat'], true) && blank($validated['qr_path'])) {
+            return back()->withErrors([
+                'qr' => 'Upload a QR code for Alipay or WeChat receive methods.',
+            ]);
+        }
+
         SellRmbReceiveMethod::create($validated);
 
         return back()->with('success', 'Receive method added.');
