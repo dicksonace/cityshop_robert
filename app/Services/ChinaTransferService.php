@@ -99,7 +99,7 @@ class ChinaTransferService
             'close_time_label' => $closeToday->format('g:i A'),
             'processing_note' => $isOpenNow
                 ? null
-                : "Transfers submitted now will be processed by {$openLabel}.",
+                : 'Transfer now will be processed tomorrow morning by 7:00 AM.',
             'closed_message' => null,
         ];
     }

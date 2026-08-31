@@ -117,8 +117,7 @@ class ChinaTransferTest extends TestCase
 
         $this->assertTrue($hours['is_open_now']);
         $this->assertFalse($hours['in_processing_window']);
-        $this->assertStringContainsString('processed by', $hours['processing_note']);
-        $this->assertStringContainsString('4:30 AM', $hours['processing_note']);
+        $this->assertStringContainsString('7:00 AM', $hours['processing_note']);
         $this->assertSame('4:30 AM', $hours['open_time_label']);
         $this->assertSame('5:00 PM', $hours['close_time_label']);
         $this->assertNull($hours['closed_message']);

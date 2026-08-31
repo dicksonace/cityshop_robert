@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 
-import BuyRmbProcessingNote from '@/components/china/buy-rmb-closed-banner';
 import { cn } from '@/lib/utils';
 
 type Rate = {
@@ -46,29 +45,6 @@ function formatRate(n: number, digits = 3) {
 function quoteRmbPerGhs(rate: number) {
     if (!Number.isFinite(rate) || rate <= 0) return 0;
     return Math.round(rate * 1000) / 1000;
-}
-
-function LiveStatusChip({ live, serviceEnabled }: { live: boolean; serviceEnabled: boolean }) {
-    if (!serviceEnabled) {
-        return (
-            <span className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-gray-100 px-3 py-1.5 text-sm font-extrabold text-gray-700">
-                <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
-                Paused
-            </span>
-        );
-    }
-
-    return (
-        <span
-            className={cn(
-                'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-extrabold',
-                live ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-900',
-            )}
-        >
-            <span className={cn('inline-block h-2 w-2 rounded-full', live ? 'bg-emerald-500' : 'bg-amber-500')} />
-            {live ? 'Live' : 'Paused'}
-        </span>
-    );
 }
 
 export default function BuyRmbCalculator({
@@ -197,21 +173,8 @@ export default function BuyRmbCalculator({
             >
                 {inProcessingWindow
                     ? 'Arrives in 5–30 minutes'
-                    : transferHours?.processing_note ?? 'Submitted now — processed in the next admin window.'}
+                    : 'Transfer now will be processed tomorrow morning by 7:00 AM.'}
             </p>
-
-            <div className="mt-5 flex items-center justify-between gap-3">
-                <LiveStatusChip live={isLiveNow} serviceEnabled={enabled} />
-                {transferHours?.open_time_label && transferHours.close_time_label && (
-                    <p className="text-right text-[11px] font-bold text-gray-500">
-                        {transferHours.open_time_label} – {transferHours.close_time_label}
-                    </p>
-                )}
-            </div>
-
-            {enabled && !inProcessingWindow && (
-                <BuyRmbProcessingNote transferHours={transferHours} className="mt-3" />
-            )}
 
             {!enabled && (
                 <p className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold leading-relaxed text-gray-600">

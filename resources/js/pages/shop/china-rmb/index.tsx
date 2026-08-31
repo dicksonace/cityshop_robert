@@ -76,7 +76,9 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
     const buyRate = buy.config.rate;
     const sellRate = sell.config.rate;
     const buyHours = buy.config.transfer_hours;
-    const buyProcessingNote = buyHours?.processing_note?.trim() || null;
+    const buyProcessingNote = buy.config.enabled && buyRate && buyHours?.in_processing_window === false
+        ? 'Transfer now will be processed tomorrow morning by 7:00 AM.'
+        : null;
 
     useEffect(() => {
         const id = window.setInterval(() => {
