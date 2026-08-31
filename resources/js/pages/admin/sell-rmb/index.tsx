@@ -213,7 +213,7 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-bold text-gray-900">Open RMB Sells</h1>
-                        <p className="text-sm text-gray-500">Verify Alipay proof → Process → send MoMo → Approve.</p>
+                        <p className="text-sm text-gray-500">Verify Alipay proof → Process → send MoMo → Complete.</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <RmbAutoRefreshChip />
@@ -227,7 +227,8 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
 
                 <div className="rounded-xl border-l-4 border-blue-400 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     <strong>Workflow:</strong> Verify Alipay proof → <strong>Process</strong> (moves to “Send MoMo now”) → send GH₵ to
-                    their MoMo → <strong>Approve</strong>. Payout does <strong>not</strong> add to the user&apos;s in-app GHS wallet.
+                    their MoMo → <strong>Complete</strong>. MoMo receipt is optional. Payout does <strong>not</strong> add to the
+                    user&apos;s in-app GHS wallet.
                 </div>
 
                 {status === 'open' && (
@@ -383,7 +384,7 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                                                 }}
                                             >
                                                 <Check className="mr-1 h-4 w-4" />
-                                                Approve
+                                                Complete
                                             </Button>
                                         )}
                                         <Button
@@ -426,7 +427,7 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                                 </p>
                                 <p className="mt-2">
                                     Next step: send <strong className="text-emerald-700">{formatPayout(processTarget)}</strong> to their
-                                    MoMo, then click <strong>Approve</strong>.
+                                    MoMo, then click <strong>Complete</strong>.
                                 </p>
                             </div>
                             {processTarget.payout_account?.number && (
@@ -460,8 +461,8 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                 <DialogContent className="max-w-lg gap-0 overflow-hidden p-0">
                     <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-4 text-white">
                         <DialogHeader className="space-y-1 text-left">
-                            <DialogTitle className="text-white">Approve RMB Sell</DialogTitle>
-                            <p className="text-sm text-emerald-100">Confirm MoMo payout sent (does not add to wallet).</p>
+                            <DialogTitle className="text-white">Complete RMB Sell</DialogTitle>
+                            <p className="text-sm text-emerald-100">Confirm MoMo payout sent (proof optional).</p>
                         </DialogHeader>
                     </div>
                     {approveTarget && (
@@ -482,7 +483,7 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                                     )}
                                 </div>
                             )}
-                            <p className="text-xs text-gray-500">Only approve after MoMo payment is sent.</p>
+                            <p className="text-xs text-gray-500">Only complete after MoMo payment is sent. Proof upload is optional.</p>
                             <div>
                                 <p className="mb-2 text-sm font-medium">Upload MoMo Receipt/Proof (Optional)</p>
                                 <button
@@ -503,7 +504,7 @@ export default function SellRmbIndex({ transfers, status, search, dashboard }: P
                                 </Button>
                                 <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={submitApprove} disabled={busy}>
                                     <Check className="mr-1 h-4 w-4" />
-                                    Approve
+                                    Complete
                                 </Button>
                             </DialogFooter>
                         </div>

@@ -52,12 +52,6 @@ interface Props {
 
 const TERMINAL = ['completed', 'cancelled', 'rejected', 'failed'];
 
-function formatProofFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
 export default function SellRmbShow({ transfer }: Props) {
     const { flash } = usePage<SharedData>().props;
     const rejectForm = useForm({ reason: '' });
@@ -106,12 +100,13 @@ export default function SellRmbShow({ transfer }: Props) {
 
     const submitPaid: FormEventHandler = (e) => {
         e.preventDefault();
-        if (!paidForm.data.proof) {
-            paidForm.setError('proof', 'Add payout proof before marking paid.');
-            return;
-        }
-        paidForm.post(route('admin.sell-rmb.paid', transfer.id), { forceFormData: true });
+        paidForm.post(route('admin.sell-rmb.approve-payout', transfer.id), {
+            forceFormData: Boolean(paidForm.data.proof),
+        });
     };
+
+    const awaitingReview = ['submitted', 'rmb_verification'].includes(transfer.status);
+    const sendMomo = ['rmb_received', 'payout_processing', 'paid'].includes(transfer.status);
 
     return (
         <AdminLayout title={transfer.reference} active="sell-rmb">
@@ -239,15 +234,18 @@ export default function SellRmbShow({ transfer }: Props) {
                     </div>
 
                     <div className="space-y-4">
-                        {transfer.status === 'submitted' && (
-                            <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
+                        {awaitingReview && (
+                            <div className="space-y-3 rounded-2xl border border-blue-200 bg-blue-50/50 p-4">
+                                <p className="text-sm text-blue-900">
+                                    <strong>Step 1 — Process:</strong> Verify Alipay proof, then mark processing so you can send MoMo.
+                                </p>
                                 <form
                                     onSubmit={(e) => {
                                         e.preventDefault();
-                                        rejectForm.post(route('admin.sell-rmb.verify', transfer.id));
+                                        rejectForm.post(route('admin.sell-rmb.mark-processing', transfer.id));
                                     }}
                                 >
-                                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Start RMB verification</Button>
+                                    <Button className="w-full bg-blue-600 hover:bg-blue-700">Process</Button>
                                 </form>
                                 <form className="space-y-2" onSubmit={post(route('admin.sell-rmb.reject', transfer.id))}>
                                     <Input
@@ -262,49 +260,14 @@ export default function SellRmbShow({ transfer }: Props) {
                             </div>
                         )}
 
-                        {transfer.status === 'rmb_verification' && (
-                            <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">
-                                <form
-                                    onSubmit={(e) => {
-                                        e.preventDefault();
-                                        rejectForm.post(route('admin.sell-rmb.received', transfer.id));
-                                    }}
-                                >
-                                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Mark RMB received</Button>
-                                </form>
-                                <form className="space-y-2" onSubmit={post(route('admin.sell-rmb.reject', transfer.id))}>
-                                    <Input
-                                        placeholder="Reject reason"
-                                        value={rejectForm.data.reason}
-                                        onChange={(e) => rejectForm.setData('reason', e.target.value)}
-                                    />
-                                    <Button variant="outline" className="w-full text-red-700">
-                                        Reject
-                                    </Button>
-                                </form>
-                            </div>
-                        )}
-
-                        {transfer.status === 'rmb_received' && (
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    rejectForm.post(route('admin.sell-rmb.process', transfer.id));
-                                }}
-                            >
-                                <Button className="w-full">Start payout processing</Button>
-                            </form>
-                        )}
-
-                        {transfer.status === 'payout_processing' && (
-                            <>
-                                <form className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4" onSubmit={submitPaid}>
-                                    <h2 className="font-bold">Upload payout proof</h2>
-                                    <p className="text-xs text-gray-600">
-                                        Pay GHS to buyer, then add MoMo screenshot and review before marking paid.
-                                    </p>
+                        {sendMomo && (
+                            <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4">
+                                <p className="text-sm text-emerald-900">
+                                    <strong>Step 2 — Complete:</strong> Send {payoutLabel} via MoMo, then complete. Proof is optional.
+                                </p>
+                                <form className="space-y-3" onSubmit={submitPaid}>
                                     <div>
-                                        <Label>Amount paid</Label>
+                                        <Label>Amount paid (optional)</Label>
                                         <Input
                                             className="mt-1 bg-white"
                                             value={paidForm.data.payout_amount}
@@ -313,19 +276,11 @@ export default function SellRmbShow({ transfer }: Props) {
                                         <InputError message={paidForm.errors.payout_amount} />
                                     </div>
                                     <div>
-                                        <Label>Payout reference</Label>
+                                        <Label>Payout reference (optional)</Label>
                                         <Input
                                             className="mt-1 bg-white"
                                             value={paidForm.data.payout_ref}
                                             onChange={(e) => paidForm.setData('payout_ref', e.target.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label>Channel (optional)</Label>
-                                        <Input
-                                            className="mt-1 bg-white"
-                                            value={paidForm.data.payout_channel}
-                                            onChange={(e) => paidForm.setData('payout_channel', e.target.value)}
                                         />
                                     </div>
                                     {!paidForm.data.proof ? (
@@ -335,7 +290,7 @@ export default function SellRmbShow({ transfer }: Props) {
                                             className="w-full border-emerald-300"
                                             onClick={() => proofInputRef.current?.click()}
                                         >
-                                            Add payout proof screenshot
+                                            Add MoMo proof (optional)
                                         </Button>
                                     ) : (
                                         <div className="rounded-xl border border-emerald-200 bg-white p-3">
@@ -347,7 +302,6 @@ export default function SellRmbShow({ transfer }: Props) {
                                                 />
                                             )}
                                             <p className="mt-2 text-sm font-semibold">{paidForm.data.proof.name}</p>
-                                            <p className="text-xs text-gray-500">{formatProofFileSize(paidForm.data.proof.size)}</p>
                                             <div className="mt-2 flex gap-2">
                                                 <Button type="button" variant="outline" size="sm" onClick={() => proofInputRef.current?.click()}>
                                                     Change
@@ -367,7 +321,7 @@ export default function SellRmbShow({ transfer }: Props) {
                                     />
                                     <InputError message={paidForm.errors.proof} />
                                     <Button className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={paidForm.processing}>
-                                        {paidForm.processing ? 'Uploading…' : 'Mark paid'}
+                                        {paidForm.processing ? 'Completing…' : 'Complete'}
                                     </Button>
                                 </form>
                                 <form className="space-y-2" onSubmit={post(route('admin.sell-rmb.reject', transfer.id))}>
@@ -380,18 +334,7 @@ export default function SellRmbShow({ transfer }: Props) {
                                         Reject
                                     </Button>
                                 </form>
-                            </>
-                        )}
-
-                        {transfer.status === 'paid' && (
-                            <form
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    rejectForm.post(route('admin.sell-rmb.complete', transfer.id));
-                                }}
-                            >
-                                <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Complete</Button>
-                            </form>
+                            </div>
                         )}
 
                         {['rmb_received', 'payout_processing', 'paid'].includes(transfer.status) && (

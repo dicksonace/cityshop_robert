@@ -285,7 +285,29 @@ class SellRmbTest extends TestCase
         $this->assertTrue(SellRmbSms::sendsToUser(SellRmbStatus::Completed));
     }
 
-    public function test_admin_mark_paid_requires_proof_and_complete_requires_paid_proof(): void
+    public function test_admin_complete_without_payout_proof(): void
+    {
+        Storage::fake('public');
+        Notification::fake();
+
+        $opened = $this->openService();
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $admin = $opened['admin'];
+        $service = app(SellRmbService::class);
+        $transfer = $this->submitTransfer($buyer, $opened['method']);
+
+        $service->markReadyForPayout($transfer, $admin);
+
+        $this->actingAs($admin)
+            ->post(route('admin.sell-rmb.approve-payout', $transfer->fresh()))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertEquals(SellRmbStatus::Completed, $transfer->fresh()->status);
+        $this->assertFalse($transfer->fresh()->proofs()->where('type', 'payout_sent')->exists());
+    }
+
+    public function test_admin_mark_paid_allows_optional_proof(): void
     {
         Storage::fake('public');
         Notification::fake();
@@ -304,18 +326,9 @@ class SellRmbTest extends TestCase
             ->post(route('admin.sell-rmb.paid', $transfer->fresh()), [
                 'payout_amount' => $transfer->usd_payout,
             ])
-            ->assertSessionHasErrors('proof');
-
-        $this->actingAs($admin)
-            ->post(route('admin.sell-rmb.paid', $transfer->fresh()), [
-                'payout_amount' => $transfer->usd_payout,
-                'payout_ref' => 'MOMO-1',
-                'proof' => UploadedFile::fake()->image('payout.png'),
-            ])
             ->assertSessionHasNoErrors();
 
         $this->assertEquals(SellRmbStatus::Paid, $transfer->fresh()->status);
-        $this->assertTrue($transfer->fresh()->proofs()->where('type', 'payout_sent')->exists());
 
         $this->actingAs($admin)
             ->post(route('admin.sell-rmb.complete', $transfer->fresh()))

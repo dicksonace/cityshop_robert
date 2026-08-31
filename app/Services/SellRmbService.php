@@ -339,7 +339,7 @@ class SellRmbService
             'payout_channel' => ['nullable', 'string', 'max:80'],
             'payout_paid_at' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:1000'],
-            'proof' => ['required', 'file', 'max:8192', 'mimes:jpg,jpeg,png,webp,pdf'],
+            'proof' => ['nullable', 'file', 'max:8192', 'mimes:jpg,jpeg,png,webp,pdf'],
         ]);
 
         $payoutAmount = isset($validated['payout_amount']) && (float) $validated['payout_amount'] > 0
@@ -352,18 +352,20 @@ class SellRmbService
             ]);
         }
 
-        $file = $request->file('proof');
-        $path = $file->store('sell-rmb/'.$transfer->id.'/payout-proof', 'public');
+        if ($request->hasFile('proof')) {
+            $file = $request->file('proof');
+            $path = $file->store('sell-rmb/'.$transfer->id.'/payout-proof', 'public');
 
-        SellRmbProof::create([
-            'sell_rmb_transfer_id' => $transfer->id,
-            'type' => 'payout_sent',
-            'path' => $path,
-            'original_name' => $file->getClientOriginalName(),
-            'mime' => $file->getMimeType(),
-            'note' => $validated['note'] ?? null,
-            'uploaded_by' => $admin->id,
-        ]);
+            SellRmbProof::create([
+                'sell_rmb_transfer_id' => $transfer->id,
+                'type' => 'payout_sent',
+                'path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime' => $file->getMimeType(),
+                'note' => $validated['note'] ?? null,
+                'uploaded_by' => $admin->id,
+            ]);
+        }
 
         return $this->transition($transfer, SellRmbStatus::Paid, $admin, $validated['note'] ?? 'Payout sent', [
             'payout_amount' => round($payoutAmount, 2),
@@ -378,12 +380,6 @@ class SellRmbService
     public function complete(SellRmbTransfer $transfer, User $admin): SellRmbTransfer
     {
         $this->assertAdminAction($transfer, [SellRmbStatus::Paid]);
-
-        if (! $transfer->proofs()->where('type', 'payout_sent')->exists()) {
-            throw ValidationException::withMessages([
-                'proof' => 'Upload payout proof before completing.',
-            ]);
-        }
 
         return $this->transition($transfer, SellRmbStatus::Completed, $admin, 'Completed', [
             'completed_at' => now(),
@@ -653,6 +649,11 @@ class SellRmbService
 
     public function approvePayout(SellRmbTransfer $transfer, User $admin, Request $request): SellRmbTransfer
     {
+        // Stuck in Paid (legacy) — finish without requiring MoMo proof.
+        if ($transfer->status === SellRmbStatus::Paid) {
+            return $this->complete($transfer, $admin);
+        }
+
         if ($transfer->status === SellRmbStatus::RmbReceived) {
             $transfer = $this->startPayoutProcessing($transfer, $admin);
         }
