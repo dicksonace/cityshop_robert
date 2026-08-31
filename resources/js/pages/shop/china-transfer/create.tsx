@@ -80,7 +80,8 @@ function fieldKey(id: number) {
 
 function isQrField(field: Field) {
     const blob = `${field.name} ${field.label}`.toLowerCase();
-    return ['image', 'document', 'files'].includes(field.type) || blob.includes('qr');
+    // Only real QR uploads (e.g. alipay_qr) — not payment screenshots / proofs.
+    return blob.includes('qr');
 }
 
 /** Buy RMB step 2: QR + optional recipient + pay from GHS wallet. */

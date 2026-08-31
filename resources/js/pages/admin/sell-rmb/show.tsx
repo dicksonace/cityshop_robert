@@ -40,7 +40,7 @@ type Transfer = {
     payout_channel: string | null;
     can_cancel?: boolean;
     user: { id: number; name: string; email: string; mobile: string | null } | null;
-    fields: { id: number; label: string; value: string | null; file_url: string | null }[];
+    fields: { id: number; name?: string | null; label: string; value: string | null; file_url: string | null }[];
     proofs: { id: number; type: string; url: string; original_name: string | null }[];
     history: { to_label: string; note: string | null; actor: string | null; created_at: string | null }[];
     admin_notes: { id: number; note: string; admin: string | null; created_at: string | null }[];
@@ -187,7 +187,14 @@ export default function SellRmbShow({ transfer }: Props) {
                     <div className="rounded-2xl border border-gray-200 bg-white p-4">
                         <h2 className="font-bold">Buyer details</h2>
                         <dl className="mt-3 space-y-2 text-sm">
-                            {transfer.fields.map((field) => (
+                            {transfer.fields
+                                .filter((field) => {
+                                    // Same file is also exposed as payment_proof_url — show once.
+                                    if (!transfer.payment_proof_url || !field.file_url) return true;
+                                    const name = `${field.name ?? ''} ${field.label ?? ''}`.toLowerCase();
+                                    return !(name.includes('screenshot') || name.includes('proof') || name === 'payment_screenshot');
+                                })
+                                .map((field) => (
                                 <div key={field.id}>
                                     <dt className="text-gray-500">{field.label}</dt>
                                     <dd>
@@ -212,9 +219,21 @@ export default function SellRmbShow({ transfer }: Props) {
                                 <dd>{transfer.payment_reference || '—'}</dd>
                             </div>
                             {transfer.payment_proof_url && (
-                                <a href={transfer.payment_proof_url} target="_blank" rel="noreferrer" className="font-semibold text-orange-700">
-                                    RMB payment screenshot
-                                </a>
+                                <div>
+                                    <dt className="text-gray-500">RMB payment screenshot</dt>
+                                    <dd className="mt-2 space-y-2">
+                                        <a href={transfer.payment_proof_url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border">
+                                            <img
+                                                src={transfer.payment_proof_url}
+                                                alt="RMB payment screenshot"
+                                                className="max-h-56 w-full bg-slate-50 object-contain"
+                                            />
+                                        </a>
+                                        <a href={transfer.payment_proof_url} target="_blank" rel="noreferrer" className="font-semibold text-orange-700">
+                                            Open full size
+                                        </a>
+                                    </dd>
+                                </div>
                             )}
                         </dl>
                     </div>

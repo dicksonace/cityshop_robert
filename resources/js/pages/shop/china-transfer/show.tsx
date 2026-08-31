@@ -77,8 +77,8 @@ function formatWhen(value?: string | null): string {
 function isQrField(field: TransferField): boolean {
     if (!field.file_url) return false;
     const blob = `${field.name ?? ''} ${field.label ?? ''}`.toLowerCase();
-    const type = (field.type ?? '').toLowerCase();
-    return ['image', 'document', 'files'].includes(type) || blob.includes('qr');
+    // Only real QR uploads (e.g. alipay_qr) — not payment screenshots / proofs.
+    return blob.includes('qr');
 }
 
 async function downloadImage(url: string, filename: string) {
