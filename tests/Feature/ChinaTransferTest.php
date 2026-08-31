@@ -96,7 +96,7 @@ class ChinaTransferTest extends TestCase
         $this->assertEqualsWithDelta(27.95, $quote['rmb_amount'], 0.05);
     }
 
-    public function test_transfer_hours_closed_message_uses_open_time(): void
+    public function test_transfer_hours_processing_note_outside_window(): void
     {
         ChinaTransferSetting::current()->update([
             'enabled' => true,
@@ -115,15 +115,19 @@ class ChinaTransferTest extends TestCase
         $this->travelTo(now('Africa/Accra')->setTime(20, 0));
         $hours = app(ChinaTransferService::class)->transferHoursPayload();
 
-        $this->assertFalse($hours['is_open_now']);
-        $this->assertStringContainsString('4:30 AM', $hours['closed_message']);
+        $this->assertTrue($hours['is_open_now']);
+        $this->assertFalse($hours['in_processing_window']);
+        $this->assertStringContainsString('processed by', $hours['processing_note']);
+        $this->assertStringContainsString('4:30 AM', $hours['processing_note']);
         $this->assertSame('4:30 AM', $hours['open_time_label']);
         $this->assertSame('5:00 PM', $hours['close_time_label']);
+        $this->assertNull($hours['closed_message']);
 
         $this->travelTo(now('Africa/Accra')->setTime(10, 0));
         $openHours = app(ChinaTransferService::class)->transferHoursPayload();
         $this->assertTrue($openHours['is_open_now']);
-        $this->assertNull($openHours['closed_message']);
+        $this->assertTrue($openHours['in_processing_window']);
+        $this->assertNull($openHours['processing_note']);
     }
 
     public function test_quote_uses_ghs_per_rmb_and_adds_flat_fee(): void

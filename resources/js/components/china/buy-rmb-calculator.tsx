@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import BuyRmbClosedBanner from '@/components/china/buy-rmb-closed-banner';
+import BuyRmbProcessingNote from '@/components/china/buy-rmb-closed-banner';
 import { cn } from '@/lib/utils';
 
 type Rate = {
@@ -12,10 +12,10 @@ type Rate = {
 
 type TransferHours = {
     configured?: boolean;
-    is_open_now?: boolean;
+    in_processing_window?: boolean;
     open_time_label?: string | null;
     close_time_label?: string | null;
-    closed_message?: string | null;
+    processing_note?: string | null;
 };
 
 type Props = {
@@ -89,8 +89,8 @@ export default function BuyRmbCalculator({
     });
     const [focus, setFocus] = useState<'ghs' | 'cny' | null>('ghs');
 
-    const hoursOpen = !transferHours?.configured || transferHours.is_open_now !== false;
-    const isLiveNow = enabled && hoursOpen;
+    const inProcessingWindow = transferHours?.in_processing_window !== false;
+    const isLiveNow = enabled;
 
     const quote = useMemo(() => {
         const send = Number(ghs);
@@ -125,7 +125,7 @@ export default function BuyRmbCalculator({
     };
 
     const canContinue = enabled && quote !== null && quote.send > 0;
-    const continueLabel = !enabled ? 'Transfers paused' : !hoursOpen ? 'Continue anyway' : 'Continue';
+    const continueLabel = !enabled ? 'Transfers paused' : 'Continue';
 
     return (
         <div className={cn('rounded-3xl border border-gray-200 bg-white p-5 shadow-sm', className)}>
@@ -192,12 +192,12 @@ export default function BuyRmbCalculator({
             <p
                 className={cn(
                     'mt-4 text-center text-sm font-semibold',
-                    hoursOpen ? 'text-emerald-600' : 'text-amber-700',
+                    inProcessingWindow ? 'text-emerald-600' : 'text-blue-700',
                 )}
             >
-                {hoursOpen
+                {inProcessingWindow
                     ? 'Arrives in 5–30 minutes'
-                    : 'Orders outside hours are queued for the next open window.'}
+                    : transferHours?.processing_note ?? 'Submitted now — processed in the next admin window.'}
             </p>
 
             <div className="mt-5 flex items-center justify-between gap-3">
@@ -209,7 +209,9 @@ export default function BuyRmbCalculator({
                 )}
             </div>
 
-            {enabled && !hoursOpen && <BuyRmbClosedBanner transferHours={transferHours} className="mt-3" />}
+            {enabled && !inProcessingWindow && (
+                <BuyRmbProcessingNote transferHours={transferHours} className="mt-3" />
+            )}
 
             {!enabled && (
                 <p className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold leading-relaxed text-gray-600">
@@ -224,17 +226,11 @@ export default function BuyRmbCalculator({
                 onClick={() => canContinue && onContinue(String(quote!.send))}
                 className={cn(
                     'mt-4 w-full rounded-full py-3.5 text-base font-extrabold text-white transition disabled:cursor-not-allowed disabled:bg-gray-300',
-                    isLiveNow ? 'bg-indigo-500 hover:bg-indigo-600' : 'bg-amber-500 hover:bg-amber-600',
+                    isLiveNow ? 'bg-indigo-500 hover:bg-indigo-600' : 'bg-gray-400',
                 )}
             >
                 {continueLabel}
             </button>
-
-            {canContinue && !hoursOpen && (
-                <p className="mt-2 text-center text-[11px] font-semibold text-gray-500">
-                    You can still submit — we process when transfer hours reopen.
-                </p>
-            )}
         </div>
     );
 }

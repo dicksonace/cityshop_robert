@@ -69,10 +69,12 @@ class ChinaTransferService
                 'configured' => false,
                 'timezone' => $timezone,
                 'is_open_now' => true,
+                'in_processing_window' => true,
                 'open_time' => null,
                 'close_time' => null,
                 'open_time_label' => null,
                 'close_time_label' => null,
+                'processing_note' => null,
                 'closed_message' => null,
             ];
         }
@@ -88,14 +90,17 @@ class ChinaTransferService
         return [
             'configured' => true,
             'timezone' => $timezone,
-            'is_open_now' => $isOpenNow,
+            // Never auto-close buyers — admin Live/Pause toggle is the only gate.
+            'is_open_now' => true,
+            'in_processing_window' => $isOpenNow,
             'open_time' => substr($openTime, 0, 5),
             'close_time' => substr($closeTime, 0, 5),
             'open_time_label' => $openLabel,
             'close_time_label' => $closeToday->format('g:i A'),
-            'closed_message' => $isOpenNow
+            'processing_note' => $isOpenNow
                 ? null
-                : "Sorry, we're closed. We continue at {$openLabel}.",
+                : "Transfers submitted now will be processed by {$openLabel}.",
+            'closed_message' => null,
         ];
     }
 

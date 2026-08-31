@@ -18,10 +18,10 @@ type BuyConfig = {
     instructions: string | null;
     transfer_hours?: {
         configured?: boolean;
-        is_open_now?: boolean;
+        in_processing_window?: boolean;
         open_time_label?: string | null;
         close_time_label?: string | null;
-        closed_message?: string | null;
+        processing_note?: string | null;
     };
 };
 
@@ -76,7 +76,7 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
     const buyRate = buy.config.rate;
     const sellRate = sell.config.rate;
     const buyHours = buy.config.transfer_hours;
-    const buyHoursOpen = !buyHours?.configured || buyHours.is_open_now !== false;
+    const buyProcessingNote = buyHours?.processing_note?.trim() || null;
 
     useEffect(() => {
         const id = window.setInterval(() => {
@@ -116,10 +116,9 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                         {buyRate ? `1 GHS → ¥${buyRate.rmb_per_ghs.toFixed(3)} RMB` : 'Rate not published'}
                     </p>
                     <p className="mt-1 text-sm text-white/80">No hidden fees · Secure transactions</p>
-                    {buy.config.enabled && buyRate && !buyHoursOpen && (
+                    {buy.config.enabled && buyRate && buyProcessingNote && (
                         <p className="mt-3 rounded-xl border border-white/25 bg-white/15 px-3 py-2.5 text-sm font-semibold leading-snug text-white">
-                            {buyHours?.closed_message ??
-                                `Sorry, we're closed. We continue at ${buyHours?.open_time_label ?? 'opening time'}.`}
+                            {buyProcessingNote}
                         </p>
                     )}
                     <button
@@ -128,11 +127,7 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                         onClick={() => router.visit(route('wallet.china-transfer.index'))}
                         className="mt-4 w-full rounded-xl bg-white py-3 text-sm font-extrabold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-white"
                     >
-                        {!buy.config.enabled
-                            ? 'Buy RMB paused'
-                            : !buyHoursOpen
-                              ? `Closed · opens ${buyHours?.open_time_label ?? 'soon'}`
-                              : 'Buy RMB →'}
+                        {!buy.config.enabled ? 'Buy RMB paused' : 'Buy RMB →'}
                     </button>
                 </div>
 

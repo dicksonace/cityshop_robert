@@ -395,8 +395,8 @@ export default function ChinaTransferSettings({
                             <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4">
                                 <h3 className="font-bold text-gray-900">Transfer hours</h3>
                                 <p className="mt-1 text-xs text-gray-600">
-                                    Outside these hours buyers see a &quot;We&apos;re currently closed&quot; banner. They
-                                    can still submit — orders queue until open time.
+                                    Informational only — buyers are never auto-blocked. Use Live/Pause to stop new
+                                    transfers. Outside these hours buyers see when admin will process (e.g. by 7:00 AM).
                                 </p>
                                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                                     <div>
