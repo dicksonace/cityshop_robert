@@ -21,7 +21,7 @@ class SellRmbController extends Controller
         $search = trim((string) $request->get('q', ''));
 
         $items = SellRmbTransfer::query()
-            ->with(['user:id,name,email,mobile', 'receiveMethod'])
+            ->with(['user:id,name,email,mobile', 'receiveMethod', 'fieldValues.field'])
             ->when($status === 'open', fn ($q) => $q->whereIn('status', [
                 SellRmbStatus::Submitted,
                 SellRmbStatus::RmbVerification,
@@ -40,7 +40,16 @@ class SellRmbController extends Controller
                         });
                 });
             })
-            ->latest()
+            ->when($status === 'open', function ($q) {
+                $q->orderByRaw("CASE status
+                    WHEN 'payout_processing' THEN 1
+                    WHEN 'rmb_received' THEN 2
+                    WHEN 'paid' THEN 3
+                    WHEN 'rmb_verification' THEN 4
+                    WHEN 'submitted' THEN 5
+                    ELSE 6 END")
+                    ->latest('id');
+            }, fn ($q) => $q->latest())
             ->paginate(20)
             ->withQueryString()
             ->through(fn (SellRmbTransfer $item) => $this->sellRmb->transferPayload($item, true));
@@ -79,6 +88,20 @@ class SellRmbController extends Controller
         $this->sellRmb->startPayoutProcessing($sellRmbTransfer, $request->user());
 
         return back()->with('success', 'Payout processing started.');
+    }
+
+    public function markProcessing(Request $request, SellRmbTransfer $sellRmbTransfer): RedirectResponse
+    {
+        $this->sellRmb->markReadyForPayout($sellRmbTransfer, $request->user());
+
+        return back()->with('success', 'Marked for MoMo payout. Send GHS to the buyer, then approve.');
+    }
+
+    public function approvePayout(Request $request, SellRmbTransfer $sellRmbTransfer): RedirectResponse
+    {
+        $this->sellRmb->approvePayout($sellRmbTransfer, $request->user(), $request);
+
+        return back()->with('success', 'MoMo payout approved and sell completed.');
     }
 
     public function paid(Request $request, SellRmbTransfer $sellRmbTransfer): RedirectResponse

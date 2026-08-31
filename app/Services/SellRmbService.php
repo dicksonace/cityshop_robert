@@ -13,6 +13,7 @@ use App\Models\SellRmbSetting;
 use App\Models\SellRmbStatusHistory;
 use App\Models\SellRmbTransfer;
 use App\Models\User;
+use App\Support\SellRmbSms;
 use App\Notifications\SellRmbAdminNotification;
 use App\Notifications\SellRmbUserNotification;
 use Illuminate\Http\Request;
@@ -615,9 +616,95 @@ class SellRmbService
                 'created_at' => $n->created_at?->toIso8601String(),
             ])->values()->all();
             $payload['flow'] = 'sell_rmb';
+            $payload['payout_account'] = $this->payoutAccountPayload($transfer);
+            $payload['admin_queue_section'] = $this->adminQueueSection($transfer->status);
+        } else {
+            $payload['status_presentation'] = $transfer->status->buyerPresentation();
+            $payload['payout_account'] = $this->payoutAccountPayload($transfer);
         }
 
         return $payload;
+    }
+
+    public function markReadyForPayout(SellRmbTransfer $transfer, User $admin): SellRmbTransfer
+    {
+        $transfer = $transfer->fresh();
+
+        if ($transfer->status === SellRmbStatus::Submitted) {
+            $transfer = $this->startVerification($transfer, $admin);
+        }
+
+        if ($transfer->fresh()->status === SellRmbStatus::RmbVerification) {
+            $transfer = $this->markRmbReceived($transfer->fresh(), $admin);
+        }
+
+        if ($transfer->fresh()->status === SellRmbStatus::RmbReceived) {
+            $transfer = $this->startPayoutProcessing($transfer->fresh(), $admin);
+        }
+
+        if ($transfer->fresh()->status !== SellRmbStatus::PayoutProcessing) {
+            throw ValidationException::withMessages([
+                'status' => 'This sell request cannot be marked for MoMo payout yet.',
+            ]);
+        }
+
+        return $transfer->fresh();
+    }
+
+    public function approvePayout(SellRmbTransfer $transfer, User $admin, Request $request): SellRmbTransfer
+    {
+        if ($transfer->status === SellRmbStatus::RmbReceived) {
+            $transfer = $this->startPayoutProcessing($transfer, $admin);
+        }
+
+        $this->assertAdminAction($transfer->fresh(), [SellRmbStatus::PayoutProcessing]);
+
+        $validated = $request->validate([
+            'payout_amount' => ['nullable', 'numeric', 'min:0.01'],
+            'payout_ref' => ['nullable', 'string', 'max:120'],
+            'payout_channel' => ['nullable', 'string', 'max:80'],
+            'note' => ['nullable', 'string', 'max:1000'],
+            'proof' => ['nullable', 'file', 'max:5120', 'mimes:jpg,jpeg,png,webp,pdf'],
+        ]);
+
+        $payoutAmount = isset($validated['payout_amount']) && (float) $validated['payout_amount'] > 0
+            ? (float) $validated['payout_amount']
+            : $transfer->expectedPayoutAmount();
+
+        if ($request->hasFile('proof')) {
+            $file = $request->file('proof');
+            $path = $file->store('sell-rmb/'.$transfer->id.'/payout-proof', 'public');
+
+            SellRmbProof::create([
+                'sell_rmb_transfer_id' => $transfer->id,
+                'type' => 'payout_sent',
+                'path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime' => $file->getMimeType(),
+                'note' => $validated['note'] ?? null,
+                'uploaded_by' => $admin->id,
+            ]);
+        }
+
+        $transfer = $this->transition($transfer, SellRmbStatus::Paid, $admin, $validated['note'] ?? 'MoMo payout sent', [
+            'payout_amount' => round($payoutAmount, 2),
+            'payout_ref' => $validated['payout_ref'] ?? null,
+            'payout_channel' => $validated['payout_channel'] ?? null,
+            'payout_paid_at' => now(),
+            'paid_at' => now(),
+            'assigned_admin_id' => $admin->id,
+        ]);
+
+        return $this->complete($transfer->fresh(), $admin);
+    }
+
+    public function adminQueueSection(SellRmbStatus $status): string
+    {
+        return match ($status) {
+            SellRmbStatus::Submitted, SellRmbStatus::RmbVerification => 'awaiting_review',
+            SellRmbStatus::RmbReceived, SellRmbStatus::PayoutProcessing => 'send_momo',
+            default => 'other',
+        };
     }
 
     /**
@@ -651,6 +738,55 @@ class SellRmbService
             'fees_collected' => (float) (clone $base)->where('status', SellRmbStatus::Completed)->sum('fee_usd'),
             'today' => (clone $base)->whereDate('created_at', today())->count(),
             'this_month' => (clone $base)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count(),
+            ...$this->openQueueStats(),
+        ];
+    }
+
+    /**
+     * @return array{awaiting_review: int, send_momo_now: int, open_count: int, open_rmb_total: float, open_ghs_total: float}
+     */
+    public function openQueueStats(): array
+    {
+        $openStatuses = [
+            SellRmbStatus::Submitted,
+            SellRmbStatus::RmbVerification,
+            SellRmbStatus::RmbReceived,
+            SellRmbStatus::PayoutProcessing,
+            SellRmbStatus::Paid,
+        ];
+
+        $open = SellRmbTransfer::query()->whereIn('status', $openStatuses);
+
+        return [
+            'awaiting_review' => (clone $open)->whereIn('status', [
+                SellRmbStatus::Submitted,
+                SellRmbStatus::RmbVerification,
+            ])->count(),
+            'send_momo_now' => (clone $open)->whereIn('status', [
+                SellRmbStatus::RmbReceived,
+                SellRmbStatus::PayoutProcessing,
+            ])->count(),
+            'open_count' => (clone $open)->count(),
+            'open_rmb_total' => (float) (clone $open)->sum('rmb_amount'),
+            'open_ghs_total' => (float) (clone $open)->where('payout_currency', 'ghs')->sum('ghs_payout'),
+        ];
+    }
+
+    /**
+     * @return array{network: ?string, number: ?string, account_name: ?string}
+     */
+    private function payoutAccountPayload(SellRmbTransfer $transfer): array
+    {
+        $byName = $transfer->fieldValues
+            ->filter(fn (SellRmbFieldValue $v) => filled($v->field?->name))
+            ->keyBy(fn (SellRmbFieldValue $v) => (string) $v->field?->name);
+
+        $number = trim((string) ($byName->get('payout_mobile')?->value ?? $byName->get('payout_account_number')?->value ?? ''));
+
+        return [
+            'network' => filled($byName->get('payout_bank_name')?->value) ? (string) $byName->get('payout_bank_name')?->value : null,
+            'number' => filled($number) ? $number : null,
+            'account_name' => filled($byName->get('payout_name')?->value) ? (string) $byName->get('payout_name')?->value : null,
         ];
     }
 
@@ -1081,28 +1217,23 @@ class SellRmbService
     private function userTitle(SellRmbStatus $status): string
     {
         return match ($status) {
-            SellRmbStatus::Submitted => 'Sell RMB submitted',
-            SellRmbStatus::RmbVerification => 'RMB verification',
+            SellRmbStatus::Submitted => 'RMB Sell submitted',
+            SellRmbStatus::RmbVerification => 'RMB Sell verifying',
             SellRmbStatus::RmbReceived => 'RMB received',
-            SellRmbStatus::PayoutProcessing => 'Sell RMB processing',
-            SellRmbStatus::Paid => 'Payout sent',
-            SellRmbStatus::Completed => 'Sell RMB completed',
-            SellRmbStatus::Rejected => 'Sell RMB rejected',
-            SellRmbStatus::Cancelled => 'Sell RMB cancelled',
-            SellRmbStatus::Failed => 'Sell RMB failed',
+            SellRmbStatus::PayoutProcessing, SellRmbStatus::Paid => 'RMB Sell processing',
+            SellRmbStatus::Completed => 'RMB Sell complete',
+            SellRmbStatus::Rejected => 'RMB Sell rejected',
+            SellRmbStatus::Cancelled => 'RMB Sell cancelled',
+            SellRmbStatus::Failed => 'RMB Sell failed',
         };
     }
 
     private function userBody(SellRmbTransfer $transfer, SellRmbStatus $status): string
     {
-        return match ($status) {
-            SellRmbStatus::Paid, SellRmbStatus::Completed => "{$transfer->reference}: payout of "
-                .($transfer->payout_currency === 'ghs' ? 'GH₵' : '$')
-                .number_format((float) ($transfer->payout_amount ?? $transfer->expectedPayoutAmount()), 2)
-                .' sent.',
-            SellRmbStatus::Rejected => $transfer->rejection_reason
-                ?: 'Your RMB payment could not be verified.',
-            default => "{$transfer->reference} is now {$status->label()}.",
-        };
+        return SellRmbSms::userMessage(
+            $transfer,
+            $status,
+            $transfer->user?->name,
+        );
     }
 }

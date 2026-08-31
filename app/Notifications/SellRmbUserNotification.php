@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Channels\SmsChannel;
 use App\Enums\SellRmbStatus;
 use App\Models\SellRmbTransfer;
+use App\Support\SellRmbSms;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -22,7 +23,7 @@ class SellRmbUserNotification extends Notification implements ShouldQueue
     public function via(object $notifiable): array
     {
         $channels = ['mail'];
-        if (filled($notifiable->mobile ?? null)) {
+        if (filled($notifiable->mobile ?? null) && SellRmbSms::sendsToUser($this->status)) {
             $channels[] = SmsChannel::class;
         }
 
@@ -51,7 +52,11 @@ class SellRmbUserNotification extends Notification implements ShouldQueue
 
     public function toSms(object $notifiable): string
     {
-        return 'CityShop: '.$this->line().' Ref '.$this->transfer->reference.'.';
+        return SellRmbSms::userMessage(
+            $this->transfer,
+            $this->status,
+            filled($notifiable->name ?? null) ? (string) $notifiable->name : null,
+        );
     }
 
     private function subject(): string

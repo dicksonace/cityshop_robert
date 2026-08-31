@@ -325,6 +325,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/sell-rmb/{sellRmbTransfer}/verify', [AdminSellRmbController::class, 'verify']);
             Route::post('/sell-rmb/{sellRmbTransfer}/received', [AdminSellRmbController::class, 'received']);
             Route::post('/sell-rmb/{sellRmbTransfer}/process', [AdminSellRmbController::class, 'process']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/mark-processing', [AdminSellRmbController::class, 'markProcessing']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/approve-payout', [AdminSellRmbController::class, 'approvePayout']);
             Route::post('/sell-rmb/{sellRmbTransfer}/paid', [AdminSellRmbController::class, 'paid']);
             Route::post('/sell-rmb/{sellRmbTransfer}/complete', [AdminSellRmbController::class, 'complete']);
             Route::post('/sell-rmb/{sellRmbTransfer}/reject', [AdminSellRmbController::class, 'reject']);

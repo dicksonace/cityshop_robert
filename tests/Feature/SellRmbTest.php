@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Channels\SmsChannel;
 use App\Enums\SellRmbStatus;
 use App\Enums\UserRole;
 use App\Models\SellRmbFormField;
@@ -9,7 +10,9 @@ use App\Models\SellRmbReceiveMethod;
 use App\Models\SellRmbSetting;
 use App\Models\SellRmbTransfer;
 use App\Models\User;
+use App\Notifications\SellRmbUserNotification;
 use App\Services\SellRmbService;
+use App\Support\SellRmbSms;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
@@ -192,7 +195,94 @@ class SellRmbTest extends TestCase
             ->assertJsonPath('data.status', 'submitted')
             ->assertJsonPath('data.status_label', 'Processing')
             ->assertJsonPath('data.processing', true)
+            ->assertJsonPath('data.status_presentation.header_title', 'Awaiting Review')
+            ->assertJsonPath('data.status_presentation.badge_label', 'Pending')
             ->assertJsonPath('data.quote.payout_currency', 'ghs');
+    }
+
+    public function test_sell_submit_sms_uses_rmb_wallet_style(): void
+    {
+        Storage::fake('public');
+        Notification::fake();
+
+        $opened = $this->openService();
+        $buyer = User::factory()->create([
+            'role' => UserRole::Buyer,
+            'name' => 'Robert Asare',
+            'mobile' => '0248620718',
+        ]);
+
+        $payload = [
+            'rmb_amount' => 100,
+            'payout_currency' => 'ghs',
+            'receive_method_id' => $opened['method']->id,
+            'fields' => [],
+            'files' => [],
+        ];
+
+        foreach (SellRmbFormField::query()->where('active', true)->get() as $field) {
+            if ($field->name === 'payout_bank_name') {
+                $payload['fields'][$field->id] = 'MTN';
+            } elseif ($field->name === 'payout_mobile') {
+                $payload['fields'][$field->id] = '+233248620718';
+            } elseif ($field->name === 'payout_name') {
+                $payload['fields'][$field->id] = 'Robert Asare';
+            } elseif ($field->isFile()) {
+                $payload['files'][$field->id] = UploadedFile::fake()->image($field->name.'.jpg');
+            } elseif ($field->required) {
+                $payload['fields'][$field->id] = $field->type === 'phone' ? '0248620718' : 'Test value';
+            }
+        }
+
+        Sanctum::actingAs($buyer);
+        $this->postJson('/api/v1/wallet/sell-rmb', $payload)->assertCreated();
+
+        $transfer = SellRmbTransfer::query()->where('user_id', $buyer->id)->latest('id')->firstOrFail();
+        $sms = SellRmbSms::userMessage($transfer->fresh(), SellRmbStatus::Submitted, 'Robert Asare');
+
+        $this->assertStringContainsString('Hi Robert Asare, RMB Sell submitted.', $sms);
+        $this->assertStringContainsString('Rmb 100.00 for Ghc', $sms);
+        $this->assertStringContainsString('Payout via MTN.', $sms);
+        $this->assertStringContainsString('Pending Review.', $sms);
+
+        Notification::assertSentTo($buyer, SellRmbUserNotification::class, function (SellRmbUserNotification $notification) use ($buyer) {
+            $text = $notification->toSms($buyer);
+
+            return str_contains($text, 'Hi Robert Asare, RMB Sell submitted.')
+                && str_contains($text, 'Pending Review.')
+                && ! str_contains($text, 'CityShop:');
+        });
+    }
+
+    public function test_intermediate_sell_statuses_do_not_send_sms(): void
+    {
+        Storage::fake('public');
+        Notification::fake();
+
+        $opened = $this->openService();
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Robert Asare', 'mobile' => '0248620718']);
+        $admin = $opened['admin'];
+        $service = app(SellRmbService::class);
+        $transfer = $this->submitTransfer($buyer, $opened['method']);
+
+        Notification::assertSentTo($buyer, SellRmbUserNotification::class, function (SellRmbUserNotification $notification) use ($buyer) {
+            return $notification->status === SellRmbStatus::Submitted
+                && in_array(SmsChannel::class, $notification->via($buyer), true);
+        });
+
+        $service->startVerification($transfer, $admin);
+        $service->markRmbReceived($transfer->fresh(), $admin);
+        $service->startPayoutProcessing($transfer->fresh(), $admin);
+
+        foreach ([SellRmbStatus::RmbVerification, SellRmbStatus::RmbReceived, SellRmbStatus::PayoutProcessing] as $status) {
+            Notification::assertSentTo($buyer, SellRmbUserNotification::class, function (SellRmbUserNotification $notification) use ($buyer, $status) {
+                return $notification->status === $status
+                    && ! in_array(SmsChannel::class, $notification->via($buyer), true);
+            });
+        }
+
+        $this->assertFalse(SellRmbSms::sendsToUser(SellRmbStatus::RmbVerification));
+        $this->assertTrue(SellRmbSms::sendsToUser(SellRmbStatus::Completed));
     }
 
     public function test_admin_mark_paid_requires_proof_and_complete_requires_paid_proof(): void
@@ -232,6 +322,38 @@ class SellRmbTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertEquals(SellRmbStatus::Completed, $transfer->fresh()->status);
+    }
+
+    public function test_admin_mark_processing_and_approve_payout_flow(): void
+    {
+        Storage::fake('public');
+        Notification::fake();
+
+        $opened = $this->openService();
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $admin = $opened['admin'];
+        $transfer = $this->submitTransfer($buyer, $opened['method']);
+
+        $this->actingAs($admin)
+            ->post(route('admin.sell-rmb.mark-processing', $transfer))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertEquals(SellRmbStatus::PayoutProcessing, $transfer->fresh()->status);
+
+        $adminPayload = app(SellRmbService::class)->transferPayload($transfer->fresh(), true);
+        $this->assertSame('send_momo', $adminPayload['admin_queue_section'] ?? null);
+        $this->assertArrayHasKey('payout_account', $adminPayload);
+
+        $this->actingAs($admin)
+            ->post(route('admin.sell-rmb.approve-payout', $transfer->fresh()), [
+                'proof' => UploadedFile::fake()->image('momo.png'),
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertEquals(SellRmbStatus::Completed, $transfer->fresh()->status);
+        $this->assertTrue($transfer->fresh()->proofs()->where('type', 'payout_sent')->exists());
     }
 
     public function test_cannot_edit_after_completed(): void

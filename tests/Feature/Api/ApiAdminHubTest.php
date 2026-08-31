@@ -64,7 +64,8 @@ class ApiAdminHubTest extends TestCase
         $this->getJson('/api/v1/admin/dashboard')
             ->assertOk()
             ->assertJsonPath('stats.pending_sellers', 1)
-            ->assertJsonPath('stats.pending_rmb', 0);
+            ->assertJsonPath('stats.pending_rmb', 0)
+            ->assertJsonPath('stats.pending_sell_rmb', 0);
 
         $this->postJson("/api/v1/admin/sellers/{$seller->id}/approve")
             ->assertOk()

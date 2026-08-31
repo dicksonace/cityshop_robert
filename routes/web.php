@@ -370,6 +370,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('/sell-rmb/{sellRmbTransfer}/verify', [AdminSellRmbController::class, 'verify'])->name('sell-rmb.verify');
     Route::post('/sell-rmb/{sellRmbTransfer}/received', [AdminSellRmbController::class, 'received'])->name('sell-rmb.received');
     Route::post('/sell-rmb/{sellRmbTransfer}/process', [AdminSellRmbController::class, 'process'])->name('sell-rmb.process');
+    Route::post('/sell-rmb/{sellRmbTransfer}/mark-processing', [AdminSellRmbController::class, 'markProcessing'])->name('sell-rmb.mark-processing');
+    Route::post('/sell-rmb/{sellRmbTransfer}/approve-payout', [AdminSellRmbController::class, 'approvePayout'])->name('sell-rmb.approve-payout');
     Route::post('/sell-rmb/{sellRmbTransfer}/paid', [AdminSellRmbController::class, 'paid'])->name('sell-rmb.paid');
     Route::post('/sell-rmb/{sellRmbTransfer}/complete', [AdminSellRmbController::class, 'complete'])->name('sell-rmb.complete');
     Route::post('/sell-rmb/{sellRmbTransfer}/reject', [AdminSellRmbController::class, 'reject'])->name('sell-rmb.reject');
