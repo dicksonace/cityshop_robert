@@ -92,7 +92,10 @@ class GhanaLocations
                 'Mankessim', 'Mumford', 'Nsuaem', 'Nyakrom', 'Saltpong', 'Twifo Praso', 'University of Cape Coast',
                 'Winneba', 'Yamoransa', self::OTHER_CITY,
             ],
-            'Northern' => ['Tamale', 'Yendi', 'Savelugu', self::OTHER_CITY],
+            'Northern' => [
+                'Bimbilla', 'Gushegu', 'Karaga', 'Kpandai', 'Kpasenkpe', 'Kumbungu', 'Nanton', 'Saboba', 'Salaga',
+                'Sang', 'Savelugu', 'Tamale', 'Tatale', 'Tolon', 'Wulensi', 'Yebdi', 'Zabzugu', self::OTHER_CITY,
+            ],
             'Upper East' => [
                 'Bawku', 'Binduri', 'Bolgatanga', 'Bongo', 'Garu', 'Navrongo', 'Paga', 'Pusiga', 'Pwalugu',
                 'Telensi', 'Tempane', 'Tongo', 'Zebilla', 'Zuarungu', self::OTHER_CITY,
