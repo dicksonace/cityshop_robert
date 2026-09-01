@@ -109,7 +109,10 @@ class GhanaLocations
                 'Gbi Wegbe', 'Golokwati', 'Ho', 'Hohoe', 'Keta', 'Klikor', 'Kpando', 'Kpetoe', 'Kpeve', 'Mepe', 'Peki',
                 'Sogakope', 'Todze', 'Tsito', 'Xavi', self::OTHER_CITY,
             ],
-            'Bono' => ['Sunyani', 'Berekum', 'Dormaa Ahenkro', 'Wenchi', self::OTHER_CITY],
+            'Bono' => [
+                'Abesim', 'Berekum', 'Chiraa', 'Dormaa Ahenkro', 'Drobo', 'Fiapre', 'Odumase', 'Sampa', 'Sunyani',
+                'Wenchi', 'Yawhima', self::OTHER_CITY,
+            ],
             'Western North' => [
                 'Akontombra', 'Anhwinso', 'Asawinso', 'Bia', 'Bibiani', 'Bodi', 'Chirano', 'Dadieso', 'Debiso',
                 'Enchi', 'Juaboso', 'Sefwi Awaso', 'Sefwi Bekwai', 'Sefwi Wiawso', self::OTHER_CITY,
@@ -120,7 +123,7 @@ class GhanaLocations
             ],
             'Bono East' => [
                 'Abease', 'Amantin', 'Atebubu', 'Babatokuma', 'Jema', 'Kintampo', 'Kwame Danso', 'New Longoro',
-                'Nkoranza', 'Nsuta', 'Prang', 'Techiman', 'Tuobodom', 'Yeji', self::OTHER_CITY,
+                'Nkoranza', 'Nsuta', 'Prang', 'Tanoso', 'Techiman', 'Tuobodom', 'Yeji', self::OTHER_CITY,
             ],
             'North East' => [
                 'Bunkpurugu', 'Chereponi', 'Demon', 'Gambaga', 'Jimbale', 'Nakpanduri',
