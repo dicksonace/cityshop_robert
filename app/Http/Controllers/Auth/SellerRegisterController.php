@@ -10,6 +10,7 @@ use App\Models\SellerRegistrationInvite;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\SellerRegistrationInviteService;
+use App\Support\GhanaLocations;
 use App\Support\GhanaMobile;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -178,7 +179,7 @@ class SellerRegisterController extends Controller
             'ghana_card_number' => ['required', 'string', 'max:50'],
             'digital_address' => ['required', 'string', 'max:100'],
             'residential_address' => ['required', 'string', 'max:500'],
-            'region' => ['required', 'string', 'max:100'],
+            'region' => ['required', 'string', 'max:100', Rule::in(GhanaLocations::regions())],
             'city' => ['required', 'string', 'max:100'],
             'is_business_registered' => ['required', 'boolean'],
             'id_card_front' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],

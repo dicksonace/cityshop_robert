@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Channels\SmsChannel;
 use App\Enums\SellRmbStatus;
+use App\Enums\SellerStatus;
 use App\Enums\UserRole;
 use App\Models\SellRmbFormField;
 use App\Models\SellRmbReceiveMethod;
 use App\Models\SellRmbSetting;
 use App\Models\SellRmbTransfer;
+use App\Models\SellerProfile;
 use App\Models\User;
 use App\Notifications\SellRmbUserNotification;
 use App\Services\SellRmbService;
@@ -127,6 +129,37 @@ class SellRmbTest extends TestCase
             ->assertJsonPath('config.live', false)
             ->assertJsonPath('config.open', false)
             ->assertJsonPath('config.enabled', false);
+    }
+
+    public function test_approved_seller_can_load_sell_rmb_config(): void
+    {
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+        SellerProfile::create([
+            'user_id' => $seller->id,
+            'store_name' => 'RMB Seller',
+            'status' => SellerStatus::Approved,
+            'approved_at' => now(),
+        ]);
+
+        Sanctum::actingAs($seller);
+
+        $this->getJson('/api/v1/wallet/sell-rmb')
+            ->assertOk()
+            ->assertJsonStructure(['config' => ['live', 'open', 'readiness', 'status_message'], 'transfers']);
+    }
+
+    public function test_pending_seller_cannot_load_sell_rmb_config(): void
+    {
+        $seller = User::factory()->create(['role' => UserRole::Seller]);
+        SellerProfile::create([
+            'user_id' => $seller->id,
+            'store_name' => 'Pending Seller',
+            'status' => SellerStatus::Pending,
+        ]);
+
+        Sanctum::actingAs($seller);
+
+        $this->getJson('/api/v1/wallet/sell-rmb')->assertForbidden();
     }
 
     public function test_create_locks_rate_snapshot(): void

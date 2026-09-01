@@ -21,7 +21,7 @@ class ChinaRmbController extends Controller
 
     public function index(Request $request): Response
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         $user = $request->user();
         $userId = $user->id;

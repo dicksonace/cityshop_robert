@@ -1,15 +1,11 @@
 import { useState } from 'react';
 
 import InputError from '@/components/input-error';
+import SearchableLocationSelect from '@/components/shop/searchable-location-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { citiesForRegion, GHANA_REGIONS } from '@/lib/ghana-locations';
+import { citiesForRegion, GHANA_REGIONS, OTHER_CITY } from '@/lib/ghana-locations';
 import { cn } from '@/lib/utils';
-
-const OTHER = '__other__';
-
-const selectClass =
-    'flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-base text-gray-900 ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm';
 
 interface GhanaLocationFieldsProps {
     region: string;
@@ -30,49 +26,43 @@ export default function GhanaLocationFields({
     cityError,
     className,
 }: GhanaLocationFieldsProps) {
-    const cities = citiesForRegion(region).filter((name) => name !== 'Other');
+    const cities = citiesForRegion(region);
     const cityDisabled = !region;
     const isCustomCity = Boolean(region && city && !cities.includes(city));
     const [pickingOther, setPickingOther] = useState(isCustomCity);
-    const selectValue = pickingOther || isCustomCity ? OTHER : city;
+    const cityOptions = cities.filter((name) => name !== OTHER_CITY);
+    const selectValue = pickingOther || isCustomCity ? OTHER_CITY : city;
 
     return (
         <div className={cn('space-y-4', className)}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                    <Label htmlFor="checkout-region">Region</Label>
-                    <select
+                    <SearchableLocationSelect
                         id="checkout-region"
+                        label="Region"
                         value={region}
-                        required
-                        className={cn(selectClass, 'mt-1')}
-                        onChange={(e) => {
-                            const next = e.target.value;
+                        options={GHANA_REGIONS}
+                        placeholder="Select region"
+                        searchPlaceholder="Search region"
+                        onChange={(next) => {
                             onRegionChange(next);
                             setPickingOther(false);
                             onCityChange('');
                         }}
-                    >
-                        <option value="">Select region</option>
-                        {GHANA_REGIONS.map((name) => (
-                            <option key={name} value={name}>
-                                {name}
-                            </option>
-                        ))}
-                    </select>
+                    />
                     <InputError message={regionError} />
                 </div>
                 <div>
-                    <Label htmlFor="checkout-city">City / Town</Label>
-                    <select
+                    <SearchableLocationSelect
                         id="checkout-city"
+                        label="City / Town"
                         value={cityDisabled ? '' : selectValue}
-                        required={!pickingOther && !isCustomCity}
+                        options={[...cityOptions, OTHER_CITY]}
+                        placeholder={cityDisabled ? 'Select region first' : 'Select city / town'}
+                        searchPlaceholder="Search city / town"
                         disabled={cityDisabled}
-                        className={cn(selectClass, 'mt-1')}
-                        onChange={(e) => {
-                            const next = e.target.value;
-                            if (next === OTHER) {
+                        onChange={(next) => {
+                            if (next === OTHER_CITY) {
                                 setPickingOther(true);
                                 onCityChange('');
                                 return;
@@ -80,15 +70,7 @@ export default function GhanaLocationFields({
                             setPickingOther(false);
                             onCityChange(next);
                         }}
-                    >
-                        <option value="">{cityDisabled ? 'Select region first' : 'Select city / town'}</option>
-                        {cities.map((name) => (
-                            <option key={name} value={name}>
-                                {name}
-                            </option>
-                        ))}
-                        <option value={OTHER}>Other (type your town)</option>
-                    </select>
+                    />
                     <InputError message={!pickingOther && !isCustomCity ? cityError : undefined} />
                 </div>
             </div>

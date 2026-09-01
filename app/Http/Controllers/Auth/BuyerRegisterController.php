@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\Countries;
+use App\Support\GhanaLocations;
 use App\Support\GhanaMobile;
 use App\Support\UserRegistrationGuard;
 use Illuminate\Auth\Events\Registered;
@@ -44,6 +45,8 @@ class BuyerRegisterController extends Controller
                 },
             ],
             'country' => ['required', 'string', 'max:80', Rule::in(Countries::names())],
+            'region' => ['required', 'string', 'max:100', Rule::in(GhanaLocations::regions())],
+            'city' => ['required', 'string', 'max:100'],
             'email' => [
                 'required',
                 'string',
@@ -66,6 +69,8 @@ class BuyerRegisterController extends Controller
             'name' => $validated['name'],
             'mobile' => $validated['mobile'],
             'country' => $validated['country'],
+            'region' => $validated['region'],
+            'city' => $validated['city'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => UserRole::Buyer,

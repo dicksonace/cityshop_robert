@@ -131,6 +131,24 @@ class User extends Authenticatable
         return $this->role === UserRole::Buyer;
     }
 
+    /**
+     * Buyers and approved sellers can use China / RMB (Buy, Sell, convert).
+     */
+    public function canUseRmbWallet(): bool
+    {
+        if ($this->isBuyer()) {
+            return true;
+        }
+
+        if ($this->isSeller()) {
+            $this->loadMissing('sellerProfile');
+
+            return $this->sellerProfile?->isApproved() ?? false;
+        }
+
+        return false;
+    }
+
     public function isBlocked(): bool
     {
         return $this->blocked_at !== null;

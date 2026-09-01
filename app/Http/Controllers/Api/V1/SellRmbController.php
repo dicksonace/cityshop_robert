@@ -14,7 +14,7 @@ class SellRmbController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $this->assertBuyer($request);
+        $this->assertRmbWalletUser($request);
 
         $transfers = SellRmbTransfer::query()
             ->where('user_id', $request->user()->id)
@@ -31,7 +31,7 @@ class SellRmbController extends Controller
 
     public function quote(Request $request): JsonResponse
     {
-        $this->assertBuyer($request);
+        $this->assertRmbWalletUser($request);
 
         $validated = $request->validate([
             'rmb_amount' => ['required', 'numeric', 'min:1'],
@@ -48,7 +48,7 @@ class SellRmbController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $this->assertBuyer($request);
+        $this->assertRmbWalletUser($request);
 
         $transfer = $this->sellRmb->create($request->user(), $request);
 
@@ -79,9 +79,9 @@ class SellRmbController extends Controller
         ]);
     }
 
-    private function assertBuyer(Request $request): void
+    private function assertRmbWalletUser(Request $request): void
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
     }
 
     private function assertOwner(Request $request, SellRmbTransfer $transfer): void

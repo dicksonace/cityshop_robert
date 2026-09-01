@@ -20,7 +20,7 @@ class ChinaTransferController extends Controller
 
     public function index(Request $request): Response
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         $transfers = ChinaTransfer::query()
             ->where('user_id', $request->user()->id)
@@ -38,7 +38,7 @@ class ChinaTransferController extends Controller
 
     public function create(Request $request): Response|RedirectResponse
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         if (! $this->transfers->isOpen()) {
             return redirect()->route('wallet.china-transfer.index')
@@ -56,7 +56,7 @@ class ChinaTransferController extends Controller
 
     public function quote(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         $validated = $request->validate([
             'ghs_amount' => ['required', 'numeric', 'min:1'],
@@ -69,7 +69,7 @@ class ChinaTransferController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         if ($denied = \App\Services\RmbWalletGuard::denyRedirect($request->user())) {
             return $denied;

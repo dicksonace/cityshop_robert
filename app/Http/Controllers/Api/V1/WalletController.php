@@ -164,7 +164,7 @@ class WalletController extends Controller
     /** Quote GHS ↔ RMB convert (buyers only). */
     public function convertQuote(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         $validated = $request->validate([
             'direction' => ['required', 'in:ghs_to_rmb,rmb_to_ghs'],
@@ -191,7 +191,7 @@ class WalletController extends Controller
     /** Instant GHS ↔ RMB convert (buyers only). Requires KYC + payment PIN. */
     public function convert(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         if ($denied = RmbWalletGuard::denyJson($request->user())) {
             return $denied;

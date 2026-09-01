@@ -14,7 +14,7 @@ class ChinaTransferController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $this->assertBuyer($request);
+        $this->assertRmbWalletUser($request);
 
         $transfers = ChinaTransfer::query()
             ->where('user_id', $request->user()->id)
@@ -32,7 +32,7 @@ class ChinaTransferController extends Controller
 
     public function quote(Request $request): JsonResponse
     {
-        $this->assertBuyer($request);
+        $this->assertRmbWalletUser($request);
 
         $validated = $request->validate([
             'ghs_amount' => ['required', 'numeric', 'min:1'],
@@ -45,7 +45,7 @@ class ChinaTransferController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $this->assertBuyer($request);
+        $this->assertRmbWalletUser($request);
 
         if ($denied = \App\Services\RmbWalletGuard::denyJson($request->user())) {
             return $denied;
@@ -90,9 +90,9 @@ class ChinaTransferController extends Controller
         ]);
     }
 
-    private function assertBuyer(Request $request): void
+    private function assertRmbWalletUser(Request $request): void
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
     }
 
     private function assertOwner(Request $request, ChinaTransfer $transfer): void

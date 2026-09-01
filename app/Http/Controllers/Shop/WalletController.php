@@ -263,7 +263,7 @@ class WalletController extends Controller
 
     public function convertForm(Request $request): Response
     {
-        abort_unless($request->user()->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         $wallet = WalletService::ensure($request->user());
 
@@ -291,7 +291,7 @@ class WalletController extends Controller
 
     public function convertQuote(Request $request): JsonResponse
     {
-        abort_unless($request->user()->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         $validated = $request->validate([
             'direction' => ['required', 'in:ghs_to_rmb,rmb_to_ghs'],
@@ -317,7 +317,7 @@ class WalletController extends Controller
 
     public function convert(Request $request): RedirectResponse|JsonResponse
     {
-        abort_unless($request->user()->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         if ($denied = RmbWalletGuard::denyRedirect($request->user())) {
             if ($request->expectsJson()) {

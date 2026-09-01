@@ -25,10 +25,20 @@ class GhanaLocations
             'Central' => ['Cape Coast', 'Kasoa', 'Winneba', 'Elmina', 'Mankessim', 'Swedru'],
             'Eastern' => ['Koforidua', 'Nkawkaw', 'Akosombo', 'Nsawam', 'Suhum', 'Akim Oda'],
             'Greater Accra' => ['Accra', 'Tema', 'Madina', 'Kasoa', 'Ashaiman', 'Ablekuma', 'Adenta', 'Dodowa'],
-            'North East' => ['Nalerigu', 'Walewale', 'Gambaga'],
+            'North East' => [
+                'Bunkpurugu', 'Chereponi', 'Demon', 'Gambaga', 'Jimbale', 'Nakpanduri',
+                'Nalerigu', 'Walewale', 'Wenchiki', 'Yunyoo', 'Other city',
+            ],
             'Northern' => ['Tamale', 'Yendi', 'Savelugu'],
-            'Oti' => ['Dambai', 'Jasikan', 'Kadjebi', 'Nkwanta'],
-            'Savannah' => ['Damongo', 'Bole', 'Salaga'],
+            'Oti' => [
+                'Akpafu', 'Brewaniase', 'Chinderi', 'Dambai', 'Jasikan', 'Kate krachi', 'Kpassa',
+                'Krachi Nchumuru', 'Kwamekrom', 'Likpe', 'Lolobi', 'Nkwanta', 'Santrokofi',
+                'Worawora', 'Other city',
+            ],
+            'Savannah' => [
+                'Bole', 'Buipe', 'Canteen', 'Daboya', 'Damongo', 'Gbintiri', 'Grupe', 'Kalande',
+                'Lungbunga', 'Salaga', 'Sawla', 'Tuna', 'Yapei', 'Other city',
+            ],
             'Upper East' => ['Bolgatanga', 'Bawku', 'Navrongo'],
             'Upper West' => ['Wa', 'Lawra', 'Nandom', 'Jirapa'],
             'Volta' => ['Ho', 'Hohoe', 'Keta', 'Aflao', 'Kpandu'],

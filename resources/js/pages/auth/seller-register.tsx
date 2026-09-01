@@ -4,6 +4,7 @@ import { FormEventHandler, ReactNode, useEffect, useState } from 'react';
 
 import DocumentUploadField from '@/components/forms/document-upload-field';
 import InputError from '@/components/input-error';
+import GhanaLocationFields from '@/components/shop/ghana-location-fields';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -616,18 +617,16 @@ export default function SellerRegister({ token, expiresAt, inviteEmail = null, i
                                 <section>
                                     <h2 className="text-lg font-semibold text-gray-900">Location</h2>
                                     <p className="mt-1 text-sm text-gray-500">Where you live and operate from in Ghana.</p>
-                                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                    <div className="mt-4 space-y-4">
+                                        <GhanaLocationFields
+                                            region={data.region}
+                                            city={data.city}
+                                            onRegionChange={(region) => setData('region', region)}
+                                            onCityChange={(city) => setData('city', city)}
+                                            regionError={displayErrors.region}
+                                            cityError={displayErrors.city}
+                                        />
                                         <div>
-                                            <Label>Region</Label>
-                                            <Input value={data.region} onChange={(e) => setData('region', e.target.value)} className="mt-1" placeholder="e.g. Greater Accra" />
-                                            <InputError message={displayErrors.region} />
-                                        </div>
-                                        <div>
-                                            <Label>City</Label>
-                                            <Input value={data.city} onChange={(e) => setData('city', e.target.value)} className="mt-1" placeholder="e.g. Accra" />
-                                            <InputError message={displayErrors.city} />
-                                        </div>
-                                        <div className="sm:col-span-2">
                                             <Label>Residential Address</Label>
                                             <Input value={data.residential_address} onChange={(e) => setData('residential_address', e.target.value)} className="mt-1" />
                                             <InputError message={displayErrors.residential_address} />

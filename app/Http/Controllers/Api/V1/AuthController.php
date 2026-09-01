@@ -9,6 +9,7 @@ use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
 use App\Services\PasswordResetService;
 use App\Support\Countries;
+use App\Support\GhanaLocations;
 use App\Support\GhanaMobile;
 use App\Support\UserRegistrationGuard;
 use Illuminate\Auth\Events\Registered;
@@ -39,6 +40,8 @@ class AuthController extends Controller
                 },
             ],
             'country' => ['nullable', 'string', 'max:80', Rule::in(Countries::names())],
+            'region' => ['required', 'string', 'max:100', Rule::in(GhanaLocations::regions())],
+            'city' => ['required', 'string', 'max:100'],
             'email' => [
                 'nullable',
                 'string',
@@ -64,6 +67,8 @@ class AuthController extends Controller
             'name' => $validated['name'],
             'mobile' => $validated['mobile'],
             'country' => $validated['country'] ?? Countries::default(),
+            'region' => $validated['region'],
+            'city' => $validated['city'],
             'email' => $email,
             'password' => $validated['password'],
             'role' => UserRole::Buyer,

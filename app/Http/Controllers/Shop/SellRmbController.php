@@ -17,7 +17,7 @@ class SellRmbController extends Controller
 
     public function index(Request $request): Response
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         $transfers = SellRmbTransfer::query()
             ->where('user_id', $request->user()->id)
@@ -34,7 +34,7 @@ class SellRmbController extends Controller
 
     public function create(Request $request): Response|RedirectResponse
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         if (! $this->sellRmb->isOpen()) {
             return redirect()->route('wallet.sell-rmb.index')
@@ -48,7 +48,7 @@ class SellRmbController extends Controller
 
     public function quote(Request $request): JsonResponse
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         $validated = $request->validate([
             'rmb_amount' => ['required', 'numeric', 'min:1'],
@@ -65,7 +65,7 @@ class SellRmbController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        abort_unless($request->user()?->isBuyer(), 403);
+        abort_unless($request->user()?->canUseRmbWallet(), 403);
 
         $transfer = $this->sellRmb->create($request->user(), $request);
 

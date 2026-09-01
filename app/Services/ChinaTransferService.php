@@ -55,6 +55,35 @@ class ChinaTransferService
     }
 
     /**
+     * @return array<string, bool>
+     */
+    public function readinessPayload(): array
+    {
+        $settings = $this->settings();
+
+        return [
+            'live' => (bool) $settings->enabled,
+            'rate_published' => $this->currentRate() !== null,
+            'open' => $this->isOpen(),
+        ];
+    }
+
+    public function buyerStatusMessage(): ?string
+    {
+        $readiness = $this->readinessPayload();
+
+        if (! $readiness['live']) {
+            return 'Buy RMB is paused by admin.';
+        }
+
+        if (! $readiness['rate_published']) {
+            return 'Transfer rate not published yet.';
+        }
+
+        return null;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function transferHoursPayload(): array
@@ -791,6 +820,8 @@ class ChinaTransferService
             'live' => (bool) $settings->enabled,
             'open' => $this->isOpen(),
             'enabled' => $this->isOpen(),
+            'readiness' => $this->readinessPayload(),
+            'status_message' => $this->buyerStatusMessage(),
             'external_enabled' => $this->isExternalOpen(),
             'wallet_funding_enabled' => $this->isOpen(),
             'channel' => 'alipay',

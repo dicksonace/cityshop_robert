@@ -3,6 +3,7 @@ import { LoaderCircle } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 import InputError from '@/components/input-error';
+import GhanaLocationFields from '@/components/shop/ghana-location-fields';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,8 @@ export default function BuyerRegister() {
         name: '',
         mobile: '',
         country: defaultCountry || 'Ghana',
+        region: '',
+        city: '',
         email: '',
         password: '',
         password_confirmation: '',
@@ -77,6 +80,14 @@ export default function BuyerRegister() {
                             </select>
                             <InputError message={formErrors.country} />
                         </div>
+                        <GhanaLocationFields
+                            region={data.region}
+                            city={data.city}
+                            onRegionChange={(region) => setData('region', region)}
+                            onCityChange={(city) => setData('city', city)}
+                            regionError={formErrors.region}
+                            cityError={formErrors.city}
+                        />
                         <div>
                             <Label htmlFor="email">Email Address</Label>
                             <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} required className="mt-1" />
