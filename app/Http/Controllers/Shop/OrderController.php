@@ -264,6 +264,7 @@ class OrderController extends Controller
             'items.product.images',
             'items.dispute',
             'seller.sellerProfile',
+            'sellerPaymentMethod',
             'checkout',
         ]);
 

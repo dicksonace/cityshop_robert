@@ -81,6 +81,7 @@ class WalletController extends Controller
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($user),
+            'canUseRmbWallet' => $user->canUseRmbWallet(),
         ]);
     }
 

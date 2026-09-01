@@ -190,14 +190,17 @@ export default function ChinaTransferCreate({
                 {!kyc?.can_store_funds && (
                     <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
                         KYC required before transfer.{' '}
-                        <Link href={route('account.index')} className="font-semibold underline">
-                            Open account / KYC
+                        <Link href={route('kyc.index')} className="font-semibold underline">
+                            Verify Ghana Card
                         </Link>
                     </p>
                 )}
                 {!hasPaymentPin && (
                     <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        Set a 4-digit payment PIN in Profile before transferring.
+                        Set a 4-digit payment PIN before transferring.{' '}
+                        <Link href={route('shop.payment-pin.edit')} className="font-semibold underline">
+                            Set payment PIN
+                        </Link>
                     </p>
                 )}
 

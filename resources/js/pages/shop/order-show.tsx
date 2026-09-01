@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, ChevronRight, Star } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
 import { LightboxTrigger, orderItemLightboxImages } from '@/components/shop/image-lightbox';
+import DirectPaymentCard from '@/components/shop/direct-payment-card';
 import OrderProgress from '@/components/shop/order-progress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,18 @@ interface OrderShowProps {
                 rating?: number;
                 total_sales?: number;
             } | null;
+        } | null;
+        payment_channel?: string;
+        direct_payment_reference?: string | null;
+        direct_payment_proof_path?: string | null;
+        direct_payment_rejection_reason?: string | null;
+        seller_payment_method?: {
+            account_name: string;
+            account_number?: string | null;
+            network?: string | null;
+            bank_name?: string | null;
+            type?: string;
+            instructions?: string | null;
         } | null;
     };
     reviews: Record<number, { rating: number; comment?: string }>;
@@ -156,6 +169,7 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
         order.status === 'cancelled'
         || (order.items?.length > 0 && order.items.every((item) => item.status === 'cancelled'));
     const isCod = order.payment_method === 'cash';
+    const isDirect = order.payment_channel === 'direct';
     const paymentPending = order.payment_status === 'pending' && !isCancelled && !isCod;
     const primaryStatus = mostAdvancedItemStatus(order.items) ?? order.status;
 
@@ -194,7 +208,7 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                     &larr; {checkoutId ? `Back to purchase ${checkoutNumber ?? ''}`.trim() : 'Back to Orders'}
                 </Link>
 
-                {paymentPending && (
+                {paymentPending && !isDirect && (
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
                         <p className="font-medium text-amber-800">Payment pending</p>
                         <Link
@@ -203,6 +217,12 @@ export default function OrderShow({ order, reviews, checkoutNumber, checkoutId }
                         >
                             Complete payment &rarr;
                         </Link>
+                    </div>
+                )}
+
+                {paymentPending && isDirect && (
+                    <div className="mt-4 rounded-xl border border-sky-200 bg-white p-4 shadow-sm">
+                        <DirectPaymentCard order={order} compact />
                     </div>
                 )}
 

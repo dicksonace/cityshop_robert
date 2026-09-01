@@ -67,6 +67,9 @@ use App\Http\Controllers\Admin\ChinaTransferSettingsController as AdminChinaTran
 use App\Http\Controllers\Admin\SellRmbController as AdminSellRmbController;
 use App\Http\Controllers\Admin\SellRmbSettingsController as AdminSellRmbSettingsController;
 use App\Http\Controllers\Shop\WishlistController;
+use App\Http\Controllers\Shop\KycController;
+use App\Http\Controllers\Shop\QrPaymentController;
+use App\Http\Controllers\Shop\PaymentPinPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -133,6 +136,16 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/following/toggle', [FollowingController::class, 'toggle'])->middleware('buyer.shop')->name('following.toggle');
 
     Route::get('/account', [AccountController::class, 'index'])->middleware('buyer.shop')->name('account.index');
+
+    Route::get('/payment-pin', [PaymentPinPageController::class, 'edit'])->name('shop.payment-pin.edit');
+
+    Route::get('/kyc', [KycController::class, 'index'])->name('kyc.index');
+    Route::post('/kyc', [KycController::class, 'store'])->name('kyc.store');
+
+    Route::get('/wallet/qr/receive', [QrPaymentController::class, 'receive'])->name('wallet.qr.receive');
+    Route::get('/wallet/qr/pay', [QrPaymentController::class, 'pay'])->name('wallet.qr.pay');
+    Route::post('/wallet/qr/resolve', [QrPaymentController::class, 'resolve'])->name('wallet.qr.resolve');
+    Route::post('/wallet/qr/pay', [QrPaymentController::class, 'submitPay'])->name('wallet.qr.pay.store');
 
     Route::get('/addresses', [AddressController::class, 'index'])->middleware('buyer.shop')->name('addresses.index');
     Route::get('/addresses/create', [AddressController::class, 'create'])->middleware('buyer.shop')->name('addresses.create');

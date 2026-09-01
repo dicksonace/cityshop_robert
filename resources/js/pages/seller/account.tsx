@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { ChevronRight, KeyRound, LogOut, Smartphone, Store, User, Users } from 'lucide-react';
+import { ChevronRight, KeyRound, LogOut, Smartphone, Store, User, Users, BadgeCheck, Shield, QrCode } from 'lucide-react';
 import { FormEventHandler } from 'react';
 
 import InputError from '@/components/input-error';
@@ -23,6 +23,10 @@ type Props = {
 
 const links = [
     { label: 'Profile settings', href: route('profile.edit'), icon: User, hint: 'Name & email' },
+    { label: 'Ghana Card verification', href: route('kyc.index'), icon: BadgeCheck, hint: 'Required for wallet & RMB' },
+    { label: 'Payment PIN', href: route('shop.payment-pin.edit'), icon: Shield, hint: 'Wallet security' },
+    { label: 'My QR code', href: route('wallet.qr.receive'), icon: QrCode, hint: 'Receive wallet payments' },
+    { label: 'Pay with QR', href: route('wallet.qr.pay'), icon: QrCode, hint: 'Pay buyers or sellers' },
     { label: 'Customize store', href: route('seller.store-appearance.index'), icon: Store, hint: 'Store logo & appearance' },
     { label: 'Followers', href: route('seller.followers.index'), icon: Users, hint: 'People following your store' },
     { label: 'Change password', href: route('password.edit'), icon: KeyRound, hint: 'Account security' },

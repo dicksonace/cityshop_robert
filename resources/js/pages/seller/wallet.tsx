@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Check, ChevronRight, Download, LoaderCircle, Plus, RefreshCw, Trash2, Wallet as WalletIcon } from 'lucide-react';
+import { Check, ChevronRight, Download, LoaderCircle, Plus, QrCode, RefreshCw, Trash2, Wallet as WalletIcon } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -51,6 +51,7 @@ interface WalletProps {
     paystackFee?: PaystackFeeSettings | null;
     withdrawalFee?: WithdrawalFeeSettings;
     hasPaymentPin?: boolean;
+    canUseRmbWallet?: boolean;
 }
 
 type BankFeeTier = NonNullable<NonNullable<WalletProps['withdrawalFee']>['bank_tiers']>;
@@ -80,6 +81,7 @@ export default function SellerWallet({
     paystackFee,
     withdrawalFee,
     hasPaymentPin = false,
+    canUseRmbWallet = false,
 }: WalletProps) {
     const { auth } = usePage<SharedData>().props;
     const [withdrawStep, setWithdrawStep] = useState<'details' | 'amount' | 'review'>('details');
@@ -276,6 +278,37 @@ export default function SellerWallet({
                 />
             </div>
 
+            <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {canUseRmbWallet && (
+                    <Link
+                        href={route('wallet.china-rmb.index')}
+                        className="flex items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-3 text-center text-xs font-bold text-indigo-800 hover:bg-indigo-100"
+                    >
+                        China / RMB
+                    </Link>
+                )}
+                <Link
+                    href={route('kyc.index')}
+                    className="flex items-center justify-center rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-900 hover:bg-amber-100"
+                >
+                    Ghana Card
+                </Link>
+                <Link
+                    href={route('wallet.qr.receive')}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-gray-800 shadow-sm hover:bg-gray-50"
+                >
+                    <QrCode className="h-3.5 w-3.5 text-orange-500" />
+                    My QR
+                </Link>
+                <Link
+                    href={route('wallet.qr.pay')}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-gray-800 shadow-sm hover:bg-gray-50"
+                >
+                    <QrCode className="h-3.5 w-3.5 text-orange-500" />
+                    Pay QR
+                </Link>
+            </div>
+
             <div className="mb-6 grid gap-4 sm:grid-cols-3">
                 {[
                     { label: 'Lifetime earnings', value: wallet.total_earnings, desc: 'All time' },
@@ -359,7 +392,7 @@ export default function SellerWallet({
                         {!hasPaymentPin && (
                             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                                 Set a 4-digit payment PIN before withdrawing.{' '}
-                                <a href={route('payment-pin.edit')} className="font-semibold underline">
+                                <a href={route('shop.payment-pin.edit')} className="font-semibold underline">
                                     Open Payment PIN settings
                                 </a>
                                 .
@@ -595,7 +628,7 @@ export default function SellerWallet({
                                 <InputError message={withdrawForm.errors.payment_pin} />
                                 <p className="mt-1 text-xs text-gray-500">
                                     Manage your PIN in{' '}
-                                    <a href={route('payment-pin.edit')} className="text-orange-600 underline">
+                                    <a href={route('shop.payment-pin.edit')} className="text-orange-600 underline">
                                         Settings → Payment PIN
                                     </a>
                                     .

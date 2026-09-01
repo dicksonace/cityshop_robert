@@ -1,20 +1,49 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ChevronRight, Heart, KeyRound, LogOut, MapPin, Store, User } from 'lucide-react';
+import {
+    BadgeCheck,
+    Bell,
+    ChevronRight,
+    Heart,
+    KeyRound,
+    LogOut,
+    MapPin,
+    QrCode,
+    Shield,
+    Store,
+    User,
+} from 'lucide-react';
 
 import ProfileAvatarUpload from '@/components/profile-avatar-upload';
+import { type KycPayload } from '@/components/wallet/kyc-verification-form';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 
-const links = [
-    { label: 'Profile settings', href: route('profile.edit'), icon: User, hint: 'Name & email' },
-    { label: 'Addresses', href: route('addresses.index'), icon: MapPin, hint: 'Saved delivery addresses' },
-    { label: 'Wishlist', href: route('wishlist.index'), icon: Heart, hint: 'Saved products' },
-    { label: 'Following', href: route('following.index'), icon: Store, hint: 'Sellers you follow' },
-    { label: 'Change password', href: route('password.edit'), icon: KeyRound, hint: 'Account security' },
-];
+type Props = {
+    kyc: KycPayload;
+    hasPaymentPin: boolean;
+};
 
-export default function BuyerAccount() {
+const kycHint = (kyc: KycPayload) => {
+    if (kyc.status === 'approved') return 'Verified';
+    if (kyc.status === 'pending') return 'Under review';
+    return 'Required for wallet';
+};
+
+export default function BuyerAccount({ kyc, hasPaymentPin }: Props) {
     const { flash } = usePage<SharedData>().props;
+
+    const links = [
+        { label: 'Profile settings', href: route('profile.edit'), icon: User, hint: 'Name & email' },
+        { label: 'Ghana Card verification', href: route('kyc.index'), icon: BadgeCheck, hint: kycHint(kyc) },
+        { label: 'Payment PIN', href: route('shop.payment-pin.edit'), icon: Shield, hint: hasPaymentPin ? 'PIN is set' : 'Set 4-digit PIN' },
+        { label: 'Notifications', href: route('notifications.index'), icon: Bell, hint: 'Order & wallet alerts' },
+        { label: 'My QR code', href: route('wallet.qr.receive'), icon: QrCode, hint: 'Receive wallet payments' },
+        { label: 'Pay with QR', href: route('wallet.qr.pay'), icon: QrCode, hint: 'Scan or paste a code' },
+        { label: 'Addresses', href: route('addresses.index'), icon: MapPin, hint: 'Saved delivery addresses' },
+        { label: 'Wishlist', href: route('wishlist.index'), icon: Heart, hint: 'Saved products' },
+        { label: 'Following', href: route('following.index'), icon: Store, hint: 'Sellers you follow' },
+        { label: 'Change password', href: route('password.edit'), icon: KeyRound, hint: 'Account security' },
+    ];
 
     return (
         <ShopLayout>

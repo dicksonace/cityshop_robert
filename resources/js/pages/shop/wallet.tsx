@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { RefreshCw } from 'lucide-react';
+import { QrCode, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
 import RechargeModal from '@/components/wallet/recharge-modal';
@@ -175,6 +175,23 @@ export default function BuyerWallet({
                     amountInputId="buyer-recharge-amount"
                     paystackFee={paystackFee}
                 />
+
+                <div className="mb-4 grid grid-cols-2 gap-2">
+                    <Link
+                        href={route('wallet.qr.receive')}
+                        className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm font-bold text-gray-800 shadow-sm hover:bg-gray-50"
+                    >
+                        <QrCode className="h-4 w-4 text-orange-500" />
+                        My QR
+                    </Link>
+                    <Link
+                        href={route('wallet.qr.pay')}
+                        className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm font-bold text-gray-800 shadow-sm hover:bg-gray-50"
+                    >
+                        <QrCode className="h-4 w-4 text-orange-500" />
+                        Pay QR
+                    </Link>
+                </div>
 
                 <div id="withdrawal-requests" className="mb-5 scroll-mt-28 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                     <div className="flex items-center justify-between gap-3">
