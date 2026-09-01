@@ -5,7 +5,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { GHANA_REGIONS } from '@/lib/ghana-locations';
+import GhanaLocationFields from '@/components/shop/ghana-location-fields';
 
 interface Props {
     updateUrl: string;
@@ -40,7 +40,6 @@ export default function SellerInformationForm({
     acceptMarketplacePayments = true,
     acceptDirectPayments = false,
 }: Props) {
-    const regions = region && !GHANA_REGIONS.includes(region) ? [region, ...GHANA_REGIONS] : GHANA_REGIONS;
     const form = useForm({
         name: name ?? '',
         email: email ?? '',
@@ -84,23 +83,14 @@ export default function SellerInformationForm({
                             placeholder="GHA-XXXXXXXXX-X"
                         />
                     </Field>
-                    <Field label="Region" error={form.errors.region}>
-                        <select
-                            className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
-                            value={form.data.region}
-                            onChange={(e) => form.setData('region', e.target.value)}
-                        >
-                            <option value="">Select region</option>
-                            {regions.map((item) => (
-                                <option key={item} value={item}>
-                                    {item}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                    <Field label="City" error={form.errors.city}>
-                        <Input value={form.data.city} onChange={(e) => form.setData('city', e.target.value)} />
-                    </Field>
+                    <GhanaLocationFields
+                        region={form.data.region}
+                        city={form.data.city}
+                        onRegionChange={(value) => form.setData('region', value)}
+                        onCityChange={(value) => form.setData('city', value)}
+                        regionError={form.errors.region}
+                        cityError={form.errors.city}
+                    />
                     <Field label="Address" error={form.errors.residential_address}>
                         <Input
                             value={form.data.residential_address}
