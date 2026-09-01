@@ -104,7 +104,11 @@ class GhanaLocations
                 'Funsi', 'Gwollu', 'Hamile', 'Issa', 'Jirapa', 'Ko', 'Lawra', 'Nadowli', 'Nandom', 'Sankana',
                 'Tumu', 'Wa', 'Wechiau', self::OTHER_CITY,
             ],
-            'Volta' => ['Ho', 'Hohoe', 'Keta', 'Aflao', 'Kpandu', self::OTHER_CITY],
+            'Volta' => [
+                'Adidome', 'Aflao', 'Agbozume', 'Akatsi', 'Anloga', 'Ave Dakpa', 'Battor', 'Dabala', 'Denu', 'Dzodze',
+                'Gbi Wegbe', 'Golokwati', 'Ho', 'Hohoe', 'Keta', 'Klikor', 'Kpando', 'Kpetoe', 'Kpeve', 'Mepe', 'Peki',
+                'Sogakope', 'Todze', 'Tsito', 'Xavi', self::OTHER_CITY,
+            ],
             'Bono' => ['Sunyani', 'Berekum', 'Dormaa Ahenkro', 'Wenchi', self::OTHER_CITY],
             'Western North' => [
                 'Akontombra', 'Anhwinso', 'Asawinso', 'Bia', 'Bibiani', 'Bodi', 'Chirano', 'Dadieso', 'Debiso',
