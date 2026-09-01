@@ -4,12 +4,50 @@ namespace App\Support;
 
 class GhanaLocations
 {
+    public const OTHER_CITY = 'Other city';
+
+    /**
+     * Display order for region pickers (Greater Accra first).
+     *
+     * @return list<string>
+     */
+    public static function regionOrder(): array
+    {
+        return [
+            'Greater Accra',
+            'Ashanti',
+            'Western',
+            'Eastern',
+            'Central',
+            'Northern',
+            'Upper East',
+            'Upper West',
+            'Volta',
+            'Bono',
+            'Western North',
+            'Ahafo',
+            'Bono East',
+            'North East',
+            'Savannah',
+            'Oti',
+        ];
+    }
+
     /**
      * @return list<string>
      */
     public static function regions(): array
     {
-        return array_keys(self::citiesByRegion());
+        $keys = array_keys(self::citiesByRegion());
+        $ordered = array_values(array_intersect(self::regionOrder(), $keys));
+
+        foreach ($keys as $key) {
+            if (! in_array($key, $ordered, true)) {
+                $ordered[] = $key;
+            }
+        }
+
+        return $ordered;
     }
 
     /**
@@ -18,12 +56,6 @@ class GhanaLocations
     public static function citiesByRegion(): array
     {
         return [
-            'Ahafo' => ['Goaso', 'Bechem', 'Duayaw Nkwanta', 'Kukuom', 'Hwidiem'],
-            'Ashanti' => ['Kumasi', 'Obuasi', 'Ejisu', 'Konongo', 'Mampong', 'Bekwai', 'Offinso'],
-            'Bono' => ['Sunyani', 'Berekum', 'Dormaa Ahenkro', 'Wenchi'],
-            'Bono East' => ['Techiman', 'Kintampo', 'Nkoranza', 'Atebubu'],
-            'Central' => ['Cape Coast', 'Kasoa', 'Winneba', 'Elmina', 'Mankessim', 'Swedru'],
-            'Eastern' => ['Koforidua', 'Nkawkaw', 'Akosombo', 'Nsawam', 'Suhum', 'Akim Oda'],
             'Greater Accra' => [
                 'Abeka', 'Ablekuma', 'Accra', 'Accra Central', 'Achimota', 'Adabraka', 'Adenta', 'Airport',
                 'Amasaman', 'Ashaiman', 'Atomic', 'Avenor', 'Awoshie', 'Baatsona', 'Bubuashie', 'Cantonments',
@@ -33,27 +65,33 @@ class GhanaLocations
                 'Mallam', 'Mamprobi', 'Mataheko', 'North Industrial Area', 'North Kaneshie', 'Nungua', 'Ofankor',
                 'Osu', 'Oyarifa', 'Pokuase', 'Prampram', 'Ridge', 'Roman Ridge', 'Sakumono', 'Santa Maria',
                 'South Industrial Area', 'Spintex', 'Spintex Road', 'Tema', 'Teshie', 'Teshie Nungua', 'Tesano',
-                'Trasaco', 'Tudu', 'Usher Town', 'Weija', 'Other city',
+                'Trasaco', 'Tudu', 'Usher Town', 'Weija', self::OTHER_CITY,
             ],
+            'Ashanti' => ['Kumasi', 'Obuasi', 'Ejisu', 'Konongo', 'Mampong', 'Bekwai', 'Offinso', self::OTHER_CITY],
+            'Western' => ['Takoradi', 'Sekondi', 'Tarkwa', 'Axim', self::OTHER_CITY],
+            'Eastern' => ['Koforidua', 'Nkawkaw', 'Akosombo', 'Nsawam', 'Suhum', 'Akim Oda', self::OTHER_CITY],
+            'Central' => ['Cape Coast', 'Kasoa', 'Winneba', 'Elmina', 'Mankessim', 'Swedru', self::OTHER_CITY],
+            'Northern' => ['Tamale', 'Yendi', 'Savelugu', self::OTHER_CITY],
+            'Upper East' => ['Bolgatanga', 'Bawku', 'Navrongo', self::OTHER_CITY],
+            'Upper West' => ['Wa', 'Lawra', 'Nandom', 'Jirapa', self::OTHER_CITY],
+            'Volta' => ['Ho', 'Hohoe', 'Keta', 'Aflao', 'Kpandu', self::OTHER_CITY],
+            'Bono' => ['Sunyani', 'Berekum', 'Dormaa Ahenkro', 'Wenchi', self::OTHER_CITY],
+            'Western North' => ['Sefwi Wiawso', 'Bibiani', 'Sefwi Bekwai', 'Enchi', 'Juaboso', self::OTHER_CITY],
+            'Ahafo' => ['Goaso', 'Bechem', 'Duayaw Nkwanta', 'Kukuom', 'Hwidiem', self::OTHER_CITY],
+            'Bono East' => ['Techiman', 'Kintampo', 'Nkoranza', 'Atebubu', self::OTHER_CITY],
             'North East' => [
                 'Bunkpurugu', 'Chereponi', 'Demon', 'Gambaga', 'Jimbale', 'Nakpanduri',
-                'Nalerigu', 'Walewale', 'Wenchiki', 'Yunyoo', 'Other city',
-            ],
-            'Northern' => ['Tamale', 'Yendi', 'Savelugu'],
-            'Oti' => [
-                'Akpafu', 'Brewaniase', 'Chinderi', 'Dambai', 'Jasikan', 'Kate krachi', 'Kpassa',
-                'Krachi Nchumuru', 'Kwamekrom', 'Likpe', 'Lolobi', 'Nkwanta', 'Santrokofi',
-                'Worawora', 'Other city',
+                'Nalerigu', 'Walewale', 'Wenchiki', 'Yunyoo', self::OTHER_CITY,
             ],
             'Savannah' => [
                 'Bole', 'Buipe', 'Canteen', 'Daboya', 'Damongo', 'Gbintiri', 'Grupe', 'Kalande',
-                'Lungbunga', 'Salaga', 'Sawla', 'Tuna', 'Yapei', 'Other city',
+                'Lungbunga', 'Salaga', 'Sawla', 'Tuna', 'Yapei', self::OTHER_CITY,
             ],
-            'Upper East' => ['Bolgatanga', 'Bawku', 'Navrongo'],
-            'Upper West' => ['Wa', 'Lawra', 'Nandom', 'Jirapa'],
-            'Volta' => ['Ho', 'Hohoe', 'Keta', 'Aflao', 'Kpandu'],
-            'Western' => ['Takoradi', 'Sekondi', 'Tarkwa', 'Axim'],
-            'Western North' => ['Sefwi Wiawso', 'Bibiani', 'Sefwi Bekwai', 'Enchi', 'Juaboso'],
+            'Oti' => [
+                'Akpafu', 'Brewaniase', 'Chinderi', 'Dambai', 'Jasikan', 'Kate krachi', 'Kpassa',
+                'Krachi Nchumuru', 'Kwamekrom', 'Likpe', 'Lolobi', 'Nkwanta', 'Santrokofi',
+                'Worawora', self::OTHER_CITY,
+            ],
         ];
     }
 
@@ -66,6 +104,14 @@ class GhanaLocations
     {
         $cities = self::citiesByRegion()[$region] ?? null;
 
-        return is_array($cities) && in_array($city, $cities, true);
+        if (! is_array($cities)) {
+            return false;
+        }
+
+        if (in_array($city, $cities, true)) {
+            return true;
+        }
+
+        return $city !== '' && $city !== self::OTHER_CITY;
     }
 }

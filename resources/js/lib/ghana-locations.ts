@@ -2,13 +2,26 @@
 
 export const OTHER_CITY = 'Other city';
 
+export const GHANA_REGION_ORDER = [
+    'Greater Accra',
+    'Ashanti',
+    'Western',
+    'Eastern',
+    'Central',
+    'Northern',
+    'Upper East',
+    'Upper West',
+    'Volta',
+    'Bono',
+    'Western North',
+    'Ahafo',
+    'Bono East',
+    'North East',
+    'Savannah',
+    'Oti',
+] as const;
+
 export const GHANA_CITIES_BY_REGION: Record<string, string[]> = {
-    Ahafo: ['Goaso', 'Bechem', 'Duayaw Nkwanta', 'Kukuom', 'Hwidiem'],
-    Ashanti: ['Kumasi', 'Obuasi', 'Ejisu', 'Konongo', 'Mampong', 'Bekwai', 'Offinso'],
-    Bono: ['Sunyani', 'Berekum', 'Dormaa Ahenkro', 'Wenchi'],
-    'Bono East': ['Techiman', 'Kintampo', 'Nkoranza', 'Atebubu'],
-    Central: ['Cape Coast', 'Kasoa', 'Winneba', 'Elmina', 'Mankessim', 'Swedru'],
-    Eastern: ['Koforidua', 'Nkawkaw', 'Akosombo', 'Nsawam', 'Suhum', 'Akim Oda'],
     'Greater Accra': [
         'Abeka',
         'Ablekuma',
@@ -77,8 +90,20 @@ export const GHANA_CITIES_BY_REGION: Record<string, string[]> = {
         'Tudu',
         'Usher Town',
         'Weija',
-        'Other city',
+        OTHER_CITY,
     ],
+    Ashanti: ['Kumasi', 'Obuasi', 'Ejisu', 'Konongo', 'Mampong', 'Bekwai', 'Offinso', OTHER_CITY],
+    Western: ['Takoradi', 'Sekondi', 'Tarkwa', 'Axim', OTHER_CITY],
+    Eastern: ['Koforidua', 'Nkawkaw', 'Akosombo', 'Nsawam', 'Suhum', 'Akim Oda', OTHER_CITY],
+    Central: ['Cape Coast', 'Kasoa', 'Winneba', 'Elmina', 'Mankessim', 'Swedru', OTHER_CITY],
+    Northern: ['Tamale', 'Yendi', 'Savelugu', OTHER_CITY],
+    'Upper East': ['Bolgatanga', 'Bawku', 'Navrongo', OTHER_CITY],
+    'Upper West': ['Wa', 'Lawra', 'Nandom', 'Jirapa', OTHER_CITY],
+    Volta: ['Ho', 'Hohoe', 'Keta', 'Aflao', 'Kpandu', OTHER_CITY],
+    Bono: ['Sunyani', 'Berekum', 'Dormaa Ahenkro', 'Wenchi', OTHER_CITY],
+    'Western North': ['Sefwi Wiawso', 'Bibiani', 'Sefwi Bekwai', 'Enchi', 'Juaboso', OTHER_CITY],
+    Ahafo: ['Goaso', 'Bechem', 'Duayaw Nkwanta', 'Kukuom', 'Hwidiem', OTHER_CITY],
+    'Bono East': ['Techiman', 'Kintampo', 'Nkoranza', 'Atebubu', OTHER_CITY],
     'North East': [
         'Bunkpurugu',
         'Chereponi',
@@ -90,25 +115,7 @@ export const GHANA_CITIES_BY_REGION: Record<string, string[]> = {
         'Walewale',
         'Wenchiki',
         'Yunyoo',
-        'Other city',
-    ],
-    Northern: ['Tamale', 'Yendi', 'Savelugu'],
-    Oti: [
-        'Akpafu',
-        'Brewaniase',
-        'Chinderi',
-        'Dambai',
-        'Jasikan',
-        'Kate krachi',
-        'Kpassa',
-        'Krachi Nchumuru',
-        'Kwamekrom',
-        'Likpe',
-        'Lolobi',
-        'Nkwanta',
-        'Santrokofi',
-        'Worawora',
-        'Other city',
+        OTHER_CITY,
     ],
     Savannah: [
         'Bole',
@@ -124,16 +131,31 @@ export const GHANA_CITIES_BY_REGION: Record<string, string[]> = {
         'Sawla',
         'Tuna',
         'Yapei',
-        'Other city',
+        OTHER_CITY,
     ],
-    'Upper East': ['Bolgatanga', 'Bawku', 'Navrongo'],
-    'Upper West': ['Wa', 'Lawra', 'Nandom', 'Jirapa'],
-    Volta: ['Ho', 'Hohoe', 'Keta', 'Aflao', 'Kpandu'],
-    Western: ['Takoradi', 'Sekondi', 'Tarkwa', 'Axim'],
-    'Western North': ['Sefwi Wiawso', 'Bibiani', 'Sefwi Bekwai', 'Enchi', 'Juaboso'],
+    Oti: [
+        'Akpafu',
+        'Brewaniase',
+        'Chinderi',
+        'Dambai',
+        'Jasikan',
+        'Kate krachi',
+        'Kpassa',
+        'Krachi Nchumuru',
+        'Kwamekrom',
+        'Likpe',
+        'Lolobi',
+        'Nkwanta',
+        'Santrokofi',
+        'Worawora',
+        OTHER_CITY,
+    ],
 };
 
-export const GHANA_REGIONS = Object.keys(GHANA_CITIES_BY_REGION);
+export const GHANA_REGIONS = [
+    ...GHANA_REGION_ORDER.filter((region) => region in GHANA_CITIES_BY_REGION),
+    ...Object.keys(GHANA_CITIES_BY_REGION).filter((region) => !GHANA_REGION_ORDER.includes(region as (typeof GHANA_REGION_ORDER)[number])),
+];
 
 export function citiesForRegion(region: string): string[] {
     return GHANA_CITIES_BY_REGION[region] ?? [];
