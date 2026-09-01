@@ -100,7 +100,10 @@ class GhanaLocations
                 'Bawku', 'Binduri', 'Bolgatanga', 'Bongo', 'Garu', 'Navrongo', 'Paga', 'Pusiga', 'Pwalugu',
                 'Telensi', 'Tempane', 'Tongo', 'Zebilla', 'Zuarungu', self::OTHER_CITY,
             ],
-            'Upper West' => ['Wa', 'Lawra', 'Nandom', 'Jirapa', self::OTHER_CITY],
+            'Upper West' => [
+                'Funsi', 'Gwollu', 'Hamile', 'Issa', 'Jirapa', 'Ko', 'Lawra', 'Nadowli', 'Nandom', 'Sankana',
+                'Tumu', 'Wa', 'Wechiau', self::OTHER_CITY,
+            ],
             'Volta' => ['Ho', 'Hohoe', 'Keta', 'Aflao', 'Kpandu', self::OTHER_CITY],
             'Bono' => ['Sunyani', 'Berekum', 'Dormaa Ahenkro', 'Wenchi', self::OTHER_CITY],
             'Western North' => [
