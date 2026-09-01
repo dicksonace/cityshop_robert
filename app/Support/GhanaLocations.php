@@ -68,7 +68,11 @@ class GhanaLocations
                 'Trasaco', 'Tudu', 'Usher Town', 'Weija', self::OTHER_CITY,
             ],
             'Ashanti' => ['Kumasi', 'Obuasi', 'Ejisu', 'Konongo', 'Mampong', 'Bekwai', 'Offinso', self::OTHER_CITY],
-            'Western' => ['Takoradi', 'Sekondi', 'Tarkwa', 'Axim', self::OTHER_CITY],
+            'Western' => [
+                'Aboadze', 'Agona Nkwanta', 'Asankragua', 'Axim', 'Bogoso', 'Busua', 'Dixcove', 'Elubo',
+                'Esiama', 'Essikado', 'Half Assini', 'Huni Valley', 'Mpohor', 'Prestea', 'Sekondi', 'Shama',
+                'Takoradi', 'Tarkwa', 'Wassa Akropong', self::OTHER_CITY,
+            ],
             'Eastern' => [
                 'Aburi', 'Achiase', 'Adukrom', 'Akim Oda', 'Akosombo', 'Akropong', 'Akwatia', 'Akyem Hemang',
                 'Amanokrom', 'Asamankese', 'Atimpoku', 'Begoro', 'Coaltar', 'Effiduase', 'Kibi', 'Koforidua',
