@@ -299,7 +299,7 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
     });
 });
 
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
+Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/', fn () => redirect()->route('admin.dashboard'))->name('home');
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 

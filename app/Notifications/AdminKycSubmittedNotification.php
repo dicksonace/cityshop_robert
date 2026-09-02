@@ -35,7 +35,7 @@ class AdminKycSubmittedNotification extends Notification
             ->line('Card: '.$this->kyc->ghana_card_number)
             ->line("Date: {$when}")
             ->line('Approve, reject, or ask them to improve the photos before they can store money in their wallet.')
-            ->action('Review KYC', url('/admin/dashboard'));
+            ->action('Review KYC', route('admin.dashboard'));
     }
 
     public function toSms(object $notifiable): string

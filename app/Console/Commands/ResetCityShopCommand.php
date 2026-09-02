@@ -31,9 +31,9 @@ class ResetCityShopCommand extends Command
 
         $this->newLine();
         $this->info('CityShop reset complete.');
-        $this->line('  Admin login: /admin/login');
+        $this->line('  Admin login: /admin24/login');
         $this->line('  Email:       admin@cityshop.com');
-        $this->line('  Password:    password');
+        $this->line('  Password:    Admin24@CityShop!');
         $this->newLine();
         $this->comment('Change the admin password after first login.');
 

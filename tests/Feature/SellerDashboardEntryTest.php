@@ -20,7 +20,7 @@ class SellerDashboardEntryTest extends TestCase
 
     public function test_admin_root_redirects_guests_to_admin_login(): void
     {
-        $this->get('/admin')
+        $this->get('/admin24')
             ->assertRedirect(route('admin.login'));
     }
 }

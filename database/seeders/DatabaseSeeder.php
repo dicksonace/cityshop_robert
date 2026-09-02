@@ -34,7 +34,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Super Admin',
                 'mobile' => '0200000000',
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Admin24@CityShop!'),
                 'role' => UserRole::Admin,
             ],
         );

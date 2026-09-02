@@ -31,6 +31,6 @@ $PHP_BIN artisan view:cache
 chmod -R 775 storage bootstrap/cache
 
 echo "==> Done."
-echo "    Admin: https://cityunlock.net/admin/login"
+echo "    Admin: https://cityunlock.net/admin24/login"
 echo "    Email: admin@cityshop.com"
-echo "    Password: password (change immediately)"
+echo "    Password: Admin24@CityShop! (change with: php artisan cityshop:set-admin)"

@@ -19,7 +19,7 @@ class EnsureRole
                 return response()->json(['message' => 'Unauthenticated.'], 401);
             }
 
-            if ($request->is('admin') || $request->is('admin/*')) {
+            if ($request->is('admin24') || $request->is('admin24/*')) {
                 return redirect()->route('admin.login');
             }
 
@@ -41,7 +41,7 @@ class EnsureRole
                 return redirect()->route('admin.dashboard');
             }
 
-            if (($request->is('admin') || $request->is('admin/*')) && $user->isSeller()) {
+            if (($request->is('admin24') || $request->is('admin24/*')) && $user->isSeller()) {
                 return redirect()->route('seller.dashboard');
             }
 
