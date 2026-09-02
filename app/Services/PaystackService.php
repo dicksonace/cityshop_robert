@@ -410,7 +410,11 @@ class PaystackService
 
     public function verifyWebhookSignature(string $payload, ?string $signature): bool
     {
-        $secret = config('services.paystack.webhook_secret', $this->secretKey);
+        // Prefer dedicated webhook secret; if empty/unset, Paystack signs with the secret key.
+        $configured = config('services.paystack.webhook_secret');
+        $secret = (is_string($configured) && $configured !== '')
+            ? $configured
+            : $this->secretKey;
 
         if (! $signature || ! $secret) {
             return false;

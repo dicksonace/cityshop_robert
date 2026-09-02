@@ -65,6 +65,8 @@ Artisan::command('mail:test {email}', function () {
 
 Schedule::command('orders:auto-confirm-deliveries')->hourly();
 
+Schedule::command('withdrawals:reconcile-paystack')->everyFiveMinutes();
+
 Schedule::call(function () {
     \App\Services\StatusService::pruneExpired();
 })->hourly();

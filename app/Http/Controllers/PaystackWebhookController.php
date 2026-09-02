@@ -123,7 +123,7 @@ class PaystackWebhookController extends Controller
 
         if (in_array($event, ['transfer.success', 'transfer.failed', 'transfer.reversed'], true) && $data) {
             try {
-                $this->withdrawalPayouts->handleTransferWebhook($data);
+                $this->withdrawalPayouts->handleTransferWebhook(is_array($data) ? $data : [], is_string($event) ? $event : null);
             } catch (\Throwable $e) {
                 Log::error('Paystack transfer webhook error', ['error' => $e->getMessage()]);
             }

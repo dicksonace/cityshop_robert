@@ -10,6 +10,7 @@ use App\Notifications\WithdrawalPaidNotification;
 use App\Notifications\WithdrawalRejectedNotification;
 use App\Support\GhanaBanks;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WithdrawalPayoutService
 {
@@ -192,32 +193,95 @@ class WithdrawalPayoutService
         }
     }
 
-    public function handleTransferWebhook(array $data): void
+    public function handleTransferWebhook(array $data, ?string $event = null): void
     {
         $reference = $data['reference'] ?? null;
+        $transferCode = $data['transfer_code'] ?? null;
 
-        if (! $reference) {
-            return;
+        $withdrawal = null;
+        if ($reference) {
+            $withdrawal = Withdrawal::where('paystack_reference', $reference)->first();
         }
-
-        $withdrawal = Withdrawal::where('paystack_reference', $reference)->first();
+        if (! $withdrawal && $transferCode) {
+            $withdrawal = Withdrawal::where('paystack_transfer_code', $transferCode)->first();
+        }
 
         if (! $withdrawal) {
+            Log::warning('Paystack transfer webhook: withdrawal not found', [
+                'event' => $event,
+                'reference' => $reference,
+                'transfer_code' => $transferCode,
+            ]);
+
             return;
         }
 
-        $status = (string) ($data['status'] ?? '');
+        $status = strtolower((string) ($data['status'] ?? ''));
+        $eventName = strtolower((string) ($event ?? ''));
 
-        if ($status === 'success') {
+        if ($status === 'success' || $eventName === 'transfer.success') {
             $this->markAsPaid($withdrawal, 'paystack');
 
             return;
         }
 
-        if ($status === 'failed' || $status === 'reversed') {
+        if (in_array($status, ['failed', 'reversed'], true)
+            || in_array($eventName, ['transfer.failed', 'transfer.reversed'], true)) {
             $reason = (string) ($data['complete_message'] ?? $data['reason'] ?? 'Paystack transfer failed.');
             $this->markAsFailed($withdrawal, $reason);
         }
+    }
+
+    /**
+     * Reconcile Paystack withdrawals stuck in processing by verifying transfer status.
+     *
+     * @return array{checked: int, paid: int, failed: int, skipped: int}
+     */
+    public function reconcilePendingPaystackTransfers(int $limit = 50): array
+    {
+        $stats = ['checked' => 0, 'paid' => 0, 'failed' => 0, 'skipped' => 0];
+
+        $withdrawals = Withdrawal::query()
+            ->where('status', WithdrawalStatus::Processing)
+            ->where('payout_channel', 'paystack')
+            ->whereNotNull('paystack_reference')
+            ->orderBy('id')
+            ->limit($limit)
+            ->get();
+
+        foreach ($withdrawals as $withdrawal) {
+            $stats['checked']++;
+
+            try {
+                $data = $this->paystack->verifyTransfer((string) $withdrawal->paystack_reference);
+                $status = strtolower((string) ($data['status'] ?? ''));
+
+                $withdrawal->update([
+                    'paystack_status' => $status !== '' ? $status : $withdrawal->paystack_status,
+                    'paystack_transfer_code' => $data['transfer_code'] ?? $withdrawal->paystack_transfer_code,
+                ]);
+
+                if ($status === 'success') {
+                    $this->markAsPaid($withdrawal->fresh() ?? $withdrawal, 'paystack');
+                    $stats['paid']++;
+                } elseif (in_array($status, ['failed', 'reversed', 'abandoned'], true)) {
+                    $reason = (string) ($data['complete_message'] ?? $data['reason'] ?? 'Paystack transfer failed.');
+                    $this->markAsFailed($withdrawal->fresh() ?? $withdrawal, $reason);
+                    $stats['failed']++;
+                } else {
+                    $stats['skipped']++;
+                }
+            } catch (\Throwable $e) {
+                $stats['skipped']++;
+                Log::warning('Paystack transfer reconcile failed', [
+                    'withdrawal_id' => $withdrawal->id,
+                    'reference' => $withdrawal->paystack_reference,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $stats;
     }
 
     private function resolveRecipientCode(Withdrawal $withdrawal): string
