@@ -35,7 +35,10 @@ class DashboardController extends Controller
                 'total_products' => Product::count(),
                 'total_orders' => Order::count(),
                 'paid_revenue' => (float) Order::where('payment_status', 'paid')->sum('total'),
-                'pending_withdrawals' => Withdrawal::where('status', WithdrawalStatus::Pending)->count(),
+                'pending_withdrawals' => Withdrawal::whereIn('status', [
+                    WithdrawalStatus::Pending,
+                    WithdrawalStatus::Processing,
+                ])->count(),
                 'pending_topups' => WalletTopUpRequest::where('status', WalletTopUpStatus::Pending)->count(),
                 'pending_rmb' => $china->pendingAdminCount(),
                 'pending_sell_rmb' => $sellRmb->pendingAdminCount(),
@@ -63,15 +66,29 @@ class DashboardController extends Controller
                         ] : null,
                     ]),
                 'withdrawals' => Withdrawal::with('user:id,name,role,mobile')
-                    ->where('status', WithdrawalStatus::Pending)
+                    ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
                     ->latest()
-                    ->limit(5)
+                    ->limit(8)
                     ->get()
                     ->map(fn (Withdrawal $w) => [
                         'id' => $w->id,
+                        'reference' => (string) $w->id,
                         'amount' => (float) $w->amount,
                         'network' => $w->network,
+                        'network_label' => match ((string) ($w->network ?? '')) {
+                            'mtn' => 'MTN Mobile Money',
+                            'telecel', 'vodafone' => 'Telecel Cash',
+                            'airteltigo' => 'AirtelTigo Money',
+                            default => (string) ($w->network ?: '—'),
+                        },
                         'momo_number' => $w->momo_number,
+                        'status' => $w->status?->value ?? 'pending',
+                        'status_label' => match ($w->status) {
+                            WithdrawalStatus::Processing => 'processing',
+                            WithdrawalStatus::Paid => 'paid',
+                            WithdrawalStatus::Rejected => 'rejected',
+                            default => 'pending',
+                        },
                         'created_at' => $w->created_at?->toIso8601String(),
                         'user' => $w->user ? [
                             'name' => $w->user->name,
