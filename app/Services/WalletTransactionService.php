@@ -11,6 +11,7 @@ use App\Models\OrderItem;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Support\PayoutNetwork;
 
 class WalletTransactionService
 {
@@ -78,10 +79,7 @@ class WalletTransactionService
             userId: $withdrawal->user_id,
             type: WalletTransactionType::Withdrawal,
             amount: -1 * $withdrawal->totalDebited(),
-            description: "Withdrawal request to {$withdrawal->momo_number} ({$withdrawal->network})"
-                .((float) ($withdrawal->fee ?? 0) > 0
-                    ? ' · fee GH₵'.number_format((float) $withdrawal->fee, 2)
-                    : ''),
+            description: static::withdrawalRequestDescription($withdrawal),
             withdrawalId: $withdrawal->id,
             reference: "WD-{$withdrawal->id}",
         );
@@ -308,7 +306,7 @@ class WalletTransactionService
             amount: $withdrawal->totalDebited(),
             description: 'Withdrawal rejected — funds returned to wallet'
                 .((float) ($withdrawal->fee ?? 0) > 0
-                    ? ' (incl. fee GH₵'.number_format((float) $withdrawal->fee, 2).')'
+                    ? ' (incl. Fee GH₵'.number_format((float) $withdrawal->fee, 2).')'
                     : ''),
             withdrawalId: $withdrawal->id,
             reference: "WD-{$withdrawal->id}",
@@ -541,6 +539,42 @@ class WalletTransactionService
         return $tx->type->label();
     }
 
+    public static function withdrawalRequestDescription(Withdrawal $withdrawal): string
+    {
+        return 'Withdrawal request to '.$withdrawal->momo_number
+            .' ('.PayoutNetwork::label($withdrawal->network).')'
+            .static::feeSuffix($withdrawal);
+    }
+
+    public static function feeSuffix(Withdrawal $withdrawal): string
+    {
+        if ((float) ($withdrawal->fee ?? 0) <= 0) {
+            return '';
+        }
+
+        return ' · Fee GH₵'.number_format((float) $withdrawal->fee, 2);
+    }
+
+    /** Fix older wallet rows that stored raw network codes and lowercase "fee". */
+    public static function normalizeStoredWithdrawalDescription(string $description): string
+    {
+        $description = preg_replace('/\bfee GH₵/i', 'Fee GH₵', $description) ?? $description;
+        $description = preg_replace_callback(
+            '/\((mtn|telecel|vodafone|airteltigo)\)/i',
+            static function (array $m): string {
+                $code = strtolower($m[1]);
+                if ($code === 'vodafone') {
+                    $code = 'telecel';
+                }
+
+                return '('.PayoutNetwork::label($code).')';
+            },
+            $description,
+        ) ?? $description;
+
+        return $description;
+    }
+
     /** Statement / history line with Tel inserted when the stored description lacks it. */
     public static function displayDescription(WalletTransaction $tx): string
     {
@@ -554,12 +588,17 @@ class WalletTransactionService
                 ? $tx->withdrawal
                 : ($tx->withdrawal_id ? Withdrawal::query()->find($tx->withdrawal_id) : null);
 
-            if ($withdrawal?->status === WithdrawalStatus::Paid) {
-                return "Payout completed to {$withdrawal->momo_number}"
-                    .((float) ($withdrawal->fee ?? 0) > 0
-                        ? ' · fee GH₵'.number_format((float) $withdrawal->fee, 2)
-                        : '');
+            if ($withdrawal) {
+                if ($withdrawal->status === WithdrawalStatus::Paid) {
+                    return 'Payout completed to '.$withdrawal->momo_number
+                        .' ('.PayoutNetwork::label($withdrawal->network).')'
+                        .static::feeSuffix($withdrawal);
+                }
+
+                return static::withdrawalRequestDescription($withdrawal);
             }
+
+            return static::normalizeStoredWithdrawalDescription($description);
         }
 
         if (! in_array($tx->type, [
@@ -572,6 +611,7 @@ class WalletTransactionService
         if (str_contains($description, ' Tel ')) {
             return $description;
         }
+
 
         $mobile = trim((string) ($tx->getAttribute('counterparty_mobile') ?? ''));
         if ($mobile === '') {
