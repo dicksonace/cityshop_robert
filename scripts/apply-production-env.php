@@ -50,6 +50,8 @@ $pairs = [
     'TXTCONNECT_BASE_URL' => 'https://api.txtconnect.net/dev/api',
     'PAYSTACK_PUBLIC_KEY' => $paystackPublic,
     'PAYSTACK_SECRET_KEY' => $paystackSecret,
+    // Paystack signs webhooks with the secret key unless a separate webhook secret is configured.
+    'PAYSTACK_WEBHOOK_SECRET' => $paystackSecret,
     'PAYSTACK_LOCAL_PERCENT' => '1.95',
     'PAYSTACK_LOCAL_FLAT' => '0',
     'VITE_PAYSTACK_PUBLIC_KEY' => '${PAYSTACK_PUBLIC_KEY}',
