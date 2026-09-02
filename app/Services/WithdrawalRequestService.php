@@ -100,8 +100,14 @@ class WithdrawalRequestService
             } catch (\Throwable $e) {
                 Log::warning('Auto Paystack withdrawal deferred to admin', [
                     'withdrawal_id' => $result['withdrawal']->id,
+                    'network' => $result['withdrawal']->network,
+                    'momo_number' => $result['withdrawal']->momo_number,
                     'error' => $e->getMessage(),
                 ]);
+                $result['withdrawal']->update([
+                    'failure_reason' => 'Paystack auto payout failed: '.$e->getMessage(),
+                ]);
+                $result['withdrawal'] = $result['withdrawal']->fresh();
                 $message = 'Withdrawal submitted. Payout will be completed shortly.';
             }
         }

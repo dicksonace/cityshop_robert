@@ -31,8 +31,12 @@ class WithdrawalPayoutService
      */
     public function process(Withdrawal $withdrawal, ?User $admin): array
     {
-        if ($withdrawal->status !== WithdrawalStatus::Pending) {
-            throw new \RuntimeException('Only pending withdrawals can be processed.');
+        if (! in_array($withdrawal->status, [WithdrawalStatus::Pending, WithdrawalStatus::Processing], true)) {
+            throw new \RuntimeException('Only pending or processing withdrawals can be sent via Paystack.');
+        }
+
+        if ($withdrawal->status === WithdrawalStatus::Processing && filled($withdrawal->paystack_reference)) {
+            throw new \RuntimeException('This withdrawal was already sent to Paystack. Wait for confirmation or run reconcile.');
         }
 
         if (! $this->paystack->isConfigured()) {
@@ -42,8 +46,12 @@ class WithdrawalPayoutService
         return DB::transaction(function () use ($withdrawal, $admin) {
             $withdrawal = Withdrawal::whereKey($withdrawal->id)->lockForUpdate()->firstOrFail();
 
-            if ($withdrawal->status !== WithdrawalStatus::Pending) {
-                throw new \RuntimeException('This withdrawal is no longer pending.');
+            if (! in_array($withdrawal->status, [WithdrawalStatus::Pending, WithdrawalStatus::Processing], true)) {
+                throw new \RuntimeException('This withdrawal can no longer be paid out.');
+            }
+
+            if ($withdrawal->status === WithdrawalStatus::Processing && filled($withdrawal->paystack_reference)) {
+                throw new \RuntimeException('This withdrawal was already sent to Paystack.');
             }
 
             $recipientCode = $this->resolveRecipientCode($withdrawal);
@@ -65,7 +73,8 @@ class WithdrawalPayoutService
                 'paystack_transfer_code' => $transfer['transfer_code'] ?? null,
                 'paystack_status' => $transferStatus,
                 'payout_channel' => 'paystack',
-                'processed_by' => $admin?->id,
+                'failure_reason' => null,
+                'processed_by' => $admin?->id ?? $withdrawal->processed_by,
             ]);
 
             if ($transferStatus === 'success') {
@@ -301,20 +310,25 @@ class WithdrawalPayoutService
         }
 
         $isBank = ($withdrawal->payout_channel === 'bank') || GhanaBanks::isBank($withdrawal->network);
+        $withdrawal->loadMissing('user');
+        $recipientName = trim((string) ($withdrawal->account_name ?: $withdrawal->user?->name ?: 'CityShop payout'));
 
         $recipient = $isBank
             ? $this->paystack->createBankRecipient(
-                $withdrawal->account_name,
+                $recipientName,
                 $withdrawal->momo_number,
                 (string) $withdrawal->network,
             )
             : $this->paystack->createMobileMoneyRecipient(
-                $withdrawal->account_name,
+                $recipientName,
                 $withdrawal->momo_number,
-                $withdrawal->network,
+                (string) $withdrawal->network,
             );
 
-        $recipientCode = (string) $recipient['recipient_code'];
+        $recipientCode = (string) ($recipient['recipient_code'] ?? '');
+        if ($recipientCode === '') {
+            throw new \RuntimeException('Paystack did not return a recipient code for this MoMo/bank account.');
+        }
 
         $withdrawal->update(['paystack_recipient_code' => $recipientCode]);
 

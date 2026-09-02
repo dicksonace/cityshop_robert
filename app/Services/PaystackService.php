@@ -456,21 +456,30 @@ class PaystackService
 
     public function createMobileMoneyRecipient(string $name, string $phone, string $network): array
     {
-        $response = Http::withToken($this->secretKey)
-            ->post("{$this->baseUrl}/transferrecipient", [
-                'type' => 'mobile_money',
-                'name' => $name,
-                'account_number' => $this->normalizeGhanaPhone($phone),
-                'bank_code' => $this->mobileMoneyBankCode($network),
-                'currency' => 'GHS',
-            ]);
-
-        if (! $response->successful()) {
-            Log::error('Paystack recipient creation failed', ['body' => $response->json()]);
-            throw new \RuntimeException($response->json('message') ?? 'Could not create Paystack payout recipient.');
+        $accountNumber = $this->normalizeGhanaPhone($phone);
+        if (! preg_match('/^0\d{9}$/', $accountNumber)) {
+            throw new \RuntimeException('Invalid Ghana MoMo number. Use a 10-digit number starting with 0.');
         }
 
-        return $response->json('data');
+        $payload = [
+            'type' => 'mobile_money',
+            'name' => trim($name) !== '' ? trim($name) : 'CityShop payout',
+            'account_number' => $accountNumber,
+            'bank_code' => $this->mobileMoneyBankCode($network),
+            'currency' => 'GHS',
+        ];
+
+        $response = Http::withToken($this->secretKey)
+            ->acceptJson()
+            ->asJson()
+            ->timeout(30)
+            ->post("{$this->baseUrl}/transferrecipient", $payload);
+
+        return $this->paystackDataOrFail($response, 'Could not create Paystack MoMo recipient.', [
+            'network' => $network,
+            'bank_code' => $payload['bank_code'],
+            'account_number' => $accountNumber,
+        ]);
     }
 
     public function createBankRecipient(string $name, string $accountNumber, string $bankSlug): array
@@ -478,20 +487,21 @@ class PaystackService
         $bankCode = $this->resolveGhanaBankCode($bankSlug);
 
         $response = Http::withToken($this->secretKey)
+            ->acceptJson()
+            ->asJson()
+            ->timeout(30)
             ->post("{$this->baseUrl}/transferrecipient", [
                 'type' => 'ghipss',
-                'name' => $name,
+                'name' => trim($name) !== '' ? trim($name) : 'CityShop payout',
                 'account_number' => preg_replace('/\D+/', '', $accountNumber) ?: $accountNumber,
                 'bank_code' => $bankCode,
                 'currency' => 'GHS',
             ]);
 
-        if (! $response->successful()) {
-            Log::error('Paystack bank recipient creation failed', ['body' => $response->json(), 'bank' => $bankSlug]);
-            throw new \RuntimeException($response->json('message') ?? 'Could not create Paystack bank recipient.');
-        }
-
-        return $response->json('data');
+        return $this->paystackDataOrFail($response, 'Could not create Paystack bank recipient.', [
+            'bank' => $bankSlug,
+            'bank_code' => $bankCode,
+        ]);
     }
 
     /**
@@ -566,6 +576,9 @@ class PaystackService
     public function initiateTransfer(string $recipientCode, float $amountGhs, string $reference, string $reason): array
     {
         $response = Http::withToken($this->secretKey)
+            ->acceptJson()
+            ->asJson()
+            ->timeout(45)
             ->post("{$this->baseUrl}/transfer", [
                 'source' => 'balance',
                 'amount' => (int) round($amountGhs * 100),
@@ -575,39 +588,70 @@ class PaystackService
                 'currency' => 'GHS',
             ]);
 
-        if (! $response->successful()) {
-            Log::error('Paystack transfer failed', ['body' => $response->json()]);
-            throw new \RuntimeException($response->json('message') ?? 'Paystack payout failed.');
-        }
-
-        return $response->json('data');
+        return $this->paystackDataOrFail($response, 'Paystack payout failed.', [
+            'reference' => $reference,
+            'recipient' => $recipientCode,
+            'amount_ghs' => $amountGhs,
+        ]);
     }
 
     public function finalizeTransfer(string $transferCode, string $otp): array
     {
         $response = Http::withToken($this->secretKey)
+            ->acceptJson()
+            ->asJson()
+            ->timeout(30)
             ->post("{$this->baseUrl}/transfer/finalize_transfer", [
                 'transfer_code' => $transferCode,
                 'otp' => $otp,
             ]);
 
-        if (! $response->successful()) {
-            Log::error('Paystack transfer finalize failed', ['body' => $response->json()]);
-            throw new \RuntimeException($response->json('message') ?? 'OTP confirmation failed.');
-        }
-
-        return $response->json('data');
+        return $this->paystackDataOrFail($response, 'OTP confirmation failed.', [
+            'transfer_code' => $transferCode,
+        ]);
     }
 
     public function verifyTransfer(string $reference): array
     {
         $response = Http::withToken($this->secretKey)
+            ->acceptJson()
+            ->timeout(30)
             ->get("{$this->baseUrl}/transfer/verify/{$reference}");
 
-        if (! $response->successful()) {
-            throw new \RuntimeException('Transfer verification failed.');
+        return $this->paystackDataOrFail($response, 'Transfer verification failed.', [
+            'reference' => $reference,
+        ]);
+    }
+
+    /**
+     * Paystack often returns HTTP 200 with status:false — always check the JSON body.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function paystackDataOrFail(\Illuminate\Http\Client\Response $response, string $fallback, array $context = []): array
+    {
+        $body = $response->json();
+        if (! is_array($body)) {
+            $body = [];
         }
 
-        return $response->json('data');
+        if (! $response->successful() || ($body['status'] ?? false) !== true) {
+            Log::error('Paystack API error', array_merge($context, [
+                'http' => $response->status(),
+                'message' => $body['message'] ?? null,
+                'body' => $body,
+            ]));
+
+            throw new \RuntimeException((string) ($body['message'] ?? $fallback));
+        }
+
+        $data = $body['data'] ?? null;
+        if (! is_array($data)) {
+            Log::error('Paystack API missing data', array_merge($context, ['body' => $body]));
+            throw new \RuntimeException($fallback);
+        }
+
+        return $data;
     }
 }

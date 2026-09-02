@@ -52,6 +52,18 @@ class WithdrawalController extends Controller
     public function start(Request $request, Withdrawal $withdrawal): JsonResponse
     {
         try {
+            // Prefer real Paystack transfer (MTN / Telecel / AirtelTigo / bank) when keys exist.
+            if (app(\App\Services\PaystackService::class)->isConfigured()
+                && empty($withdrawal->paystack_reference)) {
+                $payout = $this->payouts->process($withdrawal, $request->user());
+
+                return response()->json([
+                    'message' => $payout['message'] ?: 'Payout sent to Paystack.',
+                    'otp_required' => $payout['otp_required'],
+                    'data' => $this->serialize($withdrawal->fresh(['user.wallet', 'user.sellerProfile'])),
+                ]);
+            }
+
             $this->payouts->startProcessing($withdrawal, $request->user());
         } catch (\Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
@@ -59,6 +71,21 @@ class WithdrawalController extends Controller
 
         return response()->json([
             'message' => 'Withdrawal marked as processing.',
+            'data' => $this->serialize($withdrawal->fresh(['user.wallet', 'user.sellerProfile'])),
+        ]);
+    }
+
+    public function paystack(Request $request, Withdrawal $withdrawal): JsonResponse
+    {
+        try {
+            $payout = $this->payouts->process($withdrawal, $request->user());
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => $payout['message'] ?: 'Payout sent to Paystack.',
+            'otp_required' => $payout['otp_required'],
             'data' => $this->serialize($withdrawal->fresh(['user.wallet', 'user.sellerProfile'])),
         ]);
     }
@@ -143,9 +170,12 @@ class WithdrawalController extends Controller
             'network_label' => $networkLabel,
             'pay_to_label' => $withdrawal->payout_channel === 'bank' ? 'Bank transfer' : 'Mobile money',
             'payout_channel' => $withdrawal->payout_channel,
+            'paystack_reference' => $withdrawal->paystack_reference,
+            'paystack_status' => $withdrawal->paystack_status,
             'status' => $withdrawal->status?->value ?? (string) $withdrawal->status,
             'admin_notes' => $withdrawal->admin_notes,
             'rejection_reason' => $withdrawal->rejection_reason,
+            'failure_reason' => $withdrawal->failure_reason,
             'proof_url' => $withdrawal->proof_path ? Storage::disk('public')->url($withdrawal->proof_path) : null,
             'created_at' => $withdrawal->created_at?->toIso8601String(),
             'processed_at' => $withdrawal->processed_at?->toIso8601String(),

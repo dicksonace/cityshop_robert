@@ -97,6 +97,13 @@ class WithdrawalController extends Controller
     public function start(Request $request, Withdrawal $withdrawal): RedirectResponse
     {
         try {
+            if (app(\App\Services\PaystackService::class)->isConfigured()
+                && empty($withdrawal->paystack_reference)) {
+                $payout = $this->payouts->process($withdrawal, $request->user());
+
+                return back()->with('success', $payout['message'] ?: 'Payout sent to Paystack.');
+            }
+
             $this->payouts->startProcessing($withdrawal, $request->user());
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());

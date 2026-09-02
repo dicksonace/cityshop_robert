@@ -219,6 +219,7 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
             Route::post('/withdrawals/{withdrawal}/start', [AdminWithdrawalController::class, 'start']);
+            Route::post('/withdrawals/{withdrawal}/paystack', [AdminWithdrawalController::class, 'paystack']);
             Route::post('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve']);
             Route::post('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
 
