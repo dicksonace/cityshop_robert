@@ -21,6 +21,8 @@ interface Props {
     };
     autoPaystack: {
         enabled: boolean;
+        fee_mode?: 'flat' | 'percent';
+        fee_flat?: number;
         fee_percent: number;
     };
 }
@@ -48,7 +50,9 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
         applies_to: settings.applies_to === 'all' ? 'bank' : (settings.applies_to ?? 'bank'),
         bank_tiers: tiersFromSettings(settings),
         auto_paystack_enabled: autoPaystack?.enabled ?? false,
-        auto_paystack_fee_percent: String(autoPaystack?.fee_percent ?? 2),
+        auto_paystack_fee_mode: (autoPaystack?.fee_mode === 'percent' ? 'percent' : 'flat') as 'flat' | 'percent',
+        auto_paystack_fee_flat: String(autoPaystack?.fee_flat ?? 1),
+        auto_paystack_fee_percent: String(autoPaystack?.fee_percent ?? 0),
     });
 
     const submit: FormEventHandler = (e) => {
@@ -116,22 +120,61 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                         <InputError message={form.errors.auto_paystack_enabled} />
 
                         <div>
-                            <Label>Auto withdrawal fee (%)</Label>
-                            <Input
-                                type="number"
-                                min="0"
-                                max="25"
-                                step="0.01"
-                                value={form.data.auto_paystack_fee_percent}
-                                onChange={(e) => form.setData('auto_paystack_fee_percent', e.target.value)}
-                                className="mt-1"
-                                required
-                            />
+                            <Label>Paystack withdrawal fee type</Label>
+                            <select
+                                value={form.data.auto_paystack_fee_mode}
+                                onChange={(e) =>
+                                    form.setData('auto_paystack_fee_mode', e.target.value as 'flat' | 'percent')
+                                }
+                                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                            >
+                                <option value="flat">Flat fee (like bank — recommended)</option>
+                                <option value="percent">Percent of amount</option>
+                            </select>
                             <p className="mt-1 text-xs text-gray-500">
-                                Charged on the withdrawal amount when auto Paystack is on (default 2%).
+                                Separate from Paystack recharge fees. This is what CityShop charges the user on
+                                withdrawal.
                             </p>
-                            <InputError message={form.errors.auto_paystack_fee_percent} />
+                            <InputError message={form.errors.auto_paystack_fee_mode} />
                         </div>
+
+                        {form.data.auto_paystack_fee_mode === 'flat' ? (
+                            <div>
+                                <Label>Flat Paystack withdrawal fee (GH₵)</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    max="500"
+                                    step="0.01"
+                                    value={form.data.auto_paystack_fee_flat}
+                                    onChange={(e) => form.setData('auto_paystack_fee_flat', e.target.value)}
+                                    className="mt-1"
+                                    required
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Example: GH₵1 covers Paystack’s transfer charge. Same flat amount on every payout.
+                                </p>
+                                <InputError message={form.errors.auto_paystack_fee_flat} />
+                            </div>
+                        ) : (
+                            <div>
+                                <Label>Auto withdrawal fee (%)</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    max="25"
+                                    step="0.01"
+                                    value={form.data.auto_paystack_fee_percent}
+                                    onChange={(e) => form.setData('auto_paystack_fee_percent', e.target.value)}
+                                    className="mt-1"
+                                    required
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Charged as a percent of the withdrawal amount when auto Paystack is on.
+                                </p>
+                                <InputError message={form.errors.auto_paystack_fee_percent} />
+                            </div>
+                        )}
                     </div>
 
                     <div className="border-t border-gray-100 pt-4">

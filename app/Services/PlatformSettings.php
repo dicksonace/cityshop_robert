@@ -296,9 +296,9 @@ class PlatformSettings
     }
 
     /**
-     * Paystack auto-payout (no admin approval). When enabled, withdrawals use a percent fee.
+     * Paystack auto-payout (no admin approval). Fee is flat (like bank) or percent.
      *
-     * @return array{enabled: bool, fee_percent: float}
+     * @return array{enabled: bool, fee_mode: string, fee_flat: float, fee_percent: float}
      */
     public static function autoPaystackWithdrawSettings(): array
     {
@@ -310,24 +310,43 @@ class PlatformSettings
         if (! is_array($decoded)) {
             return [
                 'enabled' => false,
-                'fee_percent' => 2.0,
+                'fee_mode' => 'flat',
+                'fee_flat' => 1.0,
+                'fee_percent' => 0.0,
             ];
+        }
+
+        $feePercent = max(0, min(25, round((float) ($decoded['fee_percent'] ?? 0), 2)));
+        $feeFlat = max(0, min(500, round((float) ($decoded['fee_flat'] ?? 0), 2)));
+        $mode = (string) ($decoded['fee_mode'] ?? '');
+        if (! in_array($mode, ['flat', 'percent'], true)) {
+            // Legacy rows only stored percent — keep percent behaviour if it was set.
+            $mode = $feePercent > 0 ? 'percent' : 'flat';
         }
 
         return [
             'enabled' => (bool) ($decoded['enabled'] ?? false),
-            'fee_percent' => max(0, min(25, round((float) ($decoded['fee_percent'] ?? 2), 2))),
+            'fee_mode' => $mode,
+            'fee_flat' => $feeFlat,
+            'fee_percent' => $feePercent,
         ];
     }
 
     /**
-     * @param  array{enabled?: bool, fee_percent?: float|int|string}  $data
+     * @param  array{enabled?: bool, fee_mode?: string, fee_flat?: float|int|string, fee_percent?: float|int|string}  $data
      */
     public static function saveAutoPaystackWithdrawSettings(array $data): void
     {
+        $mode = (string) ($data['fee_mode'] ?? 'flat');
+        if (! in_array($mode, ['flat', 'percent'], true)) {
+            $mode = 'flat';
+        }
+
         static::set(self::AUTO_PAYSTACK_WITHDRAW_KEY, [
             'enabled' => (bool) ($data['enabled'] ?? false),
-            'fee_percent' => max(0, min(25, round((float) ($data['fee_percent'] ?? 2), 2))),
+            'fee_mode' => $mode,
+            'fee_flat' => max(0, min(500, round((float) ($data['fee_flat'] ?? 0), 2))),
+            'fee_percent' => max(0, min(25, round((float) ($data['fee_percent'] ?? 0), 2))),
         ]);
     }
 
@@ -397,12 +416,17 @@ class PlatformSettings
         return (float) $settings['amount'] > 0 ? (float) $settings['amount'] : 0.0;
     }
 
-    /** Fee for a withdrawal amount — percent when auto Paystack is on, else flat/tier channel fee. */
+    /** Fee for a withdrawal amount — auto Paystack flat/percent when on, else bank/MoMo channel fee. */
     public static function feeForWithdrawal(float $amount, ?string $payoutType): float
     {
         $auto = static::autoPaystackWithdrawSettings();
-        if ($auto['enabled'] && $auto['fee_percent'] > 0) {
-            return max(0, round($amount * ($auto['fee_percent'] / 100), 2));
+        if ($auto['enabled']) {
+            if ($auto['fee_mode'] === 'percent' && $auto['fee_percent'] > 0) {
+                return max(0, round($amount * ($auto['fee_percent'] / 100), 2));
+            }
+            if ($auto['fee_mode'] === 'flat') {
+                return max(0, round((float) $auto['fee_flat'], 2));
+            }
         }
 
         return static::feeForPayoutType($payoutType, $amount);
@@ -417,6 +441,7 @@ class PlatformSettings
      *   amount: float,
      *   momo_amount: float,
      *   percent: float,
+     *   fee_flat: float,
      *   applies_to: string,
      *   auto_paystack: bool,
      *   bank_tiers: list<array{min: float, max: float|null, fee: float}>
@@ -425,15 +450,30 @@ class PlatformSettings
     public static function withdrawalFeePayload(): array
     {
         $auto = static::autoPaystackWithdrawSettings();
-        // Percent fee only when auto Paystack is on AND a % is set. Otherwise keep
-        // flat / bank-tier fees (same as feeForWithdrawal) so the app can show them.
-        if ($auto['enabled'] && $auto['fee_percent'] > 0) {
+        if ($auto['enabled'] && $auto['fee_mode'] === 'percent' && $auto['fee_percent'] > 0) {
             return [
                 'mode' => 'percent',
                 'enabled' => true,
                 'amount' => 0.0,
                 'momo_amount' => 0.0,
                 'percent' => $auto['fee_percent'],
+                'fee_flat' => 0.0,
+                'applies_to' => 'all',
+                'auto_paystack' => true,
+                'bank_tiers' => [],
+            ];
+        }
+
+        if ($auto['enabled'] && $auto['fee_mode'] === 'flat') {
+            $flat = max(0, round((float) $auto['fee_flat'], 2));
+
+            return [
+                'mode' => 'flat',
+                'enabled' => true,
+                'amount' => $flat,
+                'momo_amount' => $flat,
+                'percent' => 0.0,
+                'fee_flat' => $flat,
                 'applies_to' => 'all',
                 'auto_paystack' => true,
                 'bank_tiers' => [],
@@ -448,6 +488,7 @@ class PlatformSettings
             'amount' => $flat['amount'],
             'momo_amount' => $flat['momo_amount'],
             'percent' => 0.0,
+            'fee_flat' => 0.0,
             'applies_to' => $flat['applies_to'],
             'auto_paystack' => (bool) $auto['enabled'],
             'bank_tiers' => $flat['bank_tiers'],

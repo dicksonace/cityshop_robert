@@ -163,7 +163,9 @@ class SettingsController extends Controller
             'bank_tiers.*.max' => ['nullable', 'numeric', 'min:0'],
             'bank_tiers.*.fee' => ['required_with:bank_tiers', 'numeric', 'min:0', 'max:500'],
             'auto_paystack_enabled' => ['required', 'boolean'],
-            'auto_paystack_fee_percent' => ['required', 'numeric', 'min:0', 'max:25'],
+            'auto_paystack_fee_mode' => ['nullable', 'in:flat,percent'],
+            'auto_paystack_fee_flat' => ['nullable', 'numeric', 'min:0', 'max:500'],
+            'auto_paystack_fee_percent' => ['nullable', 'numeric', 'min:0', 'max:25'],
         ]);
 
         PlatformSettings::saveWithdrawalFeeSettings([
@@ -175,7 +177,9 @@ class SettingsController extends Controller
         ]);
         PlatformSettings::saveAutoPaystackWithdrawSettings([
             'enabled' => (bool) $validated['auto_paystack_enabled'],
-            'fee_percent' => (float) $validated['auto_paystack_fee_percent'],
+            'fee_mode' => $validated['auto_paystack_fee_mode'] ?? 'flat',
+            'fee_flat' => (float) ($validated['auto_paystack_fee_flat'] ?? 0),
+            'fee_percent' => (float) ($validated['auto_paystack_fee_percent'] ?? 0),
         ]);
 
         return response()->json(['message' => 'Withdrawal settings saved.']);
