@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Seller;
 use App\Enums\SellerStatus;
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
+use App\Services\FlutterwaveService;
 use App\Services\LiveStreamService;
 use App\Services\PaystackService;
 use App\Services\PlatformSettings;
@@ -18,6 +19,7 @@ class DashboardController extends Controller
     public function __construct(
         private SellerDashboardService $dashboard,
         private PaystackService $paystack,
+        private FlutterwaveService $flutterwave,
     ) {}
 
     public function index(Request $request): Response
@@ -46,6 +48,7 @@ class DashboardController extends Controller
                 : null,
             'orderPipelineCounts' => $this->dashboard->orderPipelineCounts($seller),
             'paystackConfigured' => $this->paystack->isAvailable(),
+            'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'isLive' => LiveStreamService::currentForSeller($seller) !== null,

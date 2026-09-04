@@ -12,12 +12,14 @@ class ConversationParticipant extends Model
         'conversation_id',
         'user_id',
         'hidden_at',
+        'messages_cleared_at',
     ];
 
     protected function casts(): array
     {
         return [
             'hidden_at' => 'datetime',
+            'messages_cleared_at' => 'datetime',
         ];
     }
 

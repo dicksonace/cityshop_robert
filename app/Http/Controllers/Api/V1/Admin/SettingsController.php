@@ -101,6 +101,7 @@ class SettingsController extends Controller
         return response()->json([
             'settings' => PlatformSettings::paystackFeeSettings(),
             'payments_locked' => PlatformSettings::paystackPaymentsLocked(),
+            'flutterwave_locked' => PlatformSettings::flutterwavePaymentsLocked(),
         ]);
     }
 
@@ -140,6 +141,21 @@ class SettingsController extends Controller
             'message' => $locked
                 ? 'Paystack disabled. Buyers/sellers should use manual payment / MoMo funding.'
                 : 'Paystack enabled.',
+        ]);
+    }
+
+    public function updateFlutterwaveLock(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'locked' => ['required', 'boolean'],
+        ]);
+        $locked = (bool) $validated['locked'];
+        PlatformSettings::saveFlutterwavePaymentsSettings(['locked' => $locked]);
+
+        return response()->json([
+            'message' => $locked
+                ? 'Flutterwave disabled.'
+                : 'Flutterwave enabled.',
         ]);
     }
 

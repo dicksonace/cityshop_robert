@@ -18,6 +18,7 @@ interface WalletBalanceCardProps {
     refreshing?: boolean;
     countdownSec?: number;
     paystackConfigured?: boolean;
+    flutterwaveConfigured?: boolean;
     manualTopUpEnabled?: boolean;
     manualFundingAccounts?: FundingAccount[];
     paystackFee?: PaystackFeeSettings | null;
@@ -33,11 +34,12 @@ export default function WalletBalanceCard({
     refreshing = false,
     countdownSec,
     paystackConfigured = false,
+    flutterwaveConfigured = false,
     manualTopUpEnabled = false,
     manualFundingAccounts = [],
     paystackFee,
 }: WalletBalanceCardProps) {
-    const canRecharge = paystackConfigured || manualTopUpEnabled;
+    const canRecharge = paystackConfigured || flutterwaveConfigured || manualTopUpEnabled;
     const [rechargeOpen, setRechargeOpen] = useState(false);
 
     return (
@@ -120,10 +122,12 @@ export default function WalletBalanceCard({
                 open={rechargeOpen}
                 onClose={() => setRechargeOpen(false)}
                 paystackConfigured={paystackConfigured}
+                flutterwaveConfigured={flutterwaveConfigured}
                 manualTopUpEnabled={manualTopUpEnabled}
                 manualFundingAccounts={manualFundingAccounts}
                 manualHref={route('seller.wallet.manual-top-up')}
                 paystackRoute={route('seller.wallet.add-funds')}
+                flutterwaveRoute={route('seller.wallet.add-funds.flutterwave')}
                 amountInputId="seller-recharge-amount"
                 paystackFee={paystackFee}
             />

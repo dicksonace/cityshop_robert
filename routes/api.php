@@ -96,8 +96,9 @@ Route::prefix('v1')->group(function () {
     Route::get('/livestreams/{slug}', [\App\Http\Controllers\Api\V1\LivestreamController::class, 'show']);
     Route::post('/search/image', [ImageSearchController::class, 'store']);
 
-    // Paystack in-app WebView return (no auth — app detects URL then calls verify)
+    // Gateway in-app WebView return (no auth — app detects URL then calls verify)
     Route::get('/paystack/mobile-return', [CheckoutController::class, 'paystackMobileReturn']);
+    Route::get('/flutterwave/mobile-return', [CheckoutController::class, 'flutterwaveMobileReturn']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::match(['get', 'post'], '/broadcasting/auth', [BroadcastController::class, 'authenticate']);
@@ -293,6 +294,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/settings/paystack', [AdminSettingsController::class, 'paystack']);
             Route::post('/settings/paystack', [AdminSettingsController::class, 'updatePaystack']);
             Route::post('/settings/paystack/lock', [AdminSettingsController::class, 'updatePaystackLock']);
+            Route::post('/settings/flutterwave/lock', [AdminSettingsController::class, 'updateFlutterwaveLock']);
             Route::get('/settings/withdrawal', [AdminSettingsController::class, 'withdrawal']);
             Route::post('/settings/withdrawal', [AdminSettingsController::class, 'updateWithdrawal']);
             Route::get('/settings/manual-funding', [AdminSettingsController::class, 'manualFunding']);
@@ -380,6 +382,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/messages/groups', [MessageController::class, 'storeGroup']);
         Route::get('/messages/{conversation}', [MessageController::class, 'show']);
         Route::delete('/messages/{conversation}', [MessageController::class, 'destroyConversation']);
+        Route::post('/messages/{conversation}/clear', [MessageController::class, 'clearHistory']);
+        Route::post('/messages/{conversation}/clear-request', [MessageController::class, 'requestClearBoth']);
+        Route::post('/messages/{conversation}/clear-request/{clearRequest}', [MessageController::class, 'respondClearBoth']);
         Route::post('/messages/{conversation}/members', [MessageController::class, 'addMembers']);
         Route::post('/messages/{conversation}/leave', [MessageController::class, 'leaveGroup']);
         Route::delete('/messages/{conversation}/members/{user}', [MessageController::class, 'removeMember']);
@@ -430,10 +435,14 @@ Route::prefix('v1')->group(function () {
         Route::post('/checkout/direct-pay/{sellerId}', [CheckoutController::class, 'submitDirectPay']);
         Route::post('/checkout/paystack/initialize', [CheckoutController::class, 'initializeDraftPaystack']);
         Route::post('/checkout/paystack/verify', [CheckoutController::class, 'verifyDraftPaystack']);
+        Route::post('/checkout/flutterwave/initialize', [CheckoutController::class, 'initializeDraftFlutterwave']);
+        Route::post('/checkout/flutterwave/verify', [CheckoutController::class, 'verifyDraftFlutterwave']);
         Route::get('/checkouts/{checkout}', [CheckoutController::class, 'show']);
         Route::post('/checkouts/{checkout}/pay/wallet', [CheckoutController::class, 'payWithWallet']);
         Route::post('/checkouts/{checkout}/pay/initialize', [CheckoutController::class, 'initializePaystack']);
         Route::post('/checkouts/{checkout}/pay/verify', [CheckoutController::class, 'verifyPaystack']);
+        Route::post('/checkouts/{checkout}/pay/flutterwave/initialize', [CheckoutController::class, 'initializeFlutterwave']);
+        Route::post('/checkouts/{checkout}/pay/flutterwave/verify', [CheckoutController::class, 'verifyFlutterwave']);
         Route::post('/orders/{order}/direct-payment', [CheckoutController::class, 'submitDirectPayment']);
 
         Route::get('/orders', [OrderController::class, 'index']);
@@ -466,6 +475,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/wallet/sell-rmb/{sellRmbTransfer}/cancel', [SellRmbController::class, 'cancel']);
         Route::post('/wallet/paystack/initialize', [WalletController::class, 'initializePaystackTopUp']);
         Route::post('/wallet/paystack/verify', [WalletController::class, 'verifyPaystackTopUp']);
+        Route::post('/wallet/flutterwave/initialize', [WalletController::class, 'initializeFlutterwaveTopUp']);
+        Route::post('/wallet/flutterwave/verify', [WalletController::class, 'verifyFlutterwaveTopUp']);
         Route::get('/wallet/qr/receive', [QrPaymentController::class, 'receive']);
         Route::post('/wallet/qr/resolve', [QrPaymentController::class, 'resolve']);
         Route::post('/wallet/qr/pay', [QrPaymentController::class, 'pay']);

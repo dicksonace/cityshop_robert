@@ -7,12 +7,14 @@ use App\Events\ChatMessageSent;
 use App\Events\ChatMessageUpdated;
 use App\Events\UserPresenceChanged;
 use App\Models\AppNotification;
+use App\Models\ChatClearRequest;
 use App\Models\Conversation;
 use App\Models\ConversationParticipant;
 use App\Models\Message;
 use App\Models\MessageReaction;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -1243,6 +1245,179 @@ class ChatService
     }
 
     /**
+     * Soft-clear filter: hide messages at or before the viewer's cleared_at watermark.
+     *
+     * @param  Builder<\App\Models\Message>  $query
+     * @return Builder<\App\Models\Message>
+     */
+    public static function applyClearedFilter(Builder $query, Conversation $conversation, User $viewer): Builder
+    {
+        $clearedAt = $conversation->messagesClearedAtFor($viewer);
+        if ($clearedAt) {
+            $query->where('created_at', '>', $clearedAt);
+        }
+
+        return $query;
+    }
+
+    public static function clearHistoryForMe(Conversation $conversation, User $user): void
+    {
+        abort_unless($conversation->involves($user), 403);
+        $conversation->clearMessagesFor($user);
+    }
+
+    /**
+     * Ask the other party to clear history for both (1:1 only). Soft watermarks only.
+     */
+    public static function requestClearBoth(Conversation $conversation, User $user): ChatClearRequest
+    {
+        abort_unless($conversation->involves($user), 403);
+        abort_if($conversation->is_group, 422, 'Clear for both is only available in 1:1 chats.');
+
+        $other = $conversation->otherParticipant($user);
+        abort_unless($other->exists, 422, 'Cannot request clear — the other account is unavailable.');
+
+        ChatClearRequest::where('conversation_id', $conversation->id)
+            ->where('status', ChatClearRequest::STATUS_PENDING)
+            ->where(function ($q) use ($user) {
+                $q->where('requested_by', $user->id)->orWhere('requested_to', $user->id);
+            })
+            ->update(['status' => ChatClearRequest::STATUS_CANCELLED]);
+
+        $request = ChatClearRequest::create([
+            'conversation_id' => $conversation->id,
+            'requested_by' => $user->id,
+            'requested_to' => $other->id,
+            'status' => ChatClearRequest::STATUS_PENDING,
+        ]);
+
+        AppNotificationService::send(
+            $other,
+            'chat_clear_request',
+            'Clear chat request',
+            $user->name.' asked to clear this chat for both of you.',
+            [
+                'conversation_id' => $conversation->id,
+                'clear_request_id' => $request->id,
+                'from_user_id' => $user->id,
+                'from_name' => $user->name,
+            ],
+        );
+
+        return $request;
+    }
+
+    public static function respondClearBoth(
+        Conversation $conversation,
+        User $user,
+        ChatClearRequest $clearRequest,
+        bool $accept,
+    ): ChatClearRequest {
+        abort_unless($conversation->involves($user), 403);
+        abort_unless((int) $clearRequest->conversation_id === (int) $conversation->id, 404);
+        abort_unless((int) $clearRequest->requested_to === (int) $user->id, 403);
+        abort_unless($clearRequest->isPending(), 422, 'This clear request is no longer pending.');
+
+        if (! $accept) {
+            $clearRequest->update(['status' => ChatClearRequest::STATUS_DECLINED]);
+            $requester = $clearRequest->requester;
+            if ($requester) {
+                AppNotificationService::send(
+                    $requester,
+                    'chat_clear_declined',
+                    'Clear chat declined',
+                    $user->name.' declined clearing this chat for both of you.',
+                    [
+                        'conversation_id' => $conversation->id,
+                        'clear_request_id' => $clearRequest->id,
+                    ],
+                );
+            }
+
+            return $clearRequest->fresh();
+        }
+
+        $stamp = now();
+        $conversation->clearMessagesForBoth($stamp);
+        $clearRequest->update(['status' => ChatClearRequest::STATUS_ACCEPTED]);
+
+        ChatClearRequest::where('conversation_id', $conversation->id)
+            ->where('status', ChatClearRequest::STATUS_PENDING)
+            ->where('id', '!=', $clearRequest->id)
+            ->update(['status' => ChatClearRequest::STATUS_CANCELLED]);
+
+        $requester = $clearRequest->requester;
+        if ($requester) {
+            AppNotificationService::send(
+                $requester,
+                'chat_clear_accepted',
+                'Chat cleared',
+                $user->name.' accepted. History is cleared for both of you.',
+                [
+                    'conversation_id' => $conversation->id,
+                    'clear_request_id' => $clearRequest->id,
+                ],
+            );
+        }
+
+        return $clearRequest->fresh();
+    }
+
+    public static function pendingClearRequestFor(Conversation $conversation, User $user): ?ChatClearRequest
+    {
+        return ChatClearRequest::where('conversation_id', $conversation->id)
+            ->where('status', ChatClearRequest::STATUS_PENDING)
+            ->where(function ($q) use ($user) {
+                $q->where('requested_by', $user->id)->orWhere('requested_to', $user->id);
+            })
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * @return array{id: int, status: string, direction: string, from_name: string|null, created_at: string|null}|null
+     */
+    public static function formatClearRequest(?ChatClearRequest $request, User $viewer): ?array
+    {
+        if (! $request) {
+            return null;
+        }
+
+        $request->loadMissing('requester:id,name');
+
+        return [
+            'id' => $request->id,
+            'status' => $request->status,
+            'direction' => (int) $request->requested_by === (int) $viewer->id ? 'outgoing' : 'incoming',
+            'from_name' => $request->requester?->name,
+            'created_at' => $request->created_at?->toIso8601String(),
+        ];
+    }
+
+    public static function latestVisibleMessageFor(Conversation $conversation, User $viewer): ?Message
+    {
+        $query = $conversation->messages()
+            ->whereIn('type', static::visibleTypes())
+            ->with(['sender:id,name,deleted_at']);
+
+        static::applyClearedFilter($query, $conversation, $viewer);
+
+        return $query->orderByDesc('id')->first();
+    }
+
+    public static function unreadCountFor(Conversation $conversation, User $viewer): int
+    {
+        $query = $conversation->messages()
+            ->whereIn('type', static::visibleTypes())
+            ->where('sender_id', '!=', $viewer->id)
+            ->whereNull('read_at');
+
+        static::applyClearedFilter($query, $conversation, $viewer);
+
+        return $query->count();
+    }
+
+    /**
      * Newest timeline window for opening a chat (not the oldest 100 — that hid
      * recent voice/text once call logs filled the early history).
      *
@@ -1250,9 +1425,13 @@ class ChatService
      */
     public static function threadMessagesFor(Conversation $conversation, User $viewer, int $limit = 100)
     {
-        return $conversation->messages()
+        $query = $conversation->messages()
             ->whereIn('type', static::visibleTypes())
-            ->with(['sender:id,name,deleted_at', 'reactions'])
+            ->with(['sender:id,name,deleted_at', 'reactions']);
+
+        static::applyClearedFilter($query, $conversation, $viewer);
+
+        return $query
             ->orderByDesc('id')
             ->limit($limit)
             ->get()
@@ -1269,7 +1448,7 @@ class ChatService
      */
     public static function pollVisibleMessages(Conversation $conversation, User $viewer, int $afterId = 0)
     {
-        return $conversation->messages()
+        $query = $conversation->messages()
             ->whereIn('type', static::visibleTypes())
             ->with(['sender:id,name,deleted_at', 'reactions'])
             ->where(function ($q) use ($afterId, $viewer) {
@@ -1285,7 +1464,11 @@ class ChatService
                     $unread->where('sender_id', '!=', $viewer->id)
                         ->whereNull('read_at');
                 });
-            })
+            });
+
+        static::applyClearedFilter($query, $conversation, $viewer);
+
+        return $query
             ->orderBy('id')
             ->limit(100)
             ->get();
@@ -1302,11 +1485,15 @@ class ChatService
             return collect();
         }
 
-        return $conversation->messages()
+        $query = $conversation->messages()
             ->whereIn('type', static::visibleTypes())
             ->with(['sender:id,name,deleted_at', 'reactions'])
             ->where('id', '<=', $afterId)
-            ->where('updated_at', '>', $since)
+            ->where('updated_at', '>', $since);
+
+        static::applyClearedFilter($query, $conversation, $viewer);
+
+        return $query
             ->orderBy('id')
             ->limit(100)
             ->get();

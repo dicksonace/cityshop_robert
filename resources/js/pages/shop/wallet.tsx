@@ -27,6 +27,7 @@ interface BuyerWalletProps {
     withdrawals: Paginated<Withdrawal>;
     hasPendingWithdrawal: boolean;
     paystackConfigured: boolean;
+    flutterwaveConfigured?: boolean;
     paystackPublicKey: string;
     paystackFee?: PaystackFeeSettings | null;
     manualTopUpEnabled?: boolean;
@@ -66,6 +67,7 @@ export default function BuyerWallet({
     withdrawals,
     hasPendingWithdrawal,
     paystackConfigured,
+    flutterwaveConfigured = false,
     paystackFee,
     manualTopUpEnabled,
     manualFundingAccounts = [],
@@ -74,7 +76,7 @@ export default function BuyerWallet({
     const [refreshing, setRefreshing] = useState(false);
     const [rechargeOpen, setRechargeOpen] = useState(false);
 
-    const canRecharge = paystackConfigured || !!manualTopUpEnabled;
+    const canRecharge = paystackConfigured || !!flutterwaveConfigured || !!manualTopUpEnabled;
 
     const refreshBalance = () => {
         setRefreshing(true);
@@ -169,10 +171,12 @@ export default function BuyerWallet({
                     open={rechargeOpen}
                     onClose={() => setRechargeOpen(false)}
                     paystackConfigured={paystackConfigured}
+                    flutterwaveConfigured={flutterwaveConfigured}
                     manualTopUpEnabled={!!manualTopUpEnabled}
                     manualFundingAccounts={manualFundingAccounts}
                     manualHref={route('wallet.manual-top-up')}
                     paystackRoute={route('wallet.add-funds')}
+                    flutterwaveRoute={route('wallet.add-funds.flutterwave')}
                     amountInputId="buyer-recharge-amount"
                     paystackFee={paystackFee}
                 />

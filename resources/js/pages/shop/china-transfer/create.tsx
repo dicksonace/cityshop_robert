@@ -205,21 +205,33 @@ export default function ChinaTransferCreate({
                 )}
 
                 {quote && (
-                    <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm">
-                        <div className="flex justify-between font-bold text-indigo-900">
-                            <span>You send</span>
-                            <span>{formatPrice(quote.ghs)}</span>
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                        <div className="bg-gradient-to-br from-red-600 to-red-700 px-4 py-4 text-white">
+                            <p className="text-[11px] font-extrabold uppercase tracking-wide text-white/85">
+                                They receive
+                            </p>
+                            <p className="mt-1 text-3xl font-black tracking-tight">¥ {quote.rmb.toFixed(2)}</p>
+                            <p className="mt-1 text-xs font-semibold text-white/80">Alipay · RMB</p>
                         </div>
-                        <div className="mt-1 flex justify-between font-bold text-indigo-900">
-                            <span>They receive</span>
-                            <span>¥{quote.rmb.toFixed(2)}</span>
+                        <div className="space-y-2.5 px-4 py-3 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-gray-500">You send</span>
+                                <span className="text-base font-black text-gray-900">{formatPrice(quote.ghs)}</span>
+                            </div>
+                            <div className="border-t border-gray-100" />
+                            <div className="flex items-center justify-between gap-3 text-xs">
+                                <span className="text-gray-500">Rate</span>
+                                <span className="font-bold text-gray-700">
+                                    1 GHS = {quote.rmbPerGhs.toFixed(3)} RMB
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 text-xs">
+                                <span className="text-gray-500">Fee · Total</span>
+                                <span className="font-bold text-gray-700">
+                                    {formatPrice(quote.fee)} · {formatPrice(quote.total)}
+                                </span>
+                            </div>
                         </div>
-                        <p className="mt-2 text-xs font-semibold text-indigo-700">
-                            Rate 1 GHS → {quote.rmbPerGhs.toFixed(3)} RMB
-                        </p>
-                        <p className="mt-1 text-xs text-indigo-700">
-                            Fee {formatPrice(quote.fee)} · Total {formatPrice(quote.total)}
-                        </p>
                     </div>
                 )}
 

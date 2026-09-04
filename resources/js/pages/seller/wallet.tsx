@@ -46,6 +46,7 @@ interface WalletProps {
     payoutMethods: PayoutMethod[];
     hasPendingWithdrawal: boolean;
     paystackConfigured?: boolean;
+    flutterwaveConfigured?: boolean;
     manualTopUpEnabled?: boolean;
     manualFundingAccounts?: FundingAccount[];
     paystackFee?: PaystackFeeSettings | null;
@@ -76,6 +77,7 @@ export default function SellerWallet({
     payoutMethods,
     hasPendingWithdrawal,
     paystackConfigured = false,
+    flutterwaveConfigured = false,
     manualTopUpEnabled = false,
     manualFundingAccounts = [],
     paystackFee,
@@ -272,6 +274,7 @@ export default function SellerWallet({
                     onRefresh={refreshBalance}
                     refreshing={refreshing}
                     paystackConfigured={paystackConfigured}
+                    flutterwaveConfigured={flutterwaveConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
                     manualFundingAccounts={manualFundingAccounts}
                     paystackFee={paystackFee}

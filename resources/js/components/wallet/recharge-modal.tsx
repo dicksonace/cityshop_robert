@@ -18,29 +18,33 @@ interface RechargeModalProps {
     open: boolean;
     onClose: () => void;
     paystackConfigured: boolean;
+    flutterwaveConfigured?: boolean;
     manualTopUpEnabled: boolean;
     manualFundingAccounts?: FundingAccount[];
     manualHref: string;
     paystackRoute: string;
+    flutterwaveRoute?: string;
     chooseHint?: string;
     amountInputId?: string;
     paystackFee?: PaystackFeeSettings | null;
 }
 
-type RechargeStep = 'choose' | 'paystack' | 'manual';
+type RechargeStep = 'choose' | 'paystack' | 'flutterwave' | 'manual';
 
 /**
- * Recharge flow: Auto Paystack vs Manual. Manual shows the compact MoMo picker
+ * Recharge flow: Auto Paystack / Flutterwave vs Manual. Manual shows the compact MoMo picker
  * and pay-to details inline (same as manual deposit), then continues to proof.
  */
 export default function RechargeModal({
     open,
     onClose,
     paystackConfigured,
+    flutterwaveConfigured = false,
     manualTopUpEnabled,
     manualFundingAccounts = [],
     manualHref,
     paystackRoute,
+    flutterwaveRoute,
     chooseHint = 'Choose how you want to add funds.',
     amountInputId = 'recharge-amount',
     paystackFee,
@@ -53,6 +57,9 @@ export default function RechargeModal({
         amount: '',
         method: 'momo' as 'momo' | 'card',
     });
+
+    const onlineConfigured = paystackConfigured || flutterwaveConfigured;
+    const multiOnline = paystackConfigured && flutterwaveConfigured;
 
     const momoAccountsByNetwork = useMemo(() => {
         const map: Record<string, FundingAccount> = {};
@@ -74,17 +81,23 @@ export default function RechargeModal({
         setSubmitting(false);
         setSubmitError('');
 
-        if (paystackConfigured && !manualTopUpEnabled) {
-            setStep('paystack');
+        if (onlineConfigured && !manualTopUpEnabled) {
+            if (multiOnline) {
+                setStep('choose');
+            } else if (paystackConfigured) {
+                setStep('paystack');
+            } else {
+                setStep('flutterwave');
+            }
             return;
         }
-        if (!paystackConfigured && manualTopUpEnabled) {
+        if (!onlineConfigured && manualTopUpEnabled) {
             setStep('manual');
             return;
         }
         setStep('choose');
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-init when opened
-    }, [open, paystackConfigured, manualTopUpEnabled]);
+    }, [open, paystackConfigured, flutterwaveConfigured, manualTopUpEnabled]);
 
     useEffect(() => {
         if (!open || step !== 'manual') return;
@@ -105,8 +118,7 @@ export default function RechargeModal({
         onClose();
     };
 
-    const submitPaystack: FormEventHandler = async (e) => {
-        e.preventDefault();
+    const submitOnline = async (routeName: string) => {
         setSubmitError('');
         const amount = Number(form.data.amount);
         if (!Number.isFinite(amount) || amount < 5) {
@@ -116,7 +128,7 @@ export default function RechargeModal({
 
         setSubmitting(true);
         try {
-            const res = await fetch(paystackRoute, {
+            const res = await fetch(routeName, {
                 method: 'POST',
                 headers: {
                     ...csrfHeaders(),
@@ -146,11 +158,35 @@ export default function RechargeModal({
         }
     };
 
-    const showChooser = paystackConfigured && manualTopUpEnabled && step === 'choose';
+    const submitPaystack: FormEventHandler = async (e) => {
+        e.preventDefault();
+        await submitOnline(paystackRoute);
+    };
+
+    const submitFlutterwave: FormEventHandler = async (e) => {
+        e.preventDefault();
+        if (!flutterwaveRoute) {
+            setSubmitError('Flutterwave is not available.');
+            return;
+        }
+        await submitOnline(flutterwaveRoute);
+    };
+
+    const showChooser =
+        step === 'choose' &&
+        ((onlineConfigured && manualTopUpEnabled) || multiOnline || (paystackConfigured && flutterwaveConfigured && manualTopUpEnabled));
     const showManual = manualTopUpEnabled && step === 'manual';
+    const showPaystack = step === 'paystack';
+    const showFlutterwave = step === 'flutterwave';
     const quote = paystackRechargeQuote(Number(form.data.amount) || 0, paystackFee);
 
-    const title = showChooser ? 'Recharge' : showManual ? 'Manual deposit' : 'Paystack recharge';
+    const title = showChooser
+        ? 'Recharge'
+        : showManual
+          ? 'Manual deposit'
+          : showFlutterwave
+            ? 'Flutterwave recharge'
+            : 'Paystack recharge';
 
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 pt-14 sm:items-start sm:pt-20">
@@ -179,33 +215,53 @@ export default function RechargeModal({
 
                 {showChooser ? (
                     <div className="mt-4 space-y-2.5">
-                        <button
-                            type="button"
-                            onClick={() => setStep('paystack')}
-                            className="flex w-full items-center gap-3 rounded-xl border border-orange-200 bg-orange-50/60 px-3.5 py-3 text-left transition hover:border-orange-300 hover:bg-orange-50"
-                        >
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white">
-                                <Smartphone className="h-5 w-5" />
-                            </span>
-                            <span className="min-w-0">
-                                <span className="block text-sm font-semibold text-gray-900">Auto Paystack</span>
-                                <span className="block text-xs text-gray-500">Instant MoMo or card</span>
-                            </span>
-                        </button>
+                        {paystackConfigured ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep('paystack')}
+                                className="flex w-full items-center gap-3 rounded-xl border border-orange-200 bg-orange-50/60 px-3.5 py-3 text-left transition hover:border-orange-300 hover:bg-orange-50"
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white">
+                                    <Smartphone className="h-5 w-5" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-gray-900">Paystack</span>
+                                    <span className="block text-xs text-gray-500">Instant MoMo or card</span>
+                                </span>
+                            </button>
+                        ) : null}
 
-                        <button
-                            type="button"
-                            onClick={() => setStep('manual')}
-                            className="flex w-full items-center gap-3 rounded-xl border border-sky-100 bg-white px-3.5 py-3 text-left transition hover:border-sky-200 hover:bg-sky-50"
-                        >
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white">
-                                <Upload className="h-5 w-5" />
-                            </span>
-                            <span className="min-w-0">
-                                <span className="block text-sm font-semibold text-gray-900">Manual</span>
-                                <span className="block text-xs text-gray-500">MoMo / bank + upload proof</span>
-                            </span>
-                        </button>
+                        {flutterwaveConfigured && flutterwaveRoute ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep('flutterwave')}
+                                className="flex w-full items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 px-3.5 py-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50"
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white">
+                                    <Smartphone className="h-5 w-5" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-gray-900">Flutterwave</span>
+                                    <span className="block text-xs text-gray-500">Instant MoMo or card</span>
+                                </span>
+                            </button>
+                        ) : null}
+
+                        {manualTopUpEnabled ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep('manual')}
+                                className="flex w-full items-center gap-3 rounded-xl border border-sky-100 bg-white px-3.5 py-3 text-left transition hover:border-sky-200 hover:bg-sky-50"
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white">
+                                    <Upload className="h-5 w-5" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-gray-900">Manual</span>
+                                    <span className="block text-xs text-gray-500">MoMo / bank + upload proof</span>
+                                </span>
+                            </button>
+                        ) : null}
                     </div>
                 ) : showManual ? (
                     <div className="mt-4 space-y-4">
@@ -225,7 +281,7 @@ export default function RechargeModal({
                         ) : null}
 
                         <div className="flex gap-2 pt-0.5">
-                            {paystackConfigured ? (
+                            {onlineConfigured ? (
                                 <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setStep('choose')}>
                                     Back
                                 </Button>
@@ -249,7 +305,10 @@ export default function RechargeModal({
                         </div>
                     </div>
                 ) : (
-                    <form onSubmit={submitPaystack} className="mt-4 space-y-3">
+                    <form
+                        onSubmit={showFlutterwave ? submitFlutterwave : submitPaystack}
+                        className="mt-4 space-y-3"
+                    >
                         <div>
                             <Label htmlFor={amountInputId}>Amount (GH₵)</Label>
                             <Input
@@ -304,7 +363,7 @@ export default function RechargeModal({
                             </div>
                         )}
                         <div className="flex gap-2 pt-0.5">
-                            {paystackConfigured && manualTopUpEnabled ? (
+                            {(manualTopUpEnabled || multiOnline) && onlineConfigured ? (
                                 <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setStep('choose')}>
                                     Back
                                 </Button>

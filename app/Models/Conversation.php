@@ -23,6 +23,8 @@ class Conversation extends Model
         'last_message_at',
         'buyer_hidden_at',
         'seller_hidden_at',
+        'buyer_cleared_at',
+        'seller_cleared_at',
     ];
 
     protected function casts(): array
@@ -32,6 +34,8 @@ class Conversation extends Model
             'last_message_at' => 'datetime',
             'buyer_hidden_at' => 'datetime',
             'seller_hidden_at' => 'datetime',
+            'buyer_cleared_at' => 'datetime',
+            'seller_cleared_at' => 'datetime',
         ];
     }
 
@@ -68,7 +72,7 @@ class Conversation extends Model
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'conversation_participants')
-            ->withPivot(['hidden_at'])
+            ->withPivot(['hidden_at', 'messages_cleared_at'])
             ->withTimestamps();
     }
 
@@ -197,5 +201,58 @@ class Conversation extends Model
                 'seller_hidden_at' => null,
             ])->save();
         }
+    }
+
+    /**
+     * Soft “clear history” watermark for this viewer. Older messages stay in DB
+     * (and remain visible to the other party / admins) but are hidden for this user.
+     */
+    public function messagesClearedAtFor(User $user): ?\Illuminate\Support\Carbon
+    {
+        if ($this->is_group) {
+            $row = $this->participantRows()->where('user_id', $user->id)->first();
+
+            return $row?->messages_cleared_at;
+        }
+
+        if ($this->buyer_id === $user->id) {
+            return $this->buyer_cleared_at;
+        }
+        if ($this->seller_id === $user->id) {
+            return $this->seller_cleared_at;
+        }
+
+        return null;
+    }
+
+    public function clearMessagesFor(User $user, ?\DateTimeInterface $at = null): void
+    {
+        $stamp = $at ? \Illuminate\Support\Carbon::parse($at) : now();
+
+        if ($this->is_group) {
+            $this->participantRows()->where('user_id', $user->id)->update([
+                'messages_cleared_at' => $stamp,
+            ]);
+
+            return;
+        }
+
+        if ($this->buyer_id === $user->id) {
+            $this->forceFill(['buyer_cleared_at' => $stamp])->save();
+        } elseif ($this->seller_id === $user->id) {
+            $this->forceFill(['seller_cleared_at' => $stamp])->save();
+        }
+    }
+
+    /** Apply the same clear watermark to both direct-chat parties. */
+    public function clearMessagesForBoth(?\DateTimeInterface $at = null): void
+    {
+        abort_if($this->is_group, 422, 'Mutual clear is only available in 1:1 chats.');
+
+        $stamp = $at ? \Illuminate\Support\Carbon::parse($at) : now();
+        $this->forceFill([
+            'buyer_cleared_at' => $stamp,
+            'seller_cleared_at' => $stamp,
+        ])->save();
     }
 }

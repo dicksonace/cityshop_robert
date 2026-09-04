@@ -79,6 +79,8 @@ export default function ChatThreadPanel() {
         messages,
         setMessages,
         setActiveConversation,
+        clearRequest,
+        setClearRequest,
         showList,
         loading,
         refreshConversations,
@@ -866,12 +868,20 @@ export default function ChatThreadPanel() {
                     sellerId={complaintSellerId}
                     productId={activeConversation.product?.id}
                     canComplain={canComplain && Boolean(complaintSellerId)}
+                    isGroup={Boolean(activeConversation.is_group)}
+                    clearRequest={clearRequest}
                     onClose={() => setShowSettings(false)}
                     onDeleted={() => {
                         setShowSettings(false);
                         void showList();
                         void refreshConversations();
                     }}
+                    onCleared={(nextMessages, nextClearRequest) => {
+                        setMessages(nextMessages);
+                        setClearRequest(nextClearRequest ?? null);
+                        void refreshConversations();
+                    }}
+                    onClearRequestChange={setClearRequest}
                 />
             )}
 

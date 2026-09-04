@@ -16,6 +16,7 @@ class PaystackFeeSettingsController extends Controller
         return Inertia::render('admin/paystack-fees/settings', [
             'settings' => PlatformSettings::paystackFeeSettings(),
             'paymentsLocked' => PlatformSettings::paystackPaymentsLocked(),
+            'flutterwaveLocked' => PlatformSettings::flutterwavePaymentsLocked(),
         ]);
     }
 
@@ -57,6 +58,23 @@ class PaystackFeeSettingsController extends Controller
             $locked
                 ? 'Paystack disabled. Buyers/sellers should use manual payment / MoMo funding.'
                 : 'Paystack enabled. Checkout and wallet top-up via Paystack are on.',
+        );
+    }
+
+    public function updateFlutterwaveLock(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'locked' => ['required', 'boolean'],
+        ]);
+
+        $locked = (bool) $validated['locked'];
+        PlatformSettings::saveFlutterwavePaymentsSettings(['locked' => $locked]);
+
+        return back()->with(
+            'success',
+            $locked
+                ? 'Flutterwave disabled. Buyers can still use Paystack or manual MoMo.'
+                : 'Flutterwave enabled for checkout and wallet top-up.',
         );
     }
 }

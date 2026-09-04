@@ -18,6 +18,9 @@ class PlatformSettings
     /** When locked, buyers cannot start Paystack checkout or wallet top-up. */
     public const PAYSTACK_PAYMENTS_KEY = 'paystack_payments';
 
+    /** When locked, buyers cannot start Flutterwave checkout or wallet top-up. */
+    public const FLUTTERWAVE_PAYMENTS_KEY = 'flutterwave_payments';
+
     public const SMS_KEY = 'sms_provider';
 
     public static function get(string $key, mixed $default = null): mixed
@@ -387,6 +390,42 @@ class PlatformSettings
     public static function savePaystackPaymentsSettings(array $data): void
     {
         static::set(self::PAYSTACK_PAYMENTS_KEY, [
+            'locked' => (bool) ($data['locked'] ?? false),
+        ]);
+    }
+
+    /**
+     * Admin lock for Flutterwave collections (checkout + wallet top-up).
+     *
+     * @return array{locked: bool}
+     */
+    public static function flutterwavePaymentsSettings(): array
+    {
+        $raw = static::get(self::FLUTTERWAVE_PAYMENTS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return ['locked' => false];
+        }
+
+        return [
+            'locked' => (bool) ($decoded['locked'] ?? false),
+        ];
+    }
+
+    public static function flutterwavePaymentsLocked(): bool
+    {
+        return static::flutterwavePaymentsSettings()['locked'];
+    }
+
+    /**
+     * @param  array{locked?: bool}  $data
+     */
+    public static function saveFlutterwavePaymentsSettings(array $data): void
+    {
+        static::set(self::FLUTTERWAVE_PAYMENTS_KEY, [
             'locked' => (bool) ($data['locked'] ?? false),
         ]);
     }

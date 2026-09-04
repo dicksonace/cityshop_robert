@@ -93,6 +93,7 @@ class PendingCheckoutDraft
     {
         Cache::forget(self::cacheKey($user->id));
         Cache::forget(self::paystackCacheKey($user->id));
+        Cache::forget(self::flutterwaveCacheKey($user->id));
     }
 
     public static function rememberPaystack(User $user, string $reference, int $amountPesewas): void
@@ -118,6 +119,29 @@ class PendingCheckoutDraft
         Cache::forget(self::paystackCacheKey($user->id));
     }
 
+    public static function rememberFlutterwave(User $user, string $reference, int $amountPesewas): void
+    {
+        Cache::put(self::flutterwaveCacheKey($user->id), [
+            'reference' => $reference,
+            'amount_pesewas' => $amountPesewas,
+        ], now()->addHours(6));
+    }
+
+    /**
+     * @return array{reference: string, amount_pesewas: int}|null
+     */
+    public static function pendingFlutterwave(User $user): ?array
+    {
+        $pending = Cache::get(self::flutterwaveCacheKey($user->id));
+
+        return is_array($pending) ? $pending : null;
+    }
+
+    public static function forgetFlutterwave(User $user): void
+    {
+        Cache::forget(self::flutterwaveCacheKey($user->id));
+    }
+
     private static function cacheKey(int $userId): string
     {
         return 'pending_checkout_draft:'.$userId;
@@ -126,6 +150,11 @@ class PendingCheckoutDraft
     private static function paystackCacheKey(int $userId): string
     {
         return 'paystack.pending_draft:'.$userId;
+    }
+
+    private static function flutterwaveCacheKey(int $userId): string
+    {
+        return 'flutterwave.pending_draft:'.$userId;
     }
 
     /**

@@ -10,6 +10,8 @@ use App\Models\BuyerAddress;
 use App\Models\Checkout;
 use App\Models\Order;
 use App\Services\CheckoutPaymentVerifier;
+use App\Services\FlutterwaveCheckoutVerifier;
+use App\Services\FlutterwaveService;
 use App\Services\OrderService;
 use App\Services\PaymentPinService;
 use App\Services\PaystackService;
@@ -29,7 +31,9 @@ class CheckoutController extends Controller
     public function __construct(
         private OrderService $orderService,
         private PaystackService $paystack,
+        private FlutterwaveService $flutterwave,
         private CheckoutPaymentVerifier $paymentVerifier,
+        private FlutterwaveCheckoutVerifier $flutterwaveVerifier,
     ) {}
 
     public function index(Request $request): Response
@@ -363,6 +367,7 @@ class CheckoutController extends Controller
             'shipping' => $draft['shipping'] ?? [],
             'paystackPublicKey' => config('services.paystack.public_key'),
             'paystackConfigured' => $this->paystack->isAvailable(),
+            'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
         ]);
     }
 
@@ -469,6 +474,7 @@ class CheckoutController extends Controller
             'directOrders' => $directOrders,
             'paystackPublicKey' => config('services.paystack.public_key'),
             'paystackConfigured' => $this->paystack->isAvailable(),
+            'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
         ]);
     }
 
@@ -605,6 +611,215 @@ class CheckoutController extends Controller
             ]);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function initializeDraftFlutterwave(Request $request): JsonResponse
+    {
+        $draft = PendingCheckoutDraft::get($request);
+        if (! $draft) {
+            return response()->json(['message' => 'Start checkout again to pay.'], 422);
+        }
+
+        if (! $this->flutterwave->isAvailable()) {
+            return response()->json(['message' => $this->flutterwave->unavailableMessage()], 503);
+        }
+
+        try {
+            $amount = $this->orderService->marketplaceAmountFromCart(
+                $request->user(),
+                $draft['seller_payments'] ?? [],
+                $draft['seller_coupons'] ?? [],
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?? 'Please review your order and try again.',
+            ], 422);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        if ($amount <= 0) {
+            return response()->json(['message' => 'No marketplace payment required.'], 422);
+        }
+
+        $quote = $this->flutterwave->rechargeQuote($amount, $draft['payment_method'] ?? 'momo');
+        $reference = 'FLW-CSH-'.strtoupper(uniqid());
+        $amountPesewas = (int) round($quote['charge'] * 100);
+
+        try {
+            $data = $this->flutterwave->initializePayment(
+                $request->user()->billingEmail(),
+                $quote['charge'],
+                $reference,
+                (string) $request->user()->name,
+                [
+                    'buyer_id' => $request->user()->id,
+                    'source' => 'web_draft',
+                    'draft' => true,
+                    'order_amount' => $quote['credit'],
+                    'gateway_fee' => $quote['fee'],
+                    'expected_amount' => $quote['charge'],
+                    'gateway' => 'flutterwave',
+                ],
+                route('checkout.flutterwave.callback'),
+                'CityShop Checkout',
+            );
+
+            PendingCheckoutDraft::rememberFlutterwave($request->user(), $reference, $amountPesewas);
+
+            return response()->json([
+                'authorization_url' => $data['authorization_url'],
+                'reference' => $reference,
+                'email' => $request->user()->billingEmail(),
+                'amount' => $quote['charge'],
+                'order_amount' => $quote['credit'],
+                'fee' => $quote['fee'],
+                'charge' => $quote['charge'],
+                'gateway' => 'flutterwave',
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function initializeFlutterwavePayment(Request $request, Checkout $checkout): JsonResponse
+    {
+        abort_unless($checkout->buyer_id === $request->user()->id, 403);
+
+        if ($checkout->payment_status === PaymentStatus::Paid) {
+            return response()->json(['message' => 'Already paid'], 422);
+        }
+
+        if (! $this->flutterwave->isAvailable()) {
+            return response()->json(['message' => $this->flutterwave->unavailableMessage()], 503);
+        }
+
+        $amount = $this->paymentVerifier->marketplaceAmountGhs($checkout);
+        if ($amount <= 0) {
+            return response()->json(['message' => 'No marketplace payment required for this checkout.'], 422);
+        }
+
+        $quote = $this->flutterwave->rechargeQuote($amount);
+        $reference = 'FLW-CSH-'.strtoupper(uniqid());
+        $amountPesewas = (int) round($quote['charge'] * 100);
+
+        try {
+            $data = $this->flutterwave->initializePayment(
+                $request->user()->billingEmail(),
+                $quote['charge'],
+                $reference,
+                (string) $request->user()->name,
+                [
+                    'checkout_id' => $checkout->id,
+                    'checkout_number' => $checkout->checkout_number,
+                    'buyer_id' => $request->user()->id,
+                    'source' => 'web',
+                    'order_amount' => $quote['credit'],
+                    'gateway_fee' => $quote['fee'],
+                    'expected_amount' => $quote['charge'],
+                    'gateway' => 'flutterwave',
+                ],
+                route('checkout.flutterwave.callback'),
+                'CityShop Checkout',
+            );
+
+            $checkout->loadMissing('orders');
+            foreach ($checkout->orders->where('payment_channel', PaymentChannel::Marketplace) as $order) {
+                $order->update(['payment_reference' => $reference]);
+            }
+            $this->flutterwaveVerifier->rememberPending($checkout, $reference, $amountPesewas);
+
+            return response()->json([
+                'authorization_url' => $data['authorization_url'],
+                'reference' => $reference,
+                'email' => $request->user()->billingEmail(),
+                'amount' => $quote['charge'],
+                'order_amount' => $quote['credit'],
+                'fee' => $quote['fee'],
+                'charge' => $quote['charge'],
+                'gateway' => 'flutterwave',
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function flutterwaveCallback(Request $request): RedirectResponse
+    {
+        $reference = (string) ($request->query('tx_ref') ?: $request->query('reference') ?: '');
+        if ($reference === '') {
+            return redirect()->route('home')->with('error', 'Invalid payment reference.');
+        }
+
+        try {
+            $data = $this->flutterwave->verifyByReference($reference);
+            if (! $this->flutterwave->isSuccessful($data)) {
+                return redirect()->route('checkout.index')->with('error', 'Payment was not successful.');
+            }
+
+            $meta = $this->flutterwave->normalizeMeta($data);
+            $checkoutId = (int) ($meta['checkout_id'] ?? 0);
+            $checkout = $checkoutId > 0
+                ? Checkout::find($checkoutId)
+                : Checkout::whereHas('orders', fn ($q) => $q->where('payment_reference', $reference))->first();
+
+            if (! $checkout && ! empty($meta['draft'])) {
+                $draft = PendingCheckoutDraft::get($request);
+                if (! $draft) {
+                    return redirect()->route('checkout.index')
+                        ->with('error', 'Payment received, but checkout expired. Contact support with your reference.');
+                }
+
+                $pending = PendingCheckoutDraft::pendingFlutterwave($request->user());
+                if (is_array($pending) && ! empty($pending['reference'])
+                    && ! hash_equals((string) $pending['reference'], $reference)) {
+                    return redirect()->route('checkout.index')
+                        ->with('error', 'Payment reference mismatch.');
+                }
+
+                $checkout = $this->orderService->createCheckoutFromCart(
+                    $request->user(),
+                    $draft['shipping'],
+                    $draft['payment_method'] ?? 'momo',
+                    $draft['seller_payments'] ?? [],
+                    $draft['seller_coupons'] ?? [],
+                );
+                $this->orderService->fulfillPaidCheckout(
+                    $checkout,
+                    $reference,
+                    $this->flutterwave->paidAmountGhs($data),
+                );
+                PendingCheckoutDraft::clear($request);
+
+                $hasDirect = $checkout->fresh('orders')->orders
+                    ->contains(fn ($order) => $order->payment_channel === PaymentChannel::Direct);
+
+                if ($hasDirect) {
+                    return redirect()->route('checkout.payment', $checkout)
+                        ->with('success', 'Payment successful! Complete direct seller payments below.');
+                }
+
+                return redirect()->route('checkouts.show', $checkout)->with('success', 'Payment successful!');
+            }
+
+            if (! $checkout) {
+                return redirect()->route('orders.index')->with('error', 'Checkout not found for this payment.');
+            }
+
+            $this->flutterwaveVerifier->verifyForCheckout($checkout, $reference, $data);
+            $this->orderService->fulfillPaidCheckout($checkout, $reference, $this->flutterwave->paidAmountGhs($data));
+            $this->flutterwaveVerifier->forgetPending($checkout);
+
+            return redirect()->route('checkouts.show', $checkout)->with('success', 'Payment successful!');
+        } catch (ValidationException $e) {
+            Log::warning('Flutterwave callback rejected', ['errors' => $e->errors()]);
+
+            return redirect()->route('orders.index')->with('error', collect($e->errors())->flatten()->first() ?? 'Payment verification failed.');
+        } catch (\Throwable $e) {
+            Log::error('Flutterwave callback error', ['error' => $e->getMessage()]);
+
+            return redirect()->route('orders.index')->with('error', 'Payment verification failed.');
         }
     }
 

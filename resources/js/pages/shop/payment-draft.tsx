@@ -18,6 +18,7 @@ interface PaymentDraftProps {
     };
     paystackPublicKey: string;
     paystackConfigured: boolean;
+    flutterwaveConfigured?: boolean;
 }
 
 declare global {
@@ -34,12 +35,18 @@ export default function PaymentDraft({
     shipping,
     paystackPublicKey,
     paystackConfigured,
+    flutterwaveConfigured = false,
 }: PaymentDraftProps) {
     const totalDue = paystackCharge && paystackCharge > 0 ? paystackCharge : amount;
+    const onlineAvailable = paystackConfigured || flutterwaveConfigured;
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [gateway, setGateway] = useState<'paystack' | 'flutterwave'>(
+        paystackConfigured ? 'paystack' : 'flutterwave',
+    );
 
     useEffect(() => {
+        if (!paystackConfigured) return;
         const script = document.createElement('script');
         script.src = 'https://js.paystack.co/v1/inline.js';
         script.async = true;
@@ -47,11 +54,16 @@ export default function PaymentDraft({
         return () => {
             document.body.removeChild(script);
         };
-    }, []);
+    }, [paystackConfigured]);
+
+    useEffect(() => {
+        if (paystackConfigured) setGateway('paystack');
+        else if (flutterwaveConfigured) setGateway('flutterwave');
+    }, [paystackConfigured, flutterwaveConfigured]);
 
     const payWithPaystack = useCallback(async () => {
         if (!paystackConfigured) {
-            setError('Online Paystack payment is temporarily disabled. Please use manual MoMo / bank payment.');
+            setError('Online Paystack payment is temporarily disabled.');
             return;
         }
 
@@ -83,6 +95,36 @@ export default function PaymentDraft({
         }
     }, [paystackConfigured, paystackPublicKey]);
 
+    const payWithFlutterwave = useCallback(async () => {
+        if (!flutterwaveConfigured) {
+            setError('Flutterwave payment is temporarily disabled.');
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        try {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+            const res = await fetch(route('checkout.flutterwave-draft.initialize'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message ?? 'Payment initialization failed');
+            if (!data.authorization_url) throw new Error('No payment link returned.');
+            window.location.href = data.authorization_url;
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Payment failed');
+            setLoading(false);
+        }
+    }, [flutterwaveConfigured]);
+
+    const pay = () => {
+        if (gateway === 'flutterwave') return payWithFlutterwave();
+        return payWithPaystack();
+    };
+
     return (
         <ShopLayout>
             <Head title="Complete Payment" />
@@ -94,7 +136,7 @@ export default function PaymentDraft({
                     <CreditCard className="mx-auto h-12 w-12 text-orange-500" />
                     <h1 className="mt-4 text-center text-2xl font-bold text-gray-900">Complete Payment</h1>
                     <p className="mt-2 text-center text-sm text-gray-500">
-                        Your order is created only after payment succeeds. Closing Paystack will not place an order.
+                        Your order is created only after payment succeeds. Closing payment will not place an order.
                     </p>
                     {(shipping.receiver_name || shipping.city) && (
                         <p className="mt-3 text-center text-xs text-gray-400">
@@ -107,12 +149,40 @@ export default function PaymentDraft({
                     <div className="mt-6 rounded-xl border border-orange-100 bg-orange-50 p-4">
                         <p className="font-semibold text-gray-900">CityShop secure payment</p>
                         <p className="mt-2 text-2xl font-bold text-orange-500">{formatPrice(totalDue)}</p>
-                        {paystackConfigured ? (
+                        {onlineAvailable ? (
                             <>
-                                <p className="mt-1 text-sm text-gray-500">Pay securely via Paystack.</p>
+                                {paystackConfigured && flutterwaveConfigured && (
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setGateway('paystack')}
+                                            className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                                                gateway === 'paystack'
+                                                    ? 'border-orange-500 bg-white text-orange-700'
+                                                    : 'border-transparent bg-white/50 text-gray-600'
+                                            }`}
+                                        >
+                                            Paystack
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGateway('flutterwave')}
+                                            className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                                                gateway === 'flutterwave'
+                                                    ? 'border-orange-500 bg-white text-orange-700'
+                                                    : 'border-transparent bg-white/50 text-gray-600'
+                                            }`}
+                                        >
+                                            Flutterwave
+                                        </button>
+                                    </div>
+                                )}
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Pay securely via {gateway === 'flutterwave' ? 'Flutterwave' : 'Paystack'}.
+                                </p>
                                 {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
                                 <Button
-                                    onClick={payWithPaystack}
+                                    onClick={pay}
                                     disabled={loading}
                                     className="mt-4 w-full bg-orange-500 hover:bg-orange-600"
                                 >
@@ -122,8 +192,8 @@ export default function PaymentDraft({
                             </>
                         ) : (
                             <p className="mt-2 text-sm text-amber-800">
-                                Online Paystack payment is temporarily disabled. Go back and use manual MoMo / bank
-                                payment if available, or try again later.
+                                Online payment is temporarily disabled. Go back and use manual MoMo / bank payment
+                                if available, or try again later.
                             </p>
                         )}
                     </div>

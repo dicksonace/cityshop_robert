@@ -15,6 +15,7 @@ use App\Services\AdminNotifier;
 use App\Services\KycService;
 use App\Services\PaymentPinService;
 use App\Services\PaystackService;
+use App\Services\FlutterwaveService;
 use App\Services\PlatformSettings;
 use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
@@ -31,7 +32,10 @@ class WalletController extends Controller
     /** Same floor the web wallet enforces. */
     private const MINIMUM_WITHDRAWAL = 10;
 
-    public function __construct(private PaystackService $paystack) {}
+    public function __construct(
+        private PaystackService $paystack,
+        private FlutterwaveService $flutterwave,
+    ) {}
 
     public function show(Request $request): JsonResponse
     {
@@ -50,6 +54,11 @@ class WalletController extends Controller
                 'rmb_balance' => (float) $wallet->rmb_balance,
                 'paystack_configured' => $this->paystack->isAvailable(),
                 'paystack_fee' => $this->paystack->rechargeFeePayload(),
+                'flutterwave_configured' => $this->flutterwave->isAvailable(),
+                'online_gateways' => [
+                    'paystack' => $this->paystack->isAvailable(),
+                    'flutterwave' => $this->flutterwave->isAvailable(),
+                ],
                 'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
                 'kyc' => KycService::payload($user, withPhotos: false),
             ],
@@ -378,6 +387,7 @@ class WalletController extends Controller
             'instructions' => $settings['instructions'],
             'accounts' => $settings['accounts'],
             'paystack_configured' => $this->paystack->isAvailable(),
+            'flutterwave_configured' => $this->flutterwave->isAvailable(),
             'requests' => WalletTopUpRequest::where('user_id', $request->user()->id)
                 ->latest()
                 ->limit(20)
@@ -520,11 +530,129 @@ class WalletController extends Controller
                     'withdrawn_amount' => (float) $wallet->withdrawn_amount,
                     'paystack_configured' => $this->paystack->isAvailable(),
                     'paystack_fee' => $this->paystack->rechargeFeePayload(),
+                    'flutterwave_configured' => $this->flutterwave->isAvailable(),
                     'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,
                 ],
             ]);
         } catch (\Throwable $e) {
             Log::error('API wallet top-up verify failed', ['error' => $e->getMessage(), 'reference' => $reference]);
+
+            return response()->json(['message' => 'Payment verification failed.'], 422);
+        }
+    }
+
+    public function initializeFlutterwaveTopUp(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
+            'method' => ['required', 'in:momo,card'],
+        ]);
+
+        if ($denied = KycService::denyStoreFundsResponse($user)) {
+            return $denied;
+        }
+
+        if (! $this->flutterwave->isAvailable()) {
+            return response()->json(['message' => $this->flutterwave->unavailableMessage()], 503);
+        }
+
+        $callbackUrl = url('/api/v1/flutterwave/mobile-return');
+
+        try {
+            $data = $this->flutterwave->initializeWalletTopUp(
+                $user,
+                (float) $validated['amount'],
+                $validated['method'],
+                $callbackUrl,
+                'FLW-TOP',
+                ['source' => 'mobile_app'],
+            );
+
+            return response()->json([
+                'authorization_url' => $data['authorization_url'],
+                'reference' => $data['reference'],
+                'callback_url' => $callbackUrl,
+                'amount' => $data['credit'],
+                'fee' => $data['fee'],
+                'charge' => $data['charge'],
+                'currency' => 'GHS',
+                'gateway' => 'flutterwave',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('API Flutterwave wallet top-up init failed', ['error' => $e->getMessage()]);
+            $message = $e instanceof \RuntimeException
+                ? $e->getMessage()
+                : 'Could not start payment. Please try again.';
+
+            return response()->json(['message' => $message], 500);
+        }
+    }
+
+    public function verifyFlutterwaveTopUp(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        $validated = $request->validate([
+            'reference' => ['required', 'string', 'max:100'],
+        ]);
+
+        $reference = $validated['reference'];
+
+        try {
+            $data = $this->flutterwave->verifyByReference($reference);
+
+            if (! $this->flutterwave->isSuccessful($data)) {
+                return response()->json(['message' => 'Payment was not successful.'], 422);
+            }
+
+            $metadata = $this->flutterwave->normalizeMeta($data);
+            if (($metadata['type'] ?? '') !== 'wallet_topup') {
+                return response()->json(['message' => 'Invalid wallet top-up.'], 422);
+            }
+
+            if ((int) ($metadata['user_id'] ?? 0) !== $user->id) {
+                return response()->json(['message' => 'Payment does not belong to your account.'], 403);
+            }
+
+            $paid = $this->flutterwave->paidAmountGhs($data);
+            $credit = $this->flutterwave->topUpCreditFromMetadata($metadata, $paid);
+            if ($credit < 5) {
+                return response()->json(['message' => 'Invalid payment amount.'], 422);
+            }
+
+            $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
+            if ($expected !== null && ! $this->flutterwave->amountsMatch($paid, $expected)) {
+                return response()->json(['message' => 'Payment amount could not be verified.'], 422);
+            }
+
+            $method = (string) ($metadata['method'] ?? 'momo');
+            $credited = WalletService::creditFromVerifiedTopUp($user->id, $credit, $reference, $method);
+            $wallet = WalletService::ensure($user);
+
+            return response()->json([
+                'message' => $credited
+                    ? 'GH₵'.number_format($credit, 2).' credited to your wallet.'
+                    : 'Payment already credited.',
+                'amount' => $credit,
+                'reference' => $reference,
+                'already_credited' => ! $credited,
+                'wallet' => [
+                    'available_balance' => (float) $wallet->available_balance,
+                    'pending_balance' => (float) $wallet->pending_balance,
+                    'total_earnings' => (float) $wallet->total_earnings,
+                    'withdrawn_amount' => (float) $wallet->withdrawn_amount,
+                    'paystack_configured' => $this->paystack->isAvailable(),
+                    'paystack_fee' => $this->paystack->rechargeFeePayload(),
+                    'flutterwave_configured' => $this->flutterwave->isAvailable(),
+                    'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('API Flutterwave wallet top-up verify failed', ['error' => $e->getMessage(), 'reference' => $reference]);
 
             return response()->json(['message' => 'Payment verification failed.'], 422);
         }

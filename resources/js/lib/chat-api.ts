@@ -35,6 +35,7 @@ export async function fetchConversations(): Promise<ChatConversation[]> {
 export async function fetchConversation(conversationId: number): Promise<{
     conversation: ChatConversation;
     messages: ChatMessage[];
+    clear_request?: ChatClearRequest | null;
 }> {
     const res = await fetch(route('chat.show', conversationId), {
         headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -42,6 +43,14 @@ export async function fetchConversation(conversationId: number): Promise<{
     });
     return parseJsonResponse(res);
 }
+
+export type ChatClearRequest = {
+    id: number;
+    status: string;
+    direction: 'outgoing' | 'incoming';
+    from_name?: string | null;
+    created_at?: string | null;
+};
 
 export type ChatAttachProduct = {
     id: number;
@@ -348,6 +357,49 @@ export async function deleteConversation(conversationId: number): Promise<void> 
         credentials: 'same-origin',
     });
     await parseJsonResponse(res);
+}
+
+export async function clearChatHistory(conversationId: number): Promise<{
+    messages: ChatMessage[];
+    message?: string;
+    clear_request?: ChatClearRequest | null;
+}> {
+    const res = await fetch(route('chat.clear', conversationId), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+    });
+    return parseJsonResponse(res);
+}
+
+export async function requestClearBoth(conversationId: number): Promise<{
+    clear_request?: ChatClearRequest | null;
+    message?: string;
+}> {
+    const res = await fetch(route('chat.clear-request', conversationId), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+    });
+    return parseJsonResponse(res);
+}
+
+export async function respondClearBoth(
+    conversationId: number,
+    clearRequestId: number,
+    accept: boolean,
+): Promise<{
+    messages?: ChatMessage[] | null;
+    clear_request?: ChatClearRequest | null;
+    message?: string;
+}> {
+    const res = await fetch(route('chat.clear-request.respond', [conversationId, clearRequestId]), {
+        method: 'POST',
+        headers: jsonHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify({ accept }),
+    });
+    return parseJsonResponse(res);
 }
 
 export async function searchMessages(conversationId: number, q: string): Promise<ChatMessage[]> {

@@ -264,6 +264,10 @@ class MessageController extends Controller
         return response()->json([
             'conversation' => $this->formatConversation($conversation, $request->user(), detailed: true),
             'messages' => $this->threadFor($conversation, $request->user()),
+            'clear_request' => ChatService::formatClearRequest(
+                ChatService::pendingClearRequestFor($conversation, $request->user()),
+                $request->user(),
+            ),
             // SDP offers are not in the visible thread — surface them on open so
             // the callee can ring immediately after tapping the call push.
             'pending_call_signals' => $pendingSignals,
@@ -788,6 +792,71 @@ class MessageController extends Controller
         ]);
     }
 
+    public function clearHistory(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        ChatService::clearHistoryForMe($conversation, $request->user());
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Chat history cleared on your side only. The other person still has their copy.',
+            'messages' => $this->threadFor($conversation->fresh(), $request->user()),
+            'clear_request' => ChatService::formatClearRequest(
+                ChatService::pendingClearRequestFor($conversation, $request->user()),
+                $request->user(),
+            ),
+        ]);
+    }
+
+    public function requestClearBoth(Request $request, Conversation $conversation): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        try {
+            $clearRequest = ChatService::requestClearBoth($conversation, $request->user());
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Clear request sent. Waiting for the other person to accept.',
+            'clear_request' => ChatService::formatClearRequest($clearRequest, $request->user()),
+        ]);
+    }
+
+    public function respondClearBoth(Request $request, Conversation $conversation, \App\Models\ChatClearRequest $clearRequest): JsonResponse
+    {
+        abort_unless($conversation->involves($request->user()), 403);
+
+        $validated = $request->validate([
+            'accept' => ['required', 'boolean'],
+        ]);
+
+        try {
+            $clearRequest = ChatService::respondClearBoth(
+                $conversation,
+                $request->user(),
+                $clearRequest,
+                (bool) $validated['accept'],
+            );
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => $validated['accept']
+                ? 'Chat history cleared for both of you.'
+                : 'Clear request declined.',
+            'clear_request' => ChatService::formatClearRequest($clearRequest, $request->user()),
+            'messages' => $validated['accept']
+                ? $this->threadFor($conversation->fresh(), $request->user())
+                : null,
+        ]);
+    }
+
     public function search(Request $request, Conversation $conversation): JsonResponse
     {
         abort_unless($conversation->involves($request->user()), 403);
@@ -797,10 +866,14 @@ class MessageController extends Controller
             return response()->json(['messages' => []]);
         }
 
-        $messages = $conversation->messages()
+        $query = $conversation->messages()
             ->whereIn('type', ChatService::visibleTypes())
             ->where('body', 'like', '%'.$q.'%')
-            ->with('sender:id,name,deleted_at')
+            ->with('sender:id,name,deleted_at');
+
+        ChatService::applyClearedFilter($query, $conversation, $request->user());
+
+        $messages = $query
             ->orderByDesc('id')
             ->limit(50)
             ->get()
@@ -864,12 +937,8 @@ class MessageController extends Controller
 
     private function formatConversation(Conversation $conversation, User $user, bool $detailed = false): array
     {
-        $latest = $conversation->latestVisibleMessage;
-        $unread = $conversation->messages()
-            ->whereIn('type', ChatService::visibleTypes())
-            ->where('sender_id', '!=', $user->id)
-            ->whereNull('read_at')
-            ->count();
+        $latest = ChatService::latestVisibleMessageFor($conversation, $user);
+        $unread = ChatService::unreadCountFor($conversation, $user);
 
         if ($conversation->is_group) {
             $conversation->loadMissing('participants:id,name,avatar,last_seen_at');

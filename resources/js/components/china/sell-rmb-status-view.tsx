@@ -163,21 +163,32 @@ export function SellRmbStatusView({ transfer, onRefresh, onCancel, walletHref, h
                 </div>
 
                 <div className="p-6">
-                    <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-4">
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-700">Sell Summary</p>
-                        <div className="mb-2 flex items-center justify-between">
-                            <span className="text-sm text-gray-600">RMB Sent</span>
-                            <span className="text-xl font-bold text-red-600">¥ {transfer.quote.rmb_amount.toFixed(2)}</span>
+                    <div className="mb-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                        <div className="px-4 pt-4">
+                            <p className="text-[11px] font-extrabold uppercase tracking-wide text-gray-500">
+                                Sell Summary
+                            </p>
                         </div>
-                        <div className="mb-2 flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Rate</span>
-                            <span className="text-sm font-medium text-gray-800">
-                                1 RMB = {ghsPerRmb.toFixed(4)} GHS
-                            </span>
+                        <div className="m-4 mt-3 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-700 px-4 py-4 text-white">
+                            <p className="text-[11px] font-extrabold uppercase tracking-wide text-white/85">
+                                You receive
+                            </p>
+                            <p className="mt-1 text-3xl font-black tracking-tight">{youReceive}</p>
+                            <p className="mt-1 text-xs font-semibold text-white/80">GHS to your MoMo</p>
                         </div>
-                        <div className="flex items-center justify-between border-t border-red-100 pt-2">
-                            <span className="text-sm text-gray-600">You Receive</span>
-                            <span className="text-xl font-bold text-green-600">{youReceive}</span>
+                        <div className="space-y-2.5 border-t border-gray-100 px-4 py-3 text-sm">
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-gray-500">RMB Sent</span>
+                                <span className="text-base font-black text-red-600">
+                                    ¥ {transfer.quote.rmb_amount.toFixed(2)}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 text-xs">
+                                <span className="text-gray-500">Rate</span>
+                                <span className="font-bold text-gray-700">
+                                    1 RMB = {ghsPerRmb.toFixed(4)} GHS
+                                </span>
+                            </div>
                         </div>
                     </div>
 

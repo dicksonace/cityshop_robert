@@ -27,6 +27,7 @@ use App\Http\Controllers\Chat\ConversationController as ChatConversationControll
 use App\Http\Controllers\Chat\MessageController as ChatMessageController;
 use App\Http\Controllers\Chat\NotificationController as ChatNotificationController;
 use App\Http\Controllers\PaystackWebhookController;
+use App\Http\Controllers\FlutterwaveWebhookController;
 use App\Http\Controllers\FormulaDcWebhookController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Seller\AccountController as SellerAccountController;
@@ -94,6 +95,7 @@ Route::post('/contact', [ContactController::class, 'store'])->name('contact.stor
 Route::get('/faq', [FaqController::class, 'show'])->name('faq');
 
 Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle']);
+Route::post('/webhooks/flutterwave', [FlutterwaveWebhookController::class, 'handle']);
 Route::post('/webhooks/formula-dc', [FormulaDcWebhookController::class, 'handle']);
 
 Route::middleware(['auth'])->group(function () {
@@ -111,9 +113,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/checkout/direct-pay/{sellerId}', [CheckoutController::class, 'submitDirectPay'])->middleware('buyer.shop')->name('checkout.direct-pay.submit');
     Route::get('/checkout/pay', [CheckoutController::class, 'paystackDraft'])->middleware('buyer.shop')->name('checkout.paystack-draft');
     Route::post('/checkout/pay/initialize', [CheckoutController::class, 'initializeDraftPayment'])->middleware('buyer.shop')->name('checkout.paystack-draft.initialize');
+    Route::post('/checkout/pay/flutterwave/initialize', [CheckoutController::class, 'initializeDraftFlutterwave'])->middleware('buyer.shop')->name('checkout.flutterwave-draft.initialize');
     Route::get('/checkout/payment/{checkout}', [CheckoutController::class, 'payment'])->middleware('buyer.shop')->name('checkout.payment');
     Route::get('/checkout/callback', [CheckoutController::class, 'callback'])->middleware('buyer.shop')->name('checkout.callback');
+    Route::get('/checkout/flutterwave/callback', [CheckoutController::class, 'flutterwaveCallback'])->middleware('buyer.shop')->name('checkout.flutterwave.callback');
     Route::post('/checkout/payment/{checkout}/initialize', [CheckoutController::class, 'initializePayment'])->middleware('buyer.shop')->name('checkout.initialize');
+    Route::post('/checkout/payment/{checkout}/flutterwave/initialize', [CheckoutController::class, 'initializeFlutterwavePayment'])->middleware('buyer.shop')->name('checkout.flutterwave.initialize');
     Route::get('/checkouts/{checkout}', [CheckoutSessionController::class, 'show'])->name('checkouts.show');
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::get('/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
@@ -157,7 +162,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/wallet', [BuyerWalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet/add-funds', [BuyerWalletController::class, 'addFunds'])->name('wallet.add-funds');
+    Route::post('/wallet/add-funds/flutterwave', [BuyerWalletController::class, 'addFundsFlutterwave'])->name('wallet.add-funds.flutterwave');
     Route::get('/wallet/callback', [BuyerWalletController::class, 'callback'])->name('wallet.callback');
+    Route::get('/wallet/flutterwave/callback', [BuyerWalletController::class, 'flutterwaveCallback'])->name('wallet.flutterwave.callback');
     Route::get('/wallet/withdraw', [BuyerWalletController::class, 'createWithdraw'])->name('wallet.withdraw.create');
     Route::post('/wallet/withdraw', [BuyerWalletController::class, 'withdraw'])->name('wallet.withdraw');
     Route::get('/wallet/manual-top-up', [WalletManualTopUpController::class, 'show'])->name('wallet.manual-top-up');
@@ -187,6 +194,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/messages/groups', [ChatConversationController::class, 'storeGroup'])->name('chat.groups.store');
     Route::get('/messages/{conversation}', [ChatConversationController::class, 'show'])->name('chat.show');
     Route::delete('/messages/{conversation}', [ChatConversationController::class, 'destroy'])->name('chat.destroy');
+    Route::post('/messages/{conversation}/clear', [ChatConversationController::class, 'clearHistory'])->name('chat.clear');
+    Route::post('/messages/{conversation}/clear-request', [ChatConversationController::class, 'requestClearBoth'])->name('chat.clear-request');
+    Route::post('/messages/{conversation}/clear-request/{clearRequest}', [ChatConversationController::class, 'respondClearBoth'])->name('chat.clear-request.respond');
     Route::get('/messages/{conversation}/search', [ChatConversationController::class, 'search'])->name('chat.search');
     Route::get('/messages/{conversation}/poll', [ChatConversationController::class, 'poll'])->name('chat.poll');
     Route::post('/messages/{conversation}/send', [ChatMessageController::class, 'store'])->name('chat.messages.store');
@@ -281,7 +291,9 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::get('/wallet/withdrawals/{withdrawal}', [SellerWalletController::class, 'showWithdrawal'])->name('wallet.withdrawals.show');
             Route::post('/wallet/withdraw', [SellerWalletController::class, 'withdraw'])->name('wallet.withdraw');
             Route::post('/wallet/add-funds', [SellerWalletController::class, 'addFunds'])->name('wallet.add-funds');
+            Route::post('/wallet/add-funds/flutterwave', [SellerWalletController::class, 'addFundsFlutterwave'])->name('wallet.add-funds.flutterwave');
             Route::get('/wallet/callback', [SellerWalletController::class, 'callback'])->name('wallet.callback');
+            Route::get('/wallet/flutterwave/callback', [SellerWalletController::class, 'flutterwaveCallback'])->name('wallet.flutterwave.callback');
             Route::post('/wallet/payout-methods', [SellerWalletController::class, 'storePayoutMethod'])->name('wallet.payout-methods.store');
             Route::delete('/wallet/payout-methods/{payoutMethod}', [SellerWalletController::class, 'destroyPayoutMethod'])->name('wallet.payout-methods.destroy');
             Route::get('/wallet/manual-top-up', [WalletManualTopUpController::class, 'show'])->name('wallet.manual-top-up');
@@ -358,6 +370,7 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::get('/paystack-fees/settings', [PaystackFeeSettingsController::class, 'edit'])->name('paystack-fees.settings');
     Route::post('/paystack-fees/settings', [PaystackFeeSettingsController::class, 'update'])->name('paystack-fees.settings.update');
     Route::post('/paystack-fees/lock', [PaystackFeeSettingsController::class, 'updateLock'])->name('paystack-fees.lock.update');
+    Route::post('/flutterwave/lock', [PaystackFeeSettingsController::class, 'updateFlutterwaveLock'])->name('flutterwave.lock.update');
     Route::get('/china-transfers', [AdminChinaTransferController::class, 'index'])->name('china-transfers.index');
     Route::get('/china-transfers/{chinaTransfer}', [AdminChinaTransferController::class, 'show'])->name('china-transfers.show');
     Route::post('/china-transfers/{chinaTransfer}/verify', [AdminChinaTransferController::class, 'verify'])->name('china-transfers.verify');

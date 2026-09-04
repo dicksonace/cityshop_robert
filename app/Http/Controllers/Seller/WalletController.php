@@ -11,6 +11,7 @@ use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\PaymentPinService;
 use App\Services\PaystackService;
+use App\Services\FlutterwaveService;
 use App\Services\PlatformSettings;
 use App\Services\KycService;
 use App\Services\SellerPaymentMethodSecurityService;
@@ -26,7 +27,10 @@ use Inertia\Response;
 
 class WalletController extends Controller
 {
-    public function __construct(private PaystackService $paystack) {}
+    public function __construct(
+        private PaystackService $paystack,
+        private FlutterwaveService $flutterwave,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -79,6 +83,7 @@ class WalletController extends Controller
                 : [],
             'paystackConfigured' => $this->paystack->isAvailable(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
+            'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($user),
             'canUseRmbWallet' => $user->canUseRmbWallet(),
@@ -397,6 +402,112 @@ class WalletController extends Controller
                 ->with('success', 'GH₵'.number_format($credit, 2).' credited to your wallet. You can cancel Pay-to-seller orders and refund buyers.');
         } catch (\Throwable $e) {
             Log::error('Seller wallet callback error', ['error' => $e->getMessage()]);
+
+            return redirect()->route('seller.wallet')->with('error', 'Could not verify payment. Contact support if charged.');
+        }
+    }
+
+    public function addFundsFlutterwave(Request $request): RedirectResponse|JsonResponse
+    {
+        if ($denied = KycService::denyStoreFundsResponse($request->user())) {
+            return $request->expectsJson()
+                ? $denied
+                : back()->with('error', KycService::denyStoreFundsMessage($request->user()));
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
+            'method' => ['required', 'in:momo,card'],
+        ]);
+
+        if (! $this->flutterwave->isAvailable()) {
+            $message = $this->flutterwave->unavailableMessage();
+
+            return $request->expectsJson()
+                ? response()->json(['message' => $message], 503)
+                : back()->with('error', $message);
+        }
+
+        try {
+            $data = $this->flutterwave->initializeWalletTopUp(
+                $request->user(),
+                (float) $validated['amount'],
+                $validated['method'],
+                route('seller.wallet.flutterwave.callback'),
+                'FLW-TOP',
+                ['role' => 'seller'],
+            );
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'authorization_url' => $data['authorization_url'],
+                    'reference' => $data['reference'],
+                    'email' => $data['email'],
+                    'amount' => $data['credit'],
+                    'fee' => $data['fee'],
+                    'charge' => $data['charge'],
+                    'gateway' => 'flutterwave',
+                ]);
+            }
+
+            return Inertia::location($data['authorization_url']);
+        } catch (\Throwable $e) {
+            Log::error('Seller Flutterwave wallet top-up init failed', ['error' => $e->getMessage()]);
+            $message = $e instanceof \RuntimeException
+                ? $e->getMessage()
+                : 'Could not start payment. Please try again.';
+
+            return $request->expectsJson()
+                ? response()->json(['message' => $message], 500)
+                : back()->with('error', $message);
+        }
+    }
+
+    public function flutterwaveCallback(Request $request): RedirectResponse
+    {
+        $reference = (string) ($request->query('tx_ref') ?: $request->query('reference') ?: '');
+
+        if ($reference === '') {
+            return redirect()->route('seller.wallet')->with('error', 'Invalid payment reference.');
+        }
+
+        try {
+            $data = $this->flutterwave->verifyByReference($reference);
+
+            if (! $this->flutterwave->isSuccessful($data)) {
+                return redirect()->route('seller.wallet')->with('error', 'Payment was not successful.');
+            }
+
+            $metadata = $this->flutterwave->normalizeMeta($data);
+            if (($metadata['type'] ?? '') !== 'wallet_topup') {
+                return redirect()->route('seller.wallet')->with('error', 'Invalid wallet top-up.');
+            }
+
+            if ((int) ($metadata['user_id'] ?? 0) !== $request->user()->id) {
+                return redirect()->route('seller.wallet')->with('error', 'Payment does not belong to your account.');
+            }
+
+            $paid = $this->flutterwave->paidAmountGhs($data);
+            $method = (string) ($metadata['method'] ?? 'momo');
+            $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
+            $credit = $this->flutterwave->topUpCreditFromMetadata($metadata, $paid);
+
+            if ($expected !== null && ! $this->flutterwave->amountsMatch($paid, $expected)) {
+                Log::warning('Seller Flutterwave wallet top-up amount mismatch', [
+                    'reference' => $reference,
+                    'paid' => $paid,
+                    'expected' => $expected,
+                ]);
+
+                return redirect()->route('seller.wallet')->with('error', 'Payment amount could not be verified.');
+            }
+
+            WalletService::creditFromVerifiedTopUp($request->user()->id, $credit, $reference, $method);
+
+            return redirect()->route('seller.dashboard')
+                ->with('success', 'GH₵'.number_format($credit, 2).' credited to your wallet. You can cancel Pay-to-seller orders and refund buyers.');
+        } catch (\Throwable $e) {
+            Log::error('Seller Flutterwave wallet callback error', ['error' => $e->getMessage()]);
 
             return redirect()->route('seller.wallet')->with('error', 'Could not verify payment. Contact support if charged.');
         }

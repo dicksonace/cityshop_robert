@@ -20,6 +20,7 @@ interface Props {
         tiers?: { min: number; max: number | null; fee: number }[];
     };
     paymentsLocked: boolean;
+    flutterwaveLocked?: boolean;
 }
 
 function tiersFromSettings(settings: Props['settings']): FeeTier[] {
@@ -38,9 +39,10 @@ function tiersFromSettings(settings: Props['settings']): FeeTier[] {
     }));
 }
 
-export default function PaystackFeeSettings({ settings, paymentsLocked = false }: Props) {
+export default function PaystackFeeSettings({ settings, paymentsLocked = false, flutterwaveLocked = false }: Props) {
     const { flash } = usePage<SharedData>().props;
     const lockForm = useForm({ locked: paymentsLocked });
+    const flwLockForm = useForm({ locked: flutterwaveLocked });
     const form = useForm({
         enabled: settings.enabled,
         mode: settings.mode ?? 'percent',
@@ -77,7 +79,7 @@ export default function PaystackFeeSettings({ settings, paymentsLocked = false }
                 <div>
                     <h1 className="text-xl font-bold text-gray-900">Paystack fees</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Added on wallet top-up and checkout when buyers pay via Paystack. Use one fee, or flat fees by amount range.
+                        Added on wallet top-up and checkout when buyers pay via Paystack or Flutterwave. Use one fee, or flat fees by amount range.
                     </p>
                 </div>
 
@@ -156,6 +158,67 @@ export default function PaystackFeeSettings({ settings, paymentsLocked = false }
                         Keep manual wallet funding accounts on under Wallet funding so users still have a way to
                         pay when Paystack is disabled.
                     </p>
+                </div>
+
+                <div
+                    className={`space-y-4 rounded-2xl border p-6 shadow-sm ${
+                        flwLockForm.data.locked
+                            ? 'border-amber-200 bg-amber-50 text-amber-950'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                    }`}
+                >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-base font-bold">Flutterwave payments</h2>
+                            <p className="mt-1 text-sm opacity-80">
+                                Second collection gateway for checkout and wallet top-up. Withdrawals stay on
+                                Paystack. Uses the same collection fees as Paystack above.
+                            </p>
+                        </div>
+                        <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-extrabold uppercase tracking-wide ring-1 ring-black/5">
+                            {flwLockForm.data.locked ? 'Disabled' : 'Enabled'}
+                        </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            disabled={flwLockForm.processing || !flwLockForm.data.locked}
+                            onClick={() => {
+                                flwLockForm.setData('locked', false);
+                                flwLockForm.post(route('admin.flutterwave.lock.update'), { preserveScroll: true });
+                            }}
+                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                                !flwLockForm.data.locked
+                                    ? 'bg-emerald-600 text-white shadow-sm'
+                                    : 'bg-white text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50'
+                            } disabled:cursor-not-allowed disabled:opacity-70`}
+                        >
+                            {flwLockForm.processing && flwLockForm.data.locked ? (
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                            ) : null}
+                            Enable
+                        </button>
+                        <button
+                            type="button"
+                            disabled={flwLockForm.processing || flwLockForm.data.locked}
+                            onClick={() => {
+                                flwLockForm.setData('locked', true);
+                                flwLockForm.post(route('admin.flutterwave.lock.update'), { preserveScroll: true });
+                            }}
+                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                                flwLockForm.data.locked
+                                    ? 'bg-amber-600 text-white shadow-sm'
+                                    : 'bg-white text-amber-900 ring-1 ring-amber-200 hover:bg-amber-50'
+                            } disabled:cursor-not-allowed disabled:opacity-70`}
+                        >
+                            {flwLockForm.processing && !flwLockForm.data.locked ? (
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                            ) : null}
+                            Disable
+                        </button>
+                    </div>
+                    <InputError message={flwLockForm.errors.locked} />
                 </div>
 
                 <form onSubmit={submit} className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">

@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import * as chatApi from '@/lib/chat-api';
-import type { ChatAttachProduct } from '@/lib/chat-api';
+import type { ChatAttachProduct, ChatClearRequest } from '@/lib/chat-api';
 import { loadChatState, saveChatState } from '@/lib/chat-storage';
 import type { ChatConversation, ChatMessage } from '@/types/chat';
 
@@ -14,6 +14,7 @@ interface ChatContextValue {
     conversations: ChatConversation[];
     activeConversation: ChatConversation | null;
     messages: ChatMessage[];
+    clearRequest: ChatClearRequest | null;
     attachProduct: ChatAttachProduct | null;
     loading: boolean;
     openWidget: () => void;
@@ -27,6 +28,7 @@ interface ChatContextValue {
     refreshConversations: () => Promise<void>;
     setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
     setActiveConversation: React.Dispatch<React.SetStateAction<ChatConversation | null>>;
+    setClearRequest: React.Dispatch<React.SetStateAction<ChatClearRequest | null>>;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -43,6 +45,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
     const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [clearRequest, setClearRequest] = useState<ChatClearRequest | null>(null);
     const [attachProduct, setAttachProduct] = useState<ChatAttachProduct | null>(null);
     const [loading, setLoading] = useState(
         () => Boolean((saved.isOpen || saved.isMinimized) && saved.activeConversationId),
@@ -73,6 +76,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             const data = await chatApi.fetchConversation(conversationId);
             setActiveConversation(data.conversation);
             setMessages(data.messages);
+            setClearRequest(data.clear_request ?? null);
             await refreshConversations();
         } finally {
             setLoading(false);
@@ -157,6 +161,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setView('list');
         setActiveConversation(null);
         setMessages([]);
+        setClearRequest(null);
         setAttachProduct(null);
         await refreshConversations();
     }, [refreshConversations]);
@@ -184,12 +189,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 const data = await chatApi.startConversation(sellerId, productId);
                 setActiveConversation(data.conversation);
                 setMessages(data.messages);
+                setClearRequest(null);
                 setAttachProduct(data.attach_product ?? null);
                 await refreshConversations();
             } catch (err) {
                 setView('list');
                 setActiveConversation(null);
                 setMessages([]);
+                setClearRequest(null);
                 setAttachProduct(null);
                 try {
                     await refreshConversations();
@@ -212,6 +219,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             conversations,
             activeConversation,
             messages,
+            clearRequest,
             attachProduct,
             loading,
             openWidget,
@@ -225,6 +233,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             refreshConversations,
             setMessages,
             setActiveConversation,
+            setClearRequest,
         }),
         [
             isOpen,
@@ -233,6 +242,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             conversations,
             activeConversation,
             messages,
+            clearRequest,
             attachProduct,
             loading,
             openWidget,
