@@ -1471,7 +1471,7 @@ class ChinaTransferService
         return match ($status) {
             ChinaTransferStatus::RmbSent, ChinaTransferStatus::Completed => "{$transfer->reference}: ¥"
                 .number_format((float) ($transfer->rmb_sent_amount ?? $transfer->rmb_amount), 2)
-                .' sent to your Alipay.',
+                .' sent To Alipay Account.',
             ChinaTransferStatus::PaymentRejected => $transfer->rejection_reason
                 ?: 'Your GHS payment could not be verified.',
             default => "{$transfer->reference} is now {$status->label()}.",
