@@ -39,6 +39,8 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
+        $this->call(AppStoreReviewBuyerSeeder::class);
+
         $categorySpecs = config('category_specs', []);
         $categoryNames = [
             'electronics' => 'Electronics',

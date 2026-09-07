@@ -27,6 +27,9 @@ fi
 echo "==> Run migrations"
 $PHP_BIN -d memory_limit=512M artisan migrate --force
 
+echo "==> Ensure Apple App Review demo buyer"
+$PHP_BIN artisan cityshop:ensure-app-review-buyer
+
 echo "==> Index product images for visual search"
 $PHP_BIN -d memory_limit=512M artisan products:index-image-colors
 
