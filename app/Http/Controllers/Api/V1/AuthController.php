@@ -26,6 +26,8 @@ class AuthController extends Controller
 {
     public function register(Request $request): JsonResponse
     {
+        $isGhana = Countries::isGhana($request->input('country') ?: Countries::default());
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'mobile' => [
@@ -40,8 +42,27 @@ class AuthController extends Controller
                 },
             ],
             'country' => ['nullable', 'string', 'max:80', Rule::in(Countries::names())],
-            'region' => ['required', 'string', 'max:100', Rule::in(GhanaLocations::regions())],
-            'city' => ['required', 'string', 'max:100'],
+            'region' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::when($isGhana, [Rule::in(GhanaLocations::regions())]),
+            ],
+            'city' => [
+                'required',
+                'string',
+                'max:100',
+                function (string $attribute, mixed $value, \Closure $fail) use ($request, $isGhana): void {
+                    if (! $isGhana) {
+                        return;
+                    }
+                    $region = (string) $request->input('region', '');
+                    $city = trim((string) $value);
+                    if ($city === '' || $city === GhanaLocations::OTHER_CITY || ! GhanaLocations::isValidCity($region, $city)) {
+                        $fail('Choose a valid city / town for the selected region.');
+                    }
+                },
+            ],
             'email' => [
                 'nullable',
                 'string',

@@ -39,6 +39,7 @@ class BuyerController extends Controller
         return Inertia::render('admin/buyers/index', [
             'buyers' => $buyers,
             'search' => $search !== '' ? $search : null,
+            'total_registered' => User::query()->where('role', UserRole::Buyer)->count(),
         ]);
     }
 

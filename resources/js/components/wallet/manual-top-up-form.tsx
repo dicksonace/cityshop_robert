@@ -206,7 +206,7 @@ export default function ManualTopUpForm({
                             accountNumber={account.account_number}
                             accountName={account.account_name}
                             isBank
-                            bankName={account.bank_name}
+                            bankName={account.bank_name || account.label}
                         />
                     ))}
                 </div>

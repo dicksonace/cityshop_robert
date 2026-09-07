@@ -35,7 +35,9 @@ class BuyerController extends Controller
 
         return response()->json([
             'data' => $buyers->getCollection()->map(fn (User $buyer) => $this->serialize($buyer))->values(),
-            'meta' => AdminJson::meta($buyers),
+            'meta' => array_merge(AdminJson::meta($buyers), [
+                'registered_total' => User::query()->where('role', UserRole::Buyer)->count(),
+            ]),
         ]);
     }
 

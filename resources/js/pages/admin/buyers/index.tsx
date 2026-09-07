@@ -19,9 +19,10 @@ interface BuyerRow {
 interface BuyersIndexProps {
     buyers: Paginated<BuyerRow>;
     search?: string | null;
+    total_registered: number;
 }
 
-export default function AdminBuyersIndex({ buyers, search }: BuyersIndexProps) {
+export default function AdminBuyersIndex({ buyers, search, total_registered }: BuyersIndexProps) {
     const [query, setQuery] = useState(search ?? '');
 
     const submitSearch = (e: FormEvent) => {
@@ -33,9 +34,15 @@ export default function AdminBuyersIndex({ buyers, search }: BuyersIndexProps) {
         <AdminLayout title="Buyers" active="buyers">
             <Head title="Buyers" />
 
-            <p className="mb-4 text-sm text-gray-500">
-                View shopper accounts, wallet balances, and order history.
-            </p>
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <p className="text-sm text-gray-500">
+                    View shopper accounts, wallet balances, and order history.
+                </p>
+                <p className="text-sm font-semibold text-gray-800">
+                    {total_registered.toLocaleString()} registered buyer{total_registered === 1 ? '' : 's'}
+                    {search ? ` · ${buyers.total.toLocaleString()} match${buyers.total === 1 ? '' : 'es'}` : ''}
+                </p>
+            </div>
 
             <form onSubmit={submitSearch} className="mb-6">
                 <div className="relative max-w-md">

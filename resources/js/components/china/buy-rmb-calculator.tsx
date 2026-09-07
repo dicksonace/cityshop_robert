@@ -7,6 +7,7 @@ type Rate = {
     rmb_per_ghs: number;
     fee_mode?: 'flat' | 'percent';
     fee_value?: number;
+    min_ghs?: number;
 };
 
 type TransferHours = {
@@ -23,6 +24,7 @@ type Props = {
     transferHours?: TransferHours | null;
     instructions?: string | null;
     initialGhs?: string;
+    minGhs?: number;
     onContinue: (ghsAmount: string) => void;
     className?: string;
 };
@@ -53,10 +55,12 @@ export default function BuyRmbCalculator({
     transferHours,
     instructions,
     initialGhs = '',
+    minGhs,
     onContinue,
     className,
 }: Props) {
     const calcRate = quoteRmbPerGhs(rate.rmb_per_ghs);
+    const minimum = Number(minGhs ?? rate.min_ghs ?? 100);
     const [ghs, setGhs] = useState(initialGhs);
     const [cny, setCny] = useState(() => {
         const amount = Number(initialGhs);
@@ -77,6 +81,15 @@ export default function BuyRmbCalculator({
             rate.fee_mode === 'percent' ? round2((send * feeValue) / 100) : round2(feeValue);
         return { send, receive, fee, total: round2(send + fee) };
     }, [ghs, rate, calcRate]);
+
+    const belowMinimum =
+        quote !== null && Number.isFinite(minimum) && minimum > 0 && quote.send + 0.0001 < minimum;
+    const canContinue = enabled && quote !== null && quote.send > 0 && !belowMinimum;
+    const continueLabel = !enabled
+        ? 'Transfers paused'
+        : belowMinimum
+          ? `Minimum GH₵${minimum.toFixed(0)}`
+          : 'Continue';
 
     const onGhsChange = (raw: string) => {
         const cleaned = raw.replace(/[^\d.]/g, '');
@@ -99,9 +112,6 @@ export default function BuyRmbCalculator({
         }
         setGhs(formatAmount(amount / calcRate));
     };
-
-    const canContinue = enabled && quote !== null && quote.send > 0;
-    const continueLabel = !enabled ? 'Transfers paused' : 'Continue';
 
     return (
         <div className={cn('rounded-3xl border border-gray-200 bg-white p-5 shadow-sm', className)}>
@@ -162,6 +172,12 @@ export default function BuyRmbCalculator({
             {quote && quote.fee > 0 && (
                 <p className="mt-3 text-center text-xs text-gray-500">
                     Fee GH₵{quote.fee.toFixed(2)} · Total GH₵{quote.total.toFixed(2)}
+                </p>
+            )}
+
+            {belowMinimum && (
+                <p className="mt-3 text-center text-sm font-semibold text-amber-700">
+                    Minimum amount is GH₵{minimum.toFixed(0)}
                 </p>
             )}
 

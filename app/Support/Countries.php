@@ -66,6 +66,11 @@ class Countries
         return 'Ghana';
     }
 
+    public static function isGhana(?string $name): bool
+    {
+        return is_string($name) && strcasecmp(trim($name), self::default()) === 0;
+    }
+
     public static function isValid(?string $name): bool
     {
         return is_string($name) && in_array($name, self::names(), true);

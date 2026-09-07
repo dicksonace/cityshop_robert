@@ -71,6 +71,11 @@ export default function RechargeModal({
         return map;
     }, [manualFundingAccounts]);
 
+    const bankAccounts = useMemo(
+        () => manualFundingAccounts.filter((account) => account.type === 'bank'),
+        [manualFundingAccounts],
+    );
+
     const selectedAccount = selectedNetwork ? momoAccountsByNetwork[selectedNetwork] ?? null : null;
 
     useEffect(() => {
@@ -278,6 +283,21 @@ export default function RechargeModal({
                                 accountName={selectedAccount.account_name}
                                 network={selectedNetwork}
                             />
+                        ) : null}
+
+                        {bankAccounts.length > 0 ? (
+                            <div className="space-y-2">
+                                <p className="text-sm font-semibold text-gray-900">Or pay by bank</p>
+                                {bankAccounts.map((account, index) => (
+                                    <DirectPaymentDetails
+                                        key={`recharge-bank-${account.account_number}-${index}`}
+                                        accountNumber={account.account_number}
+                                        accountName={account.account_name}
+                                        isBank
+                                        bankName={account.bank_name || account.label}
+                                    />
+                                ))}
+                            </div>
                         ) : null}
 
                         <div className="flex gap-2 pt-0.5">

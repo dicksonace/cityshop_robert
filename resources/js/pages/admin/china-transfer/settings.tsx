@@ -102,7 +102,7 @@ export default function ChinaTransferSettings({
         ghs_per_rmb: formatRateInput(currentRate?.ghs_per_rmb ?? 1.789) || '1.789',
         fee_mode: currentRate?.fee_mode ?? 'flat',
         fee_value: String(currentRate?.fee_value ?? '0'),
-        min_ghs: String(currentRate?.min_ghs ?? '50'),
+        min_ghs: String(currentRate?.min_ghs ?? '100'),
         max_ghs: String(currentRate?.max_ghs ?? '50000'),
         daily_max_ghs: String(currentRate?.daily_max_ghs ?? ''),
         monthly_max_ghs: String(currentRate?.monthly_max_ghs ?? ''),
@@ -323,11 +323,14 @@ export default function ChinaTransferSettings({
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <Label>Min GHS</Label>
+                                                <Label>Min GHS (Buy RMB)</Label>
                                                 <Input
                                                     value={rateForm.data.min_ghs}
                                                     onChange={(e) => rateForm.setData('min_ghs', e.target.value)}
                                                 />
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    Buyers cannot send less than this. Change anytime and publish.
+                                                </p>
                                             </div>
                                             <div>
                                                 <Label>Max GHS</Label>

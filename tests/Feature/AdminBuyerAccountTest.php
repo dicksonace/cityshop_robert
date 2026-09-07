@@ -53,6 +53,8 @@ class AdminBuyerAccountTest extends TestCase
             'name' => 'New Buyer',
             'mobile' => '0241234567',
             'email' => 'buyer@example.com',
+            'region' => 'Greater Accra',
+            'city' => 'Accra',
             'password' => 'Password123!',
             'password_confirmation' => 'Password123!',
         ])->assertCreated();
@@ -77,6 +79,8 @@ class AdminBuyerAccountTest extends TestCase
             'name' => 'Someone Else',
             'mobile' => '0249998877',
             'email' => 'blocked@example.com',
+            'region' => 'Greater Accra',
+            'city' => 'Accra',
             'password' => 'Password123!',
             'password_confirmation' => 'Password123!',
         ])->assertStatus(422)
@@ -100,6 +104,8 @@ class AdminBuyerAccountTest extends TestCase
             'name' => 'Fresh Buyer',
             'mobile' => '0241112233',
             'email' => 'legacy@example.com',
+            'region' => 'Greater Accra',
+            'city' => 'Accra',
             'password' => 'Password123!',
             'password_confirmation' => 'Password123!',
         ])->assertCreated();

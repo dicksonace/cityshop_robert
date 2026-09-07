@@ -30,6 +30,7 @@ export default function BuyerRegister() {
 
     const formErrors = { ...(pageErrors ?? {}), ...errors };
     const hasErrors = Object.keys(formErrors).length > 0;
+    const isGhana = data.country.trim().toLowerCase() === 'ghana';
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -68,7 +69,15 @@ export default function BuyerRegister() {
                             <select
                                 id="country"
                                 value={data.country}
-                                onChange={(e) => setData('country', e.target.value)}
+                                onChange={(e) => {
+                                    const country = e.target.value;
+                                    setData((current) => ({
+                                        ...current,
+                                        country,
+                                        region: '',
+                                        city: '',
+                                    }));
+                                }}
                                 required
                                 className="mt-1 flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-base text-gray-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm"
                             >
@@ -80,14 +89,43 @@ export default function BuyerRegister() {
                             </select>
                             <InputError message={formErrors.country} />
                         </div>
-                        <GhanaLocationFields
-                            region={data.region}
-                            city={data.city}
-                            onRegionChange={(region) => setData('region', region)}
-                            onCityChange={(city) => setData('city', city)}
-                            regionError={formErrors.region}
-                            cityError={formErrors.city}
-                        />
+                        {isGhana ? (
+                            <GhanaLocationFields
+                                region={data.region}
+                                city={data.city}
+                                onRegionChange={(region) => setData('region', region)}
+                                onCityChange={(city) => setData('city', city)}
+                                regionError={formErrors.region}
+                                cityError={formErrors.city}
+                            />
+                        ) : (
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <Label htmlFor="region">Region / State</Label>
+                                    <Input
+                                        id="region"
+                                        value={data.region}
+                                        onChange={(e) => setData('region', e.target.value)}
+                                        required
+                                        className="mt-1"
+                                        placeholder="Type your region or state"
+                                    />
+                                    <InputError message={formErrors.region} />
+                                </div>
+                                <div>
+                                    <Label htmlFor="city">City / Town</Label>
+                                    <Input
+                                        id="city"
+                                        value={data.city}
+                                        onChange={(e) => setData('city', e.target.value)}
+                                        required
+                                        className="mt-1"
+                                        placeholder="Type your city or town"
+                                    />
+                                    <InputError message={formErrors.city} />
+                                </div>
+                            </div>
+                        )}
                         <div>
                             <Label htmlFor="email">Email Address</Label>
                             <Input id="email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} required className="mt-1" />

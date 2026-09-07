@@ -26,6 +26,8 @@ class ApiAuthTest extends TestCase
             'name' => 'Ama Buyer',
             'mobile' => '0530000001',
             'email' => 'ama@example.com',
+            'region' => 'Greater Accra',
+            'city' => 'Accra',
             'password' => 'password',
             'password_confirmation' => 'password',
             'device_name' => 'phpunit',
@@ -47,6 +49,8 @@ class ApiAuthTest extends TestCase
             'name' => 'Nana Buyer',
             'mobile' => '0530000011',
             'country' => 'Nigeria',
+            'region' => 'Lagos',
+            'city' => 'Ikeja',
             'password' => 'password',
             'password_confirmation' => 'password',
             'device_name' => 'phpunit',
@@ -67,6 +71,8 @@ class ApiAuthTest extends TestCase
             'name' => 'Bad Country',
             'mobile' => '0530000012',
             'country' => 'Narnia',
+            'region' => 'Somewhere',
+            'city' => 'Nowhere',
             'password' => 'password',
             'password_confirmation' => 'password',
         ])->assertUnprocessable()
@@ -78,6 +84,8 @@ class ApiAuthTest extends TestCase
         $response = $this->postJson('/api/v1/auth/register', [
             'name' => 'No Email Buyer',
             'mobile' => '0530000099',
+            'region' => 'Ashanti',
+            'city' => 'Kumasi',
             'password' => 'password',
             'password_confirmation' => 'password',
             'device_name' => 'phpunit',
@@ -151,6 +159,8 @@ class ApiAuthTest extends TestCase
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Dup Buyer',
             'mobile' => '233248620718',
+            'region' => 'Greater Accra',
+            'city' => 'Accra',
             'password' => 'password',
             'password_confirmation' => 'password',
         ])->assertUnprocessable()

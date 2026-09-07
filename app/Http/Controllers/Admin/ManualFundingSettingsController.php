@@ -59,7 +59,8 @@ class ManualFundingSettingsController extends Controller
                         ? PlatformSettings::normalizeMomoNetwork($account['network'] ?? null)
                         : null,
                     'bank_name' => $account['type'] === 'bank'
-                        ? (trim((string) ($account['bank_name'] ?? '')) ?: null)
+                        ? (trim((string) ($account['bank_name'] ?? ''))
+                            ?: (trim((string) ($account['label'] ?? '')) ?: null))
                         : null,
                 ];
             })

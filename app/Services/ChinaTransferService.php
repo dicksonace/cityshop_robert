@@ -794,7 +794,7 @@ class ChinaTransferService
                 'ghs_per_rmb' => $data['ghs_per_rmb'],
                 'fee_mode' => $data['fee_mode'] ?? 'flat',
                 'fee_value' => $data['fee_value'] ?? 0,
-                'min_ghs' => $data['min_ghs'] ?? 50,
+                'min_ghs' => $data['min_ghs'] ?? 100,
                 'max_ghs' => $data['max_ghs'] ?? 50000,
                 'daily_max_ghs' => $data['daily_max_ghs'] ?? null,
                 'monthly_max_ghs' => $data['monthly_max_ghs'] ?? null,

@@ -585,7 +585,11 @@ class PlatformSettings
                 'network' => $type === 'momo'
                     ? (static::normalizeMomoNetwork($account['network'] ?? null) ?? 'mtn')
                     : null,
-                'bank_name' => $type === 'bank' ? ($account['bank_name'] ?? null) : null,
+                'bank_name' => $type === 'bank'
+                    ? (filled($account['bank_name'] ?? null)
+                        ? (string) $account['bank_name']
+                        : (filled($account['label'] ?? null) ? (string) $account['label'] : null))
+                    : null,
             ];
         }, $decoded['accounts'] ?? []));
 

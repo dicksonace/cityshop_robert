@@ -104,4 +104,48 @@ class ManualFundingSettingsTest extends TestCase
         $this->assertSame('telecel', PlatformSettings::normalizeMomoNetwork('Telecel Cash'));
         $this->assertSame('airteltigo', PlatformSettings::normalizeMomoNetwork('AirtelTigo Money'));
     }
+
+    public function test_saved_bank_account_is_visible_to_buyers(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->post(route('admin.manual-funding.settings.update'), [
+            'enabled' => true,
+            'instructions' => 'Pay MoMo or bank, then upload proof.',
+            'accounts' => [
+                [
+                    'type' => 'momo',
+                    'label' => 'MTN Mobile Money',
+                    'account_name' => 'City Unlock Ventures / Robert Asare',
+                    'account_number' => '0539790093',
+                    'network' => 'mtn',
+                    'bank_name' => null,
+                ],
+                [
+                    'type' => 'bank',
+                    'label' => 'GT BANK',
+                    'account_name' => 'Robert Asare',
+                    'account_number' => '1402001003035',
+                    'network' => null,
+                    'bank_name' => 'GT BANK',
+                ],
+            ],
+        ])->assertRedirect();
+
+        $settings = PlatformSettings::manualFundingAccounts();
+        $banks = collect($settings['accounts'])->where('type', 'bank')->values();
+        $this->assertCount(1, $banks);
+        $this->assertSame('1402001003035', $banks[0]['account_number']);
+        $this->assertSame('GT BANK', $banks[0]['bank_name']);
+
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $this->actingAs($buyer)
+            ->getJson('/api/v1/wallet/manual-funding')
+            ->assertOk()
+            ->assertJsonFragment([
+                'type' => 'bank',
+                'account_number' => '1402001003035',
+                'bank_name' => 'GT BANK',
+            ]);
+    }
 }

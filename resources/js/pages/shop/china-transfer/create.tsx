@@ -149,6 +149,12 @@ export default function ChinaTransferCreate({
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+        const min = Number(config.rate?.min_ghs ?? 100);
+        const amount = Number(form.data.ghs_amount);
+        if (Number.isFinite(min) && min > 0 && (!Number.isFinite(amount) || amount + 0.0001 < min)) {
+            form.setError('ghs_amount', `Minimum transfer is GH₵${min.toFixed(0)}.`);
+            return;
+        }
         const payload: Record<string, unknown> = {
             funding_source: 'ghs_wallet',
             payment_pin: form.data.payment_pin,
