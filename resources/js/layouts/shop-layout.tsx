@@ -96,7 +96,10 @@ export default function ShopLayout({
                                     <Link href={route('faq')}>FAQ</Link>
                                 </li>
                                 <li>
-                                    <Link href={route('faq')}>Buyer Protection</Link>
+                                    <Link href={route('privacy')}>Privacy Policy</Link>
+                                </li>
+                                <li>
+                                    <Link href={route('terms')}>Terms</Link>
                                 </li>
                             </ul>
                         </div>

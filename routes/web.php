@@ -53,6 +53,7 @@ use App\Http\Controllers\Shop\FollowingController;
 use App\Http\Controllers\Shop\HomeController;
 use App\Http\Controllers\Shop\ImageSearchController;
 use App\Http\Controllers\Shop\InvoiceController;
+use App\Http\Controllers\Shop\LegalController;
 use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\ProductController;
 use App\Http\Controllers\Shop\ReviewController;
@@ -93,6 +94,8 @@ Route::get('/.well-known/assetlinks.json', [\App\Http\Controllers\Shop\AppLinkCo
 Route::get('/contact', [ContactController::class, 'show'])->name('contact');
 Route::post('/contact', [ContactController::class, 'store'])->name('contact.store');
 Route::get('/faq', [FaqController::class, 'show'])->name('faq');
+Route::get('/privacy', [LegalController::class, 'privacy'])->name('privacy');
+Route::get('/terms', [LegalController::class, 'terms'])->name('terms');
 
 Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle']);
 Route::post('/webhooks/flutterwave', [FlutterwaveWebhookController::class, 'handle']);
