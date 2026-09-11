@@ -52,25 +52,15 @@ class WithdrawalController extends Controller
     public function start(Request $request, Withdrawal $withdrawal): JsonResponse
     {
         try {
-            // Prefer real Paystack transfer (MTN / Telecel / AirtelTigo / bank) when keys exist.
-            if (app(\App\Services\PaystackService::class)->isConfigured()
-                && empty($withdrawal->paystack_reference)) {
-                $payout = $this->payouts->process($withdrawal, $request->user());
-
-                return response()->json([
-                    'message' => $payout['message'] ?: 'Payout sent to Paystack.',
-                    'otp_required' => $payout['otp_required'],
-                    'data' => $this->serialize($withdrawal->fresh(['user.wallet', 'user.sellerProfile'])),
-                ]);
-            }
-
+            // Manual MoMo workflow: Start → send MoMo yourself → Complete.
+            // Use the separate Paystack action for automatic transfers.
             $this->payouts->startProcessing($withdrawal, $request->user());
         } catch (\Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
         return response()->json([
-            'message' => 'Withdrawal marked as processing.',
+            'message' => 'Withdrawal marked as processing. Send MoMo, then tap Complete.',
             'data' => $this->serialize($withdrawal->fresh(['user.wallet', 'user.sellerProfile'])),
         ]);
     }

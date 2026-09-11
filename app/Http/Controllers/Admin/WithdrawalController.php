@@ -92,24 +92,18 @@ class WithdrawalController extends Controller
     }
 
     /**
-     * Play button — mark withdrawal as processing so the seller sees progress.
+     * Play button — mark withdrawal as processing for manual MoMo (or bank) payout.
+     * Automatic Paystack transfers use the separate Paystack action.
      */
     public function start(Request $request, Withdrawal $withdrawal): RedirectResponse
     {
         try {
-            if (app(\App\Services\PaystackService::class)->isConfigured()
-                && empty($withdrawal->paystack_reference)) {
-                $payout = $this->payouts->process($withdrawal, $request->user());
-
-                return back()->with('success', $payout['message'] ?: 'Payout sent to Paystack.');
-            }
-
             $this->payouts->startProcessing($withdrawal, $request->user());
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Withdrawal marked as processing. The seller can see this status now.');
+        return back()->with('success', 'Withdrawal marked as processing. Send MoMo, then mark Complete.');
     }
 
     /**
