@@ -63,11 +63,13 @@ use App\Http\Controllers\Shop\StoreController;
 use App\Http\Controllers\Shop\ChinaRmbController as BuyerChinaRmbController;
 use App\Http\Controllers\Shop\ChinaTransferController as BuyerChinaTransferController;
 use App\Http\Controllers\Shop\SellRmbController as BuyerSellRmbController;
+use App\Http\Controllers\Shop\GsmToolController as BuyerGsmToolController;
 use App\Http\Controllers\Shop\WalletController as BuyerWalletController;
 use App\Http\Controllers\Admin\ChinaTransferController as AdminChinaTransferController;
 use App\Http\Controllers\Admin\ChinaTransferSettingsController as AdminChinaTransferSettingsController;
 use App\Http\Controllers\Admin\SellRmbController as AdminSellRmbController;
 use App\Http\Controllers\Admin\SellRmbSettingsController as AdminSellRmbSettingsController;
+use App\Http\Controllers\Admin\GsmToolController as AdminGsmToolController;
 use App\Http\Controllers\Shop\WishlistController;
 use App\Http\Controllers\Shop\KycController;
 use App\Http\Controllers\Shop\QrPaymentController;
@@ -190,6 +192,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/wallet/sell-rmb/quote', [BuyerSellRmbController::class, 'quote'])->name('wallet.sell-rmb.quote');
     Route::get('/wallet/sell-rmb/{sellRmbTransfer}', [BuyerSellRmbController::class, 'show'])->name('wallet.sell-rmb.show');
     Route::post('/wallet/sell-rmb/{sellRmbTransfer}/cancel', [BuyerSellRmbController::class, 'cancel'])->name('wallet.sell-rmb.cancel');
+
+    Route::get('/gsm-tools', [BuyerGsmToolController::class, 'index'])->name('gsm-tools.index');
+    Route::get('/gsm-tools/services/{gsmService}', [BuyerGsmToolController::class, 'showService'])->name('gsm-tools.services.show');
+    Route::post('/gsm-tools/orders', [BuyerGsmToolController::class, 'store'])->name('gsm-tools.orders.store');
+    Route::get('/gsm-tools/orders/{gsmOrder}', [BuyerGsmToolController::class, 'showOrder'])->name('gsm-tools.orders.show');
+    Route::post('/gsm-tools/orders/{gsmOrder}/cancel', [BuyerGsmToolController::class, 'cancel'])->name('gsm-tools.orders.cancel');
 
     Route::get('/messages', [ChatConversationController::class, 'index'])->name('chat.index');
     Route::get('/messages/forward-targets', [ChatConversationController::class, 'forwardTargets'])->name('chat.forward-targets');
@@ -394,6 +402,17 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/china-transfer/fields', [AdminChinaTransferSettingsController::class, 'storeField'])->name('china-transfer.fields.store');
     Route::post('/china-transfer/fields/{field}', [AdminChinaTransferSettingsController::class, 'updateField'])->name('china-transfer.fields.update');
     Route::post('/china-transfer/fields/{field}/deactivate', [AdminChinaTransferSettingsController::class, 'destroyField'])->name('china-transfer.fields.destroy');
+
+    Route::get('/gsm-tools', [AdminGsmToolController::class, 'index'])->name('gsm-tools.index');
+    Route::get('/gsm-tools/services', [AdminGsmToolController::class, 'services'])->name('gsm-tools.services');
+    Route::post('/gsm-tools/services', [AdminGsmToolController::class, 'storeService'])->name('gsm-tools.services.store');
+    Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService'])->name('gsm-tools.services.update');
+    Route::get('/gsm-tools/{gsmOrder}', [AdminGsmToolController::class, 'show'])->name('gsm-tools.show');
+    Route::post('/gsm-tools/{gsmOrder}/process', [AdminGsmToolController::class, 'process'])->name('gsm-tools.process');
+    Route::post('/gsm-tools/{gsmOrder}/complete', [AdminGsmToolController::class, 'complete'])->name('gsm-tools.complete');
+    Route::post('/gsm-tools/{gsmOrder}/fail', [AdminGsmToolController::class, 'fail'])->name('gsm-tools.fail');
+    Route::post('/gsm-tools/{gsmOrder}/cancel', [AdminGsmToolController::class, 'cancel'])->name('gsm-tools.cancel');
+
     Route::get('/sell-rmb', [AdminSellRmbController::class, 'index'])->name('sell-rmb.index');
     Route::get('/sell-rmb/{sellRmbTransfer}', [AdminSellRmbController::class, 'show'])->name('sell-rmb.show');
     Route::post('/sell-rmb/{sellRmbTransfer}/verify', [AdminSellRmbController::class, 'verify'])->name('sell-rmb.verify');

@@ -19,13 +19,14 @@ use App\Models\User;
 use App\Models\WalletTopUpRequest;
 use App\Models\Withdrawal;
 use App\Services\ChinaTransferService;
+use App\Services\GsmToolService;
 use App\Services\OrderService;
 use App\Services\SellRmbService;
 use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
-    public function show(OrderService $orders, ChinaTransferService $china, SellRmbService $sellRmb): JsonResponse
+    public function show(OrderService $orders, ChinaTransferService $china, SellRmbService $sellRmb, GsmToolService $gsm): JsonResponse
     {
         return response()->json([
             'stats' => [
@@ -42,6 +43,7 @@ class DashboardController extends Controller
                 'pending_topups' => WalletTopUpRequest::where('status', WalletTopUpStatus::Pending)->count(),
                 'pending_rmb' => $china->pendingAdminCount(),
                 'pending_sell_rmb' => $sellRmb->pendingAdminCount(),
+                'pending_gsm' => $gsm->pendingAdminCount(),
                 'pending_kyc' => KycVerification::where('status', KycStatus::Pending)->count(),
                 'open_disputes' => Dispute::where('status', DisputeStatus::Open)->count(),
                 'pending_funds' => $orders->pendingFundReleaseItemsQuery()->count(),

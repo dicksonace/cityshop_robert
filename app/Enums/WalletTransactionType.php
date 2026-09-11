@@ -30,6 +30,8 @@ enum WalletTransactionType: string
     case RmbFundRemoved = 'rmb_fund_removed';
     case ChinaTransferDebit = 'china_transfer_debit';
     case ChinaTransferRefund = 'china_transfer_refund';
+    case GsmToolsDebit = 'gsm_tools_debit';
+    case GsmToolsRefund = 'gsm_tools_refund';
 
     /** Mirrors the labels the web wallet shows, for API clients. */
     public function label(): string
@@ -57,6 +59,8 @@ enum WalletTransactionType: string
             self::RmbFundRemoved => 'RMB Debited',
             self::ChinaTransferDebit => 'Buy RMB · Wallet',
             self::ChinaTransferRefund => 'Buy RMB · Refund',
+            self::GsmToolsDebit => 'GSM Tools · Wallet',
+            self::GsmToolsRefund => 'GSM Tools · Refund',
         };
     }
 

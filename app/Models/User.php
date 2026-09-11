@@ -106,6 +106,11 @@ class User extends Authenticatable
         return $this->hasMany(Order::class, 'buyer_id');
     }
 
+    public function gsmOrders(): HasMany
+    {
+        return $this->hasMany(GsmOrder::class);
+    }
+
     public function payoutMethods(): HasMany
     {
         return $this->hasMany(SellerPayoutMethod::class);

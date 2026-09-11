@@ -37,6 +37,8 @@ export type AdminNavKey =
     | 'pending-funds'
     | 'china-transfers'
     | 'china-transfer-settings'
+    | 'gsm-tools'
+    | 'gsm-tools-services'
     | 'sell-rmb'
     | 'sell-rmb-settings'
     | 'disputes'
@@ -73,6 +75,8 @@ const sectionMap: Record<AdminNavKey, string> = {
     'pending-funds': 'finance',
     'china-transfers': 'finance',
     'china-transfer-settings': 'finance',
+    'gsm-tools': 'finance',
+    'gsm-tools-services': 'finance',
     'sell-rmb': 'finance',
     'sell-rmb-settings': 'finance',
     disputes: 'support',
@@ -182,6 +186,8 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'pending-funds', label: 'Pending Funds', href: route('admin.pending-funds.index'), badgeKey: 'pending_fund_releases', defaultOnPath: true },
                 { key: 'china-transfers', label: 'China Transfer', href: route('admin.china-transfers.index'), badgeKey: 'pending_china_transfers', defaultOnPath: true },
                 { key: 'china-transfer-settings', label: 'China Transfer Settings', href: route('admin.china-transfer.settings') },
+                { key: 'gsm-tools', label: 'GSM Tools', href: route('admin.gsm-tools.index'), badgeKey: 'pending_gsm_tools', defaultOnPath: true },
+                { key: 'gsm-tools-services', label: 'GSM Services', href: route('admin.gsm-tools.services') },
                 { key: 'rmb-conversions', label: 'RMB Conversions', href: route('admin.rmb-ops.conversions') },
                 { key: 'rmb-reconciliation', label: 'RMB Reconciliation', href: route('admin.rmb-ops.reconciliation') },
                 { key: 'rmb-rate-history', label: 'RMB Rate History', href: route('admin.rmb-ops.rate-history') },

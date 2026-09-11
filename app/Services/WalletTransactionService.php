@@ -429,6 +429,28 @@ class WalletTransactionService
         );
     }
 
+    public static function recordGsmToolsDebit(int $userId, float $amount, string $reference, string $description): WalletTransaction
+    {
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::GsmToolsDebit,
+            amount: -1 * $amount,
+            description: $description,
+            reference: $reference,
+        );
+    }
+
+    public static function recordGsmToolsRefund(int $userId, float $amount, string $reference, string $description): WalletTransaction
+    {
+        return static::record(
+            userId: $userId,
+            type: WalletTransactionType::GsmToolsRefund,
+            amount: $amount,
+            description: $description,
+            reference: $reference,
+        );
+    }
+
     /**
      * For transfer rows, look up the other party's profile once per page so the
      * wallet history can show their photo / Tel even on older ledger lines.

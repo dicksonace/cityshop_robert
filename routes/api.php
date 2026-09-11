@@ -23,12 +23,14 @@ use App\Http\Controllers\Api\V1\SellerFollowController;
 use App\Http\Controllers\Api\V1\UserBlockController;
 use App\Http\Controllers\Api\V1\WalletController;
 use App\Http\Controllers\Api\V1\ChinaTransferController;
+use App\Http\Controllers\Api\V1\GsmToolController;
 use App\Http\Controllers\Api\V1\SellRmbController;
 use App\Http\Controllers\Api\V1\Admin\AnnouncementController as AdminAnnouncementController;
 use App\Http\Controllers\Api\V1\Admin\BuyerController as AdminBuyerController;
 use App\Http\Controllers\Api\V1\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\V1\Admin\ChatController as AdminChatController;
 use App\Http\Controllers\Api\V1\Admin\ChinaTransferController as AdminChinaTransferController;
+use App\Http\Controllers\Api\V1\Admin\GsmToolController as AdminGsmToolController;
 use App\Http\Controllers\Api\V1\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\DisputeController as AdminDisputeController;
@@ -317,6 +319,16 @@ Route::prefix('v1')->group(function () {
             Route::post('/china-transfers/{chinaTransfer}/cancel', [AdminChinaTransferController::class, 'cancel']);
             Route::post('/china-transfers/{chinaTransfer}/note', [AdminChinaTransferController::class, 'note']);
 
+            Route::get('/gsm-tools', [AdminGsmToolController::class, 'index']);
+            Route::get('/gsm-tools/services', [AdminGsmToolController::class, 'services']);
+            Route::post('/gsm-tools/services', [AdminGsmToolController::class, 'storeService']);
+            Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService']);
+            Route::get('/gsm-tools/{gsmOrder}', [AdminGsmToolController::class, 'show']);
+            Route::post('/gsm-tools/{gsmOrder}/process', [AdminGsmToolController::class, 'process']);
+            Route::post('/gsm-tools/{gsmOrder}/complete', [AdminGsmToolController::class, 'complete']);
+            Route::post('/gsm-tools/{gsmOrder}/fail', [AdminGsmToolController::class, 'fail']);
+            Route::post('/gsm-tools/{gsmOrder}/cancel', [AdminGsmToolController::class, 'cancel']);
+
             Route::get('/sell-rmb', [AdminSellRmbController::class, 'index']);
             Route::get('/sell-rmb/settings', [AdminSellRmbController::class, 'settings']);
             Route::post('/sell-rmb/settings', [AdminSellRmbController::class, 'updateSettings']);
@@ -473,6 +485,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/wallet/sell-rmb', [SellRmbController::class, 'store']);
         Route::get('/wallet/sell-rmb/{sellRmbTransfer}', [SellRmbController::class, 'show']);
         Route::post('/wallet/sell-rmb/{sellRmbTransfer}/cancel', [SellRmbController::class, 'cancel']);
+        Route::get('/gsm-tools', [GsmToolController::class, 'index']);
+        Route::get('/gsm-tools/services/{gsmService}', [GsmToolController::class, 'showService']);
+        Route::post('/gsm-tools/orders', [GsmToolController::class, 'store']);
+        Route::get('/gsm-tools/orders/{gsmOrder}', [GsmToolController::class, 'showOrder']);
+        Route::post('/gsm-tools/orders/{gsmOrder}/cancel', [GsmToolController::class, 'cancel']);
         Route::post('/wallet/paystack/initialize', [WalletController::class, 'initializePaystackTopUp']);
         Route::post('/wallet/paystack/verify', [WalletController::class, 'verifyPaystackTopUp']);
         Route::post('/wallet/flutterwave/initialize', [WalletController::class, 'initializeFlutterwaveTopUp']);

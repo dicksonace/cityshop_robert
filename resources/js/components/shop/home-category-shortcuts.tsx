@@ -84,6 +84,14 @@ export default function HomeCategoryShortcuts({
             active: false,
         },
         {
+            key: 'gsm-tools',
+            label: 'GSM Tools',
+            icon: Smartphone,
+            color: 'bg-violet-100 text-violet-700',
+            onClick: () => router.visit(route('gsm-tools.index')),
+            active: false,
+        },
+        {
             key: 'in_ghana',
             label: 'In Ghana',
             icon: MapPin,
@@ -111,15 +119,18 @@ export default function HomeCategoryShortcuts({
         },
     ];
 
-    const categoryLinks = categories.slice(0, 4).map((cat, index) => ({
-        key: `cat-${cat.id}`,
-        label: cat.name,
-        icon: categoryIcon(cat.slug, cat.name),
-        color: iconColors[index % iconColors.length],
-        onClick: () => applyFilters({ category: String(cat.id) }, filters),
-        active: String(filters.category) === String(cat.id),
-        count: cat.products_count,
-    }));
+    const categoryLinks = categories
+        .filter((cat) => cat.slug !== 'gsm-tools')
+        .slice(0, 3)
+        .map((cat, index) => ({
+            key: `cat-${cat.id}`,
+            label: cat.name,
+            icon: categoryIcon(cat.slug, cat.name),
+            color: iconColors[index % iconColors.length],
+            onClick: () => applyFilters({ category: String(cat.id) }, filters),
+            active: String(filters.category) === String(cat.id),
+            count: cat.products_count,
+        }));
 
     const tiles = [...quickLinks, ...categoryLinks];
 
