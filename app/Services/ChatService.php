@@ -15,6 +15,7 @@ use App\Models\MessageReaction;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -395,6 +396,48 @@ class ChatService
                     });
             });
         });
+    }
+
+    /**
+     * Inbox rows for the app/web chat list. Falls back to a lighter query if
+     * a missing column or corrupt relation would otherwise 500 the Chat tab.
+     *
+     * @return Collection<int, Conversation>
+     */
+    public static function inboxRows(User $user): Collection
+    {
+        $base = static::visibleConversationsQuery($user->id)
+            ->orderByDesc('last_message_at')
+            ->orderByDesc('updated_at')
+            ->limit(200);
+
+        $full = [
+            'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+            'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+            'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
+            'participants:id,name,avatar,last_seen_at',
+            'product:id,name,slug,price,discount_price',
+            'product.images',
+            'latestVisibleMessage.sender:id,name',
+        ];
+        $light = [
+            'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+            'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
+            'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
+        ];
+
+        try {
+            return $base->clone()->with($full)->get();
+        } catch (\Throwable $e) {
+            report($e);
+            try {
+                return $base->clone()->with($light)->get();
+            } catch (\Throwable $e2) {
+                report($e2);
+
+                return collect();
+            }
+        }
     }
 
     /**
@@ -1247,10 +1290,10 @@ class ChatService
     /**
      * Soft-clear filter: hide messages at or before the viewer's cleared_at watermark.
      *
-     * @param  Builder<\App\Models\Message>  $query
-     * @return Builder<\App\Models\Message>
+     * @param  Builder<Message>|HasMany  $query
+     * @return Builder<Message>|HasMany
      */
-    public static function applyClearedFilter(Builder $query, Conversation $conversation, User $viewer): Builder
+    public static function applyClearedFilter(Builder|HasMany $query, Conversation $conversation, User $viewer): Builder|HasMany
     {
         $clearedAt = $conversation->messagesClearedAtFor($viewer);
         if ($clearedAt) {

@@ -24,10 +24,32 @@ class Message extends Model
     protected function casts(): array
     {
         return [
-            'type' => MessageType::class,
             'metadata' => 'array',
             'read_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Unknown / legacy type strings must not 500 the whole inbox.
+     */
+    protected function type(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value) {
+                if ($value instanceof MessageType) {
+                    return $value;
+                }
+
+                return MessageType::tryFrom((string) $value) ?? MessageType::Text;
+            },
+            set: function ($value) {
+                if ($value instanceof MessageType) {
+                    return $value->value;
+                }
+
+                return MessageType::tryFrom((string) $value)?->value ?? (string) $value;
+            },
+        );
     }
 
     /**

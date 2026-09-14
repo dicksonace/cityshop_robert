@@ -60,6 +60,27 @@ class ApiChatThreadTest extends TestCase
             ->assertJsonPath('data.0.other.online', true);
     }
 
+    public function test_chat_list_survives_an_unknown_message_type(): void
+    {
+        [$buyer, $seller, $conversation] = $this->conversation();
+        $this->message($conversation, $buyer, MessageType::Text, 'Still available?');
+
+        \Illuminate\Support\Facades\DB::table('messages')->insert([
+            'conversation_id' => $conversation->id,
+            'sender_id' => $seller->id,
+            'type' => 'legacy_unknown',
+            'body' => 'old row',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Sanctum::actingAs($buyer);
+
+        $this->getJson('/api/v1/messages')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $conversation->id);
+    }
+
     public function test_api_requests_refresh_presence_so_the_app_shows_online(): void
     {
         [$buyer, $seller, $conversation] = $this->conversation();

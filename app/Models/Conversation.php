@@ -72,7 +72,7 @@ class Conversation extends Model
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'conversation_participants')
-            ->withPivot(['hidden_at', 'messages_cleared_at'])
+            ->withPivot(['hidden_at'])
             ->withTimestamps();
     }
 

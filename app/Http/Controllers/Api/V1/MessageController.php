@@ -20,20 +20,19 @@ class MessageController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $conversations = ChatService::visibleConversationsQuery($request->user()->id)
-            ->with([
-                'buyer:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
-                'seller:id,name,avatar,city,region,last_seen_at,deleted_at,role,mobile',
-                'seller.sellerProfile:id,user_id,business_name,store_name,slug,shop_photo',
-                'participants:id,name,avatar,last_seen_at',
-                'product:id,name,slug,price,discount_price',
-                'product.images',
-                'latestVisibleMessage.sender:id,name',
-            ])
-            ->orderByDesc('last_message_at')
-            ->orderByDesc('updated_at')
-            ->get()
-            ->map(fn (Conversation $c) => $this->formatConversation($c, $request->user()));
+        $user = $request->user();
+        $conversations = ChatService::inboxRows($user)
+            ->map(function (Conversation $c) use ($user) {
+                try {
+                    return $this->formatConversation($c, $user);
+                } catch (\Throwable $e) {
+                    report($e);
+
+                    return null;
+                }
+            })
+            ->filter()
+            ->values();
 
         return response()->json(['data' => $conversations]);
     }
@@ -989,7 +988,7 @@ class MessageController extends Controller
                 ],
                 'latest_message' => $latest ? [
                     'body' => ChatService::inboxPreviewBody($latest, $user),
-                    'type' => $latest->type->value,
+                    'type' => $latest->type?->value ?? 'text',
                     'created_at' => $latest->created_at?->toIso8601String(),
                     'sender_id' => $latest->sender_id,
                 ] : null,
@@ -1042,7 +1041,7 @@ class MessageController extends Controller
             ],
             'latest_message' => $latest ? [
                 'body' => ChatService::inboxPreviewBody($latest, $user),
-                'type' => $latest->type->value,
+                    'type' => $latest->type?->value ?? 'text',
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'sender_id' => $latest->sender_id,
             ] : null,
