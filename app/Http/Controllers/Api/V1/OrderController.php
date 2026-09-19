@@ -153,6 +153,7 @@ class OrderController extends Controller
                     'id' => $item->id,
                     'product_id' => $item->product_id,
                     'product_name' => $item->product_name,
+                    'buyer_field_values' => $item->buyer_field_values ?? [],
                     'product_slug' => $item->product?->slug,
                     'quantity' => $item->quantity,
                     'unit_price' => (float) $item->unit_price,

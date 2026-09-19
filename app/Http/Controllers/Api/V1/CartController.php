@@ -7,6 +7,7 @@ use App\Http\Resources\Api\V1\ProductResource;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Services\ProductAnalyticsService;
+use App\Services\ProductBuyerFieldService;
 use App\Support\ProductStock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,6 +52,7 @@ class CartController extends Controller
                 'id' => $item->id,
                 'quantity' => $item->quantity,
                 'subtotal' => $item->subtotal(),
+                'buyer_field_values' => $item->buyer_field_values ?? [],
                 'product' => new ProductResource($item->product),
             ])->values(),
             'subtotal' => round($items->sum(fn ($item) => $item->subtotal()), 2),
@@ -62,6 +64,7 @@ class CartController extends Controller
         $validated = $request->validate([
             'product_id' => ['required', 'exists:products,id'],
             'quantity' => ['integer', 'min:1', 'max:99'],
+            'buyer_field_values' => ['nullable', 'array'],
         ]);
 
         $product = Product::visibleInShop()
@@ -70,9 +73,16 @@ class CartController extends Controller
 
         $quantity = (int) ($validated['quantity'] ?? 1);
         $userId = $request->user()->id;
+        $fields = ProductBuyerFieldService::normalize($product->buyer_fields ?? []);
+        $fieldValues = $fields === []
+            ? []
+            : ProductBuyerFieldService::validateValues(
+                $fields,
+                $request->input('buyer_field_values', $request->input('buyer_fields')),
+            );
 
         try {
-            DB::transaction(function () use ($userId, $product, $quantity) {
+            DB::transaction(function () use ($userId, $product, $quantity, $fieldValues) {
                 $product = Product::query()->whereKey($product->id)->lockForUpdate()->firstOrFail();
 
                 $cartItem = CartItem::withTrashed()
@@ -96,6 +106,7 @@ class CartController extends Controller
                         'user_id' => $userId,
                         'product_id' => $product->id,
                         'quantity' => $quantity,
+                        'buyer_field_values' => $fieldValues ?: null,
                     ]);
 
                     return;
@@ -104,12 +115,16 @@ class CartController extends Controller
                 if ($cartItem->trashed()) {
                     $cartItem->restore();
                     $cartItem->quantity = $quantity;
+                    $cartItem->buyer_field_values = $fieldValues ?: $cartItem->buyer_field_values;
                     $cartItem->save();
 
                     return;
                 }
 
                 $cartItem->quantity = min($max, $cartItem->quantity + $quantity);
+                if ($fieldValues !== []) {
+                    $cartItem->buyer_field_values = $fieldValues;
+                }
                 $cartItem->touch();
                 $cartItem->save();
             });

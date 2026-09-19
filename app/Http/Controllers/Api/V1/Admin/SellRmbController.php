@@ -111,6 +111,15 @@ class SellRmbController extends Controller
         return $this->run(fn () => $this->sellRmb->complete($sellRmbTransfer, $request->user()), 'Sell RMB completed.', $sellRmbTransfer);
     }
 
+    public function completeWithProof(Request $request, SellRmbTransfer $sellRmbTransfer): JsonResponse
+    {
+        return $this->run(
+            fn () => $this->sellRmb->uploadProofAndComplete($sellRmbTransfer, $request->user(), $request),
+            'Sell RMB completed. Buyer can view the payout proof.',
+            $sellRmbTransfer,
+        );
+    }
+
     public function reject(Request $request, SellRmbTransfer $sellRmbTransfer): JsonResponse
     {
         $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);

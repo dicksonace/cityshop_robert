@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\PaystackService;
 use App\Services\PlatformSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class PaystackFeeSettingsTest extends TestCase
@@ -126,6 +127,70 @@ class PaystackFeeSettingsTest extends TestCase
         $this->assertFalse(PlatformSettings::paystackPaymentsLocked());
         $this->app->forgetInstance(PaystackService::class);
         $this->assertTrue(app(PaystackService::class)->isAvailable());
+        $this->assertTrue(app(PaystackService::class)->isCheckoutOffered());
+        $this->assertTrue(app(PaystackService::class)->isRechargeOffered());
+        $this->assertTrue(app(PaystackService::class)->isWithdrawalOffered());
+    }
+
+    public function test_admin_can_toggle_checkout_recharge_and_withdrawal_separately(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        config([
+            'services.paystack.secret_key' => 'sk_test_lock',
+            'services.paystack.public_key' => 'pk_test_lock',
+        ]);
+        $this->app->forgetInstance(PaystackService::class);
+
+        $this->actingAs($admin)
+            ->post(route('admin.paystack-fees.lock.update'), [
+                'checkout_enabled' => false,
+                'recharge_enabled' => true,
+                'withdrawal_enabled' => false,
+            ])
+            ->assertRedirect();
+
+        $settings = PlatformSettings::paystackPaymentsSettings();
+        $this->assertFalse($settings['checkout_enabled']);
+        $this->assertTrue($settings['recharge_enabled']);
+        $this->assertFalse($settings['withdrawal_enabled']);
+        $this->assertFalse(PlatformSettings::paystackPaymentsLocked());
+
+        $this->app->forgetInstance(PaystackService::class);
+        $paystack = app(PaystackService::class);
+        $this->assertFalse($paystack->isCheckoutOffered());
+        $this->assertTrue($paystack->isRechargeOffered());
+        $this->assertFalse($paystack->isWithdrawalOffered());
+        $this->assertTrue($paystack->isAvailable());
+    }
+
+    public function test_admin_api_can_toggle_paystack_flags(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/admin/settings/paystack/lock', [
+            'checkout_enabled' => true,
+            'recharge_enabled' => false,
+            'withdrawal_enabled' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('paystack_payments.checkout_enabled', true)
+            ->assertJsonPath('paystack_payments.recharge_enabled', false)
+            ->assertJsonPath('paystack_payments.withdrawal_enabled', true);
+
+        $this->getJson('/api/v1/admin/settings/paystack')
+            ->assertOk()
+            ->assertJsonPath('paystack_payments.recharge_enabled', false)
+            ->assertJsonPath('paystack_payments.checkout_enabled', true);
+    }
+
+    public function test_paystack_references_use_cityshop_prefix(): void
+    {
+        $this->assertSame('cityshop-', substr(\App\Support\PaymentReference::recharge(), 0, 9));
+        $this->assertSame('cityshop-', substr(\App\Support\PaymentReference::order(), 0, 9));
+        $this->assertSame('cityshop-12-', substr(\App\Support\PaymentReference::withdrawal(12), 0, 12));
+        $this->assertStringNotContainsString('TOP-', \App\Support\PaymentReference::recharge());
+        $this->assertStringNotContainsString('CITYSHOP-ORD-', \App\Support\PaymentReference::order());
     }
 
     public function test_locked_paystack_blocks_new_transactions(): void
@@ -138,7 +203,7 @@ class PaystackFeeSettingsTest extends TestCase
         $this->app->forgetInstance(PaystackService::class);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Online Paystack payment is temporarily disabled. Please use manual MoMo / bank payment.');
+        $this->expectExceptionMessage('Paystack checkout is disabled. Please use Flutterwave or manual MoMo / bank.');
 
         app(PaystackService::class)->initializeTransaction(
             'buyer@example.com',

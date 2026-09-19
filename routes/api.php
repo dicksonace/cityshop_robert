@@ -297,6 +297,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/settings/paystack', [AdminSettingsController::class, 'updatePaystack']);
             Route::post('/settings/paystack/lock', [AdminSettingsController::class, 'updatePaystackLock']);
             Route::post('/settings/flutterwave/lock', [AdminSettingsController::class, 'updateFlutterwaveLock']);
+            Route::post('/settings/flutterwave/keys', [AdminSettingsController::class, 'updateFlutterwaveKeys']);
+            Route::post('/settings/flutterwave/keys/verify', [AdminSettingsController::class, 'verifyFlutterwaveKeys']);
+            Route::post('/settings/flutterwave/keys/clear', [AdminSettingsController::class, 'clearFlutterwaveKeys']);
             Route::get('/settings/withdrawal', [AdminSettingsController::class, 'withdrawal']);
             Route::post('/settings/withdrawal', [AdminSettingsController::class, 'updateWithdrawal']);
             Route::get('/settings/manual-funding', [AdminSettingsController::class, 'manualFunding']);
@@ -347,6 +350,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/sell-rmb/{sellRmbTransfer}/approve-payout', [AdminSellRmbController::class, 'approvePayout']);
             Route::post('/sell-rmb/{sellRmbTransfer}/paid', [AdminSellRmbController::class, 'paid']);
             Route::post('/sell-rmb/{sellRmbTransfer}/complete', [AdminSellRmbController::class, 'complete']);
+            Route::post('/sell-rmb/{sellRmbTransfer}/complete-with-proof', [AdminSellRmbController::class, 'completeWithProof']);
             Route::post('/sell-rmb/{sellRmbTransfer}/reject', [AdminSellRmbController::class, 'reject']);
             Route::post('/sell-rmb/{sellRmbTransfer}/fail', [AdminSellRmbController::class, 'fail']);
             Route::post('/sell-rmb/{sellRmbTransfer}/cancel', [AdminSellRmbController::class, 'cancel']);
@@ -361,6 +365,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar']);
         Route::delete('/profile/avatar', [ProfileController::class, 'destroyAvatar']);
         Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
+        Route::get('/profile/deletion', [ProfileController::class, 'deletionStatus']);
+        Route::delete('/profile', [ProfileController::class, 'destroy']);
         Route::post('/profile/payment-pin', [\App\Http\Controllers\Api\PaymentPinController::class, 'store']);
         Route::put('/profile/payment-pin', [\App\Http\Controllers\Api\PaymentPinController::class, 'update']);
         Route::post('/profile/payment-pin/forgot', [\App\Http\Controllers\Api\PaymentPinController::class, 'forgot']);
@@ -469,6 +475,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/wallet/transactions', [WalletController::class, 'transactions']);
         Route::get('/wallet/transactions/by-reference/{reference}', [WalletController::class, 'transactionByReference']);
         Route::get('/wallet/withdrawals', [WalletController::class, 'withdrawals']);
+        Route::get('/wallet/withdrawals/{withdrawal}', [WalletController::class, 'showWithdrawal']);
         Route::post('/wallet/withdraw', [WalletController::class, 'withdraw']);
         Route::get('/wallet/manual-funding', [WalletController::class, 'manualFunding']);
         Route::post('/wallet/manual-top-up', [WalletController::class, 'manualTopUp']);
@@ -485,6 +492,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/wallet/sell-rmb/quote', [SellRmbController::class, 'quote']);
         Route::post('/wallet/sell-rmb', [SellRmbController::class, 'store']);
         Route::get('/wallet/sell-rmb/{sellRmbTransfer}', [SellRmbController::class, 'show']);
+        Route::post('/wallet/sell-rmb/{sellRmbTransfer}/proof', [SellRmbController::class, 'attachProof']);
         Route::post('/wallet/sell-rmb/{sellRmbTransfer}/cancel', [SellRmbController::class, 'cancel']);
         Route::get('/gsm-tools', [GsmToolController::class, 'index']);
         Route::get('/gsm-tools/services/{gsmService}', [GsmToolController::class, 'showService']);

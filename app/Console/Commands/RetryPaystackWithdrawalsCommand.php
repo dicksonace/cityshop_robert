@@ -18,8 +18,10 @@ class RetryPaystackWithdrawalsCommand extends Command
 
     public function handle(WithdrawalPayoutService $payouts, PaystackService $paystack): int
     {
-        if (! $paystack->isConfigured()) {
-            $this->error('Paystack is not configured.');
+        if (! $paystack->isWithdrawalOffered()) {
+            $this->error($paystack->isConfigured()
+                ? 'Paystack withdrawals are disabled in admin settings.'
+                : 'Paystack is not configured.');
 
             return self::FAILURE;
         }

@@ -10,6 +10,7 @@ use App\Models\ProductImage;
 use App\Models\Review;
 use App\Services\CategorySpecService;
 use App\Services\ProductAnalyticsService;
+use App\Services\ProductBuyerFieldService;
 use App\Services\ProductVideoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -115,8 +116,9 @@ class ProductController extends Controller
         }
 
         $specifications = $this->resolveSpecifications($validated['category_id'] ?? null, $request->input('specifications', []));
+        $buyerFields = ProductBuyerFieldService::normalize($request->input('buyer_fields', []));
 
-        DB::transaction(function () use ($validated, $files, $request, $specifications, &$product) {
+        DB::transaction(function () use ($validated, $files, $request, $specifications, $buyerFields, &$product) {
             $videoPath = null;
             $videoDuration = null;
 
@@ -127,10 +129,11 @@ class ProductController extends Controller
 
             $product = Product::create([
                 ...$this->withListingDefaults(
-                    collect($validated)->except(['images', 'image_count', 'video', 'video_duration', 'remove_video'])->toArray(),
+                    collect($validated)->except(['images', 'image_count', 'video', 'video_duration', 'remove_video', 'buyer_fields'])->toArray(),
                     creating: true,
                 ),
                 'specifications' => $specifications,
+                'buyer_fields' => $buyerFields,
                 'seller_id' => $request->user()->id,
                 'status' => ProductStatus::Approved,
                 'is_preorder' => false,
@@ -224,6 +227,7 @@ class ProductController extends Controller
         }
 
         $specifications = $this->resolveSpecifications($validated['category_id'] ?? null, $request->input('specifications', []));
+        $buyerFields = ProductBuyerFieldService::normalize($request->input('buyer_fields', $product->buyer_fields ?? []));
 
         $nextStatus = $product->status === ProductStatus::Draft
             ? ProductStatus::Draft
@@ -233,10 +237,11 @@ class ProductController extends Controller
 
         $product->update([
             ...$this->withListingDefaults(
-                collect($validated)->except(['images', 'image_count', 'remove_images', 'video', 'video_duration', 'remove_video'])->toArray(),
+                collect($validated)->except(['images', 'image_count', 'remove_images', 'video', 'video_duration', 'remove_video', 'buyer_fields'])->toArray(),
                 creating: false,
             ),
             'specifications' => $specifications,
+            'buyer_fields' => $buyerFields,
             'status' => $nextStatus,
             'is_preorder' => false,
             'rejection_reason' => null,
@@ -456,6 +461,11 @@ class ProductController extends Controller
             'ships_nationwide' => ['boolean'],
             'in_ghana' => ['boolean'],
             'specifications' => ['nullable', 'array'],
+            'buyer_fields' => ['nullable', 'array', 'max:20'],
+            'buyer_fields.*.label' => ['nullable', 'string', 'max:120'],
+            'buyer_fields.*.placeholder' => ['nullable', 'string', 'max:160'],
+            'buyer_fields.*.type' => ['nullable', 'string', 'max:20'],
+            'buyer_fields.*.required' => ['nullable', 'boolean'],
             'images' => $imageRules,
             'images.*' => ['image', 'max:5120'],
             // 0 is valid on update when no new photos are uploaded (existing images remain).

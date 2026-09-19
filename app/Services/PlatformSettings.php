@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\PlatformSetting;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Validation\ValidationException;
 
 class PlatformSettings
 {
@@ -15,11 +17,14 @@ class PlatformSettings
 
     public const PAYSTACK_FEE_KEY = 'paystack_collection_fee';
 
-    /** When locked, buyers cannot start Paystack checkout or wallet top-up. */
+    /** Paystack checkout, wallet recharge, and withdrawal on/off flags. */
     public const PAYSTACK_PAYMENTS_KEY = 'paystack_payments';
 
     /** When locked, buyers cannot start Flutterwave checkout or wallet top-up. */
     public const FLUTTERWAVE_PAYMENTS_KEY = 'flutterwave_payments';
+
+    /** Admin-saved Flutterwave API keys (override .env when set). */
+    public const FLUTTERWAVE_KEYS_KEY = 'flutterwave_keys';
 
     public const SMS_KEY = 'sms_provider';
 
@@ -359,9 +364,10 @@ class PlatformSettings
     }
 
     /**
-     * Admin lock for Paystack collections (checkout + wallet top-up).
+     * Admin flags for Paystack checkout, wallet recharge, and withdrawals.
+     * Legacy rows only had `locked`; that still turns checkout + recharge off together.
      *
-     * @return array{locked: bool}
+     * @return array{locked: bool, checkout_enabled: bool, recharge_enabled: bool, withdrawal_enabled: bool}
      */
     public static function paystackPaymentsSettings(): array
     {
@@ -371,26 +377,86 @@ class PlatformSettings
             : (is_string($raw) ? json_decode($raw, true) : null);
 
         if (! is_array($decoded)) {
-            return ['locked' => false];
+            return [
+                'locked' => false,
+                'checkout_enabled' => true,
+                'recharge_enabled' => true,
+                'withdrawal_enabled' => true,
+            ];
         }
 
+        $locked = (bool) ($decoded['locked'] ?? false);
+
         return [
-            'locked' => (bool) ($decoded['locked'] ?? false),
+            'locked' => $locked,
+            'checkout_enabled' => array_key_exists('checkout_enabled', $decoded)
+                ? (bool) $decoded['checkout_enabled']
+                : ! $locked,
+            'recharge_enabled' => array_key_exists('recharge_enabled', $decoded)
+                ? (bool) $decoded['recharge_enabled']
+                : ! $locked,
+            'withdrawal_enabled' => array_key_exists('withdrawal_enabled', $decoded)
+                ? (bool) $decoded['withdrawal_enabled']
+                : true,
         ];
     }
 
+    /** True when both checkout and recharge are off (legacy “Paystack locked”). */
     public static function paystackPaymentsLocked(): bool
     {
-        return static::paystackPaymentsSettings()['locked'];
+        $settings = static::paystackPaymentsSettings();
+
+        return ! $settings['checkout_enabled'] && ! $settings['recharge_enabled'];
+    }
+
+    public static function paystackCheckoutEnabled(): bool
+    {
+        return static::paystackPaymentsSettings()['checkout_enabled'];
+    }
+
+    public static function paystackRechargeEnabled(): bool
+    {
+        return static::paystackPaymentsSettings()['recharge_enabled'];
+    }
+
+    public static function paystackWithdrawalEnabled(): bool
+    {
+        return static::paystackPaymentsSettings()['withdrawal_enabled'];
     }
 
     /**
-     * @param  array{locked?: bool}  $data
+     * @param  array{locked?: bool, checkout_enabled?: bool, recharge_enabled?: bool, withdrawal_enabled?: bool}  $data
      */
     public static function savePaystackPaymentsSettings(array $data): void
     {
+        $current = static::paystackPaymentsSettings();
+        $hasGranular = array_key_exists('checkout_enabled', $data)
+            || array_key_exists('recharge_enabled', $data)
+            || array_key_exists('withdrawal_enabled', $data);
+
+        if (array_key_exists('locked', $data) && ! $hasGranular) {
+            $on = ! (bool) $data['locked'];
+            $current['checkout_enabled'] = $on;
+            $current['recharge_enabled'] = $on;
+        } else {
+            if (array_key_exists('checkout_enabled', $data)) {
+                $current['checkout_enabled'] = (bool) $data['checkout_enabled'];
+            }
+            if (array_key_exists('recharge_enabled', $data)) {
+                $current['recharge_enabled'] = (bool) $data['recharge_enabled'];
+            }
+            if (array_key_exists('withdrawal_enabled', $data)) {
+                $current['withdrawal_enabled'] = (bool) $data['withdrawal_enabled'];
+            }
+        }
+
+        $current['locked'] = ! $current['checkout_enabled'] && ! $current['recharge_enabled'];
+
         static::set(self::PAYSTACK_PAYMENTS_KEY, [
-            'locked' => (bool) ($data['locked'] ?? false),
+            'locked' => $current['locked'],
+            'checkout_enabled' => $current['checkout_enabled'],
+            'recharge_enabled' => $current['recharge_enabled'],
+            'withdrawal_enabled' => $current['withdrawal_enabled'],
         ]);
     }
 
@@ -428,6 +494,247 @@ class PlatformSettings
         static::set(self::FLUTTERWAVE_PAYMENTS_KEY, [
             'locked' => (bool) ($data['locked'] ?? false),
         ]);
+    }
+
+    public static function envFlutterwavePublicKey(): string
+    {
+        return trim((string) config('services.flutterwave.public_key', ''), " \t\n\r\0\x0B\"'");
+    }
+
+    public static function envFlutterwaveSecretKey(): string
+    {
+        return trim((string) config('services.flutterwave.secret_key', ''), " \t\n\r\0\x0B\"'");
+    }
+
+    public static function envFlutterwaveWebhookHash(): string
+    {
+        return trim((string) config('services.flutterwave.webhook_hash', ''), " \t\n\r\0\x0B\"'");
+    }
+
+    /**
+     * @return array{public_key: string, secret_key: string, webhook_hash: string}
+     */
+    public static function storedFlutterwaveKeys(): array
+    {
+        $raw = static::get(self::FLUTTERWAVE_KEYS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return [
+                'public_key' => '',
+                'secret_key' => '',
+                'webhook_hash' => '',
+            ];
+        }
+
+        return [
+            'public_key' => trim((string) ($decoded['public_key'] ?? '')),
+            'secret_key' => static::unsealSecret($decoded['secret_key'] ?? ''),
+            'webhook_hash' => static::unsealSecret($decoded['webhook_hash'] ?? ''),
+        ];
+    }
+
+    public static function resolvedFlutterwavePublicKey(): string
+    {
+        $admin = static::storedFlutterwaveKeys()['public_key'];
+
+        return $admin !== '' ? $admin : static::envFlutterwavePublicKey();
+    }
+
+    public static function resolvedFlutterwaveSecretKey(): string
+    {
+        $admin = static::storedFlutterwaveKeys()['secret_key'];
+
+        return $admin !== '' ? $admin : static::envFlutterwaveSecretKey();
+    }
+
+    public static function resolvedFlutterwaveWebhookHash(): string
+    {
+        $admin = static::storedFlutterwaveKeys()['webhook_hash'];
+
+        return $admin !== '' ? $admin : static::envFlutterwaveWebhookHash();
+    }
+
+    /**
+     * Status for admin UI (never includes full secrets).
+     *
+     * @return array{
+     *   source: string,
+     *   configured: bool,
+     *   available: bool,
+     *   is_test: bool,
+     *   admin_public_set: bool,
+     *   admin_secret_set: bool,
+     *   admin_hash_set: bool,
+     *   env_public_set: bool,
+     *   env_secret_set: bool,
+     *   public_key_masked: string,
+     *   secret_key_masked: string,
+     *   webhook_hash_set: bool
+     * }
+     */
+    public static function flutterwaveKeysStatus(): array
+    {
+        $stored = static::storedFlutterwaveKeys();
+        $public = static::resolvedFlutterwavePublicKey();
+        $secret = static::resolvedFlutterwaveSecretKey();
+        $hash = static::resolvedFlutterwaveWebhookHash();
+        $adminReady = $stored['public_key'] !== '' && $stored['secret_key'] !== '';
+        $envReady = static::envFlutterwavePublicKey() !== '' && static::envFlutterwaveSecretKey() !== '';
+
+        $source = 'none';
+        if ($adminReady) {
+            $source = 'admin';
+        } elseif ($stored['public_key'] !== '' || $stored['secret_key'] !== '') {
+            $source = 'mixed';
+        } elseif ($envReady) {
+            $source = 'env';
+        }
+
+        return [
+            'source' => $source,
+            'configured' => $public !== '' && $secret !== '',
+            'available' => $public !== '' && $secret !== '' && ! static::flutterwavePaymentsLocked(),
+            'is_test' => static::isFlutterwaveTestKey($public) || static::isFlutterwaveTestKey($secret),
+            'admin_public_set' => $stored['public_key'] !== '',
+            'admin_secret_set' => $stored['secret_key'] !== '',
+            'admin_hash_set' => $stored['webhook_hash'] !== '',
+            'env_public_set' => static::envFlutterwavePublicKey() !== '',
+            'env_secret_set' => static::envFlutterwaveSecretKey() !== '',
+            'public_key_masked' => static::maskFlutterwaveKey($public),
+            'secret_key_masked' => static::maskFlutterwaveKey($secret),
+            'webhook_hash_set' => $hash !== '',
+        ];
+    }
+
+    /**
+     * @param  array{public_key?: string, secret_key?: string, webhook_hash?: string}  $data
+     */
+    public static function saveFlutterwaveApiKeys(array $data): void
+    {
+        $current = static::storedFlutterwaveKeys();
+
+        $public = array_key_exists('public_key', $data)
+            ? static::normalizeFlutterwavePublicKey((string) ($data['public_key'] ?? ''))
+            : $current['public_key'];
+        if ($public === '') {
+            $public = $current['public_key'];
+        }
+
+        $secret = array_key_exists('secret_key', $data)
+            ? static::normalizeFlutterwaveSecretKey((string) ($data['secret_key'] ?? ''))
+            : $current['secret_key'];
+        if ($secret === '') {
+            $secret = $current['secret_key'];
+        }
+
+        $hash = $current['webhook_hash'];
+        if (array_key_exists('webhook_hash', $data)) {
+            $incoming = trim((string) ($data['webhook_hash'] ?? ''));
+            if ($incoming !== '') {
+                $hash = $incoming;
+            }
+        }
+
+        if ($public !== '' && $secret !== '' && static::isFlutterwaveTestKey($public) !== static::isFlutterwaveTestKey($secret)) {
+            throw ValidationException::withMessages([
+                'secret_key' => 'Public and secret keys must both be live or both be TEST keys.',
+            ]);
+        }
+
+        static::set(self::FLUTTERWAVE_KEYS_KEY, [
+            'public_key' => $public,
+            'secret_key' => $secret !== '' ? static::sealSecret($secret) : '',
+            'webhook_hash' => $hash !== '' ? static::sealSecret($hash) : '',
+        ]);
+    }
+
+    public static function clearFlutterwaveApiKeys(): void
+    {
+        static::set(self::FLUTTERWAVE_KEYS_KEY, [
+            'public_key' => '',
+            'secret_key' => '',
+            'webhook_hash' => '',
+        ]);
+    }
+
+    public static function normalizeFlutterwavePublicKey(string $key): string
+    {
+        $key = trim($key, " \t\n\r\0\x0B\"'");
+        if ($key === '') {
+            return '';
+        }
+
+        if (! str_starts_with(strtoupper($key), 'FLWPUBK')) {
+            throw ValidationException::withMessages([
+                'public_key' => 'Use a Flutterwave public key (starts with FLWPUBK- or FLWPUBK_TEST-).',
+            ]);
+        }
+
+        return $key;
+    }
+
+    public static function normalizeFlutterwaveSecretKey(string $key): string
+    {
+        $key = trim($key, " \t\n\r\0\x0B\"'");
+        if ($key === '') {
+            return '';
+        }
+
+        if (! str_starts_with(strtoupper($key), 'FLWSECK')) {
+            throw ValidationException::withMessages([
+                'secret_key' => 'Use a Flutterwave secret key (starts with FLWSECK- or FLWSECK_TEST-).',
+            ]);
+        }
+
+        return $key;
+    }
+
+    public static function isFlutterwaveTestKey(string $key): bool
+    {
+        $upper = strtoupper($key);
+
+        return str_contains($upper, 'PUBK_TEST') || str_contains($upper, 'SECK_TEST');
+    }
+
+    public static function maskFlutterwaveKey(string $key): string
+    {
+        $key = trim($key);
+        if ($key === '') {
+            return '';
+        }
+
+        $len = strlen($key);
+        if ($len <= 12) {
+            return substr($key, 0, 4).str_repeat('•', max(4, $len - 4));
+        }
+
+        return substr($key, 0, 8).str_repeat('•', max(4, $len - 12)).substr($key, -4);
+    }
+
+    private static function sealSecret(string $value): string
+    {
+        return 'enc:'.Crypt::encryptString($value);
+    }
+
+    private static function unsealSecret(mixed $value): string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return '';
+        }
+
+        if (! str_starts_with($value, 'enc:')) {
+            return $value;
+        }
+
+        try {
+            return Crypt::decryptString(substr($value, 4));
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     /** Fee charged for a withdrawal to this payout channel (momo|bank). Flat/tier mode only. */

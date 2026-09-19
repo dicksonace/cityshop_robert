@@ -4,6 +4,7 @@ import { FormEventHandler, useEffect, useState } from 'react';
 
 import ImageUploader from '@/components/seller/image-uploader';
 import ProductVideoUploader from '@/components/seller/product-video-uploader';
+import BuyerFieldBuilder, { BuyerFieldRow } from '@/components/seller/buyer-field-builder';
 import CategorySpecFields from '@/components/seller/category-spec-fields';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,13 @@ export default function EditProduct({ product, categories }: EditProductProps) {
         ships_nationwide: (product as Product & { ships_nationwide?: boolean }).ships_nationwide ?? true,
         condition: (product as Product & { condition?: string }).condition ?? 'new',
         specifications: (product.specifications ?? {}) as Record<string, string>,
+        buyer_fields: ((product.buyer_fields ?? []).map((field) => ({
+            key: field.key,
+            label: field.label,
+            placeholder: field.placeholder ?? '',
+            type: field.type ?? 'text',
+            required: field.required !== false,
+        })) as BuyerFieldRow[]) || [{ label: '', placeholder: '', type: 'text', required: true }],
         _method: 'PUT',
     });
 
@@ -206,6 +214,10 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                     specifications={data.specifications}
                     onChange={(specs) => setData('specifications', specs)}
                     errors={errors as Record<string, string>}
+                />
+                <BuyerFieldBuilder
+                    fields={data.buyer_fields}
+                    onChange={(fields) => setData('buyer_fields', fields)}
                 />
 
                 <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-4">

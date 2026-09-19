@@ -22,6 +22,7 @@ use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
 use App\Support\PaymentReference;
+use App\Support\WithdrawalPresentation;
 use App\Support\PayoutNetwork;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,11 +54,11 @@ class WalletController extends Controller
                 'total_earnings' => (float) $wallet->total_earnings,
                 'withdrawn_amount' => (float) $wallet->withdrawn_amount,
                 'rmb_balance' => (float) $wallet->rmb_balance,
-                'paystack_configured' => $this->paystack->isOfferedForCollections(),
+                'paystack_configured' => $this->paystack->isRechargeOffered(),
                 'paystack_fee' => $this->paystack->rechargeFeePayload(),
                 'flutterwave_configured' => $this->flutterwave->isAvailable(),
                 'online_gateways' => [
-                    'paystack' => $this->paystack->isAvailable(),
+                    'paystack' => $this->paystack->isRechargeOffered(),
                     'flutterwave' => $this->flutterwave->isAvailable(),
                 ],
                 'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
@@ -274,6 +275,15 @@ class WalletController extends Controller
         ]);
     }
 
+    public function showWithdrawal(Request $request, Withdrawal $withdrawal): JsonResponse
+    {
+        abort_unless($withdrawal->user_id === $request->user()->id, 403);
+
+        return response()->json([
+            'data' => $this->withdrawalPayload($withdrawal),
+        ]);
+    }
+
     /**
      * Mirrors the web buyer withdrawal: the amount leaves the available balance
      * straight away and only comes back if an admin rejects the request.
@@ -336,19 +346,13 @@ class WalletController extends Controller
      */
     private function withdrawalPayload(Withdrawal $withdrawal): array
     {
-        return [
-            'id' => $withdrawal->id,
-            'amount' => (float) $withdrawal->amount,
-            'fee' => (float) ($withdrawal->fee ?? 0),
-            'total_debited' => $withdrawal->totalDebited(),
+        $view = WithdrawalPresentation::forUser($withdrawal);
+
+        return array_merge($view, [
             'momo_number' => $withdrawal->momo_number,
             'account_name' => $withdrawal->account_name,
             'network' => $withdrawal->network,
             'network_label' => PayoutNetwork::label($withdrawal->network),
-            'payout_type' => in_array($withdrawal->payout_channel, ['momo', 'bank'], true)
-                ? $withdrawal->payout_channel
-                : PayoutNetwork::type($withdrawal->network),
-            'payout_channel' => $withdrawal->payout_channel,
             'payout_channel_label' => match ($withdrawal->payout_channel) {
                 'paystack' => 'Paystack',
                 'bank' => 'Bank transfer',
@@ -358,25 +362,7 @@ class WalletController extends Controller
                     ? ucfirst((string) $withdrawal->payout_channel)
                     : 'Manual payout',
             },
-            'reference' => PaymentReference::withdrawalLedger((int) $withdrawal->id),
-            'status' => $withdrawal->status?->value,
-            // The web deliberately shows pending requests as "Processing".
-            'status_label' => match ($withdrawal->status) {
-                WithdrawalStatus::Pending, WithdrawalStatus::Processing => 'Processing',
-                WithdrawalStatus::Approved => 'Approved',
-                WithdrawalStatus::Paid => 'Completed',
-                WithdrawalStatus::Rejected => 'Rejected',
-                default => 'Processing',
-            },
-            'rejection_reason' => $withdrawal->rejection_reason,
-            'failure_reason' => $withdrawal->failure_reason,
-            'admin_notes' => $withdrawal->admin_notes,
-            'proof_url' => $withdrawal->proof_path
-                ? \Illuminate\Support\Facades\Storage::disk('public')->url($withdrawal->proof_path)
-                : null,
-            'created_at' => $withdrawal->created_at?->toIso8601String(),
-            'processed_at' => $withdrawal->processed_at?->toIso8601String(),
-        ];
+        ]);
     }
 
     public function manualFunding(Request $request): JsonResponse
@@ -387,7 +373,7 @@ class WalletController extends Controller
             'enabled' => $settings['enabled'],
             'instructions' => $settings['instructions'],
             'accounts' => $settings['accounts'],
-            'paystack_configured' => $this->paystack->isOfferedForCollections(),
+            'paystack_configured' => $this->paystack->isRechargeOffered(),
             'flutterwave_configured' => $this->flutterwave->isAvailable(),
             'requests' => WalletTopUpRequest::where('user_id', $request->user()->id)
                 ->latest()
@@ -439,8 +425,8 @@ class WalletController extends Controller
             return $denied;
         }
 
-        if (! $this->paystack->isAvailable()) {
-            return response()->json(['message' => $this->paystack->unavailableMessage()], 503);
+        if (! $this->paystack->isRechargeOffered()) {
+            return response()->json(['message' => $this->paystack->unavailableMessage('recharge')], 503);
         }
 
         $callbackUrl = url('/api/v1/paystack/mobile-return');
@@ -529,7 +515,7 @@ class WalletController extends Controller
                     'pending_balance' => (float) $wallet->pending_balance,
                     'total_earnings' => (float) $wallet->total_earnings,
                     'withdrawn_amount' => (float) $wallet->withdrawn_amount,
-                    'paystack_configured' => $this->paystack->isOfferedForCollections(),
+                    'paystack_configured' => $this->paystack->isRechargeOffered(),
                     'paystack_fee' => $this->paystack->rechargeFeePayload(),
                     'flutterwave_configured' => $this->flutterwave->isAvailable(),
                     'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,
@@ -646,7 +632,7 @@ class WalletController extends Controller
                     'pending_balance' => (float) $wallet->pending_balance,
                     'total_earnings' => (float) $wallet->total_earnings,
                     'withdrawn_amount' => (float) $wallet->withdrawn_amount,
-                    'paystack_configured' => $this->paystack->isOfferedForCollections(),
+                    'paystack_configured' => $this->paystack->isRechargeOffered(),
                     'paystack_fee' => $this->paystack->rechargeFeePayload(),
                     'flutterwave_configured' => $this->flutterwave->isAvailable(),
                     'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,

@@ -18,6 +18,7 @@ class OrderItem extends Model
         'product_id',
         'seller_id',
         'product_name',
+        'buyer_field_values',
         'quantity',
         'unit_price',
         'commission_rate',
@@ -53,6 +54,7 @@ class OrderItem extends Model
             'cancelled_at' => 'datetime',
             'funds_released_at' => 'datetime',
             'awaiting_confirmation_at' => 'datetime',
+            'buyer_field_values' => 'array',
         ];
     }
 

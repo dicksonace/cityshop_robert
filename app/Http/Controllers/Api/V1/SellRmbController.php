@@ -67,6 +67,18 @@ class SellRmbController extends Controller
         ]);
     }
 
+    public function attachProof(Request $request, SellRmbTransfer $sellRmbTransfer): JsonResponse
+    {
+        $this->assertOwner($request, $sellRmbTransfer);
+
+        $transfer = $this->sellRmb->attachBuyerProof($sellRmbTransfer, $request->user(), $request);
+
+        return response()->json([
+            'message' => 'Payment proof uploaded.',
+            'data' => $this->sellRmb->transferPayload($transfer),
+        ]);
+    }
+
     public function cancel(Request $request, SellRmbTransfer $sellRmbTransfer): JsonResponse
     {
         $this->assertOwner($request, $sellRmbTransfer);

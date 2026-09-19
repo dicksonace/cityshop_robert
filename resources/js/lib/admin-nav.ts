@@ -181,7 +181,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'withdrawals-buyers', label: 'Buyer Withdrawals', href: route('admin.withdrawals.index', { status: 'pending', role: 'buyer' }) },
                 { key: 'withdrawals-all', label: 'All Withdrawals', href: route('admin.withdrawals.index', { status: 'all' }) },
                 { key: 'withdrawal-fees', label: 'Withdrawal Fees', href: route('admin.withdrawal-fees.settings') },
-                { key: 'paystack-fees', label: 'Paystack Fees', href: route('admin.paystack-fees.settings') },
+                { key: 'paystack-fees', label: 'Paystack / Flutterwave', href: route('admin.paystack-fees.settings') },
                 { key: 'manual-top-ups', label: 'Manual Top-ups', href: route('admin.manual-top-ups.index'), badgeKey: 'pending_manual_top_ups', defaultOnPath: true },
                 { key: 'pending-funds', label: 'Pending Funds', href: route('admin.pending-funds.index'), badgeKey: 'pending_fund_releases', defaultOnPath: true },
                 { key: 'china-transfers', label: 'China Transfer', href: route('admin.china-transfers.index'), badgeKey: 'pending_china_transfers', defaultOnPath: true },

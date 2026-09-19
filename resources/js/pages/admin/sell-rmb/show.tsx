@@ -360,13 +360,13 @@ export default function SellRmbShow({ transfer }: Props) {
 
                 {transfer.proofs.length > 0 && (
                     <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                        <h2 className="font-bold">Payout proofs</h2>
+                        <h2 className="font-bold">Proofs</h2>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                             {transfer.proofs.map((proof) => (
                                 <a key={proof.id} href={proof.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border">
                                     <img src={proof.url} alt={proof.original_name || 'Proof'} className="max-h-48 w-full object-contain bg-slate-50" />
                                     <p className="px-3 py-2 text-sm font-semibold text-orange-700">
-                                        {proof.type}: {proof.original_name || 'Open'}
+                                        {proof.type === 'payment_received' ? 'Buyer Alipay proof' : proof.type === 'payout_sent' ? 'MoMo payout proof' : proof.type}: {proof.original_name || 'Open'}
                                     </p>
                                 </a>
                             ))}

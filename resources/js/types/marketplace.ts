@@ -30,6 +30,13 @@ export interface Product {
     meta_description?: string | null;
     meta_keywords?: string | null;
     specifications?: Record<string, string> | null;
+    buyer_fields?: Array<{
+        key: string;
+        label: string;
+        placeholder?: string;
+        type?: string;
+        required?: boolean;
+    }> | null;
     price: number;
     discount_price?: number | null;
     quantity: number;
@@ -187,6 +194,7 @@ export interface OrderItem {
     id: number;
     product_id?: number;
     product_name: string;
+    buyer_field_values?: Array<{ key: string; label: string; value: string }> | null;
     quantity: number;
     unit_price: number;
     seller_amount: number;

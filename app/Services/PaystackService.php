@@ -25,38 +25,58 @@ class PaystackService
     }
 
     /**
-     * Customer-facing Paystack collections (checkout / wallet recharge).
-     * Hidden: Paystack dashboard references looked like scam activity.
-     * Withdrawals still use Paystack transfers.
+     * Customer-facing Paystack collections (checkout and/or wallet recharge).
      */
     public function isOfferedForCollections(): bool
     {
-        return false;
+        return $this->isCheckoutOffered() || $this->isRechargeOffered();
+    }
+
+    public function isCheckoutOffered(): bool
+    {
+        return $this->isConfigured() && PlatformSettings::paystackCheckoutEnabled();
+    }
+
+    public function isRechargeOffered(): bool
+    {
+        return $this->isConfigured() && PlatformSettings::paystackRechargeEnabled();
+    }
+
+    public function isWithdrawalOffered(): bool
+    {
+        return $this->isConfigured() && PlatformSettings::paystackWithdrawalEnabled();
     }
 
     /**
-     * Keys are present and admin has not locked Paystack collections.
+     * Keys are present and at least one collection surface is on.
      * Verification & webhooks should keep using {@see isConfigured()}.
      */
     public function isAvailable(): bool
     {
-        return $this->isConfigured() && ! PlatformSettings::paystackPaymentsLocked();
+        return $this->isOfferedForCollections();
     }
 
-    /** Buyer-facing reason when {@see isAvailable()} is false. */
-    public function unavailableMessage(): string
+    /** Buyer-facing reason when Paystack cannot start. */
+    public function unavailableMessage(?string $purpose = null): string
     {
-        $flutterwaveOk = app(FlutterwaveService::class)->isAvailable();
+        $alt = app(FlutterwaveService::class)->isAvailable()
+            ? 'Please use Flutterwave or manual MoMo / bank.'
+            : 'Please use Flutterwave or manual MoMo / bank.';
 
-        if (PlatformSettings::paystackPaymentsLocked()) {
-            return $flutterwaveOk
-                ? 'Paystack collections are disabled. Please use Flutterwave or manual MoMo / bank.'
-                : 'Online Paystack payment is disabled. Please use Flutterwave or manual MoMo / bank.';
-        }
-
-        return $flutterwaveOk
-            ? 'Paystack is not available. Please use Flutterwave or manual MoMo / bank.'
-            : 'Online Paystack payment is not available. Please use Flutterwave or manual MoMo / bank.';
+        return match ($purpose) {
+            'checkout' => PlatformSettings::paystackCheckoutEnabled()
+                ? 'Paystack checkout is not available. '.$alt
+                : 'Paystack checkout is disabled. '.$alt,
+            'recharge' => PlatformSettings::paystackRechargeEnabled()
+                ? 'Paystack wallet recharge is not available. '.$alt
+                : 'Paystack wallet recharge is disabled. '.$alt,
+            'withdrawal' => PlatformSettings::paystackWithdrawalEnabled()
+                ? 'Paystack withdrawals are not available. Mark paid manually or try again later.'
+                : 'Paystack withdrawals are disabled. Mark paid manually or turn withdrawals on in Paystack settings.',
+            default => PlatformSettings::paystackPaymentsLocked()
+                ? 'Paystack collections are disabled. '.$alt
+                : 'Paystack is not available. '.$alt,
+        };
     }
 
     /**
@@ -189,8 +209,8 @@ class PaystackService
         ?string $referencePrefix = null,
         array $extraMetadata = [],
     ): array {
-        if (! $this->isAvailable()) {
-            throw new \RuntimeException($this->unavailableMessage());
+        if (! $this->isRechargeOffered()) {
+            throw new \RuntimeException($this->unavailableMessage('recharge'));
         }
 
         $quote = $this->rechargeQuote($creditGhs, $method);
@@ -234,8 +254,12 @@ class PaystackService
         ?string $callbackUrl = null,
         ?User $customer = null,
     ): array {
-        if (! $this->isAvailable()) {
-            throw new \RuntimeException($this->unavailableMessage());
+        $purpose = ($metadata['type'] ?? '') === 'wallet_topup' ? 'recharge' : 'checkout';
+        if ($purpose === 'recharge' && ! $this->isRechargeOffered()) {
+            throw new \RuntimeException($this->unavailableMessage('recharge'));
+        }
+        if ($purpose === 'checkout' && ! $this->isCheckoutOffered()) {
+            throw new \RuntimeException($this->unavailableMessage('checkout'));
         }
 
         $email = $this->paystackEmail($email);

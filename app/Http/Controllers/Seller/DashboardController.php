@@ -47,7 +47,7 @@ class DashboardController extends Controller
                 ? route('store.show', $seller->sellerProfile->slug, absolute: true)
                 : null,
             'orderPipelineCounts' => $this->dashboard->orderPipelineCounts($seller),
-            'paystackConfigured' => $this->paystack->isOfferedForCollections(),
+            'paystackConfigured' => $this->paystack->isRechargeOffered(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,

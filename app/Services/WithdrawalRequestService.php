@@ -35,7 +35,8 @@ class WithdrawalRequestService
         $payoutType = ($data['payout_type'] ?? '') === 'bank' ? 'bank' : 'momo';
         $fee = PlatformSettings::feeForWithdrawal($amount, $payoutType);
         $totalDebit = round($amount + $fee, 2);
-        $auto = PlatformSettings::autoPaystackWithdrawEnabled();
+        $auto = PlatformSettings::autoPaystackWithdrawEnabled()
+            && app(PaystackService::class)->isWithdrawalOffered();
 
         $result = DB::transaction(function () use ($user, $data, $amount, $fee, $totalDebit, $payoutType) {
             $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first()

@@ -5,6 +5,7 @@ import { trackAddToCart } from '@/lib/analytics';
 interface AddToCartOptions {
     onSuccess?: () => void;
     analytics?: { name: string; price: number; quantity?: number };
+    buyerFieldValues?: Record<string, string>;
 }
 
 /** Prevents double-taps from posting add-to-cart twice in a row. */
@@ -19,7 +20,7 @@ export function addProductToCart(productId: number, options?: AddToCartOptions) 
 
     router.post(
         route('cart.store'),
-        { product_id: productId, quantity: 1 },
+        { product_id: productId, quantity: 1, buyer_field_values: options?.buyerFieldValues ?? {} },
         {
             preserveScroll: true,
             onSuccess: () => {

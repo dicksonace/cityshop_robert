@@ -1,6 +1,6 @@
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { LoaderCircle, Plus, Trash2 } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,21 @@ import { SharedData } from '@/types';
 
 type FeeTier = { min: string; max: string; fee: string };
 
+interface FlutterwaveKeys {
+    source: 'none' | 'env' | 'admin' | 'mixed';
+    configured: boolean;
+    available: boolean;
+    is_test: boolean;
+    admin_public_set: boolean;
+    admin_secret_set: boolean;
+    admin_hash_set: boolean;
+    env_public_set: boolean;
+    env_secret_set: boolean;
+    public_key_masked: string;
+    secret_key_masked: string;
+    webhook_hash_set: boolean;
+}
+
 interface Props {
     settings: {
         enabled: boolean;
@@ -20,7 +35,14 @@ interface Props {
         tiers?: { min: number; max: number | null; fee: number }[];
     };
     paymentsLocked: boolean;
+    paystackPayments?: {
+        locked: boolean;
+        checkout_enabled: boolean;
+        recharge_enabled: boolean;
+        withdrawal_enabled: boolean;
+    };
     flutterwaveLocked?: boolean;
+    flutterwaveKeys?: FlutterwaveKeys;
 }
 
 function tiersFromSettings(settings: Props['settings']): FeeTier[] {
@@ -39,10 +61,39 @@ function tiersFromSettings(settings: Props['settings']): FeeTier[] {
     }));
 }
 
-export default function PaystackFeeSettings({ settings, paymentsLocked = false, flutterwaveLocked = false }: Props) {
+export default function PaystackFeeSettings({
+    settings,
+    paymentsLocked = false,
+    paystackPayments,
+    flutterwaveLocked = false,
+    flutterwaveKeys,
+}: Props) {
     const { flash } = usePage<SharedData>().props;
-    const lockForm = useForm({ locked: paymentsLocked });
+    const payments = paystackPayments ?? {
+        locked: paymentsLocked,
+        checkout_enabled: !paymentsLocked,
+        recharge_enabled: !paymentsLocked,
+        withdrawal_enabled: true,
+    };
+    const [savingFlag, setSavingFlag] = useState<string | null>(null);
     const flwLockForm = useForm({ locked: flutterwaveLocked });
+    const keysForm = useForm({
+        public_key: '',
+        secret_key: '',
+        webhook_hash: '',
+        verify: true,
+    });
+    const verifyForm = useForm({ secret_key: '' });
+    const clearKeysForm = useForm({});
+
+    const keysSourceLabel =
+        flutterwaveKeys?.source === 'admin'
+            ? 'Using keys saved on this page'
+            : flutterwaveKeys?.source === 'mixed'
+              ? 'Using a mix of this page and server .env'
+              : flutterwaveKeys?.source === 'env'
+                ? 'Using server .env keys (set keys here to override)'
+                : 'No Flutterwave keys yet';
     const form = useForm({
         enabled: settings.enabled,
         mode: settings.mode ?? 'percent',
@@ -64,6 +115,25 @@ export default function PaystackFeeSettings({ settings, paymentsLocked = false, 
         form.post(route('admin.paystack-fees.settings.update'), { preserveScroll: true });
     };
 
+    const savePaystackFlag = (
+        key: 'checkout_enabled' | 'recharge_enabled' | 'withdrawal_enabled',
+        value: boolean,
+    ) => {
+        setSavingFlag(key);
+        router.post(
+            route('admin.paystack-fees.lock.update'),
+            {
+                checkout_enabled: key === 'checkout_enabled' ? value : payments.checkout_enabled,
+                recharge_enabled: key === 'recharge_enabled' ? value : payments.recharge_enabled,
+                withdrawal_enabled: key === 'withdrawal_enabled' ? value : payments.withdrawal_enabled,
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => setSavingFlag(null),
+            },
+        );
+    };
+
     const updateTier = (index: number, key: keyof FeeTier, value: string) => {
         form.setData(
             'tiers',
@@ -72,14 +142,15 @@ export default function PaystackFeeSettings({ settings, paymentsLocked = false, 
     };
 
     return (
-        <AdminLayout title="Paystack fees" active="paystack-fees">
+        <AdminLayout title="Paystack / Flutterwave" active="paystack-fees">
             <Head title="Paystack fees" />
 
             <div className="mx-auto max-w-2xl space-y-6">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900">Paystack fees</h1>
+                    <h1 className="text-xl font-bold text-gray-900">Paystack / Flutterwave</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Added on wallet top-up and checkout when buyers pay via Paystack or Flutterwave. Use one fee, or flat fees by amount range.
+                        Turn Paystack checkout, wallet recharge, and withdrawals on or off separately.
+                        New Paystack references start with cityshop-. Flutterwave keys stay below.
                     </p>
                 </div>
 
@@ -95,69 +166,88 @@ export default function PaystackFeeSettings({ settings, paymentsLocked = false, 
                     </div>
                 )}
 
-                <div
-                    className={`space-y-4 rounded-2xl border p-6 shadow-sm ${
-                        lockForm.data.locked
-                            ? 'border-amber-200 bg-amber-50 text-amber-950'
-                            : 'border-emerald-200 bg-emerald-50 text-emerald-950'
-                    }`}
-                >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                            <h2 className="text-base font-bold">Paystack payments</h2>
-                            <p className="mt-1 text-sm opacity-80">
-                                Disable when you want buyers and sellers to use manual MoMo / bank top-up and
-                                checkout only. Existing Paystack payments already in progress can still finish.
-                            </p>
-                        </div>
-                        <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-extrabold uppercase tracking-wide ring-1 ring-black/5">
-                            {lockForm.data.locked ? 'Disabled' : 'Enabled'}
-                        </span>
+                <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div>
+                        <h2 className="text-base font-bold text-gray-900">Paystack on / off</h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Turn checkout, wallet recharge, and withdrawals off independently. Payments already
+                            started can still finish. References sent to Paystack look like cityshop-8F3A…
+                        </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            disabled={lockForm.processing || !lockForm.data.locked}
-                            onClick={() => {
-                                lockForm.setData('locked', false);
-                                lockForm.post(route('admin.paystack-fees.lock.update'), { preserveScroll: true });
-                            }}
-                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
-                                !lockForm.data.locked
-                                    ? 'bg-emerald-600 text-white shadow-sm'
-                                    : 'bg-white text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50'
-                            } disabled:cursor-not-allowed disabled:opacity-70`}
+                    {(
+                        [
+                            {
+                                key: 'checkout_enabled' as const,
+                                title: 'Checkout',
+                                help: 'Show Paystack on web and app order payment.',
+                                on: payments.checkout_enabled,
+                            },
+                            {
+                                key: 'recharge_enabled' as const,
+                                title: 'Wallet recharge',
+                                help: 'Show Paystack on buyer and seller top-up, like RMB wallet deposit.',
+                                on: payments.recharge_enabled,
+                            },
+                            {
+                                key: 'withdrawal_enabled' as const,
+                                title: 'Withdrawals',
+                                help: 'Allow Paystack payouts (including auto withdraw). Manual mark-paid still works.',
+                                on: payments.withdrawal_enabled,
+                            },
+                        ] as const
+                    ).map((row) => (
+                        <div
+                            key={row.key}
+                            className={`rounded-xl border px-4 py-3 ${
+                                row.on
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                                    : 'border-amber-200 bg-amber-50 text-amber-950'
+                            }`}
                         >
-                            {lockForm.processing && lockForm.data.locked ? (
-                                <LoaderCircle className="h-4 w-4 animate-spin" />
-                            ) : null}
-                            Enable
-                        </button>
-                        <button
-                            type="button"
-                            disabled={lockForm.processing || lockForm.data.locked}
-                            onClick={() => {
-                                lockForm.setData('locked', true);
-                                lockForm.post(route('admin.paystack-fees.lock.update'), { preserveScroll: true });
-                            }}
-                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
-                                lockForm.data.locked
-                                    ? 'bg-amber-600 text-white shadow-sm'
-                                    : 'bg-white text-amber-900 ring-1 ring-amber-200 hover:bg-amber-50'
-                            } disabled:cursor-not-allowed disabled:opacity-70`}
-                        >
-                            {lockForm.processing && !lockForm.data.locked ? (
-                                <LoaderCircle className="h-4 w-4 animate-spin" />
-                            ) : null}
-                            Disable
-                        </button>
-                    </div>
-                    <InputError message={lockForm.errors.locked} />
-                    <p className="text-xs opacity-75">
-                        When Paystack is disabled, buyers use Flutterwave (if API keys are set) or manual MoMo /
-                        bank under Wallet funding. Keep Flutterwave enabled if you turn Paystack off.
-                    </p>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-bold">{row.title}</p>
+                                    <p className="mt-0.5 text-xs opacity-80">{row.help}</p>
+                                </div>
+                                <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-extrabold uppercase tracking-wide ring-1 ring-black/5">
+                                    {row.on ? 'On' : 'Off'}
+                                </span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    disabled={savingFlag !== null || row.on}
+                                    onClick={() => savePaystackFlag(row.key, true)}
+                                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition ${
+                                        row.on
+                                            ? 'bg-emerald-600 text-white shadow-sm'
+                                            : 'bg-white text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-50'
+                                    } disabled:cursor-not-allowed disabled:opacity-70`}
+                                >
+                                    {savingFlag === row.key && !row.on ? (
+                                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                                    ) : null}
+                                    Enable
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={savingFlag !== null || !row.on}
+                                    onClick={() => savePaystackFlag(row.key, false)}
+                                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition ${
+                                        !row.on
+                                            ? 'bg-amber-600 text-white shadow-sm'
+                                            : 'bg-white text-amber-900 ring-1 ring-amber-200 hover:bg-amber-50'
+                                    } disabled:cursor-not-allowed disabled:opacity-70`}
+                                >
+                                    {savingFlag === row.key && row.on ? (
+                                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                                    ) : null}
+                                    Disable
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
                 <div
@@ -171,9 +261,9 @@ export default function PaystackFeeSettings({ settings, paymentsLocked = false, 
                         <div>
                             <h2 className="text-base font-bold">Flutterwave payments</h2>
                             <p className="mt-1 text-sm opacity-80">
-                                Primary alternative for checkout and wallet top-up when Paystack is off. Needs
-                                FLW_PUBLIC_KEY + FLW_SECRET_KEY on the server. Withdrawals stay on Paystack.
-                                Uses the same collection fees as above.
+                                Primary alternative for checkout and wallet top-up when Paystack is off.
+                                Paste live API keys in the box below. Paystack withdrawals use the switch
+                                above. Uses the same collection fees as above.
                             </p>
                         </div>
                         <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-extrabold uppercase tracking-wide ring-1 ring-black/5">
@@ -220,6 +310,144 @@ export default function PaystackFeeSettings({ settings, paymentsLocked = false, 
                         </button>
                     </div>
                     <InputError message={flwLockForm.errors.locked} />
+                    <p className="text-xs opacity-75">
+                        Enable is not enough. Flutterwave must accept a live public + secret key below,
+                        or deposits start then bounce back with “Invalid authorization key”.
+                    </p>
+                </div>
+
+                <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div>
+                        <h2 className="text-base font-bold text-gray-900">Flutterwave API keys</h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Copy from{' '}
+                            <a
+                                href="https://app.flutterwave.com/dashboard/settings/apis"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-semibold text-orange-600 underline"
+                            >
+                                Flutterwave dashboard
+                            </a>
+                            . Leave a field blank to keep the current value. Webhook URL:{' '}
+                            <span className="font-mono text-xs">https://cityunlock.net/webhooks/flutterwave</span>
+                        </p>
+                    </div>
+
+                    <div
+                        className={`rounded-xl border px-4 py-3 text-sm ${
+                            flutterwaveKeys?.configured
+                                ? flutterwaveKeys.is_test
+                                    ? 'border-amber-200 bg-amber-50 text-amber-950'
+                                    : 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                                : 'border-red-200 bg-red-50 text-red-900'
+                        }`}
+                    >
+                        <p className="font-bold">
+                            {flutterwaveKeys?.configured
+                                ? flutterwaveKeys.available
+                                    ? 'Keys are set and Flutterwave is enabled'
+                                    : 'Keys are set, but Flutterwave is disabled above'
+                                : 'No usable Flutterwave keys — deposits will fail'}
+                        </p>
+                        <p className="mt-1 text-xs opacity-80">{keysSourceLabel}</p>
+                        {flutterwaveKeys?.public_key_masked ? (
+                            <p className="mt-2 font-mono text-xs">Public: {flutterwaveKeys.public_key_masked}</p>
+                        ) : null}
+                        {flutterwaveKeys?.secret_key_masked ? (
+                            <p className="font-mono text-xs">Secret: {flutterwaveKeys.secret_key_masked}</p>
+                        ) : null}
+                        {flutterwaveKeys?.is_test ? (
+                            <p className="mt-2 text-xs font-semibold">
+                                These look like TEST keys. Live app deposits need FLWPUBK- / FLWSECK- (not
+                                _TEST).
+                            </p>
+                        ) : null}
+                    </div>
+
+                    <div>
+                        <Label>Public key</Label>
+                        <Input
+                            value={keysForm.data.public_key}
+                            onChange={(e) => keysForm.setData('public_key', e.target.value)}
+                            className="mt-1 font-mono text-sm"
+                            placeholder={flutterwaveKeys?.public_key_masked || 'FLWPUBK-…-X'}
+                            autoComplete="off"
+                        />
+                        <InputError message={keysForm.errors.public_key} />
+                    </div>
+                    <div>
+                        <Label>Secret key</Label>
+                        <Input
+                            type="password"
+                            value={keysForm.data.secret_key}
+                            onChange={(e) => keysForm.setData('secret_key', e.target.value)}
+                            className="mt-1 font-mono text-sm"
+                            placeholder={flutterwaveKeys?.secret_key_masked || 'FLWSECK-…-X'}
+                            autoComplete="new-password"
+                        />
+                        <InputError message={keysForm.errors.secret_key} />
+                    </div>
+                    <div>
+                        <Label>Webhook secret hash (optional)</Label>
+                        <Input
+                            value={keysForm.data.webhook_hash}
+                            onChange={(e) => keysForm.setData('webhook_hash', e.target.value)}
+                            className="mt-1 font-mono text-sm"
+                            placeholder={flutterwaveKeys?.webhook_hash_set ? 'Saved — leave blank to keep' : 'Same hash as Flutterwave webhook settings'}
+                            autoComplete="off"
+                        />
+                        <InputError message={keysForm.errors.webhook_hash} />
+                    </div>
+
+                    <label className="flex items-center gap-3 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={keysForm.data.verify}
+                            onChange={(e) => keysForm.setData('verify', e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-orange-600"
+                        />
+                        Check the key with Flutterwave when saving
+                    </label>
+
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            disabled={keysForm.processing}
+                            className="bg-orange-500 hover:bg-orange-600"
+                            onClick={() => keysForm.post(route('admin.flutterwave.keys.update'), { preserveScroll: true })}
+                        >
+                            {keysForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                            Save Flutterwave keys
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={verifyForm.processing}
+                            onClick={() => {
+                                verifyForm.setData('secret_key', keysForm.data.secret_key);
+                                verifyForm.post(route('admin.flutterwave.keys.verify'), { preserveScroll: true });
+                            }}
+                        >
+                            {verifyForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                            Verify keys
+                        </Button>
+                        {(flutterwaveKeys?.admin_public_set || flutterwaveKeys?.admin_secret_set) && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="text-red-600"
+                                disabled={clearKeysForm.processing}
+                                onClick={() =>
+                                    clearKeysForm.post(route('admin.flutterwave.keys.clear'), { preserveScroll: true })
+                                }
+                            >
+                                {clearKeysForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                Clear saved keys
+                            </Button>
+                        )}
+                    </div>
+                    <InputError message={verifyForm.errors.secret_key} />
                 </div>
 
                 <form onSubmit={submit} className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">

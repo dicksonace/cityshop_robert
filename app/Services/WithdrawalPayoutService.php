@@ -40,8 +40,8 @@ class WithdrawalPayoutService
             throw new \RuntimeException('This withdrawal was already sent to Paystack. Wait for confirmation or run reconcile.');
         }
 
-        if (! $this->paystack->isConfigured()) {
-            throw new \RuntimeException('Paystack is not configured. Add PAYSTACK keys to enable payouts.');
+        if (! $this->paystack->isWithdrawalOffered()) {
+            throw new \RuntimeException($this->paystack->unavailableMessage('withdrawal'));
         }
 
         return DB::transaction(function () use ($withdrawal, $admin) {

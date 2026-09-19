@@ -11,9 +11,16 @@ import HeadingSmall from '@/components/heading-small';
 
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
-export default function DeleteUser() {
+export default function DeleteUser({
+    canDelete = true,
+    blockers = [],
+}: {
+    canDelete?: boolean;
+    blockers?: string[];
+}) {
     const passwordInput = useRef<HTMLInputElement>(null);
     const { data, setData, delete: destroy, processing, reset, errors, clearErrors } = useForm({ password: '' });
+    const blocked = !canDelete || blockers.length > 0;
 
     const deleteUser: FormEventHandler = (e) => {
         e.preventDefault();
@@ -40,9 +47,22 @@ export default function DeleteUser() {
                     <p className="text-sm">Please proceed with caution, this cannot be undone.</p>
                 </div>
 
+                {blocked && (
+                    <div className="space-y-1 text-sm text-red-800">
+                        <p className="font-semibold">Finish these first:</p>
+                        <ul className="list-disc space-y-1 pl-5">
+                            {blockers.map((reason) => (
+                                <li key={reason}>{reason}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
                 <Dialog>
                     <DialogTrigger asChild>
-                        <Button variant="destructive">Delete account</Button>
+                        <Button variant="destructive" disabled={blocked}>
+                            Delete account
+                        </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogTitle>Are you sure you want to delete your account?</DialogTitle>
@@ -68,6 +88,7 @@ export default function DeleteUser() {
                                 />
 
                                 <InputError message={errors.password} />
+                                <InputError message={errors.account} />
                             </div>
 
                             <DialogFooter>

@@ -89,6 +89,15 @@ class SellRmbController extends Controller
         ]);
     }
 
+    public function attachProof(Request $request, SellRmbTransfer $sellRmbTransfer): RedirectResponse
+    {
+        abort_unless($request->user() && (int) $sellRmbTransfer->user_id === (int) $request->user()->id, 403);
+
+        $this->sellRmb->attachBuyerProof($sellRmbTransfer, $request->user(), $request);
+
+        return back()->with('success', 'Payment proof uploaded.');
+    }
+
     public function cancel(Request $request, SellRmbTransfer $sellRmbTransfer): RedirectResponse
     {
         abort_unless($request->user() && (int) $sellRmbTransfer->user_id === (int) $request->user()->id, 403);

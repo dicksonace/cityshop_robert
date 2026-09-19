@@ -39,6 +39,7 @@ class ProductResource extends JsonResource
             'ships_nationwide' => (bool) ($this->ships_nationwide ?? false),
             'is_negotiable' => (bool) ($this->is_negotiable ?? false),
             'specifications' => $this->specifications ?? [],
+            'buyer_fields' => $this->buyer_fields ?? [],
             'video_path' => $this->video_path,
             'video_url' => $this->video_path
                 ? (str_starts_with((string) $this->video_path, 'http')

@@ -10,6 +10,7 @@ use App\Models\ProductImage;
 use App\Models\Review;
 use App\Services\CategorySpecService;
 use App\Services\ProductAnalyticsService;
+use App\Services\ProductBuyerFieldService;
 use App\Services\ProductVideoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -527,6 +528,7 @@ class ProductController extends Controller
             $payload['in_ghana'] = (bool) $product->in_ghana;
             $payload['specifications'] = $product->specifications ?? [];
             $payload['spec_fields'] = $product->category?->specFields() ?? [];
+            $payload['buyer_fields'] = $product->buyer_fields ?? [];
         }
 
         return $payload;
@@ -593,6 +595,11 @@ class ProductController extends Controller
             'ships_nationwide' => ['sometimes', 'boolean'],
             'in_ghana' => ['sometimes', 'boolean'],
             'specifications' => ['nullable', 'array'],
+            'buyer_fields' => ['nullable', 'array', 'max:20'],
+            'buyer_fields.*.label' => ['nullable', 'string', 'max:120'],
+            'buyer_fields.*.placeholder' => ['nullable', 'string', 'max:160'],
+            'buyer_fields.*.type' => ['nullable', 'string', 'max:20'],
+            'buyer_fields.*.required' => ['nullable', 'boolean'],
             'images' => $imageRules,
             'images.*' => ['image', 'max:5120'],
             'remove_image_ids' => ['nullable', 'array'],
@@ -627,7 +634,7 @@ class ProductController extends Controller
      */
     private function listingAttributes(array $validated, Request $request, ?Product $product = null): array
     {
-        $data = collect($validated)->except(['images', 'remove_image_ids', 'specifications'])->all();
+        $data = collect($validated)->except(['images', 'remove_image_ids', 'specifications', 'buyer_fields'])->all();
         $data = $this->withListingDefaults($data, creating: $product === null);
 
         $categoryId = $validated['category_id'] ?? $product?->category_id;
@@ -636,6 +643,10 @@ class ProductController extends Controller
                 $categoryId !== null ? (int) $categoryId : null,
                 is_array($request->input('specifications')) ? $request->input('specifications') : [],
             );
+        }
+
+        if ($request->exists('buyer_fields') || $product === null) {
+            $data['buyer_fields'] = ProductBuyerFieldService::normalize($request->input('buyer_fields', []));
         }
 
         return $data;

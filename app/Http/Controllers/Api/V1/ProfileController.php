@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\UserResource;
+use App\Services\BuyerAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -82,5 +83,29 @@ class ProfileController extends Controller
         ])->save();
 
         return response()->json(['message' => 'Password updated.']);
+    }
+
+    public function deletionStatus(Request $request, BuyerAccountService $accounts): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isBuyer(), 403);
+
+        return response()->json($accounts->selfDeletionStatus($user));
+    }
+
+    public function destroy(Request $request, BuyerAccountService $accounts): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isBuyer(), 403, 'Only buyer accounts can be deleted in the app.');
+
+        $request->validate([
+            'password' => ['required', 'current_password'],
+        ]);
+
+        $accounts->selfDelete($user);
+
+        return response()->json([
+            'message' => 'Your CityShop account has been deleted.',
+        ]);
     }
 }

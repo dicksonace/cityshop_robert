@@ -91,6 +91,13 @@ class ApiAdminHubTest extends TestCase
             ->assertJsonPath('data.0.id', $buyer->id);
 
         $this->getJson('/api/v1/admin/settings/sms')->assertOk()->assertJsonStructure(['settings', 'providers']);
+        $this->getJson('/api/v1/admin/settings/paystack')
+            ->assertOk()
+            ->assertJsonStructure([
+                'settings',
+                'payments_locked',
+                'paystack_payments' => ['locked', 'checkout_enabled', 'recharge_enabled', 'withdrawal_enabled'],
+            ]);
         $this->getJson('/api/v1/admin/china-transfers')->assertOk()->assertJsonStructure(['data', 'dashboard']);
         $this->getJson('/api/v1/admin/sell-rmb')->assertOk()->assertJsonStructure(['data', 'dashboard']);
         $this->getJson('/api/v1/admin/transactions')->assertOk();

@@ -17,6 +17,7 @@ use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
+use App\Support\WithdrawalPresentation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -77,7 +78,7 @@ class WalletController extends Controller
             'currencyFilter' => in_array($currency, ['GHS', 'RMB'], true) ? $currency : 'all',
             'withdrawals' => $withdrawals,
             'hasPendingWithdrawal' => $hasPendingWithdrawal,
-            'paystackConfigured' => $this->paystack->isOfferedForCollections(),
+            'paystackConfigured' => $this->paystack->isRechargeOffered(),
             'paystackPublicKey' => config('services.paystack.public_key'),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
@@ -132,8 +133,8 @@ class WalletController extends Controller
             'method' => ['required', 'in:momo,card'],
         ]);
 
-        if (! $this->paystack->isAvailable()) {
-            $message = $this->paystack->unavailableMessage();
+        if (! $this->paystack->isRechargeOffered()) {
+            $message = $this->paystack->unavailableMessage('recharge');
 
             return $request->expectsJson()
                 ? response()->json(['message' => $message], 503)
@@ -372,7 +373,24 @@ class WalletController extends Controller
             ]);
         }
 
-        return redirect()->route('wallet.index')->with('success', $result['message']);
+        return redirect()
+            ->route('wallet.withdrawals.show', $result['withdrawal'])
+            ->with('success', $result['message']);
+    }
+
+    public function showWithdrawal(Request $request, Withdrawal $withdrawal): Response|JsonResponse
+    {
+        abort_unless($withdrawal->user_id === $request->user()->id, 403);
+
+        $view = WithdrawalPresentation::forUser($withdrawal);
+
+        if ($request->boolean('json') || $request->wantsJson()) {
+            return response()->json(['data' => $view]);
+        }
+
+        return Inertia::render('shop/wallet/withdrawal-show', [
+            'withdrawal' => $view,
+        ]);
     }
 
     public function convertForm(Request $request): Response

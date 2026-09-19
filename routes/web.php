@@ -172,6 +172,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/wallet/flutterwave/callback', [BuyerWalletController::class, 'flutterwaveCallback'])->name('wallet.flutterwave.callback');
     Route::get('/wallet/withdraw', [BuyerWalletController::class, 'createWithdraw'])->name('wallet.withdraw.create');
     Route::post('/wallet/withdraw', [BuyerWalletController::class, 'withdraw'])->name('wallet.withdraw');
+    Route::get('/wallet/withdrawals/{withdrawal}', [BuyerWalletController::class, 'showWithdrawal'])->name('wallet.withdrawals.show');
     Route::get('/wallet/manual-top-up', [WalletManualTopUpController::class, 'show'])->name('wallet.manual-top-up');
     Route::post('/wallet/manual-top-up', [WalletManualTopUpController::class, 'store'])->name('wallet.manual-top-up.store');
     Route::get('/wallet/manual-top-up/{topUp}', [WalletManualTopUpController::class, 'showRequest'])->name('wallet.manual-top-up.show');
@@ -191,6 +192,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/wallet/sell-rmb', [BuyerSellRmbController::class, 'store'])->name('wallet.sell-rmb.store');
     Route::post('/wallet/sell-rmb/quote', [BuyerSellRmbController::class, 'quote'])->name('wallet.sell-rmb.quote');
     Route::get('/wallet/sell-rmb/{sellRmbTransfer}', [BuyerSellRmbController::class, 'show'])->name('wallet.sell-rmb.show');
+    Route::post('/wallet/sell-rmb/{sellRmbTransfer}/proof', [BuyerSellRmbController::class, 'attachProof'])->name('wallet.sell-rmb.proof');
     Route::post('/wallet/sell-rmb/{sellRmbTransfer}/cancel', [BuyerSellRmbController::class, 'cancel'])->name('wallet.sell-rmb.cancel');
 
     Route::get('/gsm-tools', [BuyerGsmToolController::class, 'index'])->name('gsm-tools.index');
@@ -382,6 +384,9 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/paystack-fees/settings', [PaystackFeeSettingsController::class, 'update'])->name('paystack-fees.settings.update');
     Route::post('/paystack-fees/lock', [PaystackFeeSettingsController::class, 'updateLock'])->name('paystack-fees.lock.update');
     Route::post('/flutterwave/lock', [PaystackFeeSettingsController::class, 'updateFlutterwaveLock'])->name('flutterwave.lock.update');
+    Route::post('/flutterwave/keys', [PaystackFeeSettingsController::class, 'updateFlutterwaveKeys'])->name('flutterwave.keys.update');
+    Route::post('/flutterwave/keys/verify', [PaystackFeeSettingsController::class, 'verifyFlutterwaveKeys'])->name('flutterwave.keys.verify');
+    Route::post('/flutterwave/keys/clear', [PaystackFeeSettingsController::class, 'clearFlutterwaveKeys'])->name('flutterwave.keys.clear');
     Route::get('/china-transfers', [AdminChinaTransferController::class, 'index'])->name('china-transfers.index');
     Route::get('/china-transfers/{chinaTransfer}', [AdminChinaTransferController::class, 'show'])->name('china-transfers.show');
     Route::post('/china-transfers/{chinaTransfer}/verify', [AdminChinaTransferController::class, 'verify'])->name('china-transfers.verify');
@@ -423,6 +428,7 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/sell-rmb/{sellRmbTransfer}/approve-payout', [AdminSellRmbController::class, 'approvePayout'])->name('sell-rmb.approve-payout');
     Route::post('/sell-rmb/{sellRmbTransfer}/paid', [AdminSellRmbController::class, 'paid'])->name('sell-rmb.paid');
     Route::post('/sell-rmb/{sellRmbTransfer}/complete', [AdminSellRmbController::class, 'complete'])->name('sell-rmb.complete');
+    Route::post('/sell-rmb/{sellRmbTransfer}/complete-with-proof', [AdminSellRmbController::class, 'completeWithProof'])->name('sell-rmb.complete-with-proof');
     Route::post('/sell-rmb/{sellRmbTransfer}/reject', [AdminSellRmbController::class, 'reject'])->name('sell-rmb.reject');
     Route::post('/sell-rmb/{sellRmbTransfer}/fail', [AdminSellRmbController::class, 'fail'])->name('sell-rmb.fail');
     Route::post('/sell-rmb/{sellRmbTransfer}/cancel', [AdminSellRmbController::class, 'cancel'])->name('sell-rmb.cancel');

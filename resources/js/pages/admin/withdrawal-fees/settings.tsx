@@ -112,7 +112,8 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                                     Enable Paystack auto withdrawal
                                 </span>
                                 <span className="mt-0.5 block text-xs text-gray-600">
-                                    Buyer and seller withdrawals go out via Paystack without admin approval. Turn off to
+                                    Buyer and seller withdrawals go out via Paystack without admin approval. This still
+                                    needs Paystack withdrawals enabled under Paystack / Flutterwave. Turn off to
                                     keep the manual review queue.
                                 </span>
                             </span>

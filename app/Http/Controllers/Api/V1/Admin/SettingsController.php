@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\FlutterwaveService;
 use App\Services\PlatformSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -101,7 +102,9 @@ class SettingsController extends Controller
         return response()->json([
             'settings' => PlatformSettings::paystackFeeSettings(),
             'payments_locked' => PlatformSettings::paystackPaymentsLocked(),
+            'paystack_payments' => PlatformSettings::paystackPaymentsSettings(),
             'flutterwave_locked' => PlatformSettings::flutterwavePaymentsLocked(),
+            'flutterwave_keys' => PlatformSettings::flutterwaveKeysStatus(),
         ]);
     }
 
@@ -131,16 +134,33 @@ class SettingsController extends Controller
 
     public function updatePaystackLock(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'locked' => ['required', 'boolean'],
+        $request->validate([
+            'locked' => ['nullable', 'boolean'],
+            'checkout_enabled' => ['nullable', 'boolean'],
+            'recharge_enabled' => ['nullable', 'boolean'],
+            'withdrawal_enabled' => ['nullable', 'boolean'],
         ]);
-        $locked = (bool) $validated['locked'];
-        PlatformSettings::savePaystackPaymentsSettings(['locked' => $locked]);
+
+        $validated = [];
+        foreach (['locked', 'checkout_enabled', 'recharge_enabled', 'withdrawal_enabled'] as $key) {
+            if ($request->exists($key)) {
+                $validated[$key] = $request->boolean($key);
+            }
+        }
+
+        if ($validated === []) {
+            return response()->json(['message' => 'Choose which Paystack option to turn on or off.'], 422);
+        }
+
+        PlatformSettings::savePaystackPaymentsSettings($validated);
+        $settings = PlatformSettings::paystackPaymentsSettings();
 
         return response()->json([
-            'message' => $locked
-                ? 'Paystack disabled. Buyers/sellers should use Flutterwave or manual MoMo / bank.'
-                : 'Paystack enabled.',
+            'message' => 'Paystack saved. Checkout: '.($settings['checkout_enabled'] ? 'on' : 'off')
+                .'. Recharge: '.($settings['recharge_enabled'] ? 'on' : 'off')
+                .'. Withdrawals: '.($settings['withdrawal_enabled'] ? 'on' : 'off').'.',
+            'payments_locked' => $settings['locked'],
+            'paystack_payments' => $settings,
         ]);
     }
 
@@ -156,6 +176,88 @@ class SettingsController extends Controller
             'message' => $locked
                 ? 'Flutterwave disabled. Buyers/sellers should use Paystack or manual MoMo / bank.'
                 : 'Flutterwave enabled.',
+        ]);
+    }
+
+    public function updateFlutterwaveKeys(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'public_key' => ['nullable', 'string', 'max:255'],
+            'secret_key' => ['nullable', 'string', 'max:255'],
+            'webhook_hash' => ['nullable', 'string', 'max:255'],
+            'verify' => ['nullable', 'boolean'],
+        ]);
+
+        $public = trim((string) ($validated['public_key'] ?? ''));
+        $secret = trim((string) ($validated['secret_key'] ?? ''));
+        $hash = trim((string) ($validated['webhook_hash'] ?? ''));
+
+        if ($public === '' && $secret === '' && $hash === '') {
+            return response()->json(['message' => 'Paste at least a Flutterwave public or secret key.'], 422);
+        }
+
+        PlatformSettings::saveFlutterwaveApiKeys([
+            'public_key' => $public,
+            'secret_key' => $secret,
+            'webhook_hash' => $hash,
+        ]);
+
+        $status = PlatformSettings::flutterwaveKeysStatus();
+        if ($request->boolean('verify', true)) {
+            $probe = app(FlutterwaveService::class)->probeCredentials(
+                $secret !== '' ? $secret : null,
+            );
+            if (! $probe['ok']) {
+                return response()->json([
+                    'message' => 'Keys saved, but Flutterwave rejected them: '.$probe['message'],
+                    'flutterwave_keys' => $status,
+                    'verified' => false,
+                ], 422);
+            }
+
+            return response()->json([
+                'message' => 'Flutterwave keys saved. '.$probe['message'],
+                'flutterwave_keys' => $status,
+                'verified' => true,
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Flutterwave keys saved.',
+            'flutterwave_keys' => $status,
+        ]);
+    }
+
+    public function verifyFlutterwaveKeys(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'secret_key' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $secret = trim((string) ($validated['secret_key'] ?? ''));
+        if ($secret !== '') {
+            $secret = PlatformSettings::normalizeFlutterwaveSecretKey($secret);
+        }
+
+        $probe = app(FlutterwaveService::class)->probeCredentials($secret !== '' ? $secret : null);
+
+        return response()->json([
+            'message' => $probe['message'],
+            'verified' => $probe['ok'],
+            'flutterwave_keys' => PlatformSettings::flutterwaveKeysStatus(),
+        ], $probe['ok'] ? 200 : 422);
+    }
+
+    public function clearFlutterwaveKeys(): JsonResponse
+    {
+        PlatformSettings::clearFlutterwaveApiKeys();
+        $status = PlatformSettings::flutterwaveKeysStatus();
+
+        return response()->json([
+            'message' => $status['configured']
+                ? 'Admin Flutterwave keys cleared. Deposits will use the server .env keys.'
+                : 'Admin Flutterwave keys cleared. Set keys here or on the server before buyers can deposit.',
+            'flutterwave_keys' => $status,
         ]);
     }
 

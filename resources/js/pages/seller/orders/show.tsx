@@ -292,6 +292,16 @@ export default function SellerOrderShow({
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900">{orderItem.product_name}</h2>
                                 <p className="text-gray-500">Qty: {orderItem.quantity} · {formatPrice(orderItem.unit_price)} each</p>
+                                {Array.isArray(orderItem.buyer_field_values) && orderItem.buyer_field_values.length > 0 && (
+                                    <div className="mt-3 space-y-1 rounded-xl bg-orange-50 px-3 py-2 text-sm">
+                                        {orderItem.buyer_field_values.map((field) => (
+                                            <p key={field.key}>
+                                                <span className="font-semibold text-gray-700">{field.label}: </span>
+                                                <span className="text-gray-900">{field.value || '—'}</span>
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
                                 <p className="mt-2 text-2xl font-bold text-orange-500">{formatPrice(orderItem.unit_price * orderItem.quantity)}</p>
                             </div>
                         </div>

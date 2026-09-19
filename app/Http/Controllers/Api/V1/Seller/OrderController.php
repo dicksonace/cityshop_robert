@@ -344,6 +344,7 @@ class OrderController extends Controller
         return [
             'id' => $orderItem->id,
             'product_name' => $orderItem->product_name,
+            'buyer_field_values' => $orderItem->buyer_field_values ?? [],
             'quantity' => (int) $orderItem->quantity,
             'unit_price' => (float) $orderItem->unit_price,
             'seller_amount' => (float) $orderItem->seller_amount,

@@ -44,7 +44,7 @@ const statusColor: Record<string, string> = {
 };
 
 const statusLabel: Record<string, string> = {
-    pending: 'Pending',
+    pending: 'Processing',
     processing: 'Processing',
     paid: 'Completed',
     rejected: 'Rejected',
@@ -418,7 +418,11 @@ export default function BuyerWithdraw({
                     ) : (
                         <div className="mt-3 space-y-2">
                             {withdrawals.data.map((w) => (
-                                <div key={w.id} className="flex items-start justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+                                <Link
+                                    key={w.id}
+                                    href={route('wallet.withdrawals.show', w.id)}
+                                    className="flex items-start justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm"
+                                >
                                     <div className="min-w-0">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusColor[w.status] ?? 'bg-gray-100 text-gray-700'}`}>
@@ -430,7 +434,7 @@ export default function BuyerWithdraw({
                                         <p className="text-xs text-gray-400">{formatDate(w.created_at)}</p>
                                     </div>
                                     <p className="shrink-0 font-semibold text-orange-600">{formatPrice(w.amount)}</p>
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     )}

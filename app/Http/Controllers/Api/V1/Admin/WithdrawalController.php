@@ -162,6 +162,7 @@ class WithdrawalController extends Controller
             'payout_channel' => $withdrawal->payout_channel,
             'paystack_reference' => $withdrawal->paystack_reference,
             'paystack_status' => $withdrawal->paystack_status,
+            'paystack_payout_available' => app(\App\Services\PaystackService::class)->isWithdrawalOffered(),
             'status' => $withdrawal->status?->value ?? (string) $withdrawal->status,
             'admin_notes' => $withdrawal->admin_notes,
             'rejection_reason' => $withdrawal->rejection_reason,

@@ -28,6 +28,7 @@ class Product extends Model
         'meta_description',
         'meta_keywords',
         'specifications',
+        'buyer_fields',
         'sku',
         'brand',
         'condition',
@@ -77,6 +78,7 @@ class Product extends Model
             'in_ghana' => 'boolean',
             'rating' => 'decimal:2',
             'specifications' => 'array',
+            'buyer_fields' => 'array',
         ];
     }
 

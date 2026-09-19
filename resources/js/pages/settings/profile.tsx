@@ -20,7 +20,15 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: boolean; status?: string }) {
+export default function Profile({
+    mustVerifyEmail,
+    status,
+    deletion,
+}: {
+    mustVerifyEmail: boolean;
+    status?: string;
+    deletion?: { can_delete: boolean; blockers: string[] };
+}) {
     const { auth, flash } = usePage<SharedData>().props;
     const roleLabel = auth.user?.role === 'seller' ? 'Seller' : auth.user?.role === 'buyer' ? 'Buyer' : undefined;
     const canEditDetails = auth.user?.role === 'admin';
@@ -165,7 +173,9 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
                     )}
                 </div>
 
-                {auth.user?.role !== 'seller' && <DeleteUser />}
+                {auth.user?.role !== 'seller' && (
+                    <DeleteUser canDelete={deletion?.can_delete !== false} blockers={deletion?.blockers ?? []} />
+                )}
             </SettingsLayout>
         </AppLayout>
     );

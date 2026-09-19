@@ -340,6 +340,62 @@ class SellRmbTest extends TestCase
         $this->assertFalse($transfer->fresh()->proofs()->where('type', 'payout_sent')->exists());
     }
 
+    public function test_buyer_can_submit_with_top_level_proof_like_buy_rmb(): void
+    {
+        Storage::fake('public');
+        Notification::fake();
+
+        $opened = $this->openService();
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $payload = [
+            'rmb_amount' => 250,
+            'payout_currency' => 'ghs',
+            'receive_method_id' => $opened['method']->id,
+            'proof' => UploadedFile::fake()->image('alipay-paid.jpg'),
+            'fields' => [],
+        ];
+
+        foreach (SellRmbFormField::query()->where('active', true)->get() as $field) {
+            if ($field->isFile() || strtolower((string) $field->group) === 'payment') {
+                continue;
+            }
+            if ($field->required) {
+                $payload['fields'][$field->id] = $field->type === 'phone' ? '0530790002' : 'Robert Asare';
+            }
+        }
+
+        Sanctum::actingAs($buyer);
+        $this->post('/api/v1/wallet/sell-rmb', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'submitted')
+            ->assertJsonPath('data.can_attach_proof', true);
+
+        $transfer = SellRmbTransfer::query()->where('user_id', $buyer->id)->latest('id')->firstOrFail();
+        $this->assertNotNull($transfer->payment_proof_path);
+        $this->assertTrue($transfer->proofs()->where('type', 'payment_received')->exists());
+        $this->assertNotEmpty($transfer->paymentProofUrl());
+    }
+
+    public function test_admin_complete_with_proof_stores_payout_screenshot(): void
+    {
+        Storage::fake('public');
+        Notification::fake();
+
+        $opened = $this->openService();
+        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $admin = $opened['admin'];
+        $transfer = $this->submitTransfer($buyer, $opened['method']);
+
+        Sanctum::actingAs($admin);
+        $this->post('/api/v1/admin/sell-rmb/'.$transfer->id.'/complete-with-proof', [
+            'proof' => UploadedFile::fake()->image('momo-sent.jpg'),
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'completed');
+
+        $this->assertTrue($transfer->fresh()->proofs()->where('type', 'payout_sent')->exists());
+        $this->assertTrue($transfer->fresh()->proofs()->where('type', 'payment_received')->exists());
+    }
+
     public function test_admin_mark_paid_allows_optional_proof(): void
     {
         Storage::fake('public');

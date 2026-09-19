@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 
 type Field = {
@@ -40,6 +40,8 @@ type Transfer = {
     rejection_reason: string | null;
     payout_amount: number | null;
     can_cancel: boolean;
+    can_attach_proof?: boolean;
+    payment_proof_url?: string | null;
     fields: Field[];
     proofs: { id: number; type: string; url: string; original_name: string | null }[];
     created_at: string | null;
@@ -100,6 +102,8 @@ export function SellRmbStatusView({ transfer, onRefresh, onCancel, walletHref, h
             ? formatGhs(transfer.quote.ghs_payout)
             : `$${transfer.quote.usd_payout.toFixed(2)}`;
     const payoutProofs = transfer.proofs.filter((p) => p.type === 'payout_sent');
+    const buyerProofs = transfer.proofs.filter((p) => p.type === 'payment_received');
+    const buyerProofUrl = transfer.payment_proof_url || buyerProofs[0]?.url || null;
     const isProcessing = !TERMINAL.includes(transfer.status);
     const isCompleted = transfer.status === 'completed';
     const isRejected = transfer.status === 'rejected' || transfer.status === 'failed';
@@ -230,6 +234,55 @@ export function SellRmbStatusView({ transfer, onRefresh, onCancel, walletHref, h
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>{badgeLabel}</span>
                         </div>
                     </div>
+
+                    {buyerProofUrl && (
+                        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                            <p className="mb-2 text-sm font-semibold text-emerald-800">Alipay payment proof</p>
+                            <a
+                                href={buyerProofUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block overflow-hidden rounded-lg border border-emerald-200 bg-white"
+                            >
+                                <img
+                                    src={buyerProofUrl}
+                                    alt="Alipay payment proof"
+                                    className="mx-auto max-h-48 w-full object-contain"
+                                />
+                            </a>
+                        </div>
+                    )}
+
+                    {transfer.can_attach_proof && (
+                        <form
+                            className="mb-4 space-y-2 rounded-xl border border-dashed border-emerald-300 bg-white p-4"
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const input = e.currentTarget.elements.namedItem('proof') as HTMLInputElement | null;
+                                const file = input?.files?.[0];
+                                if (!file) return;
+                                router.post(
+                                    route('wallet.sell-rmb.proof', transfer.id),
+                                    { proof: file },
+                                    { forceFormData: true, onSuccess: () => void onRefresh() },
+                                );
+                            }}
+                        >
+                            <p className="text-sm font-semibold text-gray-900">
+                                {buyerProofUrl ? 'Replace payment proof' : 'Add payment proof'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                Same as Buy RMB — upload the Alipay screenshot so admin can verify.
+                            </p>
+                            <input name="proof" type="file" accept="image/*,.pdf" required />
+                            <button
+                                type="submit"
+                                className="w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                            >
+                                Upload proof
+                            </button>
+                        </form>
+                    )}
 
                     {transfer.rejection_reason && (
                         <div className="mb-4 rounded-r-lg border-l-4 border-red-400 bg-red-50 p-4">

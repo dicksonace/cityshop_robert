@@ -13,7 +13,15 @@ class CartItem extends Model
         'user_id',
         'product_id',
         'quantity',
+        'buyer_field_values',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'buyer_field_values' => 'array',
+        ];
+    }
 
     public function user(): BelongsTo
     {

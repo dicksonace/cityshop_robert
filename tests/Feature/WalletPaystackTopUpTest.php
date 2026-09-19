@@ -8,6 +8,7 @@ use App\Models\SellerProfile;
 use App\Models\StoreCustomization;
 use App\Models\User;
 use App\Services\PaystackService;
+use App\Services\PlatformSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -100,7 +101,7 @@ class WalletPaystackTopUpTest extends TestCase
                 && ($payload['currency'] ?? null) === 'GHS'
                 && ($payload['email'] ?? null) === 'cs'.$buyer->id.'@pay.cityunlock.net'
                 && str_starts_with((string) ($payload['callback_url'] ?? ''), 'https://')
-                && str_starts_with((string) ($payload['reference'] ?? ''), 'CITYSHOP-')
+                && str_starts_with((string) ($payload['reference'] ?? ''), 'cityshop-')
                 && (int) ($payload['amount'] ?? 0) >= 1000
                 && ($payload['metadata']['type'] ?? null) === 'wallet_topup'
                 && ($payload['metadata']['account_name'] ?? null) === 'Kofi amoah';
@@ -181,6 +182,34 @@ class WalletPaystackTopUpTest extends TestCase
             ])
             ->assertStatus(500)
             ->assertJsonPath('message', 'Invalid email address');
+    }
+
+    public function test_disabled_recharge_hides_paystack_and_blocks_top_up(): void
+    {
+        PlatformSettings::savePaystackPaymentsSettings([
+            'checkout_enabled' => true,
+            'recharge_enabled' => false,
+            'withdrawal_enabled' => true,
+        ]);
+        $this->app->forgetInstance(PaystackService::class);
+
+        $buyer = User::factory()->create([
+            'role' => UserRole::Buyer,
+            'mobile' => '0248620718',
+        ]);
+
+        $this->actingAs($buyer)
+            ->get(route('wallet.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('paystackConfigured', false));
+
+        $this->actingAs($buyer)
+            ->postJson(route('wallet.add-funds'), [
+                'amount' => 10,
+                'method' => 'momo',
+            ])
+            ->assertStatus(503)
+            ->assertJsonPath('message', 'Paystack wallet recharge is disabled. Please use Flutterwave or manual MoMo / bank.');
     }
 
     public function test_api_recharge_returns_paystack_url(): void

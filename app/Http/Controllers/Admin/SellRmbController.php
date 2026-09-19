@@ -118,6 +118,13 @@ class SellRmbController extends Controller
         return back()->with('success', 'Sell RMB completed.');
     }
 
+    public function completeWithProof(Request $request, SellRmbTransfer $sellRmbTransfer): RedirectResponse
+    {
+        $this->sellRmb->uploadProofAndComplete($sellRmbTransfer, $request->user(), $request);
+
+        return back()->with('success', 'Sell RMB completed. Buyer can view the payout proof.');
+    }
+
     public function reject(Request $request, SellRmbTransfer $sellRmbTransfer): RedirectResponse
     {
         $validated = $request->validate([

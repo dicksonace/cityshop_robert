@@ -35,7 +35,10 @@ export default function ProductShow({ product, cashOnDelivery, related, reviews,
     const price = product.discount_price ?? product.price;
     const [likes, setLikes] = useState(product.wishlist_adds ?? 0);
     const [videoPlays, setVideoPlays] = useState(product.video_plays ?? 0);
+    const [buyerFieldValues, setBuyerFieldValues] = useState<Record<string, string>>({});
+    const [buyerFieldError, setBuyerFieldError] = useState<string | null>(null);
     const hasVideo = Boolean(product.video_path);
+    const buyerFields = product.buyer_fields ?? [];
 
     useEffect(() => {
         setLikes(product.wishlist_adds ?? 0);
@@ -70,8 +73,15 @@ export default function ProductShow({ product, cashOnDelivery, related, reviews,
         if (!product.is_preorder && product.quantity < 1) {
             return;
         }
+        const missing = buyerFields.find((field) => field.required !== false && !buyerFieldValues[field.key]?.trim());
+        if (missing) {
+            setBuyerFieldError(`Enter ${missing.label}.`);
+            return;
+        }
+        setBuyerFieldError(null);
         addProductToCart(product.id, {
             analytics: { name: product.name, price },
+            buyerFieldValues,
         });
     };
 
@@ -380,6 +390,29 @@ export default function ProductShow({ product, cashOnDelivery, related, reviews,
                         </div>
                     </div>
                 </div>
+
+                {buyerFields.length > 0 && (
+                    <section className="mt-8 space-y-3 rounded-2xl border border-orange-100 bg-orange-50/40 p-4">
+                        <h2 className="text-base font-bold text-gray-900">Information for this order</h2>
+                        {buyerFields.map((field) => (
+                            <label key={field.key} className="block">
+                                <span className="text-sm font-semibold text-gray-800">
+                                    {field.label}
+                                    {field.required !== false ? ' *' : ''}
+                                </span>
+                                <input
+                                    value={buyerFieldValues[field.key] ?? ''}
+                                    onChange={(e) =>
+                                        setBuyerFieldValues((current) => ({ ...current, [field.key]: e.target.value }))
+                                    }
+                                    placeholder={field.placeholder || field.label}
+                                    className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+                                />
+                            </label>
+                        ))}
+                        {buyerFieldError && <p className="text-sm font-medium text-red-600">{buyerFieldError}</p>}
+                    </section>
+                )}
 
                 <ProductSpecifications
                     category={product.category}

@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { FormEventHandler, useMemo } from 'react';
+import { FormEventHandler, useEffect, useMemo, useState } from 'react';
 
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -69,9 +69,22 @@ export default function SellRmbCreate({ config }: Props) {
         rmb_amount: initialRmb,
         payout_currency: 'ghs' as const,
         receive_method_id: String(config.receive_methods[0]?.id ?? ''),
+        proof: null as File | null,
         fields: {} as Record<string, string>,
         files: {} as Record<string, File | null>,
     });
+    const [proofPreview, setProofPreview] = useState<string | null>(null);
+
+    useEffect(() => {
+        const file = form.data.proof;
+        if (!file || !file.type.startsWith('image/')) {
+            setProofPreview(null);
+            return;
+        }
+        const url = URL.createObjectURL(file);
+        setProofPreview(url);
+        return () => URL.revokeObjectURL(url);
+    }, [form.data.proof]);
 
     const quote = useMemo(() => {
         const amount = Number(form.data.rmb_amount);
@@ -98,6 +111,9 @@ export default function SellRmbCreate({ config }: Props) {
             payout_currency: 'ghs',
             receive_method_id: form.data.receive_method_id,
         };
+        if (form.data.proof) {
+            payload.proof = form.data.proof;
+        }
         Object.entries(form.data.fields).forEach(([id, value]) => {
             payload[`fields[${id}]`] = value;
         });
@@ -205,7 +221,11 @@ export default function SellRmbCreate({ config }: Props) {
         );
     };
 
-    const paymentFields = config.fields.filter((f) => f.group === 'payment');
+    const paymentFields = config.fields.filter((f) => {
+        if (f.group !== 'payment') return false;
+        const name = f.name.toLowerCase();
+        return name !== 'payment_screenshot' && !name.includes('proof') && !name.includes('screenshot');
+    });
     const payoutFields = config.fields.filter(
         (f) => f.group === 'payout' || f.group === 'recipient',
     );
@@ -298,6 +318,43 @@ export default function SellRmbCreate({ config }: Props) {
                             />
                         )}
                         {paymentFields.map(renderField)}
+                        <div className="space-y-2">
+                            <Label>
+                                Payment screenshot <span className="text-red-600">*</span>
+                            </Label>
+                            <p className="text-xs text-gray-500">
+                                Upload a clear Alipay screenshot so admin can verify, same as Buy RMB proof.
+                            </p>
+                            {!form.data.proof ? (
+                                <input
+                                    type="file"
+                                    accept="image/*,.pdf"
+                                    onChange={(e) => form.setData('proof', e.target.files?.[0] ?? null)}
+                                />
+                            ) : (
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                                    {proofPreview && (
+                                        <img
+                                            src={proofPreview}
+                                            alt="Payment screenshot preview"
+                                            className="mb-2 max-h-56 w-full rounded-lg object-contain"
+                                        />
+                                    )}
+                                    <p className="text-sm font-semibold text-emerald-900">{form.data.proof.name}</p>
+                                    <div className="mt-2 flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => form.setData('proof', null)}
+                                        >
+                                            Remove
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                            <InputError message={form.errors.proof || form.errors['files.proof']} />
+                        </div>
                     </section>
 
                     <section className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4">

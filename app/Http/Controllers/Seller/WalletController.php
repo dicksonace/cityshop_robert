@@ -18,6 +18,7 @@ use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
+use App\Support\WithdrawalPresentation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -81,7 +82,7 @@ class WalletController extends Controller
             'manualFundingAccounts' => ($funding['enabled'] && count($funding['accounts']) > 0)
                 ? $funding['accounts']
                 : [],
-            'paystackConfigured' => $this->paystack->isOfferedForCollections(),
+            'paystackConfigured' => $this->paystack->isRechargeOffered(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
@@ -159,7 +160,7 @@ class WalletController extends Controller
         ]);
     }
 
-    public function showWithdrawal(Request $request, Withdrawal $withdrawal): Response
+    public function showWithdrawal(Request $request, Withdrawal $withdrawal): Response|JsonResponse
     {
         abort_unless($withdrawal->user_id === $request->user()->id, 403);
 
@@ -174,9 +175,15 @@ class WalletController extends Controller
             $tx->setAttribute('description', WalletTransactionService::displayDescription($tx));
         });
 
+        $view = WithdrawalPresentation::forUser($withdrawal);
+
+        if ($request->boolean('json') || $request->wantsJson()) {
+            return response()->json(['data' => $view]);
+        }
+
         return Inertia::render('seller/wallet/withdrawal-show', [
             'wallet' => $request->user()->wallet?->toFrontendArray() ?? Wallet::emptyFrontendArray(),
-            'withdrawal' => $withdrawal,
+            'withdrawal' => $view,
             'ledger' => $ledger,
         ]);
     }
@@ -298,7 +305,9 @@ class WalletController extends Controller
             ]);
         }
 
-        return back()->with('success', $result['message']);
+        return redirect()
+            ->route('seller.wallet.withdrawals.show', $result['withdrawal'])
+            ->with('success', $result['message']);
     }
 
     public function addFunds(Request $request): RedirectResponse|JsonResponse
@@ -314,8 +323,8 @@ class WalletController extends Controller
             'method' => ['required', 'in:momo,card'],
         ]);
 
-        if (! $this->paystack->isAvailable()) {
-            $message = $this->paystack->unavailableMessage();
+        if (! $this->paystack->isRechargeOffered()) {
+            $message = $this->paystack->unavailableMessage('recharge');
 
             return $request->expectsJson()
                 ? response()->json(['message' => $message], 503)

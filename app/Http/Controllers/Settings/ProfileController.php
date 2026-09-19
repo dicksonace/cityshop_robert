@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Services\BuyerAccountService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,9 +20,14 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $user = $request->user();
+
         return Inertia::render('settings/profile', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'deletion' => $user->isBuyer()
+                ? app(BuyerAccountService::class)->selfDeletionStatus($user)
+                : ['can_delete' => false, 'blockers' => []],
         ]);
     }
 
@@ -99,9 +105,11 @@ class ProfileController extends Controller
             'password' => ['required', 'current_password'],
         ]);
 
+        app(BuyerAccountService::class)->assertCanSelfDelete($user);
+
         Auth::logout();
 
-        $user->delete();
+        app(BuyerAccountService::class)->delete($user, 'Buyer deleted their own account.');
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

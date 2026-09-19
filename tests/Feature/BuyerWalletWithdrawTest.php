@@ -34,7 +34,7 @@ class BuyerWalletWithdrawTest extends TestCase
             'withdrawn_amount' => 0,
         ]);
 
-        $this->actingAs($buyer)
+        $response = $this->actingAs($buyer)
             ->post(route('wallet.withdraw'), [
                 'amount' => 50,
                 'payout_type' => 'momo',
@@ -42,9 +42,11 @@ class BuyerWalletWithdrawTest extends TestCase
                 'account_name' => 'Kofi Buyer',
                 'network' => 'mtn',
                 'payment_pin' => '2468',
-            ])
-            ->assertRedirect(route('wallet.index'))
-            ->assertSessionHas('success');
+            ]);
+
+        $withdrawal = Withdrawal::where('user_id', $buyer->id)->latest('id')->first();
+        $this->assertNotNull($withdrawal);
+        $response->assertRedirect(route('wallet.withdrawals.show', $withdrawal))->assertSessionHas('success');
 
         $this->assertDatabaseHas('withdrawals', [
             'user_id' => $buyer->id,
@@ -84,7 +86,7 @@ class BuyerWalletWithdrawTest extends TestCase
                 'network' => 'ecobank',
                 'payment_pin' => '2468',
             ])
-            ->assertRedirect(route('wallet.index'))
+            ->assertRedirect()
             ->assertSessionHas('success');
 
         $this->assertDatabaseHas('withdrawals', [

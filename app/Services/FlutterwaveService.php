@@ -13,24 +13,11 @@ use Illuminate\Support\Facades\Log;
  */
 class FlutterwaveService
 {
-    private string $secretKey;
-
-    private string $publicKey;
-
-    private string $webhookHash;
-
     private string $baseUrl = 'https://api.flutterwave.com/v3';
-
-    public function __construct()
-    {
-        $this->secretKey = trim((string) config('services.flutterwave.secret_key', ''), " \t\n\r\0\x0B\"'");
-        $this->publicKey = trim((string) config('services.flutterwave.public_key', ''), " \t\n\r\0\x0B\"'");
-        $this->webhookHash = trim((string) config('services.flutterwave.webhook_hash', ''), " \t\n\r\0\x0B\"'");
-    }
 
     public function isConfigured(): bool
     {
-        return $this->secretKey !== '' && $this->publicKey !== '';
+        return $this->secretKey() !== '' && $this->publicKey() !== '';
     }
 
     public function isAvailable(): bool
@@ -49,7 +36,59 @@ class FlutterwaveService
 
     public function publicKey(): string
     {
-        return $this->publicKey;
+        return PlatformSettings::resolvedFlutterwavePublicKey();
+    }
+
+    private function secretKey(): string
+    {
+        return PlatformSettings::resolvedFlutterwaveSecretKey();
+    }
+
+    private function webhookHash(): string
+    {
+        return PlatformSettings::resolvedFlutterwaveWebhookHash();
+    }
+
+    /**
+     * Ask Flutterwave if this secret key is valid.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function probeCredentials(?string $secretKey = null): array
+    {
+        $secret = trim((string) ($secretKey ?? $this->secretKey()), " \t\n\r\0\x0B\"'");
+        if ($secret === '') {
+            return [
+                'ok' => false,
+                'message' => 'No Flutterwave secret key is set. Paste the secret from Flutterwave → Settings → API keys.',
+            ];
+        }
+
+        $response = Http::withToken($secret)
+            ->acceptJson()
+            ->timeout(20)
+            ->get("{$this->baseUrl}/balances");
+
+        $body = $response->json();
+        if (! is_array($body)) {
+            $body = [];
+        }
+
+        $message = trim((string) ($body['message'] ?? ''));
+        if ($response->successful() && ($body['status'] ?? '') === 'success') {
+            return [
+                'ok' => true,
+                'message' => 'Flutterwave accepted these keys. Wallet deposits can start.',
+            ];
+        }
+
+        if ($message === '') {
+            $message = $response->status() === 401
+                ? 'Invalid authorization key'
+                : 'Flutterwave rejected these keys.';
+        }
+
+        return ['ok' => false, 'message' => $message];
     }
 
     /**
@@ -120,7 +159,7 @@ class FlutterwaveService
             'meta' => $meta,
         ];
 
-        $response = Http::withToken($this->secretKey)
+        $response = Http::withToken($this->secretKey())
             ->acceptJson()
             ->asJson()
             ->timeout(30)
@@ -206,7 +245,7 @@ class FlutterwaveService
      */
     public function verifyByReference(string $txRef): array
     {
-        $response = Http::withToken($this->secretKey)
+        $response = Http::withToken($this->secretKey())
             ->acceptJson()
             ->timeout(30)
             ->get("{$this->baseUrl}/transactions/verify_by_reference", [
@@ -269,7 +308,7 @@ class FlutterwaveService
 
     public function verifyWebhookSignature(?string $verifHash): bool
     {
-        $expected = $this->webhookHash !== '' ? $this->webhookHash : $this->secretKey;
+        $expected = $this->webhookHash() !== '' ? $this->webhookHash() : $this->secretKey();
         if ($expected === '' || $verifHash === null || $verifHash === '') {
             return false;
         }

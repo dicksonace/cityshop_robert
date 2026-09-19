@@ -225,8 +225,14 @@ class SellRmbService
         $quote = $this->quote((float) $validated['rmb_amount'], $payoutCurrency, $rate);
         $this->assertLimits($user, $quote, $rate);
 
+        $request->validate([
+            'proof' => ['nullable', 'file', 'max:8192', 'mimes:jpg,jpeg,png,webp,pdf'],
+        ]);
+
         $fields = $this->activeFields();
+        $this->attachBuyerProofToRequest($request, $fields);
         $this->validateFields($request, $fields, $method);
+        $this->assertBuyerPaymentProof($request, $fields, $method);
 
         return DB::transaction(function () use ($user, $request, $quote, $rate, $method, $fields) {
             // External sell: buyer sends RMB to Alipay; CityShop pays MoMo/GHS out.
@@ -256,6 +262,7 @@ class SellRmbService
             ]);
 
             $this->storeFieldValues($transfer, $request, $fields);
+            $this->storeBuyerPaymentProof($transfer, $request, $user);
             $this->recordHistory($transfer, null, $status, 'Sell RMB submitted — awaiting admin verification', $user->id);
             $this->notifyUser($transfer, $status);
             $this->notifyAdmins($transfer, $status);
@@ -267,6 +274,37 @@ class SellRmbService
                 'receiveMethod',
             ]);
         });
+    }
+
+    public function attachBuyerProof(SellRmbTransfer $transfer, User $user, Request $request): SellRmbTransfer
+    {
+        if ((int) $transfer->user_id !== (int) $user->id) {
+            throw ValidationException::withMessages([
+                'proof' => 'You can only add proof to your own Sell RMB request.',
+            ]);
+        }
+
+        if (! in_array($transfer->status, [
+            SellRmbStatus::Submitted,
+            SellRmbStatus::RmbVerification,
+        ], true)) {
+            throw ValidationException::withMessages([
+                'proof' => 'You can only add payment proof while the request is still under review.',
+            ]);
+        }
+
+        $request->validate([
+            'proof' => ['required', 'file', 'max:8192', 'mimes:jpg,jpeg,png,webp,pdf'],
+        ]);
+
+        $this->storeBuyerPaymentProof($transfer, $request, $user, replace: true);
+
+        return $transfer->fresh([
+            'fieldValues.field',
+            'proofs',
+            'statusHistory',
+            'receiveMethod',
+        ]);
     }
 
     public function cancel(SellRmbTransfer $transfer, User $actor, ?string $note = null): SellRmbTransfer
@@ -567,6 +605,17 @@ class SellRmbService
             'can_start_payout' => $transfer->status === SellRmbStatus::RmbReceived,
             'can_mark_paid' => $transfer->status === SellRmbStatus::PayoutProcessing,
             'can_complete' => $transfer->status === SellRmbStatus::Paid,
+            'can_upload_proof_and_complete' => $forAdmin && in_array($transfer->status, [
+                SellRmbStatus::Submitted,
+                SellRmbStatus::RmbVerification,
+                SellRmbStatus::RmbReceived,
+                SellRmbStatus::PayoutProcessing,
+                SellRmbStatus::Paid,
+            ], true),
+            'can_attach_proof' => ! $forAdmin && in_array($transfer->status, [
+                SellRmbStatus::Submitted,
+                SellRmbStatus::RmbVerification,
+            ], true),
             'timeline' => $this->timelinePayload($transfer),
             'fields' => $transfer->fieldValues->map(fn (SellRmbFieldValue $v) => [
                 'id' => $v->id,
@@ -697,6 +746,21 @@ class SellRmbService
         ]);
 
         return $this->complete($transfer->fresh(), $admin);
+    }
+
+    public function uploadProofAndComplete(SellRmbTransfer $transfer, User $admin, Request $request): SellRmbTransfer
+    {
+        return DB::transaction(function () use ($transfer, $admin, $request) {
+            $transfer = $transfer->fresh();
+
+            if ($transfer->status === SellRmbStatus::Paid) {
+                return $this->approvePayout($transfer, $admin, $request);
+            }
+
+            $transfer = $this->markReadyForPayout($transfer, $admin);
+
+            return $this->approvePayout($transfer->fresh(), $admin, $request);
+        });
     }
 
     public function adminQueueSection(SellRmbStatus $status): string
@@ -993,9 +1057,16 @@ class SellRmbService
         foreach ($fields as $field) {
             $key = $field->isFile() ? 'files.'.$field->id : 'fields.'.$field->id;
             $required = $field->required ? 'required' : 'nullable';
+            $group = strtolower((string) $field->group);
+
+            // Payment text extras (Alipay account, reference) must not block submit
+            // when the buyer already uploaded a screenshot like Buy RMB.
+            if ($group === 'payment' && ! $field->isFile()) {
+                $required = 'nullable';
+            }
 
             if ($field->name === 'payment_screenshot' && $method->proof_required) {
-                $required = 'required';
+                $required = $this->requestHasBuyerProof($request, $fields) ? 'nullable' : 'required';
             }
 
             $rules[$key] = match ($field->type) {
@@ -1033,6 +1104,107 @@ class SellRmbService
         $value = $request->input('fields.'.$field->id);
 
         return filled($value) ? trim((string) $value) : null;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, SellRmbFormField>  $fields
+     */
+    private function paymentScreenshotField($fields): ?SellRmbFormField
+    {
+        return $fields->firstWhere('name', 'payment_screenshot')
+            ?? $fields->first(fn (SellRmbFormField $field) => $field->isFile() && strtolower((string) $field->group) === 'payment');
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, SellRmbFormField>  $fields
+     */
+    private function attachBuyerProofToRequest(Request $request, $fields): void
+    {
+        $file = $request->file('proof');
+        if (! $file instanceof UploadedFile) {
+            return;
+        }
+
+        $screenshot = $this->paymentScreenshotField($fields);
+        if (! $screenshot || $request->hasFile('files.'.$screenshot->id)) {
+            return;
+        }
+
+        $existing = $request->file('files');
+        $files = is_array($existing) ? $existing : [];
+        $files[$screenshot->id] = $file;
+        $request->files->set('files', $files);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, SellRmbFormField>  $fields
+     */
+    private function requestHasBuyerProof(Request $request, $fields): bool
+    {
+        if ($request->hasFile('proof')) {
+            return true;
+        }
+
+        $screenshot = $this->paymentScreenshotField($fields);
+
+        return $screenshot ? $request->hasFile('files.'.$screenshot->id) : false;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, SellRmbFormField>  $fields
+     */
+    private function assertBuyerPaymentProof(Request $request, $fields, SellRmbReceiveMethod $method): void
+    {
+        if (! $method->proof_required) {
+            return;
+        }
+
+        if ($this->requestHasBuyerProof($request, $fields)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'proof' => 'Upload your Alipay payment screenshot.',
+        ]);
+    }
+
+    private function storeBuyerPaymentProof(SellRmbTransfer $transfer, Request $request, User $user, bool $replace = false): void
+    {
+        $file = $request->file('proof');
+        if (! $file instanceof UploadedFile) {
+            $screenshot = $this->paymentScreenshotField($this->activeFields());
+            $file = $screenshot ? $request->file('files.'.$screenshot->id) : null;
+        }
+
+        if (! $file instanceof UploadedFile) {
+            return;
+        }
+
+        $path = $transfer->payment_proof_path;
+        if ($replace && $path) {
+            Storage::disk('public')->delete($path);
+            $path = null;
+            $transfer->proofs()->where('type', 'payment_received')->delete();
+        }
+
+        if (! $path) {
+            $path = $file->store('sell-rmb/'.$transfer->id.'/payment-proof', 'public');
+            $transfer->update(['payment_proof_path' => $path]);
+        }
+
+        if ($transfer->proofs()->where('type', 'payment_received')->exists()) {
+            return;
+        }
+
+        SellRmbProof::create([
+            'sell_rmb_transfer_id' => $transfer->id,
+            'type' => 'payment_received',
+            'path' => $path,
+            'original_name' => $file->getClientOriginalName(),
+            'mime' => $file->getMimeType(),
+            'note' => 'Buyer Alipay payment screenshot',
+            'uploaded_by' => $user->id,
+        ]);
     }
 
     /**

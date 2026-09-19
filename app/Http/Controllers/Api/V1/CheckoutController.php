@@ -101,7 +101,7 @@ class CheckoutController extends Controller
             'addresses' => $addresses,
             'wallet' => $this->walletPayload($request->user()),
             'paystack_public_key' => config('services.paystack.public_key'),
-            'paystack_configured' => $this->paystack->isOfferedForCollections(),
+            'paystack_configured' => $this->paystack->isCheckoutOffered(),
             'paystack_fee' => $this->paystack->rechargeFeePayload(),
             'flutterwave_configured' => $this->flutterwave->isAvailable(),
             'flutterwave_public_key' => $this->flutterwave->publicKey(),
@@ -109,7 +109,7 @@ class CheckoutController extends Controller
                 'paystack' => [
                     'id' => 'paystack',
                     'label' => 'Paystack',
-                    'configured' => $this->paystack->isAvailable(),
+                    'configured' => $this->paystack->isCheckoutOffered(),
                 ],
                 'flutterwave' => [
                     'id' => 'flutterwave',
@@ -242,7 +242,7 @@ class CheckoutController extends Controller
                 'fee' => $quote['fee'],
                 'charge' => $quote['charge'],
                 'paystack_fee' => $this->paystack->rechargeFeePayload(),
-                'paystack_configured' => $this->paystack->isOfferedForCollections(),
+                'paystack_configured' => $this->paystack->isCheckoutOffered(),
                 'flutterwave_configured' => $this->flutterwave->isAvailable(),
                 'shipping' => $shipping,
             ]);
@@ -406,7 +406,7 @@ class CheckoutController extends Controller
                 ->where('payment_channel', PaymentChannel::Marketplace)
                 ->sum('total'),
             'paystack_public_key' => config('services.paystack.public_key'),
-            'paystack_configured' => $this->paystack->isOfferedForCollections(),
+            'paystack_configured' => $this->paystack->isCheckoutOffered(),
             'flutterwave_configured' => $this->flutterwave->isAvailable(),
         ]);
     }
@@ -443,8 +443,8 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'Already paid'], 422);
         }
 
-        if (! $this->paystack->isAvailable()) {
-            return response()->json(['message' => $this->paystack->unavailableMessage()], 503);
+        if (! $this->paystack->isCheckoutOffered()) {
+            return response()->json(['message' => $this->paystack->unavailableMessage('checkout')], 503);
         }
 
         $amount = $this->paymentVerifier->marketplaceAmountGhs($checkout);
@@ -544,8 +544,8 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'Start checkout again to pay.'], 422);
         }
 
-        if (! $this->paystack->isAvailable()) {
-            return response()->json(['message' => $this->paystack->unavailableMessage()], 503);
+        if (! $this->paystack->isCheckoutOffered()) {
+            return response()->json(['message' => $this->paystack->unavailableMessage('checkout')], 503);
         }
 
         try {
