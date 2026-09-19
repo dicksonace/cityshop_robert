@@ -77,7 +77,7 @@ export default function SellerWithdrawalShow({ wallet, withdrawal, ledger }: Pro
                     </div>
                     <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
                         <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Reference</dt>
-                        <dd className="mt-1 font-mono text-sm font-semibold text-gray-900">WD-{withdrawal.id}</dd>
+                        <dd className="mt-1 font-mono text-sm font-semibold text-gray-900">WITHDRAWAL-{withdrawal.id}</dd>
                     </div>
                 </dl>
 

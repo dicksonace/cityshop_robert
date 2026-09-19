@@ -38,13 +38,13 @@ class KycDecisionNotification extends Notification
                 ->greeting('Hello '.$name.'!')
                 ->line('The system needs a clearer Ghana Card before you can transact with the CityShop wallet.')
                 ->line($notes !== '' ? $notes : 'Please retake the front and back photos so the name and card number are easy to read.')
-                ->line('You can still buy items with Paystack while you update this.'),
+                ->line('You can still buy items with online checkout while you update this.'),
             default => (new MailMessage)
                 ->subject('Ghana Card was not approved')
                 ->greeting('Hello '.$name.'!')
                 ->line('Your Ghana Card verification was not approved.')
                 ->line($notes !== '' ? $notes : 'Please submit a new Ghana Card to transact with the CityShop wallet.')
-                ->line('You can still buy items with Paystack.'),
+                ->line('You can still buy items with online checkout.'),
         };
     }
 

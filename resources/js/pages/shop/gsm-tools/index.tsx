@@ -115,7 +115,19 @@ export default function GsmToolsIndex({ services, orders, wallet }: Props) {
                                             <p className="text-sm font-semibold text-gray-900">{order.service_name}</p>
                                             <p className="text-xs text-gray-500">{order.reference}</p>
                                         </div>
-                                        <span className="text-xs font-bold text-orange-600">{order.status_label}</span>
+                                        <span
+                                            className={`text-xs font-extrabold uppercase ${
+                                                order.status === 'processing'
+                                                    ? 'text-blue-700'
+                                                    : order.status === 'completed'
+                                                      ? 'text-emerald-700'
+                                                      : order.status === 'failed' || order.status === 'cancelled'
+                                                        ? 'text-red-600'
+                                                        : 'text-amber-700'
+                                            }`}
+                                        >
+                                            {order.status_label}
+                                        </span>
                                     </div>
                                 </Link>
                             ))}

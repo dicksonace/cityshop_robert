@@ -56,7 +56,7 @@ class PaystackFeeSettingsController extends Controller
         return back()->with(
             'success',
             $locked
-                ? 'Paystack disabled. Buyers/sellers should use manual payment / MoMo funding.'
+                ? 'Paystack disabled. Buyers/sellers should use Flutterwave or manual MoMo / bank.'
                 : 'Paystack enabled. Checkout and wallet top-up via Paystack are on.',
         );
     }

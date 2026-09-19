@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Support\PaymentReference;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -24,9 +25,18 @@ class PaystackService
     }
 
     /**
+     * Customer-facing Paystack collections (checkout / wallet recharge).
+     * Hidden: Paystack dashboard references looked like scam activity.
+     * Withdrawals still use Paystack transfers.
+     */
+    public function isOfferedForCollections(): bool
+    {
+        return false;
+    }
+
+    /**
      * Keys are present and admin has not locked Paystack collections.
-     * Use this for starting checkout / wallet top-up. Verification & webhooks
-     * should keep using {@see isConfigured()} so in-flight payments can finish.
+     * Verification & webhooks should keep using {@see isConfigured()}.
      */
     public function isAvailable(): bool
     {
@@ -36,11 +46,17 @@ class PaystackService
     /** Buyer-facing reason when {@see isAvailable()} is false. */
     public function unavailableMessage(): string
     {
+        $flutterwaveOk = app(FlutterwaveService::class)->isAvailable();
+
         if (PlatformSettings::paystackPaymentsLocked()) {
-            return 'Online Paystack payment is temporarily disabled. Please use manual MoMo / bank payment.';
+            return $flutterwaveOk
+                ? 'Paystack collections are disabled. Please use Flutterwave or manual MoMo / bank.'
+                : 'Online Paystack payment is disabled. Please use Flutterwave or manual MoMo / bank.';
         }
 
-        return 'Online Paystack payment is not available right now. Please use manual MoMo / bank payment.';
+        return $flutterwaveOk
+            ? 'Paystack is not available. Please use Flutterwave or manual MoMo / bank.'
+            : 'Online Paystack payment is not available. Please use Flutterwave or manual MoMo / bank.';
     }
 
     /**
@@ -170,7 +186,7 @@ class PaystackService
         float $creditGhs,
         string $method,
         string $callbackUrl,
-        string $referencePrefix = 'TOP',
+        ?string $referencePrefix = null,
         array $extraMetadata = [],
     ): array {
         if (! $this->isAvailable()) {
@@ -178,7 +194,9 @@ class PaystackService
         }
 
         $quote = $this->rechargeQuote($creditGhs, $method);
-        $reference = rtrim($referencePrefix, '-').'-'.strtoupper(uniqid());
+        $reference = $referencePrefix
+            ? rtrim($referencePrefix, '-').'-'.strtoupper(str_replace('.', '', uniqid('', true)))
+            : PaymentReference::recharge();
         $email = $user->billingEmail();
 
         $data = $this->initializeTransaction(

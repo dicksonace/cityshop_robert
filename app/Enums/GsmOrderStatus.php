@@ -21,6 +21,17 @@ enum GsmOrderStatus: string
         };
     }
 
+    public function tone(): string
+    {
+        return match ($this) {
+            self::Pending => 'pending',
+            self::Processing => 'processing',
+            self::Completed => 'completed',
+            self::Cancelled => 'cancelled',
+            self::Failed => 'failed',
+        };
+    }
+
     public function isTerminal(): bool
     {
         return in_array($this, [self::Completed, self::Cancelled, self::Failed], true);

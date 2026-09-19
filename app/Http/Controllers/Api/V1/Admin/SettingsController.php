@@ -139,7 +139,7 @@ class SettingsController extends Controller
 
         return response()->json([
             'message' => $locked
-                ? 'Paystack disabled. Buyers/sellers should use manual payment / MoMo funding.'
+                ? 'Paystack disabled. Buyers/sellers should use Flutterwave or manual MoMo / bank.'
                 : 'Paystack enabled.',
         ]);
     }
@@ -154,7 +154,7 @@ class SettingsController extends Controller
 
         return response()->json([
             'message' => $locked
-                ? 'Flutterwave disabled.'
+                ? 'Flutterwave disabled. Buyers/sellers should use Paystack or manual MoMo / bank.'
                 : 'Flutterwave enabled.',
         ]);
     }

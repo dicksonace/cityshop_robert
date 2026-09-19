@@ -5,10 +5,12 @@ namespace App\Services;
 use App\Enums\GsmOrderStatus;
 use App\Models\GsmOrder;
 use App\Models\GsmOrderFieldValue;
+use App\Models\GsmOrderReply;
 use App\Models\GsmOrderStatusHistory;
 use App\Models\GsmService;
 use App\Models\GsmServiceField;
 use App\Models\User;
+use App\Support\PaymentReference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -78,19 +80,26 @@ class GsmToolService
      */
     public function orderPayload(GsmOrder $order, bool $withHistory = false): array
     {
-        $order->loadMissing(['fieldValues', 'service.activeFields', 'user:id,name,email,mobile']);
+        $order->loadMissing(['fieldValues', 'service.activeFields', 'user:id,name,email,mobile', 'replies.admin:id,name']);
 
         $payload = [
             'id' => $order->id,
             'reference' => $order->reference,
             'status' => $order->status->value,
             'status_label' => $order->status->label(),
+            'status_tone' => $order->status->tone(),
             'service_id' => $order->gsm_service_id,
             'service_name' => $order->service_name,
             'price_ghs' => (float) $order->price_ghs,
             'refunded' => (bool) $order->refunded,
             'admin_result_note' => $order->admin_result_note,
             'failure_reason' => $order->failure_reason,
+            'replies' => $order->replies->map(fn (GsmOrderReply $reply) => [
+                'id' => $reply->id,
+                'body' => $reply->body,
+                'admin' => $reply->admin?->name ?: 'Admin',
+                'created_at' => $reply->created_at?->toIso8601String(),
+            ])->values()->all(),
             'paid_at' => $order->paid_at?->toIso8601String(),
             'processing_at' => $order->processing_at?->toIso8601String(),
             'completed_at' => $order->completed_at?->toIso8601String(),
@@ -194,13 +203,21 @@ class GsmToolService
             WalletTransactionService::recordGsmToolsDebit(
                 $user->id,
                 $price,
-                'GSM-'.$order->id,
+                PaymentReference::gsm($order->id),
                 'GSM Tools · '.$service->name.' ('.$order->reference.')',
             );
 
             $this->recordHistory($order, null, GsmOrderStatus::Pending, 'Paid from wallet — awaiting processing', $user->id);
 
-            return $order->fresh(['fieldValues', 'service']);
+            $fresh = $order->fresh(['fieldValues', 'service', 'user']);
+            $this->notifyBuyer(
+                $fresh,
+                'GSM Tools order placed',
+                $fresh->service_name.' is Pending. We will start Processing shortly.',
+            );
+            $this->notifyAdminsNewOrder($fresh);
+
+            return $fresh;
         });
     }
 
@@ -213,9 +230,16 @@ class GsmToolService
         return DB::transaction(function () use ($order, $actor, $note) {
             $this->refund($order, 'Order cancelled — funds returned to wallet');
 
-            return $this->transition($order, GsmOrderStatus::Cancelled, $actor, $note ?: 'Cancelled', [
+            $updated = $this->transition($order, GsmOrderStatus::Cancelled, $actor, $note ?: 'Cancelled', [
                 'cancelled_at' => now(),
             ]);
+            $this->notifyBuyer(
+                $updated,
+                'GSM Tools cancelled',
+                $updated->service_name.' was cancelled. Funds returned to your wallet.',
+            );
+
+            return $updated;
         });
     }
 
@@ -225,10 +249,56 @@ class GsmToolService
             throw ValidationException::withMessages(['status' => 'Only pending orders can move to processing.']);
         }
 
-        return $this->transition($order, GsmOrderStatus::Processing, $admin, $note ?: 'Processing started', [
+        $updated = $this->transition($order, GsmOrderStatus::Processing, $admin, $note ?: 'Processing started', [
             'processing_at' => now(),
             'assigned_admin_id' => $admin->id,
         ]);
+
+        $this->notifyBuyer(
+            $updated,
+            'GSM Tools Processing',
+            $updated->service_name.' ('.$updated->reference.') is now Processing.',
+        );
+
+        return $updated;
+    }
+
+    public function reply(GsmOrder $order, User $admin, string $message): GsmOrder
+    {
+        $body = trim($message);
+        if ($body === '') {
+            throw ValidationException::withMessages([
+                'message' => 'Reply message cannot be empty.',
+            ]);
+        }
+
+        if ($order->status->isTerminal()) {
+            throw ValidationException::withMessages([
+                'status' => 'This order is already closed.',
+            ]);
+        }
+
+        $fresh = DB::transaction(function () use ($order, $admin, $body) {
+            if ($order->status === GsmOrderStatus::Pending) {
+                $this->transition($order, GsmOrderStatus::Processing, $admin, 'Processing — admin replied', [
+                    'processing_at' => now(),
+                    'assigned_admin_id' => $admin->id,
+                ]);
+                $order->refresh();
+            }
+
+            $this->storeReply($order, $admin, $body);
+
+            return $order->fresh(['fieldValues', 'service', 'user', 'replies.admin:id,name']);
+        });
+
+        $this->notifyBuyer(
+            $fresh,
+            'GSM Tools reply',
+            Str::limit($body, 180),
+        );
+
+        return $fresh;
     }
 
     public function complete(GsmOrder $order, User $admin, ?string $resultNote = null): GsmOrder
@@ -237,12 +307,35 @@ class GsmToolService
             throw ValidationException::withMessages(['status' => 'This order cannot be completed.']);
         }
 
-        return $this->transition($order, GsmOrderStatus::Completed, $admin, $resultNote ?: 'Completed', [
-            'completed_at' => now(),
-            'processing_at' => $order->processing_at ?? now(),
-            'assigned_admin_id' => $admin->id,
-            'admin_result_note' => $resultNote,
-        ]);
+        $note = trim((string) $resultNote);
+        if ($note === '' && blank($order->admin_result_note) && $order->replies()->doesntExist()) {
+            throw ValidationException::withMessages([
+                'result_note' => 'Add a reply message for the buyer before completing.',
+            ]);
+        }
+
+        $updated = DB::transaction(function () use ($order, $admin, $note) {
+            if ($note !== '') {
+                $this->storeReply($order, $admin, $note);
+            }
+
+            return $this->transition($order->fresh(), GsmOrderStatus::Completed, $admin, $note !== '' ? $note : 'Completed', [
+                'completed_at' => now(),
+                'processing_at' => $order->processing_at ?? now(),
+                'assigned_admin_id' => $admin->id,
+                'admin_result_note' => $note !== '' ? $note : $order->admin_result_note,
+            ]);
+        });
+
+        $this->notifyBuyer(
+            $updated,
+            'GSM Tools Completed',
+            $note !== ''
+                ? Str::limit($note, 180)
+                : $updated->service_name.' ('.$updated->reference.') is Completed.',
+        );
+
+        return $updated;
     }
 
     public function fail(GsmOrder $order, User $admin, ?string $reason = null): GsmOrder
@@ -254,11 +347,18 @@ class GsmToolService
         return DB::transaction(function () use ($order, $admin, $reason) {
             $this->refund($order, 'Order failed — funds returned to wallet');
 
-            return $this->transition($order, GsmOrderStatus::Failed, $admin, $reason ?: 'Failed', [
+            $updated = $this->transition($order, GsmOrderStatus::Failed, $admin, $reason ?: 'Failed', [
                 'failed_at' => now(),
                 'failure_reason' => $reason,
                 'assigned_admin_id' => $admin->id,
             ]);
+            $this->notifyBuyer(
+                $updated,
+                'GSM Tools failed',
+                $reason ?: $updated->service_name.' failed. Funds returned to your wallet.',
+            );
+
+            return $updated;
         });
     }
 
@@ -437,7 +537,7 @@ class GsmToolService
         WalletTransactionService::recordGsmToolsRefund(
             $user->id,
             $amount,
-            'GSM-'.$order->id,
+            PaymentReference::gsm((int) $order->id),
             $description.' ('.$order->reference.')',
         );
 
@@ -479,6 +579,53 @@ class GsmToolService
             'note' => $note,
             'actor_id' => $actorId,
         ]);
+    }
+
+    private function storeReply(GsmOrder $order, User $admin, string $body): GsmOrderReply
+    {
+        $reply = GsmOrderReply::create([
+            'gsm_order_id' => $order->id,
+            'admin_id' => $admin->id,
+            'body' => $body,
+        ]);
+
+        $order->admin_result_note = $body;
+        $order->assigned_admin_id = $admin->id;
+        $order->save();
+
+        return $reply;
+    }
+
+    private function notifyBuyer(GsmOrder $order, string $title, string $body): void
+    {
+        try {
+            $user = $order->user ?? User::query()->find($order->user_id);
+            if (! $user) {
+                return;
+            }
+
+            AppNotificationService::send($user, 'gsm_tools', $title, $body, [
+                'gsm_order_id' => $order->id,
+                'path' => '/gsm-tools/orders/'.$order->id,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function notifyAdminsNewOrder(GsmOrder $order): void
+    {
+        try {
+            $body = $order->service_name.' · '.$order->reference.' · GH₵'.number_format((float) $order->price_ghs, 2);
+            foreach (AdminNotifier::users() as $admin) {
+                AppNotificationService::send($admin, 'gsm_tools', 'New GSM Tools order', $body, [
+                    'gsm_order_id' => $order->id,
+                    'path' => '/gsm-tools/'.$order->id,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     private function nextReference(): string

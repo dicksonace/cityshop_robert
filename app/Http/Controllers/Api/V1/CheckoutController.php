@@ -18,6 +18,7 @@ use App\Services\PaymentPinService;
 use App\Services\PaystackService;
 use App\Services\WalletService;
 use App\Support\DirectCheckoutDraft;
+use App\Support\PaymentReference;
 use App\Support\PendingCheckoutDraft;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -100,7 +101,7 @@ class CheckoutController extends Controller
             'addresses' => $addresses,
             'wallet' => $this->walletPayload($request->user()),
             'paystack_public_key' => config('services.paystack.public_key'),
-            'paystack_configured' => $this->paystack->isAvailable(),
+            'paystack_configured' => $this->paystack->isOfferedForCollections(),
             'paystack_fee' => $this->paystack->rechargeFeePayload(),
             'flutterwave_configured' => $this->flutterwave->isAvailable(),
             'flutterwave_public_key' => $this->flutterwave->publicKey(),
@@ -241,7 +242,7 @@ class CheckoutController extends Controller
                 'fee' => $quote['fee'],
                 'charge' => $quote['charge'],
                 'paystack_fee' => $this->paystack->rechargeFeePayload(),
-                'paystack_configured' => $this->paystack->isAvailable(),
+                'paystack_configured' => $this->paystack->isOfferedForCollections(),
                 'flutterwave_configured' => $this->flutterwave->isAvailable(),
                 'shipping' => $shipping,
             ]);
@@ -405,7 +406,7 @@ class CheckoutController extends Controller
                 ->where('payment_channel', PaymentChannel::Marketplace)
                 ->sum('total'),
             'paystack_public_key' => config('services.paystack.public_key'),
-            'paystack_configured' => $this->paystack->isAvailable(),
+            'paystack_configured' => $this->paystack->isOfferedForCollections(),
             'flutterwave_configured' => $this->flutterwave->isAvailable(),
         ]);
     }
@@ -453,7 +454,7 @@ class CheckoutController extends Controller
         }
 
         $quote = $this->paystack->rechargeQuote($amount);
-        $reference = 'CSH-'.uniqid('', true);
+        $reference = PaymentReference::order();
         $amountPesewas = (int) round($quote['charge'] * 100);
         $callbackUrl = url('/api/v1/paystack/mobile-return');
 
@@ -562,7 +563,7 @@ class CheckoutController extends Controller
         }
 
         $quote = $this->paystack->rechargeQuote($amount, $draft['payment_method'] ?? 'momo');
-        $reference = 'CSH-'.uniqid('', true);
+        $reference = PaymentReference::order();
         $amountPesewas = (int) round($quote['charge'] * 100);
         $callbackUrl = url('/api/v1/paystack/mobile-return');
 
@@ -725,7 +726,7 @@ HTML;
         }
 
         $quote = $this->flutterwave->rechargeQuote($amount, $draft['payment_method'] ?? 'momo');
-        $reference = 'FLW-CSH-'.strtoupper(uniqid());
+        $reference = PaymentReference::order();
         $amountPesewas = (int) round($quote['charge'] * 100);
         $callbackUrl = url('/api/v1/flutterwave/mobile-return');
 
@@ -746,6 +747,7 @@ HTML;
                 ],
                 $callbackUrl,
                 'CityShop Checkout',
+                (string) $request->user()->mobile,
             );
 
             PendingCheckoutDraft::rememberFlutterwave($request->user(), $reference, $amountPesewas);
@@ -849,7 +851,7 @@ HTML;
         }
 
         $quote = $this->flutterwave->rechargeQuote($amount);
-        $reference = 'FLW-CSH-'.strtoupper(uniqid());
+        $reference = PaymentReference::order();
         $amountPesewas = (int) round($quote['charge'] * 100);
         $callbackUrl = url('/api/v1/flutterwave/mobile-return');
 
@@ -871,6 +873,7 @@ HTML;
                 ],
                 $callbackUrl,
                 'CityShop Checkout',
+                (string) $request->user()->mobile,
             );
 
             $checkout->loadMissing('orders');

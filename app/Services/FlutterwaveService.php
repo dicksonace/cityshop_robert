@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Support\PaymentReference;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -40,10 +41,10 @@ class FlutterwaveService
     public function unavailableMessage(): string
     {
         if (PlatformSettings::flutterwavePaymentsLocked()) {
-            return 'Flutterwave payment is temporarily disabled. Try Paystack or manual MoMo.';
+            return 'Flutterwave payment is temporarily disabled. Please use manual MoMo.';
         }
 
-        return 'Flutterwave is not available right now. Try Paystack or manual MoMo.';
+        return 'Flutterwave is not available right now. Please use manual MoMo.';
     }
 
     public function publicKey(): string
@@ -91,6 +92,7 @@ class FlutterwaveService
         array $meta = [],
         ?string $redirectUrl = null,
         string $title = 'CityShop',
+        ?string $customerPhone = null,
     ): array {
         if (! $this->isAvailable()) {
             throw new \RuntimeException($this->unavailableMessage());
@@ -109,13 +111,11 @@ class FlutterwaveService
             'currency' => 'GHS',
             'redirect_url' => $redirect,
             'payment_options' => 'card,mobilemoneyghana,ussd,banktransfer',
-            'customer' => [
-                'email' => $email,
-                'name' => $customerName !== '' ? $customerName : 'CityShop customer',
-            ],
+            'customer' => $this->customerPayload($email, $customerName, $customerPhone),
             'customizations' => [
                 'title' => $title,
                 'description' => 'CityShop payment',
+                'logo' => rtrim((string) config('app.url'), '/').'/images/branding/cityshop-mark.png',
             ],
             'meta' => $meta,
         ];
@@ -162,11 +162,13 @@ class FlutterwaveService
         float $creditGhs,
         string $method,
         string $callbackUrl,
-        string $referencePrefix = 'FLW-TOP',
+        ?string $referencePrefix = null,
         array $extraMetadata = [],
     ): array {
         $quote = $this->rechargeQuote($creditGhs, $method);
-        $reference = rtrim($referencePrefix, '-').'-'.strtoupper(uniqid());
+        $reference = $referencePrefix
+            ? rtrim($referencePrefix, '-').'-'.strtoupper(str_replace('.', '', uniqid('', true)))
+            : PaymentReference::recharge();
         $email = $user->billingEmail();
 
         $data = $this->initializePayment(
@@ -185,7 +187,8 @@ class FlutterwaveService
                 'gateway' => 'flutterwave',
             ], $extraMetadata),
             $callbackUrl,
-            'CityShop Wallet',
+            'CityShop',
+            (string) $user->mobile,
         );
 
         return [
@@ -282,5 +285,37 @@ class FlutterwaveService
         }
 
         return $url;
+    }
+
+    /**
+     * @return array{email: string, name: string, phone_number?: string}
+     */
+    private function customerPayload(string $email, string $name, ?string $phone = null): array
+    {
+        $customer = [
+            'email' => $email,
+            'name' => $name !== '' ? $name : 'CityShop customer',
+        ];
+
+        $normalized = $this->normalizeCustomerPhone($phone);
+        if ($normalized !== null) {
+            $customer['phone_number'] = $normalized;
+        }
+
+        return $customer;
+    }
+
+    private function normalizeCustomerPhone(?string $phone): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone) ?? '';
+        if (strlen($digits) < 9) {
+            return null;
+        }
+
+        if (str_starts_with($digits, '0') && strlen($digits) === 10) {
+            return '233'.substr($digits, 1);
+        }
+
+        return $digits;
     }
 }

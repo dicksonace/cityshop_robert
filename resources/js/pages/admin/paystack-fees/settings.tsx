@@ -155,8 +155,8 @@ export default function PaystackFeeSettings({ settings, paymentsLocked = false, 
                     </div>
                     <InputError message={lockForm.errors.locked} />
                     <p className="text-xs opacity-75">
-                        Keep manual wallet funding accounts on under Wallet funding so users still have a way to
-                        pay when Paystack is disabled.
+                        When Paystack is disabled, buyers use Flutterwave (if API keys are set) or manual MoMo /
+                        bank under Wallet funding. Keep Flutterwave enabled if you turn Paystack off.
                     </p>
                 </div>
 
@@ -171,8 +171,9 @@ export default function PaystackFeeSettings({ settings, paymentsLocked = false, 
                         <div>
                             <h2 className="text-base font-bold">Flutterwave payments</h2>
                             <p className="mt-1 text-sm opacity-80">
-                                Second collection gateway for checkout and wallet top-up. Withdrawals stay on
-                                Paystack. Uses the same collection fees as Paystack above.
+                                Primary alternative for checkout and wallet top-up when Paystack is off. Needs
+                                FLW_PUBLIC_KEY + FLW_SECRET_KEY on the server. Withdrawals stay on Paystack.
+                                Uses the same collection fees as above.
                             </p>
                         </div>
                         <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-extrabold uppercase tracking-wide ring-1 ring-black/5">

@@ -9,6 +9,7 @@ use App\Models\Withdrawal;
 use App\Notifications\WithdrawalPaidNotification;
 use App\Notifications\WithdrawalRejectedNotification;
 use App\Support\GhanaBanks;
+use App\Support\PaymentReference;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -55,13 +56,13 @@ class WithdrawalPayoutService
             }
 
             $recipientCode = $this->resolveRecipientCode($withdrawal);
-            $reference = 'WD-'.$withdrawal->id.'-'.strtoupper(substr(uniqid(), -10));
+            $reference = PaymentReference::withdrawal((int) $withdrawal->id);
 
             $transfer = $this->paystack->initiateTransfer(
                 $recipientCode,
                 (float) $withdrawal->amount,
                 $reference,
-                'CityShop wallet withdrawal #'.$withdrawal->id,
+                'CityShop withdrawal #'.$withdrawal->id,
             );
 
             $transferStatus = (string) ($transfer['status'] ?? 'pending');

@@ -83,7 +83,19 @@ export default function AdminGsmToolsIndex({ orders, filters, pendingCount }: Pr
                             </div>
                             <div className="text-right">
                                 <p className="text-sm font-bold text-gray-900">{formatPrice(order.price_ghs)}</p>
-                                <p className="text-xs font-semibold text-orange-600">{order.status_label}</p>
+                                <p
+                                    className={`text-xs font-extrabold uppercase ${
+                                        order.status === 'processing'
+                                            ? 'text-blue-700'
+                                            : order.status === 'completed'
+                                              ? 'text-emerald-700'
+                                              : order.status === 'failed' || order.status === 'cancelled'
+                                                ? 'text-red-600'
+                                                : 'text-amber-700'
+                                    }`}
+                                >
+                                    {order.status_label}
+                                </p>
                             </div>
                         </Link>
                     ))}

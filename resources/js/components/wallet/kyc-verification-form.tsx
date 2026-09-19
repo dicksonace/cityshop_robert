@@ -65,7 +65,7 @@ export default function KycVerificationForm({ kyc, submitRoute = route('kyc.stor
                 )}
                 {isPending && (
                     <p className="mt-2 text-sm text-amber-800">
-                        The system is reviewing your Ghana Card. You can still buy items with Paystack.
+                        The system is reviewing your Ghana Card. You can still buy items with online checkout.
                     </p>
                 )}
                 {kyc.admin_notes && (

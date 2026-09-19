@@ -81,7 +81,7 @@ class WalletController extends Controller
             'manualFundingAccounts' => ($funding['enabled'] && count($funding['accounts']) > 0)
                 ? $funding['accounts']
                 : [],
-            'paystackConfigured' => $this->paystack->isAvailable(),
+            'paystackConfigured' => $this->paystack->isOfferedForCollections(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
@@ -328,7 +328,7 @@ class WalletController extends Controller
                 (float) $validated['amount'],
                 $validated['method'],
                 route('seller.wallet.callback'),
-                'TOP',
+                null,
                 ['role' => 'seller'],
             );
 
@@ -434,7 +434,7 @@ class WalletController extends Controller
                 (float) $validated['amount'],
                 $validated['method'],
                 route('seller.wallet.flutterwave.callback'),
-                'FLW-TOP',
+                null,
                 ['role' => 'seller'],
             );
 

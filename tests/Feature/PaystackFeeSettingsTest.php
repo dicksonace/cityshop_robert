@@ -164,4 +164,14 @@ class PaystackFeeSettingsTest extends TestCase
         $this->assertTrue($paystack->paidCoversCheckout(6.0, 5.0));
         $this->assertFalse($paystack->paidCoversCheckout(4.5, 5.0));
     }
+
+    public function test_unlock_flutterwave_command_clears_the_admin_lock(): void
+    {
+        PlatformSettings::saveFlutterwavePaymentsSettings(['locked' => true]);
+
+        $this->artisan('cityshop:unlock-flutterwave', ['--force' => true])
+            ->assertSuccessful();
+
+        $this->assertFalse(PlatformSettings::flutterwavePaymentsLocked());
+    }
 }

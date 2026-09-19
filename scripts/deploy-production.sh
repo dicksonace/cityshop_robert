@@ -11,8 +11,13 @@ cd "$APP_DIR"
 echo "==> Pull latest code"
 git pull origin main
 
-echo "==> Apply production .env (mail, SMS, live Paystack, sync queue)"
+echo "==> Apply production .env (mail, SMS, live Paystack, Flutterwave public, sync queue)"
 $PHP_BIN scripts/apply-production-env.php "$APP_DIR/.env"
+
+if [[ -n "${FLW_SECRET_KEY:-}" ]]; then
+    echo "==> Apply Flutterwave secret from FLW_SECRET_KEY"
+    $PHP_BIN scripts/apply-flutterwave-env.php "$APP_DIR/.env"
+fi
 
 echo "==> Install PHP dependencies"
 if [[ -f "$COMPOSER_BIN" ]]; then
@@ -45,6 +50,13 @@ $PHP_BIN -d memory_limit=512M artisan view:cache
 
 if grep -qE '^PAYSTACK_PUBLIC_KEY=pk_test_' .env 2>/dev/null; then
     echo "WARNING: PAYSTACK_PUBLIC_KEY is still a TEST key."
+fi
+if ! grep -qE '^FLW_PUBLIC_KEY=.+' .env 2>/dev/null || ! grep -qE '^FLW_SECRET_KEY=.+' .env 2>/dev/null; then
+    echo "WARNING: Flutterwave secret missing. Recharge will not show Flutterwave."
+    echo "         Run: FLW_SECRET_KEY='FLWSECK-…-X' bash scripts/set-live-flutterwave-env.sh"
+fi
+if grep -qE '^FLW_PUBLIC_KEY=FLWPUBK_TEST' .env 2>/dev/null; then
+    echo "WARNING: FLW_PUBLIC_KEY looks like a TEST key."
 fi
 if grep -qE '^MAIL_MAILER=log' .env 2>/dev/null; then
     echo "WARNING: MAIL_MAILER=log — emails will not leave the server."

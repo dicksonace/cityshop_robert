@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Channels\SmsChannel;
 use App\Models\Withdrawal;
 use App\Support\NotificationPrivacy;
+use App\Support\PaymentReference;
 use App\Support\PayoutNetwork;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -81,7 +82,7 @@ class WithdrawalRequestedNotification extends Notification
         }
 
         if ($this->withdrawal->id) {
-            return 'WD-'.$this->withdrawal->id;
+            return PaymentReference::withdrawalLedger((int) $this->withdrawal->id);
         }
 
         return null;

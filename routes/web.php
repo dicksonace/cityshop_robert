@@ -409,6 +409,7 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService'])->name('gsm-tools.services.update');
     Route::get('/gsm-tools/{gsmOrder}', [AdminGsmToolController::class, 'show'])->name('gsm-tools.show');
     Route::post('/gsm-tools/{gsmOrder}/process', [AdminGsmToolController::class, 'process'])->name('gsm-tools.process');
+    Route::post('/gsm-tools/{gsmOrder}/reply', [AdminGsmToolController::class, 'reply'])->name('gsm-tools.reply');
     Route::post('/gsm-tools/{gsmOrder}/complete', [AdminGsmToolController::class, 'complete'])->name('gsm-tools.complete');
     Route::post('/gsm-tools/{gsmOrder}/fail', [AdminGsmToolController::class, 'fail'])->name('gsm-tools.fail');
     Route::post('/gsm-tools/{gsmOrder}/cancel', [AdminGsmToolController::class, 'cancel'])->name('gsm-tools.cancel');

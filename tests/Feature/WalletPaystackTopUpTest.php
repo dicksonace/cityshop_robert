@@ -100,6 +100,7 @@ class WalletPaystackTopUpTest extends TestCase
                 && ($payload['currency'] ?? null) === 'GHS'
                 && ($payload['email'] ?? null) === 'cs'.$buyer->id.'@pay.cityunlock.net'
                 && str_starts_with((string) ($payload['callback_url'] ?? ''), 'https://')
+                && str_starts_with((string) ($payload['reference'] ?? ''), 'CITYSHOP-')
                 && (int) ($payload['amount'] ?? 0) >= 1000
                 && ($payload['metadata']['type'] ?? null) === 'wallet_topup'
                 && ($payload['metadata']['account_name'] ?? null) === 'Kofi amoah';

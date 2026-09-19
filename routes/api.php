@@ -325,6 +325,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService']);
             Route::get('/gsm-tools/{gsmOrder}', [AdminGsmToolController::class, 'show']);
             Route::post('/gsm-tools/{gsmOrder}/process', [AdminGsmToolController::class, 'process']);
+            Route::post('/gsm-tools/{gsmOrder}/reply', [AdminGsmToolController::class, 'reply']);
             Route::post('/gsm-tools/{gsmOrder}/complete', [AdminGsmToolController::class, 'complete']);
             Route::post('/gsm-tools/{gsmOrder}/fail', [AdminGsmToolController::class, 'fail']);
             Route::post('/gsm-tools/{gsmOrder}/cancel', [AdminGsmToolController::class, 'cancel']);

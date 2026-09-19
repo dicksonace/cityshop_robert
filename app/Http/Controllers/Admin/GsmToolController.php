@@ -49,17 +49,32 @@ class GsmToolController extends Controller
     {
         $this->gsm->markProcessing($gsmOrder, $request->user(), $request->input('note'));
 
-        return back()->with('success', 'Order marked as processing.');
+        return back()->with('success', 'Order marked as Processing.');
+    }
+
+    public function reply(Request $request, GsmOrder $gsmOrder): RedirectResponse
+    {
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
+        $this->gsm->reply($gsmOrder, $request->user(), $validated['message']);
+
+        return back()->with('success', 'Reply sent to the buyer.');
     }
 
     public function complete(Request $request, GsmOrder $gsmOrder): RedirectResponse
     {
         $validated = $request->validate([
-            'result_note' => ['nullable', 'string', 'max:2000'],
+            'result_note' => ['nullable', 'string', 'max:5000'],
+            'message' => ['nullable', 'string', 'max:5000'],
         ]);
-        $this->gsm->complete($gsmOrder, $request->user(), $validated['result_note'] ?? null);
+        $this->gsm->complete(
+            $gsmOrder,
+            $request->user(),
+            $validated['result_note'] ?? $validated['message'] ?? null,
+        );
 
-        return back()->with('success', 'Order completed.');
+        return back()->with('success', 'Order Completed.');
     }
 
     public function fail(Request $request, GsmOrder $gsmOrder): RedirectResponse

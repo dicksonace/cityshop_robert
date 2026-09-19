@@ -85,7 +85,7 @@ class ApiWithdrawalTest extends TestCase
         $entry = WalletTransaction::where('user_id', $buyer->id)->sole();
         $this->assertSame(WalletTransactionType::Withdrawal, $entry->type);
         $this->assertSame(-120.0, (float) $entry->amount);
-        $this->assertSame("WD-{$withdrawal->id}", $entry->reference);
+        $this->assertSame("WITHDRAWAL-{$withdrawal->id}", $entry->reference);
 
         Notification::assertSentTo($buyer, WithdrawalRequestedNotification::class);
         Notification::assertSentTo($adminA, AdminWithdrawalRequestedNotification::class);
@@ -355,14 +355,14 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.type', 'withdrawal')
             ->assertJsonPath('data.0.type_label', 'Withdrawal · Processing')
-            ->assertJsonPath('data.0.reference', 'WD-'.$withdrawal->id)
+            ->assertJsonPath('data.0.reference', 'WITHDRAWAL-'.$withdrawal->id)
             ->assertJsonPath('data.0.amount', -12);
 
         app(\App\Services\WithdrawalPayoutService::class)->markAsPaid($withdrawal->fresh(), 'manual');
 
         $this->assertSame(
             1,
-            WalletTransaction::where('user_id', $buyer->id)->where('reference', 'WD-'.$withdrawal->id)->count(),
+            WalletTransaction::where('user_id', $buyer->id)->where('reference', 'WITHDRAWAL-'.$withdrawal->id)->count(),
         );
         $this->assertDatabaseMissing('wallet_transactions', [
             'user_id' => $buyer->id,
@@ -374,7 +374,7 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.type', 'withdrawal')
             ->assertJsonPath('data.0.type_label', 'Withdrawal · Completed')
-            ->assertJsonPath('data.0.reference', 'WD-'.$withdrawal->id)
+            ->assertJsonPath('data.0.reference', 'WITHDRAWAL-'.$withdrawal->id)
             ->assertJsonPath('data.0.amount', -12);
 
         $this->getJson('/api/v1/wallet/withdrawals')

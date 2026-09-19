@@ -51,13 +51,13 @@ class RetryPaystackWithdrawalsCommand extends Command
             try {
                 $result = $payouts->process($withdrawal, null);
                 $ok++;
-                $this->line("WD-{$withdrawal->id} ({$withdrawal->network}): ".$result['message']);
+                $this->line("WITHDRAWAL-{$withdrawal->id} ({$withdrawal->network}): ".$result['message']);
             } catch (\Throwable $e) {
                 $fail++;
                 $withdrawal->update([
                     'failure_reason' => 'Paystack retry failed: '.$e->getMessage(),
                 ]);
-                $this->error("WD-{$withdrawal->id} ({$withdrawal->network}): ".$e->getMessage());
+                $this->error("WITHDRAWAL-{$withdrawal->id} ({$withdrawal->network}): ".$e->getMessage());
             }
         }
 

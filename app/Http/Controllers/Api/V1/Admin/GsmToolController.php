@@ -53,10 +53,27 @@ class GsmToolController extends Controller
         return response()->json(['order' => $this->gsm->orderPayload($order, withHistory: true)]);
     }
 
+    public function reply(Request $request, GsmOrder $gsmOrder): JsonResponse
+    {
+        $validated = $request->validate([
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
+        $order = $this->gsm->reply($gsmOrder, $request->user(), $validated['message']);
+
+        return response()->json(['order' => $this->gsm->orderPayload($order, withHistory: true)]);
+    }
+
     public function complete(Request $request, GsmOrder $gsmOrder): JsonResponse
     {
-        $validated = $request->validate(['result_note' => ['nullable', 'string', 'max:2000']]);
-        $order = $this->gsm->complete($gsmOrder, $request->user(), $validated['result_note'] ?? null);
+        $validated = $request->validate([
+            'result_note' => ['nullable', 'string', 'max:5000'],
+            'message' => ['nullable', 'string', 'max:5000'],
+        ]);
+        $order = $this->gsm->complete(
+            $gsmOrder,
+            $request->user(),
+            $validated['result_note'] ?? $validated['message'] ?? null,
+        );
 
         return response()->json(['order' => $this->gsm->orderPayload($order, withHistory: true)]);
     }

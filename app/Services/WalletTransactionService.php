@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Support\PayoutNetwork;
+use App\Support\PaymentReference;
 
 class WalletTransactionService
 {
@@ -81,7 +82,7 @@ class WalletTransactionService
             amount: -1 * $withdrawal->totalDebited(),
             description: static::withdrawalRequestDescription($withdrawal),
             withdrawalId: $withdrawal->id,
-            reference: "WD-{$withdrawal->id}",
+            reference: PaymentReference::withdrawalLedger($withdrawal->id),
         );
     }
 
@@ -92,7 +93,7 @@ class WalletTransactionService
             type: WalletTransactionType::FundAdded,
             amount: $amount,
             description: "Funds credited via {$method}",
-            reference: $reference ?? 'TOP-'.now()->format('YmdHis'),
+            reference: $reference ?? PaymentReference::recharge(),
         );
     }
 
@@ -309,7 +310,7 @@ class WalletTransactionService
                     ? ' (incl. Fee GH₵'.number_format((float) $withdrawal->fee, 2).')'
                     : ''),
             withdrawalId: $withdrawal->id,
-            reference: "WD-{$withdrawal->id}",
+            reference: PaymentReference::withdrawalLedger($withdrawal->id),
         );
     }
 

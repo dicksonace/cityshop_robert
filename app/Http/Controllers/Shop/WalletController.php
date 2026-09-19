@@ -77,7 +77,7 @@ class WalletController extends Controller
             'currencyFilter' => in_array($currency, ['GHS', 'RMB'], true) ? $currency : 'all',
             'withdrawals' => $withdrawals,
             'hasPendingWithdrawal' => $hasPendingWithdrawal,
-            'paystackConfigured' => $this->paystack->isAvailable(),
+            'paystackConfigured' => $this->paystack->isOfferedForCollections(),
             'paystackPublicKey' => config('services.paystack.public_key'),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
@@ -146,7 +146,6 @@ class WalletController extends Controller
                 (float) $validated['amount'],
                 $validated['method'],
                 route('wallet.callback'),
-                'TOP',
             );
 
             if ($request->expectsJson()) {
@@ -257,7 +256,6 @@ class WalletController extends Controller
                 (float) $validated['amount'],
                 $validated['method'],
                 route('wallet.flutterwave.callback'),
-                'FLW-TOP',
             );
 
             if ($request->expectsJson()) {

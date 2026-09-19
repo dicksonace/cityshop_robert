@@ -63,6 +63,11 @@ class GsmOrder extends Model
         return $this->hasMany(GsmOrderStatusHistory::class)->latest('id');
     }
 
+    public function replies(): HasMany
+    {
+        return $this->hasMany(GsmOrderReply::class)->oldest('id');
+    }
+
     public function assignedAdmin(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_admin_id');

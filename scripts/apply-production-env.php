@@ -27,6 +27,10 @@ $formulaKey = $decode('cGtfdGVzdF82NTM0Y2ZiYzhlMmZlNGM1ZmFiZGNjYTdlNDYwYWUxNmQ1Z
 $txtConnectKey = $decode('aWtsNGFOWmpzQkRFMVc0YXpDdnlyZElaSVhiaUdSVXo1NURRbHZNZlFLZjhOS01qRVE2bFdFOWg4VWlBeDdXb2prYnk=');
 $paystackPublic = $decode('cGtfbGl2ZV83MWMxYmU4ZjE5MzQ3MzNmNjVkZTM1MDQ4MmJhYWRmODEzZTliZTM5');
 $paystackSecret = $decode('c2tfbGl2ZV9jMmU3Y2U1YWQxOTYyZTk1MDFmNDE0OTdkYzg5ZDM2ZTg2NDM0YzUx');
+// CITY UNLOCK VENTURES V3 live public key (app.flutterwave.com). Secret is applied separately
+// by scripts/apply-flutterwave-env.php so deploys never wipe a newly generated secret.
+$flutterwavePublic = $decode('RkxXUFVCSy1kMWE3MDU0NTRkMDVhZGMxODIxNWExMzg3MTU2NGE0Yy1Y');
+$flutterwaveHash = $decode('Q2l0eVVubG9ja0Zsd1doMjAyNg==');
 
 $pairs = [
     'QUEUE_CONNECTION' => 'sync',
@@ -55,6 +59,9 @@ $pairs = [
     'PAYSTACK_LOCAL_PERCENT' => '1.95',
     'PAYSTACK_LOCAL_FLAT' => '0',
     'VITE_PAYSTACK_PUBLIC_KEY' => '${PAYSTACK_PUBLIC_KEY}',
+    'FLW_PUBLIC_KEY' => $flutterwavePublic,
+    'FLW_SECRET_HASH' => $flutterwaveHash,
+    'VITE_FLW_PUBLIC_KEY' => '${FLW_PUBLIC_KEY}',
 ];
 
 $env = file_get_contents($envPath);
@@ -91,3 +98,6 @@ echo "  MAIL_EHLO_DOMAIN=".$pairs['MAIL_EHLO_DOMAIN']."\n";
 echo "  SMS_DRIVER=formula_dc sender=".$pairs['FORMULA_DC_SENDER']."\n";
 echo "  TXTCONNECT_SENDER=".$pairs['TXTCONNECT_SENDER']." (switch in Admin → SMS platforms)\n";
 echo "  PAYSTACK_PUBLIC_KEY=".substr($paystackPublic, 0, 10)."...\n";
+echo "  FLW_PUBLIC_KEY=".substr($flutterwavePublic, 0, 18)."...\n";
+echo "  FLW_SECRET_HASH=".$flutterwaveHash."\n";
+echo "  (FLW_SECRET_KEY is not overwritten here — run scripts/set-live-flutterwave-env.sh)\n";
