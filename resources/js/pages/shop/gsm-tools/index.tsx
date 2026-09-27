@@ -1,5 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Smartphone } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
@@ -10,6 +11,8 @@ type Service = {
     id: number;
     name: string;
     slug: string;
+    service_type: string;
+    service_type_label: string;
     description: string | null;
     price_ghs: number;
     fields: Field[];
@@ -30,8 +33,26 @@ interface Props {
     wallet: { available_balance: number } | null;
 }
 
+const SERVICE_TYPES = [
+    { value: 'all', label: 'All services' },
+    { value: 'imei', label: 'IMEI Service' },
+    { value: 'server', label: 'Server Service' },
+    { value: 'remote', label: 'Remote Service' },
+    { value: 'file', label: 'File Service' },
+];
+
 export default function GsmToolsIndex({ services, orders, wallet }: Props) {
     const { flash, auth } = usePage<SharedData>().props;
+    const [query, setQuery] = useState('');
+    const [serviceType, setServiceType] = useState('all');
+    const visible = useMemo(() => {
+        const needle = query.trim().toLowerCase();
+        return services.filter((service) => {
+            const typeOk = serviceType === 'all' || (service.service_type || 'imei') === serviceType;
+            const text = `${service.name} ${service.description ?? ''}`.toLowerCase();
+            return typeOk && (needle === '' || text.includes(needle));
+        });
+    }, [services, query, serviceType]);
 
     return (
         <ShopLayout>
@@ -66,8 +87,28 @@ export default function GsmToolsIndex({ services, orders, wallet }: Props) {
                     </div>
                 )}
 
+                <div className="mb-4 space-y-2">
+                    <input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Search services"
+                        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm"
+                    />
+                    <select
+                        value={serviceType}
+                        onChange={(e) => setServiceType(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm"
+                    >
+                        {SERVICE_TYPES.map((type) => (
+                            <option key={type.value} value={type.value}>
+                                {type.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
                 <div className="space-y-3">
-                    {services.map((service) => (
+                    {visible.map((service) => (
                         <button
                             key={service.id}
                             type="button"
@@ -83,6 +124,9 @@ export default function GsmToolsIndex({ services, orders, wallet }: Props) {
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <h2 className="font-bold text-gray-900">{service.name}</h2>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                                        {service.service_type_label || 'IMEI Service'}
+                                    </p>
                                     {service.description ? (
                                         <p className="mt-1 line-clamp-2 text-xs text-gray-500">{service.description}</p>
                                     ) : null}
@@ -93,9 +137,9 @@ export default function GsmToolsIndex({ services, orders, wallet }: Props) {
                             </div>
                         </button>
                     ))}
-                    {services.length === 0 ? (
+                    {visible.length === 0 ? (
                         <p className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
-                            No GSM services available yet.
+                            {services.length === 0 ? 'No GSM services available yet.' : 'No services match this search.'}
                         </p>
                     ) : null}
                 </div>

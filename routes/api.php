@@ -289,6 +289,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/transactions', [AdminTransactionController::class, 'index']);
             Route::get('/seller-reports', [AdminSellerReportController::class, 'index']);
             Route::patch('/seller-reports/{report}', [AdminSellerReportController::class, 'update']);
+            Route::get('/content-reports', [\App\Http\Controllers\Api\V1\Admin\ContentReportController::class, 'index']);
+            Route::patch('/content-reports/{contentReport}', [\App\Http\Controllers\Api\V1\Admin\ContentReportController::class, 'update']);
 
             Route::get('/settings/sms', [AdminSettingsController::class, 'sms']);
             Route::post('/settings/sms', [AdminSettingsController::class, 'updateSms']);
@@ -433,6 +435,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/status/{status}', [\App\Http\Controllers\Api\V1\StatusController::class, 'destroy']);
 
         Route::post('/sellers/report', [\App\Http\Controllers\Api\V1\SellerReportController::class, 'store']);
+        Route::post('/reports', [\App\Http\Controllers\Api\V1\ContentReportController::class, 'store']);
 
         Route::get('/users/lookup', [UserLookupController::class, 'lookup']);
         Route::get('/blocks', [UserBlockController::class, 'index']);

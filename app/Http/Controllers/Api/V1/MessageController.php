@@ -282,6 +282,8 @@ class MessageController extends Controller
             'reply_to_id' => ['nullable', 'integer', 'exists:messages,id'],
         ]);
 
+        \App\Support\ObjectionableContent::assertClean($validated['body']);
+
         $replyTo = null;
         if (! empty($validated['reply_to_id'])) {
             $replyTo = Message::query()
@@ -702,6 +704,8 @@ class MessageController extends Controller
         $validated = $request->validate([
             'body' => ['required', 'string', 'max:2000'],
         ]);
+
+        \App\Support\ObjectionableContent::assertClean($validated['body']);
 
         try {
             $message = ChatService::updateMessage($message, $request->user(), $validated['body']);

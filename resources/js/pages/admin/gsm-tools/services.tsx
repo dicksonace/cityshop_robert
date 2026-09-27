@@ -23,6 +23,8 @@ type Service = {
     id: number;
     name: string;
     description: string | null;
+    service_type: string;
+    service_type_label: string;
     price_ghs: number;
     sort_order: number;
     active: boolean;
@@ -36,17 +38,71 @@ type Service = {
     }>;
 };
 
+type ServiceType = { value: string; label: string };
+
 interface Props {
     services: Service[];
     fieldTypes: string[];
+    serviceTypes: ServiceType[];
 }
 
-export default function AdminGsmServices({ services, fieldTypes }: Props) {
+const FIELD_TYPE_LABELS: Record<string, string> = {
+    text: 'Text',
+    textarea: 'Long text',
+    number: 'Number',
+    phone: 'Phone',
+    url: 'Link',
+    image: 'Photo',
+};
+
+function FieldInputs({
+    field,
+    fieldTypes,
+    onChange,
+    onRemove,
+}: {
+    field: FieldRow;
+    fieldTypes: string[];
+    onChange: (next: FieldRow) => void;
+    onRemove: () => void;
+}) {
+    return (
+        <div className="flex flex-wrap items-center gap-2">
+            <Input
+                placeholder="Name of field"
+                value={field.label}
+                onChange={(e) => onChange({ ...field, label: e.target.value })}
+            />
+            <Input
+                placeholder="e.g ID Number"
+                value={field.placeholder}
+                onChange={(e) => onChange({ ...field, placeholder: e.target.value })}
+            />
+            <select
+                className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm"
+                value={field.type}
+                onChange={(e) => onChange({ ...field, type: e.target.value })}
+            >
+                {fieldTypes.map((type) => (
+                    <option key={type} value={type}>
+                        {FIELD_TYPE_LABELS[type] ?? type}
+                    </option>
+                ))}
+            </select>
+            <button type="button" className="rounded-lg bg-red-500 p-2 text-white" onClick={onRemove}>
+                <Trash2 className="h-4 w-4" />
+            </button>
+        </div>
+    );
+}
+
+export default function AdminGsmServices({ services, fieldTypes, serviceTypes }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [editingId, setEditingId] = useState<number | null>(null);
 
     const createForm = useForm({
         name: '',
+        service_type: serviceTypes[0]?.value ?? 'imei',
         description: '',
         price_ghs: '50',
         sort_order: '0',
@@ -56,6 +112,7 @@ export default function AdminGsmServices({ services, fieldTypes }: Props) {
 
     const editForm = useForm({
         name: '',
+        service_type: 'imei',
         description: '',
         price_ghs: '',
         sort_order: '0',
@@ -74,6 +131,7 @@ export default function AdminGsmServices({ services, fieldTypes }: Props) {
         setEditingId(service.id);
         editForm.setData({
             name: service.name,
+            service_type: service.service_type || 'imei',
             description: service.description ?? '',
             price_ghs: String(service.price_ghs),
             sort_order: String(service.sort_order),
@@ -104,7 +162,7 @@ export default function AdminGsmServices({ services, fieldTypes }: Props) {
                 <div className="flex items-center justify-between gap-3">
                     <div>
                         <h1 className="text-xl font-bold text-gray-900">GSM Services</h1>
-                        <p className="text-sm text-gray-500">Create services with custom input fields (IMEI, photo link, etc.).</p>
+                        <p className="text-sm text-gray-500">Create IMEI, server, remote, or file services. Photo fields are uploaded by the buyer.</p>
                     </div>
                     <button type="button" className="text-sm text-orange-600" onClick={() => router.visit(route('admin.gsm-tools.index'))}>
                         ← Orders
@@ -125,6 +183,21 @@ export default function AdminGsmServices({ services, fieldTypes }: Props) {
                         <InputError message={createForm.errors.name} />
                     </div>
                     <div>
+                        <Label>Service type</Label>
+                        <select
+                            className="mt-1 h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
+                            value={createForm.data.service_type}
+                            onChange={(e) => createForm.setData('service_type', e.target.value)}
+                        >
+                            {serviceTypes.map((type) => (
+                                <option key={type.value} value={type.value}>
+                                    {type.label}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={createForm.errors.service_type} />
+                    </div>
+                    <div>
                         <Label>Description</Label>
                         <textarea
                             className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
@@ -142,38 +215,22 @@ export default function AdminGsmServices({ services, fieldTypes }: Props) {
                         <p className="mb-2 text-sm font-semibold text-gray-800">Do you want to collect any extra information?</p>
                         <div className="space-y-2">
                             {createForm.data.fields.map((field, index) => (
-                                <div key={index} className="flex flex-wrap items-center gap-2">
-                                    <Input
-                                        placeholder="Name of field"
-                                        value={field.label}
-                                        onChange={(e) => {
-                                            const next = [...createForm.data.fields];
-                                            next[index] = { ...next[index], label: e.target.value };
-                                            createForm.setData('fields', next);
-                                        }}
-                                    />
-                                    <Input
-                                        placeholder="e.g ID Number"
-                                        value={field.placeholder}
-                                        onChange={(e) => {
-                                            const next = [...createForm.data.fields];
-                                            next[index] = { ...next[index], placeholder: e.target.value };
-                                            createForm.setData('fields', next);
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="rounded-lg bg-red-500 p-2 text-white"
-                                        onClick={() =>
-                                            createForm.setData(
-                                                'fields',
-                                                createForm.data.fields.filter((_, i) => i !== index),
-                                            )
-                                        }
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </div>
+                                <FieldInputs
+                                    key={index}
+                                    field={field}
+                                    fieldTypes={fieldTypes}
+                                    onChange={(nextField) => {
+                                        const next = [...createForm.data.fields];
+                                        next[index] = nextField;
+                                        createForm.setData('fields', next);
+                                    }}
+                                    onRemove={() =>
+                                        createForm.setData(
+                                            'fields',
+                                            createForm.data.fields.filter((_, i) => i !== index),
+                                        )
+                                    }
+                                />
                             ))}
                         </div>
                         <button
@@ -204,7 +261,9 @@ export default function AdminGsmServices({ services, fieldTypes }: Props) {
                                 <div>
                                     <h3 className="font-bold text-gray-900">{service.name}</h3>
                                     <p className="text-sm text-orange-600">{formatPrice(service.price_ghs)}</p>
-                                    <p className="text-xs text-gray-500">{service.active ? 'Active' : 'Inactive'} · {service.fields.length} fields</p>
+                                    <p className="text-xs text-gray-500">
+                                        {service.service_type_label} · {service.active ? 'Active' : 'Inactive'} · {service.fields.length} fields
+                                    </p>
                                 </div>
                                 <Button type="button" variant="outline" onClick={() => startEdit(service)}>
                                     Edit
@@ -214,6 +273,17 @@ export default function AdminGsmServices({ services, fieldTypes }: Props) {
                             {editingId === service.id ? (
                                 <form onSubmit={submitEdit} className="mt-4 space-y-3 border-t border-gray-100 pt-4">
                                     <Input value={editForm.data.name} onChange={(e) => editForm.setData('name', e.target.value)} />
+                                    <select
+                                        className="h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
+                                        value={editForm.data.service_type}
+                                        onChange={(e) => editForm.setData('service_type', e.target.value)}
+                                    >
+                                        {serviceTypes.map((type) => (
+                                            <option key={type.value} value={type.value}>
+                                                {type.label}
+                                            </option>
+                                        ))}
+                                    </select>
                                     <Input value={editForm.data.price_ghs} onChange={(e) => editForm.setData('price_ghs', e.target.value)} />
                                     <label className="flex items-center gap-2 text-sm">
                                         <input
@@ -224,38 +294,22 @@ export default function AdminGsmServices({ services, fieldTypes }: Props) {
                                         Active
                                     </label>
                                     {editForm.data.fields.map((field, index) => (
-                                        <div key={field.id ?? index} className="flex flex-wrap gap-2">
-                                            <Input
-                                                placeholder="Name of field"
-                                                value={field.label}
-                                                onChange={(e) => {
-                                                    const next = [...editForm.data.fields];
-                                                    next[index] = { ...next[index], label: e.target.value };
-                                                    editForm.setData('fields', next);
-                                                }}
-                                            />
-                                            <Input
-                                                placeholder="e.g ID Number"
-                                                value={field.placeholder}
-                                                onChange={(e) => {
-                                                    const next = [...editForm.data.fields];
-                                                    next[index] = { ...next[index], placeholder: e.target.value };
-                                                    editForm.setData('fields', next);
-                                                }}
-                                            />
-                                            <button
-                                                type="button"
-                                                className="rounded-lg bg-red-500 p-2 text-white"
-                                                onClick={() =>
-                                                    editForm.setData(
-                                                        'fields',
-                                                        editForm.data.fields.filter((_, i) => i !== index),
-                                                    )
-                                                }
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
+                                        <FieldInputs
+                                            key={field.id ?? index}
+                                            field={field}
+                                            fieldTypes={fieldTypes}
+                                            onChange={(nextField) => {
+                                                const next = [...editForm.data.fields];
+                                                next[index] = nextField;
+                                                editForm.setData('fields', next);
+                                            }}
+                                            onRemove={() =>
+                                                editForm.setData(
+                                                    'fields',
+                                                    editForm.data.fields.filter((_, i) => i !== index),
+                                                )
+                                            }
+                                        />
                                     ))}
                                     <button
                                         type="button"

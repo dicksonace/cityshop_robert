@@ -24,6 +24,8 @@ class StatusController extends Controller
             'background_color' => ['nullable', 'string', 'max:16'],
         ]);
 
+        \App\Support\ObjectionableContent::assertClean($request->input('body'));
+
         $status = StatusService::post(
             $request->user(),
             [

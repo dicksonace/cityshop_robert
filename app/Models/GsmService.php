@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\GsmServiceType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -10,6 +11,7 @@ class GsmService extends Model
     protected $fillable = [
         'name',
         'slug',
+        'service_type',
         'description',
         'price_ghs',
         'currency',
@@ -20,6 +22,7 @@ class GsmService extends Model
     protected function casts(): array
     {
         return [
+            'service_type' => GsmServiceType::class,
             'price_ghs' => 'decimal:2',
             'active' => 'boolean',
         ];

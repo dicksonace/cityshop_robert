@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ChatOversightController as AdminChatOversightController;
 use App\Http\Controllers\Admin\ContactMessageController as AdminContactMessageController;
 use App\Http\Controllers\Admin\SellerAnnouncementController as AdminSellerAnnouncementController;
+use App\Http\Controllers\Admin\ContentReportController as AdminContentReportController;
 use App\Http\Controllers\Admin\SellerReportController as AdminSellerReportController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DisputeController as AdminDisputeController;
@@ -483,6 +484,8 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
 
     Route::get('/seller-reports', [AdminSellerReportController::class, 'index'])->name('seller-reports.index');
     Route::patch('/seller-reports/{report}', [AdminSellerReportController::class, 'update'])->name('seller-reports.update');
+    Route::get('/content-reports', [AdminContentReportController::class, 'index'])->name('content-reports.index');
+    Route::patch('/content-reports/{contentReport}', [AdminContentReportController::class, 'update'])->name('content-reports.update');
 
     Route::get('/stores', [AdminStoreOversightController::class, 'index'])->name('stores.index');
     Route::get('/stores/{seller}', [AdminStoreOversightController::class, 'show'])->name('stores.show');

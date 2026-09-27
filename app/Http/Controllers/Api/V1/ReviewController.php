@@ -21,6 +21,8 @@ class ReviewController extends Controller
             'comment' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        \App\Support\ObjectionableContent::assertClean($validated['comment'] ?? null);
+
         $item = OrderItem::with(['order', 'product'])
             ->where('id', $validated['order_item_id'])
             ->where('order_id', $order->id)

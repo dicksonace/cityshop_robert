@@ -19,7 +19,7 @@ type Order = {
     can_cancel: boolean;
     admin_result_note: string | null;
     failure_reason: string | null;
-    fields: { name: string; label: string; value: string | null }[];
+    fields: { name: string; label: string; type?: string; value: string | null }[];
     replies?: Reply[];
     user?: { id: number; name: string; email: string | null; mobile: string | null } | null;
     history?: { to_status: string; note: string | null; actor?: string | null; created_at: string | null }[];
@@ -114,7 +114,13 @@ export default function AdminGsmToolShow({ order }: Props) {
                         {order.fields.map((field) => (
                             <div key={field.name}>
                                 <p className="text-xs font-semibold uppercase text-gray-400">{field.label}</p>
-                                <p className="break-all text-sm text-gray-900">{field.value || '—'}</p>
+                                {field.type === 'image' && field.value ? (
+                                    <a href={field.value} target="_blank" rel="noreferrer">
+                                        <img src={field.value} alt="" className="mt-1 max-h-56 rounded-xl border border-gray-200" />
+                                    </a>
+                                ) : (
+                                    <p className="break-all text-sm text-gray-900">{field.value || '—'}</p>
+                                )}
                             </div>
                         ))}
                     </div>

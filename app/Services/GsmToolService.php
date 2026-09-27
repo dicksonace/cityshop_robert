@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\GsmOrderStatus;
+use App\Enums\GsmServiceType;
 use App\Models\GsmOrder;
 use App\Models\GsmOrderFieldValue;
 use App\Models\GsmOrderReply;
@@ -12,7 +13,9 @@ use App\Models\GsmServiceField;
 use App\Models\User;
 use App\Support\PaymentReference;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -49,6 +52,8 @@ class GsmToolService
             'id' => $service->id,
             'name' => $service->name,
             'slug' => $service->slug,
+            'service_type' => ($service->service_type ?? GsmServiceType::Imei)->value,
+            'service_type_label' => ($service->service_type ?? GsmServiceType::Imei)->label(),
             'description' => $service->description,
             'price_ghs' => (float) $service->price_ghs,
             'currency' => $service->currency ?: 'GHS',
@@ -80,7 +85,9 @@ class GsmToolService
      */
     public function orderPayload(GsmOrder $order, bool $withHistory = false): array
     {
-        $order->loadMissing(['fieldValues', 'service.activeFields', 'user:id,name,email,mobile', 'replies.admin:id,name']);
+        $order->loadMissing(['fieldValues', 'service.fields', 'user:id,name,email,mobile', 'replies.admin:id,name']);
+        $fieldsById = $order->service?->fields?->keyBy('id') ?? collect();
+        $fieldsByName = $order->service?->fields?->keyBy('name') ?? collect();
 
         $payload = [
             'id' => $order->id,
@@ -90,6 +97,8 @@ class GsmToolService
             'status_tone' => $order->status->tone(),
             'service_id' => $order->gsm_service_id,
             'service_name' => $order->service_name,
+            'service_type' => ($order->service?->service_type ?? GsmServiceType::Imei)->value,
+            'service_type_label' => ($order->service?->service_type ?? GsmServiceType::Imei)->label(),
             'price_ghs' => (float) $order->price_ghs,
             'refunded' => (bool) $order->refunded,
             'admin_result_note' => $order->admin_result_note,
@@ -106,11 +115,16 @@ class GsmToolService
             'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'failed_at' => $order->failed_at?->toIso8601String(),
             'created_at' => $order->created_at?->toIso8601String(),
-            'fields' => $order->fieldValues->map(fn (GsmOrderFieldValue $row) => [
-                'name' => $row->field_name,
-                'label' => $row->field_label,
-                'value' => $row->value,
-            ])->values()->all(),
+            'fields' => $order->fieldValues->map(function (GsmOrderFieldValue $row) use ($fieldsById, $fieldsByName) {
+                $definition = $fieldsById->get($row->gsm_service_field_id) ?? $fieldsByName->get($row->field_name);
+
+                return [
+                    'name' => $row->field_name,
+                    'label' => $row->field_label,
+                    'type' => $definition?->type ?? 'text',
+                    'value' => $row->value,
+                ];
+            })->values()->all(),
             'can_cancel' => in_array($order->status, [GsmOrderStatus::Pending, GsmOrderStatus::Processing], true),
         ];
 
@@ -177,6 +191,8 @@ class GsmToolService
             } catch (\RuntimeException $e) {
                 throw ValidationException::withMessages(['balance' => $e->getMessage()]);
             }
+
+            $values = $this->persistUploadedFields($values);
 
             $order = GsmOrder::create([
                 'reference' => $this->nextReference(),
@@ -384,6 +400,7 @@ class GsmToolService
             $service = GsmService::create([
                 'name' => $name,
                 'slug' => $slug,
+                'service_type' => $this->serviceType($data['service_type'] ?? null),
                 'description' => $data['description'] ?? null,
                 'price_ghs' => round((float) ($data['price_ghs'] ?? 0), 2),
                 'currency' => 'GHS',
@@ -405,6 +422,9 @@ class GsmToolService
         return DB::transaction(function () use ($service, $data, $fields) {
             if (array_key_exists('name', $data)) {
                 $service->name = trim((string) $data['name']);
+            }
+            if (array_key_exists('service_type', $data)) {
+                $service->service_type = $this->serviceType($data['service_type']);
             }
             if (array_key_exists('description', $data)) {
                 $service->description = $data['description'];
@@ -492,27 +512,58 @@ class GsmToolService
 
         foreach ($fields as $field) {
             $key = 'fields.'.$field->name;
-            $rule = [$field->required ? 'required' : 'nullable', 'string', 'max:2000'];
-            if ($field->type === 'url') {
-                $rule[] = 'url';
-            }
-            if ($field->type === 'number') {
+            if ($field->type === 'image') {
+                $rule = [$field->required ? 'required' : 'nullable', 'image', 'max:8192'];
+            } elseif ($field->type === 'number') {
                 $rule = [$field->required ? 'required' : 'nullable', 'numeric'];
+            } else {
+                $rule = [$field->required ? 'required' : 'nullable', 'string', 'max:2000'];
+                if ($field->type === 'url') {
+                    $rule[] = 'url';
+                }
             }
             $rules[$key] = $rule;
             $attributes[$key] = $field->label;
         }
 
-        $validated = $request->validate($rules, [], $attributes);
-        $input = $validated['fields'] ?? [];
+        $request->validate($rules, [], $attributes);
         $out = [];
 
         foreach ($fields as $field) {
-            $raw = $input[$field->name] ?? null;
+            if ($field->type === 'image') {
+                $file = $request->file('fields.'.$field->name);
+                $out[$field->name] = $file instanceof UploadedFile ? $file : null;
+                continue;
+            }
+
+            $raw = $request->input('fields.'.$field->name);
             $out[$field->name] = is_scalar($raw) ? trim((string) $raw) : null;
         }
 
         return $out;
+    }
+
+    /**
+     * @param  array<string, UploadedFile|string|null>  $values
+     * @return array<string, string|null>
+     */
+    private function persistUploadedFields(array $values): array
+    {
+        foreach ($values as $name => $raw) {
+            if (! $raw instanceof UploadedFile) {
+                continue;
+            }
+
+            $path = $raw->store('gsm-orders', 'public');
+            $values[$name] = url(Storage::disk('public')->url($path));
+        }
+
+        return $values;
+    }
+
+    private function serviceType(mixed $value): GsmServiceType
+    {
+        return GsmServiceType::tryFrom((string) $value) ?? GsmServiceType::Imei;
     }
 
     private function refund(GsmOrder $order, string $description): void

@@ -88,7 +88,7 @@ class ProfileController extends Controller
     public function deletionStatus(Request $request, BuyerAccountService $accounts): JsonResponse
     {
         $user = $request->user();
-        abort_unless($user->isBuyer(), 403);
+        abort_unless($user->isBuyer() || $user->isSeller(), 403);
 
         return response()->json($accounts->selfDeletionStatus($user));
     }
@@ -96,7 +96,7 @@ class ProfileController extends Controller
     public function destroy(Request $request, BuyerAccountService $accounts): JsonResponse
     {
         $user = $request->user();
-        abort_unless($user->isBuyer(), 403, 'Only buyer accounts can be deleted in the app.');
+        abort_unless($user->isBuyer() || $user->isSeller(), 403, 'This account cannot be deleted in the app.');
 
         $request->validate([
             'password' => ['required', 'current_password'],

@@ -36,8 +36,8 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
     const { flash } = usePage<SharedData>().props;
     const [pin, setPin] = useState('');
     const initialFields = useMemo(() => {
-        const map: Record<string, string> = {};
-        for (const field of service.fields) map[field.name] = '';
+        const map: Record<string, string | File | null> = {};
+        for (const field of service.fields) map[field.name] = field.type === 'image' ? null : '';
         return map;
     }, [service.fields]);
 
@@ -51,9 +51,16 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        form.setData('payment_pin', pin);
-        form.transform((data) => ({ ...data, payment_pin: pin }));
-        form.post(route('gsm-tools.orders.store'));
+        form.transform((data) => {
+            const fields: Record<string, string | File> = {};
+            for (const [key, value] of Object.entries(data.fields)) {
+                if (value instanceof File || (typeof value === 'string' && value !== '')) {
+                    fields[key] = value;
+                }
+            }
+            return { ...data, fields, payment_pin: pin };
+        });
+        form.post(route('gsm-tools.orders.store'), { forceFormData: true });
     };
 
     return (
@@ -90,13 +97,26 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                                 {field.label}
                                 {field.required ? '*' : ''}
                             </Label>
-                            {field.type === 'textarea' ? (
+                            {field.type === 'image' ? (
+                                <input
+                                    id={field.name}
+                                    type="file"
+                                    accept="image/*"
+                                    className="mt-1 block w-full text-sm text-gray-700"
+                                    onChange={(e) =>
+                                        form.setData('fields', {
+                                            ...form.data.fields,
+                                            [field.name]: e.target.files?.[0] ?? null,
+                                        })
+                                    }
+                                />
+                            ) : field.type === 'textarea' ? (
                                 <textarea
                                     id={field.name}
                                     className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
                                     rows={3}
                                     placeholder={field.placeholder ?? undefined}
-                                    value={form.data.fields[field.name] ?? ''}
+                                    value={typeof form.data.fields[field.name] === 'string' ? (form.data.fields[field.name] as string) : ''}
                                     onChange={(e) =>
                                         form.setData('fields', { ...form.data.fields, [field.name]: e.target.value })
                                     }
@@ -105,8 +125,9 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                                 <Input
                                     id={field.name}
                                     className="mt-1"
+                                    inputMode={field.type === 'number' ? 'decimal' : field.type === 'phone' ? 'tel' : undefined}
                                     placeholder={field.placeholder ?? undefined}
-                                    value={form.data.fields[field.name] ?? ''}
+                                    value={typeof form.data.fields[field.name] === 'string' ? (form.data.fields[field.name] as string) : ''}
                                     onChange={(e) =>
                                         form.setData('fields', { ...form.data.fields, [field.name]: e.target.value })
                                     }

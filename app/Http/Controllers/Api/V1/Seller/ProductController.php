@@ -625,6 +625,11 @@ class ProductController extends Controller
 
         unset($validated['shipping_type']);
 
+        \App\Support\ObjectionableContent::assertClean(
+            isset($validated['name']) ? (string) $validated['name'] : null,
+            isset($validated['description']) ? (string) $validated['description'] : null,
+        );
+
         return $validated;
     }
 

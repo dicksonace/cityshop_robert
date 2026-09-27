@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\GsmOrderStatus;
+use App\Enums\GsmServiceType;
 use App\Http\Controllers\Controller;
 use App\Models\GsmOrder;
 use App\Models\GsmService;
@@ -113,6 +114,7 @@ class GsmToolController extends Controller
         return Inertia::render('admin/gsm-tools/services', [
             'services' => $services,
             'fieldTypes' => GsmServiceField::TYPES,
+            'serviceTypes' => GsmServiceType::options(),
         ]);
     }
 
@@ -120,6 +122,7 @@ class GsmToolController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:160'],
+            'service_type' => ['required', Rule::enum(GsmServiceType::class)],
             'description' => ['nullable', 'string', 'max:5000'],
             'price_ghs' => ['required', 'numeric', 'min:1', 'max:50000'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
@@ -140,6 +143,7 @@ class GsmToolController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:160'],
+            'service_type' => ['required', Rule::enum(GsmServiceType::class)],
             'description' => ['nullable', 'string', 'max:5000'],
             'price_ghs' => ['required', 'numeric', 'min:1', 'max:50000'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],

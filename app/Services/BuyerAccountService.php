@@ -7,11 +7,11 @@ use App\Enums\GsmOrderStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\SellRmbStatus;
-use App\Enums\UserRole;
 use App\Enums\WalletTopUpStatus;
 use App\Enums\WithdrawalStatus;
 use App\Models\Checkout;
 use App\Models\ChinaTransfer;
+use App\Models\OrderItem;
 use App\Models\SellRmbTransfer;
 use App\Models\User;
 use App\Models\WalletTopUpRequest;
@@ -57,12 +57,8 @@ class BuyerAccountService
 
     public function delete(User $buyer, ?string $reason = null): void
     {
-        if (! $buyer->isBuyer()) {
-            throw new InvalidArgumentException('Only buyer accounts can be deleted here.');
-        }
-
-        if ($buyer->isAdmin()) {
-            throw new InvalidArgumentException('Administrator accounts cannot be deleted.');
+        if ($buyer->isAdmin() || (! $buyer->isBuyer() && ! $buyer->isSeller())) {
+            throw new InvalidArgumentException('This account cannot be deleted here.');
         }
 
         DB::transaction(function () use ($buyer, $reason) {
@@ -85,8 +81,8 @@ class BuyerAccountService
      */
     public function selfDeletionBlockers(User $buyer): array
     {
-        if (! $buyer->isBuyer()) {
-            return ['Only buyer accounts can be deleted here. Contact CityShop support.'];
+        if ($buyer->isAdmin() || (! $buyer->isBuyer() && ! $buyer->isSeller())) {
+            return ['This account cannot be deleted in the app. Contact support at cityunlock.net/contact.'];
         }
 
         $blockers = [];
@@ -179,6 +175,22 @@ class BuyerAccountService
             $blockers[] = 'You have a GSM Tools order that is still processing.';
         }
 
+        if ($buyer->isSeller()) {
+            $openSellerOrders = OrderItem::query()
+                ->where('seller_id', $buyer->id)
+                ->whereNotIn('status', [
+                    OrderStatus::Delivered,
+                    OrderStatus::Cancelled,
+                    OrderStatus::Refunded,
+                ])
+                ->count();
+            if ($openSellerOrders > 0) {
+                $blockers[] = $openSellerOrders === 1
+                    ? 'You have a seller order that is still open. Finish, cancel, or refund it first.'
+                    : "You have {$openSellerOrders} seller orders that are still open. Finish them first.";
+            }
+        }
+
         return $blockers;
     }
 
@@ -209,11 +221,11 @@ class BuyerAccountService
 
     public function selfDelete(User $buyer): void
     {
-        if ($buyer->role !== UserRole::Buyer) {
-            throw new InvalidArgumentException('Only buyer accounts can be deleted here.');
+        if (! $buyer->isBuyer() && ! $buyer->isSeller()) {
+            throw new InvalidArgumentException('This account cannot be deleted here.');
         }
 
         $this->assertCanSelfDelete($buyer);
-        $this->delete($buyer, 'Buyer deleted their own account.');
+        $this->delete($buyer, 'User deleted their own account.');
     }
 }
