@@ -102,24 +102,16 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                     </div>
                 </div>
 
-                <div className="mt-4 overflow-hidden rounded-2xl bg-gradient-to-br from-orange-600 to-orange-500 p-4 text-white shadow-lg shadow-orange-500/20">
-                    <p className="text-[11px] font-extrabold tracking-wide text-white/70">PAY FROM WALLET</p>
-                    <p className="mt-1 text-[28px] font-black leading-none">{formatPrice(total)}</p>
-                    <p className="mt-2 text-sm font-semibold text-white/90">Deducted from your wallet when you place this order.</p>
-                    <div className="mt-4 space-y-2 rounded-xl bg-white/15 px-3 py-3 text-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="font-semibold">Wallet balance</span>
-                            <span className="font-black">{formatPrice(wallet.available_balance)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-white/80">
-                            <span className="font-semibold">{enough ? 'After this order' : 'Short by'}</span>
-                            <span className="font-black text-white">
-                                {enough
-                                    ? formatPrice(wallet.available_balance - total)
-                                    : formatPrice(total - wallet.available_balance)}
-                            </span>
-                        </div>
+                <div className="mt-4 rounded-xl bg-gradient-to-br from-orange-600 to-orange-500 px-3.5 py-3 text-white">
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-[10px] font-extrabold tracking-wide text-white/70">PAY FROM WALLET</p>
+                        <p className="text-lg font-black leading-none">{formatPrice(total)}</p>
                     </div>
+                    <p className="mt-1.5 text-xs font-semibold text-white/90">
+                        {enough
+                            ? `Balance ${formatPrice(wallet.available_balance)} · Left ${formatPrice(wallet.available_balance - total)}`
+                            : `Balance ${formatPrice(wallet.available_balance)} · Short ${formatPrice(total - wallet.available_balance)}`}
+                    </p>
                 </div>
 
                 {!enough ? (
