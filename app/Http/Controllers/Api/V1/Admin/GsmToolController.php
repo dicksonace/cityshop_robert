@@ -203,6 +203,13 @@ class GsmToolController extends Controller
         return response()->json(['group' => $this->gsm->groupPayload($group->fresh())], 201);
     }
 
+    public function destroyGroup(GsmServiceGroup $gsmServiceGroup): JsonResponse
+    {
+        $this->gsm->deleteGroup($gsmServiceGroup);
+
+        return response()->json(['message' => 'Category deleted.']);
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -174,7 +174,7 @@ class GsmToolService
             'image_url' => $order->service?->imageUrl(),
             'quantity' => max(1, (int) ($order->quantity ?: 1)),
             'unit_price_ghs' => (float) ($order->unit_price_ghs ?? $order->price_ghs),
-            'contact_email' => $order->contact_email,
+            'contact_email' => null,
             'service_type' => ($order->service?->service_type ?? GsmServiceType::Imei)->value,
             'service_type_label' => ($order->service?->service_type ?? GsmServiceType::Imei)->label(),
             'eta_label' => $order->service?->eta_label ?: 'INSTANT',
@@ -211,8 +211,6 @@ class GsmToolService
             $payload['user'] = [
                 'id' => $order->user->id,
                 'name' => $order->user->name,
-                'email' => $order->user->email,
-                'mobile' => $order->user->mobile,
             ];
         }
 
@@ -253,22 +251,14 @@ class GsmToolService
 
         $fields = $service->activeFields;
         $values = $this->validatedFieldValues($request, $fields);
-        $email = trim((string) ($validated['email'] ?? ''));
-        if ($email === '') {
-            foreach ($fields as $field) {
-                $isEmail = $field->type === 'email' || strcasecmp((string) $field->name, 'email') === 0 || strcasecmp((string) $field->label, 'email') === 0;
-                if ($isEmail && filled($values[$field->name] ?? null)) {
-                    $email = trim((string) $values[$field->name]);
-                    break;
-                }
+        $email = null;
+        foreach ($fields as $field) {
+            $isEmail = $field->type === 'email' || strcasecmp((string) $field->name, 'email') === 0 || strcasecmp((string) $field->label, 'email') === 0;
+            if ($isEmail && filled($values[$field->name] ?? null)) {
+                $email = trim((string) $values[$field->name]);
+                break;
             }
         }
-        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw ValidationException::withMessages([
-                'email' => 'Email is required.',
-            ]);
-        }
-        $validated['email'] = $email;
         $unit = round((float) $service->price_ghs, 2);
         $minQty = max(1, (int) ($service->min_qty ?: 1));
         $maxQty = max($minQty, (int) ($service->max_qty ?: 10));
@@ -282,7 +272,7 @@ class GsmToolService
             ]);
         }
 
-        return DB::transaction(function () use ($user, $request, $service, $fields, $values, $price, $unit, $quantity, $validated) {
+        return DB::transaction(function () use ($user, $request, $service, $fields, $values, $price, $unit, $quantity, $email) {
             try {
                 WalletService::ensure($user);
                 WalletService::debitAvailable(
@@ -303,7 +293,7 @@ class GsmToolService
                 'service_name' => $service->name,
                 'quantity' => $quantity,
                 'unit_price_ghs' => $unit,
-                'contact_email' => $validated['email'],
+                'contact_email' => $email,
                 'price_ghs' => $price,
                 'status' => GsmOrderStatus::Processing,
                 'paid_at' => now(),
@@ -533,6 +523,19 @@ class GsmToolService
         $group->save();
 
         return $group->fresh();
+    }
+
+    public function deleteGroup(GsmServiceGroup $group): void
+    {
+        DB::transaction(function () use ($group) {
+            $image = $group->image;
+            $group->services()->update(['gsm_service_group_id' => null]);
+            $group->delete();
+
+            if (filled($image) && Storage::disk('public')->exists($image)) {
+                Storage::disk('public')->delete($image);
+            }
+        });
     }
 
     /**

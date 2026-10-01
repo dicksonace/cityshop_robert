@@ -232,6 +232,16 @@ class GsmToolController extends Controller
             ->with('success', 'Category updated.');
     }
 
+    public function destroyGroup(GsmServiceGroup $gsmServiceGroup): RedirectResponse
+    {
+        $type = ($gsmServiceGroup->service_type ?? GsmServiceType::Imei)->value;
+        $this->gsm->deleteGroup($gsmServiceGroup);
+
+        return redirect()
+            ->route('admin.gsm-tools.services', ['type' => $type])
+            ->with('success', 'Category deleted. Services in it are now uncategorized.');
+    }
+
     /**
      * @return array<string, mixed>
      */

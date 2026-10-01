@@ -34,10 +34,6 @@ type Service = {
     fields: Field[];
 };
 
-function isEmailField(field: Field): boolean {
-    return field.type === 'email' || field.name.toLowerCase() === 'email' || field.label.toLowerCase() === 'email';
-}
-
 interface Props {
     service: Service;
     wallet: { available_balance: number };
@@ -45,7 +41,7 @@ interface Props {
     contactEmail: string;
 }
 
-export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEmail }: Props) {
+export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [pin, setPin] = useState('');
     const [qty, setQty] = useState(service.min_qty || 1);
@@ -63,20 +59,14 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEm
     const form = useForm({
         gsm_service_id: service.id,
         quantity: quantity,
-        email: contactEmail || '',
         fields: initialFields,
         payment_pin: '',
     });
 
-    const hasEmailField = service.fields.some(isEmailField);
     const enough = wallet.available_balance >= total;
 
-    const setField = (name: string, value: string | File | null, emailSync = false) => {
-        form.setData({
-            ...form.data,
-            fields: { ...form.data.fields, [name]: value },
-            email: emailSync && typeof value === 'string' ? value : form.data.email,
-        });
+    const setField = (name: string, value: string | File | null) => {
+        form.setData('fields', { ...form.data.fields, [name]: value });
     };
 
     const submit: FormEventHandler = (e) => {
@@ -112,10 +102,25 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEm
                     </div>
                 </div>
 
-                <p className="mt-4 text-sm font-semibold text-gray-900">
-                    Total {formatPrice(total)} — deducted from your wallet.
-                </p>
-                <p className="mt-1 text-sm text-gray-500">Balance {formatPrice(wallet.available_balance)}</p>
+                <div className="mt-4 overflow-hidden rounded-2xl bg-gradient-to-br from-orange-600 to-orange-500 p-4 text-white shadow-lg shadow-orange-500/20">
+                    <p className="text-[11px] font-extrabold tracking-wide text-white/70">PAY FROM WALLET</p>
+                    <p className="mt-1 text-[28px] font-black leading-none">{formatPrice(total)}</p>
+                    <p className="mt-2 text-sm font-semibold text-white/90">Deducted from your wallet when you place this order.</p>
+                    <div className="mt-4 space-y-2 rounded-xl bg-white/15 px-3 py-3 text-sm">
+                        <div className="flex items-center justify-between">
+                            <span className="font-semibold">Wallet balance</span>
+                            <span className="font-black">{formatPrice(wallet.available_balance)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-white/80">
+                            <span className="font-semibold">{enough ? 'After this order' : 'Short by'}</span>
+                            <span className="font-black text-white">
+                                {enough
+                                    ? formatPrice(wallet.available_balance - total)
+                                    : formatPrice(total - wallet.available_balance)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
 
                 {!enough ? (
                     <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -192,26 +197,12 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEm
                                     }
                                     placeholder={field.placeholder ?? undefined}
                                     value={typeof form.data.fields[field.name] === 'string' ? (form.data.fields[field.name] as string) : ''}
-                                    onChange={(e) => setField(field.name, e.target.value, isEmailField(field))}
+                                    onChange={(e) => setField(field.name, e.target.value)}
                                 />
                             )}
                             <InputError message={(form.errors as Record<string, string>)[`fields.${field.name}`]} />
                         </div>
                     ))}
-
-                    {!hasEmailField ? (
-                    <div>
-                        <Label htmlFor="email">Email*</Label>
-                        <Input
-                            id="email"
-                            className="mt-1"
-                            type="email"
-                            value={form.data.email}
-                            onChange={(e) => form.setData('email', e.target.value)}
-                        />
-                        <InputError message={form.errors.email} />
-                    </div>
-                    ) : null}
 
                     {hasPaymentPin ? (
                         <div>

@@ -119,18 +119,6 @@ export default function GsmToolShow({ order }: Props) {
                 <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <h2 className="text-sm font-black text-gray-900">Your details</h2>
                     <div className="mt-3 space-y-3">
-                        {order.contact_email &&
-                        !order.fields.some(
-                            (field) =>
-                                field.type === 'email' ||
-                                field.name.toLowerCase() === 'email' ||
-                                field.label.toLowerCase() === 'email',
-                        ) ? (
-                            <div>
-                                <p className="text-[11px] font-extrabold uppercase tracking-wide text-gray-400">Email</p>
-                                <p className="mt-1 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm font-semibold text-gray-900">{order.contact_email}</p>
-                            </div>
-                        ) : null}
                         {order.fields.map((field) => (
                             <div key={field.name}>
                                 <p className="text-[11px] font-extrabold uppercase tracking-wide text-gray-400">{field.label}</p>

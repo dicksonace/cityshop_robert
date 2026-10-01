@@ -351,8 +351,28 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                                 <li key={group.id} className="flex items-center gap-2 py-2">
                                     {group.image_url ? (
                                         <img src={group.image_url} alt="" className="h-9 w-9 rounded-lg bg-slate-950 object-contain" />
-                                    ) : null}
-                                    {group.name}
+                                    ) : (
+                                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50 text-[10px] font-bold text-orange-600">
+                                            CAT
+                                        </span>
+                                    )}
+                                    <span className="min-w-0 flex-1 font-semibold text-gray-900">{group.name}</span>
+                                    <button
+                                        type="button"
+                                        className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50"
+                                        onClick={() => {
+                                            if (
+                                                !window.confirm(
+                                                    `Delete category “${group.name}”? Services in it stay, but they will have no category.`,
+                                                )
+                                            ) {
+                                                return;
+                                            }
+                                            router.delete(route('admin.gsm-tools.groups.destroy', group.id), { preserveScroll: true });
+                                        }}
+                                    >
+                                        Delete
+                                    </button>
                                 </li>
                             ))}
                         </ul>
@@ -521,63 +541,78 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                         </p>
                     ) : null}
                     {services.map((service) => (
-                        <div key={service.id} className="rounded-2xl border border-gray-100 bg-white p-4">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="flex min-w-0 items-start gap-3">
-                                    {service.image_url ? (
-                                        <img
-                                            src={service.image_url}
-                                            alt=""
-                                            className="h-12 w-12 shrink-0 rounded-xl bg-slate-950 object-contain"
-                                        />
-                                    ) : (
-                                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[10px] font-bold text-orange-600">
-                                            GSM
+                        <div key={service.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                            <div className="flex items-start gap-3">
+                                {service.image_url ? (
+                                    <img
+                                        src={service.image_url}
+                                        alt=""
+                                        className="h-14 w-14 shrink-0 rounded-2xl bg-slate-950 object-contain"
+                                    />
+                                ) : (
+                                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-[10px] font-bold text-orange-600">
+                                        GSM
+                                    </span>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-base font-black text-gray-900">{service.name}</h3>
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                        <span className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-extrabold text-emerald-800">
+                                            {formatPrice(service.price_ghs)}
                                         </span>
-                                    )}
-                                <div>
-                                    <h3 className="font-bold text-gray-900">{service.name}</h3>
-                                    <p className="text-sm text-orange-600">{formatPrice(service.price_ghs)}</p>
-                                    {service.description ? (
-                                        <p className="mt-1 line-clamp-2 text-sm text-gray-600">{service.description}</p>
+                                        <span className="rounded-md bg-blue-50 px-2 py-1 text-[11px] font-extrabold uppercase text-blue-700">
+                                            {service.eta_label || 'INSTANT'}
+                                        </span>
+                                        <span className="rounded-md bg-gray-100 px-2 py-1 text-[11px] font-extrabold uppercase text-gray-700">
+                                            {service.allow_quantity ? `Qty ${service.min_qty}–${service.max_qty}` : 'No quantity'}
+                                        </span>
+                                        <span
+                                            className={`rounded-md px-2 py-1 text-[11px] font-extrabold uppercase ${service.active ? 'bg-orange-50 text-orange-700' : 'bg-red-50 text-red-700'}`}
+                                        >
+                                            {service.active ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </div>
+                                    {service.fields.length > 0 ? (
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            {service.fields.map((field) => (
+                                                <span
+                                                    key={field.id}
+                                                    className="rounded-md bg-orange-50 px-2 py-1 text-[11px] font-extrabold text-orange-800"
+                                                >
+                                                    {field.label}
+                                                </span>
+                                            ))}
+                                        </div>
                                     ) : null}
-                                    <p className="text-xs text-gray-500">
-                                        {service.group_name || 'No category'} · {service.service_type_label} · {service.eta_label || 'INSTANT'} ·{' '}
-                                        {service.allow_quantity
-                                            ? `Qty ${service.min_qty}–${service.max_qty}`
-                                            : 'No quantity'}{' '}
-                                        · {service.active ? 'Active' : 'Inactive'}
-                                        {service.fields.length > 0
-                                            ? ` · asks for ${service.fields.map((f) => f.label).join(', ')}`
-                                            : ' · no extra fields'}
-                                    </p>
+                                    {service.description ? (
+                                        <p className="mt-2 line-clamp-2 text-sm text-gray-600">{service.description}</p>
+                                    ) : null}
                                 </div>
-                                </div>
-                                <div className="flex shrink-0 gap-2">
-                                    <Button type="button" variant="outline" onClick={() => startEdit(service)}>
-                                        Edit
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="border-red-200 text-red-600 hover:bg-red-50"
-                                        onClick={() => {
-                                            if (!window.confirm(`Delete “${service.name}”? Buyers will no longer see it. Existing orders stay in history.`)) {
-                                                return;
-                                            }
-                                            router.delete(route('admin.gsm-tools.services.destroy', service.id), {
-                                                preserveScroll: true,
-                                                onSuccess: () => {
-                                                    if (editingId === service.id) {
-                                                        setEditingId(null);
-                                                    }
-                                                },
-                                            });
-                                        }}
-                                    >
-                                        Delete
-                                    </Button>
-                                </div>
+                            </div>
+                            <div className="mt-3 flex gap-2">
+                                <Button type="button" className="flex-1 bg-orange-600 hover:bg-orange-700" onClick={() => startEdit(service)}>
+                                    Edit
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="border-red-200 text-red-600 hover:bg-red-50"
+                                    onClick={() => {
+                                        if (!window.confirm(`Delete “${service.name}”? Buyers will no longer see it. Existing orders stay in history.`)) {
+                                            return;
+                                        }
+                                        router.delete(route('admin.gsm-tools.services.destroy', service.id), {
+                                            preserveScroll: true,
+                                            onSuccess: () => {
+                                                if (editingId === service.id) {
+                                                    setEditingId(null);
+                                                }
+                                            },
+                                        });
+                                    }}
+                                >
+                                    Delete
+                                </Button>
                             </div>
 
                             {editingId === service.id ? (
