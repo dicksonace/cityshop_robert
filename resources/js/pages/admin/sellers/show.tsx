@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import SellerAccountActions from '@/components/admin/seller-account-actions';
 import SellerInformationForm from '@/components/admin/seller-information-form';
+import ChinaRmbAccessToggle from '@/components/admin/china-rmb-access-toggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AdminLayout from '@/layouts/admin-layout';
@@ -48,6 +49,7 @@ interface SellerShowProps {
             digital_address?: string;
             residential_address?: string;
             ghana_card_number?: string;
+            china_rmb_enabled?: boolean;
         };
         shop_photo?: string;
         id_card_front?: string;
@@ -202,6 +204,13 @@ export default function SellerShow({
                         <DocCard path={seller.business_certificate} label="Certificate" />
                     </div>
                 </div>
+            </div>
+
+            <div className="mt-6">
+                <ChinaRmbAccessToggle
+                    enabled={seller.user.china_rmb_enabled === true}
+                    action={route('admin.sellers.china-rmb', seller.id)}
+                />
             </div>
 
             <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">

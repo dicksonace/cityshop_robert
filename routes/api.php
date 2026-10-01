@@ -198,6 +198,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/sellers/{seller}/reject', [AdminSellerController::class, 'reject']);
             Route::post('/sellers/{seller}/block', [AdminSellerController::class, 'block']);
             Route::post('/sellers/{seller}/unblock', [AdminSellerController::class, 'unblock']);
+            Route::post('/sellers/{seller}/china-rmb', [AdminSellerController::class, 'setChinaRmb']);
             Route::post('/sellers/{seller}/activation/prompt', [AdminSellerController::class, 'promptActivation']);
             Route::post('/sellers/{seller}/activation/waive', [AdminSellerController::class, 'waiveActivation']);
             Route::post('/sellers/{seller}/activation/end', [AdminSellerController::class, 'endActivation']);
@@ -254,6 +255,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('/buyers/{buyer}', [AdminBuyerController::class, 'update']);
             Route::post('/buyers/{buyer}/block', [AdminBuyerController::class, 'block']);
             Route::post('/buyers/{buyer}/unblock', [AdminBuyerController::class, 'unblock']);
+            Route::post('/buyers/{buyer}/china-rmb', [AdminBuyerController::class, 'setChinaRmb']);
             Route::delete('/buyers/{buyer}', [AdminBuyerController::class, 'destroy']);
 
             Route::get('/kyc', [AdminKycController::class, 'index']);
@@ -330,6 +332,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/gsm-tools/services', [AdminGsmToolController::class, 'services']);
             Route::post('/gsm-tools/services', [AdminGsmToolController::class, 'storeService']);
             Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService']);
+            Route::delete('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'destroyService']);
             Route::post('/gsm-tools/groups', [AdminGsmToolController::class, 'storeGroup']);
             Route::get('/gsm-tools/{gsmOrder}', [AdminGsmToolController::class, 'show']);
             Route::post('/gsm-tools/{gsmOrder}/process', [AdminGsmToolController::class, 'process']);

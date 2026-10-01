@@ -38,6 +38,7 @@ class User extends Authenticatable
         'last_seen_at',
         'blocked_at',
         'block_reason',
+        'china_rmb_enabled',
     ];
 
     protected $hidden = [
@@ -56,6 +57,7 @@ class User extends Authenticatable
             'totp_confirmed_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'blocked_at' => 'datetime',
+            'china_rmb_enabled' => 'boolean',
             'password' => 'hashed',
             'role' => UserRole::class,
         ];
@@ -142,10 +144,14 @@ class User extends Authenticatable
     }
 
     /**
-     * Buyers and approved sellers can use China / RMB (Buy, Sell, convert).
+     * Buyers and approved sellers can use China / RMB only when admin has enabled it.
      */
     public function canUseRmbWallet(): bool
     {
+        if (! $this->china_rmb_enabled) {
+            return false;
+        }
+
         if ($this->isBuyer()) {
             return true;
         }
@@ -157,6 +163,11 @@ class User extends Authenticatable
         }
 
         return false;
+    }
+
+    public function setChinaRmbEnabled(bool $enabled): void
+    {
+        $this->forceFill(['china_rmb_enabled' => $enabled])->save();
     }
 
     public function isBlocked(): bool

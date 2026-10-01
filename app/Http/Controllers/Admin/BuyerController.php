@@ -80,6 +80,7 @@ class BuyerController extends Controller
                 'created_at' => $buyer->created_at?->toIso8601String(),
                 'orders_count' => (int) $buyer->orders_count,
                 'is_blocked' => $buyer->isBlocked(),
+                'china_rmb_enabled' => (bool) $buyer->china_rmb_enabled,
                 'block_reason' => $buyer->block_reason,
                 'blocked_at' => $buyer->blocked_at?->toIso8601String(),
             ],
@@ -127,6 +128,22 @@ class BuyerController extends Controller
         }
 
         return back()->with('success', 'Blacklist removed. Buyer can sign in again.');
+    }
+
+    public function setChinaRmb(Request $request, User $buyer): RedirectResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        $buyer->setChinaRmbEnabled((bool) $validated['enabled']);
+
+        return back()->with(
+            'success',
+            $buyer->china_rmb_enabled
+                ? 'China / RMB enabled for this buyer.'
+                : 'China / RMB disabled for this buyer.',
+        );
     }
 
     public function destroy(Request $request, User $buyer, BuyerAccountService $accounts): RedirectResponse

@@ -37,6 +37,6 @@ class GsmServiceGroup extends Model
             return null;
         }
 
-        return url(Storage::disk('public')->url($this->image));
+        return Storage::disk('public')->url($this->image);
     }
 }

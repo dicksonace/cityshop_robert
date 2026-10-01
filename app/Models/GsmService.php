@@ -49,10 +49,14 @@ class GsmService extends Model
     public function imageUrl(): ?string
     {
         if (filled($this->image)) {
-            return url(Storage::disk('public')->url($this->image));
+            if (str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://')) {
+                return $this->image;
+            }
+
+            return Storage::disk('public')->url($this->image);
         }
 
-        return $this->group?->imageUrl() ?: url('/images/gsm/gmt-logo.jpg');
+        return $this->group?->imageUrl();
     }
 
     public function fields(): HasMany

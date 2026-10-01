@@ -112,31 +112,6 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEm
                     </div>
                 </div>
 
-                {service.overview || service.description ? (
-                    <section className="mt-4">
-                        <h2 className="text-sm font-bold text-gray-900">Overview</h2>
-                        <p className="mt-1 whitespace-pre-line text-sm text-gray-600">{service.overview || service.description}</p>
-                    </section>
-                ) : null}
-
-                {service.features?.length ? (
-                    <section className="mt-4">
-                        <h2 className="text-sm font-bold text-gray-900">Key Features</h2>
-                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
-                            {service.features.map((feature) => (
-                                <li key={feature}>{feature}</li>
-                            ))}
-                        </ul>
-                    </section>
-                ) : null}
-
-                {service.what_to_send ? (
-                    <section className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
-                        <h2 className="text-sm font-bold text-gray-900">What You Need To Send</h2>
-                        <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{service.what_to_send}</p>
-                    </section>
-                ) : null}
-
                 <p className="mt-4 text-sm font-semibold text-gray-900">
                     Total {formatPrice(total)} — deducted from your wallet.
                 </p>
@@ -263,6 +238,31 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEm
                         Place Order
                     </Button>
                 </form>
+
+                {service.overview || service.description ? (
+                    <section className="mt-8">
+                        <h2 className="text-sm font-bold text-gray-900">Overview</h2>
+                        <p className="mt-1 whitespace-pre-line text-sm text-gray-600">{service.overview || service.description}</p>
+                    </section>
+                ) : null}
+
+                {service.features?.length ? (
+                    <section className="mt-4">
+                        <h2 className="text-sm font-bold text-gray-900">Key Features</h2>
+                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
+                            {service.features.map((feature) => (
+                                <li key={feature}>{feature}</li>
+                            ))}
+                        </ul>
+                    </section>
+                ) : null}
+
+                {service.what_to_send ? (
+                    <section className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
+                        <h2 className="text-sm font-bold text-gray-900">What You Need To Send</h2>
+                        <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{service.what_to_send}</p>
+                    </section>
+                ) : null}
             </div>
         </ShopLayout>
     );

@@ -151,6 +151,7 @@ class GsmToolController extends Controller
         ], $this->catalogServiceRules()));
 
         $service = $this->gsm->createService($validated, $validated['fields'] ?? []);
+        $this->gsm->attachServiceImage($service, $request->file('image'));
 
         return response()->json(['service' => $this->gsm->servicePayload($service->load('fields'))], 201);
     }
@@ -174,8 +175,16 @@ class GsmToolController extends Controller
         ], $this->catalogServiceRules()));
 
         $service = $this->gsm->updateService($gsmService, $validated, $validated['fields'] ?? []);
+        $this->gsm->attachServiceImage($service, $request->file('image'));
 
         return response()->json(['service' => $this->gsm->servicePayload($service->load('fields'))]);
+    }
+
+    public function destroyService(GsmService $gsmService): JsonResponse
+    {
+        $this->gsm->deleteService($gsmService);
+
+        return response()->json(['message' => 'GSM service deleted.']);
     }
 
     public function storeGroup(Request $request): JsonResponse
@@ -185,10 +194,13 @@ class GsmToolController extends Controller
             'service_type' => ['required', Rule::enum(GsmServiceType::class)],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'active' => ['nullable', 'boolean'],
-            'image' => ['nullable', 'image', 'max:4096'],
+            'image' => ['nullable', 'file', 'max:8192'],
         ]);
 
-        return response()->json(['group' => $this->gsm->groupPayload($this->gsm->createGroup($validated))], 201);
+        $group = $this->gsm->createGroup($validated);
+        $this->gsm->attachGroupImage($group, $request->file('image'));
+
+        return response()->json(['group' => $this->gsm->groupPayload($group->fresh())], 201);
     }
 
     /**
@@ -205,7 +217,7 @@ class GsmToolController extends Controller
             'allow_quantity' => ['nullable', 'boolean'],
             'min_qty' => ['nullable', 'integer', 'min:1', 'max:10000'],
             'max_qty' => ['nullable', 'integer', 'min:1', 'max:10000'],
-            'image' => ['nullable', 'image', 'max:4096'],
+            'image' => ['nullable', 'file', 'max:8192'],
         ];
     }
 }

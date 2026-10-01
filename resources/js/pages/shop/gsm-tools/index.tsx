@@ -33,7 +33,7 @@ function ServiceCard({
     fallbackImage?: string | null;
     onOpen: (id: number) => void;
 }) {
-    const logo = service.image_url || fallbackImage || '/images/gsm/gmt-logo.jpg';
+    const logo = service.image_url || fallbackImage || '';
 
     return (
         <button

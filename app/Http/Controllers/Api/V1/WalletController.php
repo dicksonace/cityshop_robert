@@ -63,6 +63,7 @@ class WalletController extends Controller
                 ],
                 'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
                 'kyc' => KycService::payload($user, withPhotos: false),
+                'can_use_rmb_wallet' => $user->canUseRmbWallet(),
             ],
         ]);
     }

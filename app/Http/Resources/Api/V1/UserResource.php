@@ -28,6 +28,8 @@ class UserResource extends JsonResource
             'email_two_factor_enabled' => (bool) $this->email_two_factor_enabled,
             'totp_enabled' => $this->totp_confirmed_at !== null,
             'kyc' => \App\Services\KycService::payload($this->resource instanceof \App\Models\User ? $this->resource : null, withPhotos: false),
+            'can_use_rmb_wallet' => $this->canUseRmbWallet(),
+            'china_rmb_enabled' => (bool) $this->china_rmb_enabled,
             'seller' => $profile ? [
                 'store_name' => $profile->displayName(),
                 'slug' => $profile->slug,

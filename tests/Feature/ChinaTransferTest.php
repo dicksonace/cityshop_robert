@@ -144,7 +144,7 @@ class ChinaTransferTest extends TestCase
 
     public function test_buyer_wallet_opens_china_transfer_hub(): void
     {
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         Wallet::create([
             'user_id' => $buyer->id,
             'available_balance' => 80,
@@ -168,7 +168,7 @@ class ChinaTransferTest extends TestCase
 
     public function test_buyer_cannot_create_when_service_is_closed(): void
     {
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
 
         $this->actingAs($buyer)
             ->post(route('wallet.china-transfer.store'), ['ghs_amount' => 1000])
@@ -181,7 +181,7 @@ class ChinaTransferTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $transfer = $this->submitTransfer($buyer, $opened['method']);
 
         $this->assertEquals(1.85, (float) $transfer->ghs_per_rmb);
@@ -204,7 +204,7 @@ class ChinaTransferTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $admin = $opened['admin'];
         $rate = app(ChinaTransferService::class)->currentRate();
 
@@ -249,7 +249,7 @@ class ChinaTransferTest extends TestCase
         Storage::fake('public');
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $admin = $opened['admin'];
         $rate = app(ChinaTransferService::class)->currentRate();
 
@@ -284,7 +284,7 @@ class ChinaTransferTest extends TestCase
     public function test_api_buyer_can_load_config_without_wechat(): void
     {
         $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         Sanctum::actingAs($buyer);
         $this->getJson('/api/v1/wallet/china-transfer')
             ->assertOk()

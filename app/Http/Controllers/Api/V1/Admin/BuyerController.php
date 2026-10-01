@@ -139,6 +139,22 @@ class BuyerController extends Controller
         ]);
     }
 
+    public function setChinaRmb(Request $request, User $buyer): JsonResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        $buyer->setChinaRmbEnabled((bool) $validated['enabled']);
+
+        return response()->json([
+            'message' => $buyer->china_rmb_enabled
+                ? 'China / RMB enabled for this buyer.'
+                : 'China / RMB disabled for this buyer.',
+            'data' => $this->serialize($buyer->fresh(['wallet', 'latestKyc']), detailed: true),
+        ]);
+    }
+
     public function destroy(Request $request, User $buyer, BuyerAccountService $accounts): JsonResponse
     {
         abort_unless($buyer->isBuyer(), 404);
@@ -183,6 +199,7 @@ class BuyerController extends Controller
             'orders_count' => (int) ($buyer->orders_count ?? 0),
             'available_balance' => (float) ($wallet?->available_balance ?? 0),
             'is_blocked' => $buyer->isBlocked(),
+            'china_rmb_enabled' => (bool) $buyer->china_rmb_enabled,
         ];
 
         if ($detailed) {

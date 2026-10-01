@@ -51,6 +51,7 @@ class EnsureAppReviewBuyerCommand extends Command
             'role' => UserRole::Buyer,
             'blocked_at' => null,
             'block_reason' => null,
+            'china_rmb_enabled' => false,
         ];
 
         if ($user) {

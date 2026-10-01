@@ -553,9 +553,31 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                                     </p>
                                 </div>
                                 </div>
-                                <Button type="button" variant="outline" onClick={() => startEdit(service)}>
-                                    Edit
-                                </Button>
+                                <div className="flex shrink-0 gap-2">
+                                    <Button type="button" variant="outline" onClick={() => startEdit(service)}>
+                                        Edit
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="border-red-200 text-red-600 hover:bg-red-50"
+                                        onClick={() => {
+                                            if (!window.confirm(`Delete “${service.name}”? Buyers will no longer see it. Existing orders stay in history.`)) {
+                                                return;
+                                            }
+                                            router.delete(route('admin.gsm-tools.services.destroy', service.id), {
+                                                preserveScroll: true,
+                                                onSuccess: () => {
+                                                    if (editingId === service.id) {
+                                                        setEditingId(null);
+                                                    }
+                                                },
+                                            });
+                                        }}
+                                    >
+                                        Delete
+                                    </Button>
+                                </div>
                             </div>
 
                             {editingId === service.id ? (

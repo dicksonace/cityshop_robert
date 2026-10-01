@@ -125,6 +125,23 @@ class SellerController extends Controller
         ]);
     }
 
+    public function setChinaRmb(Request $request, SellerProfile $seller): JsonResponse
+    {
+        $seller->loadMissing('user');
+        abort_unless($seller->user, 404);
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        $seller->user->setChinaRmbEnabled((bool) $validated['enabled']);
+
+        return response()->json([
+            'message' => $seller->user->china_rmb_enabled
+                ? 'China / RMB enabled for this seller.'
+                : 'China / RMB disabled for this seller.',
+            'data' => $this->serialize($seller->fresh('user'), detailed: true),
+        ]);
+    }
+
     public function promptActivation(Request $request, SellerProfile $seller, SellerActivationService $activation): JsonResponse
     {
         $validated = $request->validate([
@@ -301,6 +318,7 @@ class SellerController extends Controller
                 'name' => $seller->user->name,
                 'email' => $seller->user->email,
                 'mobile' => $seller->user->mobile,
+                'china_rmb_enabled' => (bool) $seller->user->china_rmb_enabled,
             ] : null,
         ];
 
@@ -329,6 +347,7 @@ class SellerController extends Controller
                 'region' => $seller->user->region,
                 'city' => $seller->user->city,
                 'residential_address' => $seller->user->residential_address,
+                'china_rmb_enabled' => (bool) $seller->user->china_rmb_enabled,
             ] : null;
             $payload['payment_methods'] = $seller->paymentMethods()
                 ->withTrashed()

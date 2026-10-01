@@ -88,6 +88,7 @@ class WalletController extends Controller
                 : [],
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
             'kyc' => KycService::payload($request->user(), withPhotos: false),
+            'canUseRmbWallet' => $request->user()->canUseRmbWallet(),
         ]);
     }
 

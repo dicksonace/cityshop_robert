@@ -227,6 +227,23 @@ class SellerController extends Controller
         return back()->with('success', 'Seller unblocked. Their products are visible in the shop again.');
     }
 
+    public function setChinaRmb(Request $request, SellerProfile $seller): RedirectResponse
+    {
+        $seller->loadMissing('user');
+        abort_unless($seller->user, 404);
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        $seller->user->setChinaRmbEnabled((bool) $validated['enabled']);
+
+        return back()->with(
+            'success',
+            $seller->user->china_rmb_enabled
+                ? 'China / RMB enabled for this seller.'
+                : 'China / RMB disabled for this seller.',
+        );
+    }
+
     public function destroy(Request $request, SellerProfile $seller, SellerAccountService $accounts): RedirectResponse
     {
         $validated = $request->validate([

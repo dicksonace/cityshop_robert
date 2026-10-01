@@ -166,7 +166,8 @@ class GsmToolController extends Controller
             'fields.*.required' => ['nullable', 'boolean'],
         ], $this->catalogServiceRules()));
 
-        $this->gsm->createService($validated, $validated['fields'] ?? []);
+        $service = $this->gsm->createService($validated, $validated['fields'] ?? []);
+        $this->gsm->attachServiceImage($service, $request->file('image'));
 
         return redirect()
             ->route('admin.gsm-tools.services', ['type' => $validated['service_type']])
@@ -191,17 +192,29 @@ class GsmToolController extends Controller
             'fields.*.active' => ['nullable', 'boolean'],
         ], $this->catalogServiceRules()));
 
-        $this->gsm->updateService($gsmService, $validated, $validated['fields'] ?? []);
+        $service = $this->gsm->updateService($gsmService, $validated, $validated['fields'] ?? []);
+        $this->gsm->attachServiceImage($service, $request->file('image'));
 
         return redirect()
             ->route('admin.gsm-tools.services', ['type' => $validated['service_type']])
             ->with('success', 'GSM service updated.');
     }
 
+    public function destroyService(GsmService $gsmService): RedirectResponse
+    {
+        $type = ($gsmService->service_type ?? GsmServiceType::Imei)->value;
+        $this->gsm->deleteService($gsmService);
+
+        return redirect()
+            ->route('admin.gsm-tools.services', ['type' => $type])
+            ->with('success', 'GSM service deleted.');
+    }
+
     public function storeGroup(Request $request): RedirectResponse
     {
         $validated = $request->validate($this->groupRules());
-        $this->gsm->createGroup($validated);
+        $group = $this->gsm->createGroup($validated);
+        $this->gsm->attachGroupImage($group, $request->file('image'));
 
         return redirect()
             ->route('admin.gsm-tools.services', ['type' => $validated['service_type']])
@@ -211,7 +224,8 @@ class GsmToolController extends Controller
     public function updateGroup(Request $request, GsmServiceGroup $gsmServiceGroup): RedirectResponse
     {
         $validated = $request->validate($this->groupRules());
-        $this->gsm->updateGroup($gsmServiceGroup, $validated);
+        $group = $this->gsm->updateGroup($gsmServiceGroup, $validated);
+        $this->gsm->attachGroupImage($group, $request->file('image'));
 
         return redirect()
             ->route('admin.gsm-tools.services', ['type' => $validated['service_type']])
@@ -232,7 +246,7 @@ class GsmToolController extends Controller
             'allow_quantity' => ['nullable', 'boolean'],
             'min_qty' => ['nullable', 'integer', 'min:1', 'max:10000'],
             'max_qty' => ['nullable', 'integer', 'min:1', 'max:10000'],
-            'image' => ['nullable', 'image', 'max:4096'],
+            'image' => ['nullable', 'file', 'max:8192'],
         ];
     }
 
@@ -246,7 +260,7 @@ class GsmToolController extends Controller
             'service_type' => ['required', Rule::enum(GsmServiceType::class)],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'active' => ['nullable', 'boolean'],
-            'image' => ['nullable', 'image', 'max:4096'],
+            'image' => ['nullable', 'file', 'max:8192'],
         ];
     }
 }

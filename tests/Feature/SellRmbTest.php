@@ -48,7 +48,7 @@ class SellRmbTest extends TestCase
 
     public function test_buyer_cannot_create_when_disabled(): void
     {
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         Sanctum::actingAs($buyer);
 
         $this->postJson('/api/v1/wallet/sell-rmb', [
@@ -86,7 +86,7 @@ class SellRmbTest extends TestCase
     public function test_config_exposes_live_separately_from_open(): void
     {
         Storage::fake('public');
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         SellRmbSetting::current()->update(['enabled' => true]);
         app(SellRmbService::class)->publishRate(User::factory()->create(['role' => UserRole::Admin]), [
             'ghs_per_rmb' => 1.25,
@@ -133,7 +133,7 @@ class SellRmbTest extends TestCase
 
     public function test_approved_seller_can_load_sell_rmb_config(): void
     {
-        $seller = User::factory()->create(['role' => UserRole::Seller]);
+        $seller = User::factory()->create(['role' => UserRole::Seller, 'china_rmb_enabled' => true]);
         SellerProfile::create([
             'user_id' => $seller->id,
             'store_name' => 'RMB Seller',
@@ -150,7 +150,7 @@ class SellRmbTest extends TestCase
 
     public function test_pending_seller_cannot_load_sell_rmb_config(): void
     {
-        $seller = User::factory()->create(['role' => UserRole::Seller]);
+        $seller = User::factory()->create(['role' => UserRole::Seller, 'china_rmb_enabled' => true]);
         SellerProfile::create([
             'user_id' => $seller->id,
             'store_name' => 'Pending Seller',
@@ -168,7 +168,7 @@ class SellRmbTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $transfer = $this->submitTransfer($buyer, $opened['method']);
 
         $this->assertEquals(0.14, (float) $transfer->usd_per_rmb);
@@ -194,7 +194,7 @@ class SellRmbTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         app(SellRmbService::class)->publishRate($opened['admin'], [
             'ghs_per_rmb' => 1.712,
             'fee_mode' => 'flat',
@@ -243,6 +243,7 @@ class SellRmbTest extends TestCase
             'role' => UserRole::Buyer,
             'name' => 'Robert Asare',
             'mobile' => '0248620718',
+            'china_rmb_enabled' => true,
         ]);
 
         $payload = [
@@ -293,7 +294,7 @@ class SellRmbTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Robert Asare', 'mobile' => '0248620718']);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'name' => 'Robert Asare', 'mobile' => '0248620718', 'china_rmb_enabled' => true]);
         $admin = $opened['admin'];
         $service = app(SellRmbService::class);
         $transfer = $this->submitTransfer($buyer, $opened['method']);
@@ -324,7 +325,7 @@ class SellRmbTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $admin = $opened['admin'];
         $service = app(SellRmbService::class);
         $transfer = $this->submitTransfer($buyer, $opened['method']);
@@ -346,7 +347,7 @@ class SellRmbTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $payload = [
             'rmb_amount' => 250,
             'payout_currency' => 'ghs',
@@ -382,7 +383,7 @@ class SellRmbTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $admin = $opened['admin'];
         $transfer = $this->submitTransfer($buyer, $opened['method']);
 
@@ -402,7 +403,7 @@ class SellRmbTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $admin = $opened['admin'];
         $service = app(SellRmbService::class);
         $transfer = $this->submitTransfer($buyer, $opened['method']);
@@ -432,7 +433,7 @@ class SellRmbTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $admin = $opened['admin'];
         $transfer = $this->submitTransfer($buyer, $opened['method']);
 
@@ -464,7 +465,7 @@ class SellRmbTest extends TestCase
         Notification::fake();
 
         $opened = $this->openService();
-        $buyer = User::factory()->create(['role' => UserRole::Buyer]);
+        $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);
         $admin = $opened['admin'];
         $service = app(SellRmbService::class);
         $transfer = $this->submitTransfer($buyer, $opened['method']);

@@ -582,6 +582,20 @@ class GsmToolService
         });
     }
 
+    public function deleteService(GsmService $service): void
+    {
+        DB::transaction(function () use ($service) {
+            $image = $service->image;
+            $service->orders()->update(['gsm_service_id' => null]);
+            $service->fields()->delete();
+            $service->delete();
+
+            if (filled($image) && Storage::disk('public')->exists($image)) {
+                Storage::disk('public')->delete($image);
+            }
+        });
+    }
+
     /**
      * @param  array<int, array{id?: int, label?: string, name?: string, placeholder?: string|null, type?: string, required?: bool, active?: bool}>  $fields
      */
@@ -813,6 +827,51 @@ class GsmToolService
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function attachServiceImage(GsmService $service, ?UploadedFile $file): GsmService
+    {
+        $path = $this->storePublicImage($file, 'gsm-services', $service->image);
+        if ($path === null) {
+            return $service;
+        }
+
+        $service->forceFill(['image' => $path])->save();
+
+        return $service->fresh() ?? $service;
+    }
+
+    public function attachGroupImage(GsmServiceGroup $group, ?UploadedFile $file): GsmServiceGroup
+    {
+        $path = $this->storePublicImage($file, 'gsm-groups', $group->image);
+        if ($path === null) {
+            return $group;
+        }
+
+        $group->forceFill(['image' => $path])->save();
+
+        return $group->fresh() ?? $group;
+    }
+
+    private function storePublicImage(?UploadedFile $file, string $directory, ?string $oldPath = null): ?string
+    {
+        if (! $file) {
+            return null;
+        }
+
+        if (filled($oldPath) && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        $ext = strtolower((string) ($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'jpg'));
+        if (! in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'], true)) {
+            $ext = 'jpg';
+        }
+
+        return $file->storeAs($directory, Str::uuid()->toString().'.'.$ext, 'public');
     }
 
     /**

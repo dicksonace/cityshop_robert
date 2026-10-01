@@ -3,6 +3,7 @@ import { ArrowLeft, MessageSquare } from 'lucide-react';
 
 import AccountProfileForm from '@/components/admin/account-profile-form';
 import BuyerAccountActions from '@/components/admin/buyer-account-actions';
+import ChinaRmbAccessToggle from '@/components/admin/china-rmb-access-toggle';
 import AdminLayout from '@/layouts/admin-layout';
 import { SharedData } from '@/types';
 import { formatPrice, formatWalletTransactionType, Paginated, Wallet, WalletTransaction } from '@/types/marketplace';
@@ -19,6 +20,7 @@ interface BuyerShowProps {
         created_at: string;
         orders_count: number;
         is_blocked?: boolean;
+        china_rmb_enabled?: boolean;
         block_reason?: string | null;
         blocked_at?: string | null;
     };
@@ -91,6 +93,12 @@ export default function AdminBuyerShow({ buyer, orders, conversations, wallet, t
                             <dd>{new Date(buyer.created_at).toLocaleString('en-GH')}</dd>
                         </div>
                     </dl>
+                    <div className="mt-5">
+                        <ChinaRmbAccessToggle
+                            enabled={buyer.china_rmb_enabled === true}
+                            action={route('admin.buyers.china-rmb', buyer.id)}
+                        />
+                    </div>
                 </div>
 
                 <div className="rounded-xl bg-gradient-to-br from-slate-900 to-blue-900 p-6 text-white shadow-sm">
