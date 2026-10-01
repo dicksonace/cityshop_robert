@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Check, Copy } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
@@ -127,25 +127,19 @@ export default function AdminGsmToolShow({ order }: Props) {
                             {order.status_label}
                         </span>
                     </div>
-                    <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                        <span>
-                            {formatPrice(order.price_ghs)} · {order.user?.name}
-                        </span>
+                    <p className="mt-2 text-sm">
+                        {formatPrice(order.price_ghs)}
+                        {order.user?.id ? (
+                            <>
+                                {' · '}
+                                <Link href={route('admin.buyers.show', order.user.id)} className="font-semibold text-orange-600 hover:underline">
+                                    {order.user.name}
+                                </Link>
+                            </>
+                        ) : order.user?.name ? (
+                            <> · {order.user.name}</>
+                        ) : null}
                     </p>
-                    <div className="mt-2 space-y-1.5">
-                        {order.user?.mobile ? (
-                            <div className="flex items-center gap-2 text-xs text-gray-600">
-                                <span className="min-w-0 flex-1 break-all">{order.user.mobile}</span>
-                                <CopyValue value={order.user.mobile} label="mobile" />
-                            </div>
-                        ) : null}
-                        {order.user?.email ? (
-                            <div className="flex items-center gap-2 text-xs text-gray-600">
-                                <span className="min-w-0 flex-1 break-all">{order.user.email}</span>
-                                <CopyValue value={order.user.email} label="email" />
-                            </div>
-                        ) : null}
-                    </div>
 
                     {(flash?.success || flash?.error) && (
                         <div
