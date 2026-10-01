@@ -152,6 +152,7 @@ class GsmToolService
             'contact_email' => $order->contact_email,
             'service_type' => ($order->service?->service_type ?? GsmServiceType::Imei)->value,
             'service_type_label' => ($order->service?->service_type ?? GsmServiceType::Imei)->label(),
+            'eta_label' => $order->service?->eta_label ?: 'INSTANT',
             'price_ghs' => (float) $order->price_ghs,
             'refunded' => (bool) $order->refunded,
             'admin_result_note' => $order->admin_result_note,
