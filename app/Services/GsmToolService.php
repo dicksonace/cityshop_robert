@@ -130,6 +130,31 @@ class GsmToolService
     }
 
     /**
+     * @return array{data: list<array<string, mixed>>, meta: array<string, mixed>, paginator: \Illuminate\Contracts\Pagination\LengthAwarePaginator}
+     */
+    public function paginatedBuyerOrders(User $user, Request $request, int $defaultPerPage = 20): array
+    {
+        $perPage = min(max((int) $request->integer('per_page', $defaultPerPage), 1), 50);
+        $page = GsmOrder::query()
+            ->where('user_id', $user->id)
+            ->with(['service', 'fieldValues', 'replies.admin:id,name'])
+            ->latest()
+            ->paginate($perPage);
+
+        return [
+            'data' => $page->getCollection()->map(fn (GsmOrder $order) => $this->orderPayload($order))->values()->all(),
+            'meta' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+                'has_more' => $page->hasMorePages(),
+            ],
+            'paginator' => $page,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function orderPayload(GsmOrder $order, bool $withHistory = false): array

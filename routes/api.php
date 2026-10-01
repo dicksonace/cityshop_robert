@@ -513,6 +513,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/gsm-tools', [GsmToolController::class, 'index']);
         Route::get('/gsm-tools/services/{gsmService}', [GsmToolController::class, 'showService']);
         Route::post('/gsm-tools/orders', [GsmToolController::class, 'store']);
+        Route::get('/gsm-tools/orders', [GsmToolController::class, 'indexOrders']);
         Route::get('/gsm-tools/orders/{gsmOrder}', [GsmToolController::class, 'showOrder']);
         Route::post('/gsm-tools/orders/{gsmOrder}/cancel', [GsmToolController::class, 'cancel']);
         Route::post('/wallet/paystack/initialize', [WalletController::class, 'initializePaystackTopUp']);

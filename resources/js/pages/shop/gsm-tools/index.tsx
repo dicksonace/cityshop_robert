@@ -75,40 +75,15 @@ type Group = {
     image_url: string | null;
     services: Service[];
 };
-type Order = {
-    id: number;
-    reference: string;
-    status: string;
-    status_label: string;
-    service_name: string;
-    image_url?: string | null;
-    eta_label?: string | null;
-    created_at: string | null;
-};
-
-function orderStatus(order: Order) {
-    const status = order.status === 'pending' ? 'processing' : order.status;
-    const label = status === 'processing' ? 'PROCESSING' : (order.status_label || status).toUpperCase();
-    const className =
-        status === 'processing'
-            ? 'bg-blue-50 text-blue-700'
-            : status === 'completed'
-              ? 'bg-emerald-50 text-emerald-800'
-              : status === 'failed' || status === 'cancelled'
-                ? 'bg-red-50 text-red-700'
-                : 'bg-amber-50 text-amber-800';
-    return { label, className };
-}
 
 interface Props {
     services: Service[];
     groups: Group[];
     serviceTypes: { value: string; label: string }[];
-    orders: Order[];
     wallet: { available_balance: number } | null;
 }
 
-export default function GsmToolsIndex({ services, groups, serviceTypes, orders, wallet }: Props) {
+export default function GsmToolsIndex({ services, groups, serviceTypes, wallet }: Props) {
     const { flash, auth } = usePage<SharedData>().props;
     const [query, setQuery] = useState('');
     const [serviceType, setServiceType] = useState('');
@@ -161,7 +136,14 @@ export default function GsmToolsIndex({ services, groups, serviceTypes, orders, 
         <ShopLayout>
             <Head title="Place order" />
             <div className="mx-auto max-w-lg px-4 py-6">
-                <h1 className="text-xl font-bold text-gray-900">Place order</h1>
+                <div className="flex items-center justify-between gap-3">
+                    <h1 className="text-xl font-bold text-gray-900">Place order</h1>
+                    {auth?.user ? (
+                        <Link href={route('gsm-tools.history')} className="text-sm font-extrabold text-orange-600">
+                            Order History
+                        </Link>
+                    ) : null}
+                </div>
                 {wallet ? (
                     <div className="mt-3 rounded-2xl bg-gradient-to-br from-orange-600 to-orange-500 p-4 text-white shadow-lg shadow-orange-500/20">
                         <p className="text-[11px] font-extrabold tracking-wide text-white/70">WALLET BALANCE</p>
@@ -261,40 +243,6 @@ export default function GsmToolsIndex({ services, groups, serviceTypes, orders, 
                         </p>
                     ) : null}
                 </div>
-
-                {orders.length > 0 ? (
-                    <div className="mt-8">
-                        <h2 className="mb-3 text-base font-black text-gray-900">My orders</h2>
-                        <div className="space-y-2.5">
-                            {orders.map((order) => {
-                                const { label, className } = orderStatus(order);
-                                return (
-                                    <Link
-                                        key={order.id}
-                                        href={route('gsm-tools.orders.show', order.id)}
-                                        className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-3"
-                                    >
-                                        {order.image_url ? (
-                                            <img src={order.image_url} alt="" className="h-11 w-11 shrink-0 rounded-xl object-contain" />
-                                        ) : (
-                                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[10px] font-bold text-orange-600">
-                                                GSM
-                                            </span>
-                                        )}
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-extrabold text-gray-900">{order.service_name}</p>
-                                            <p className="text-xs text-gray-500">{order.reference}</p>
-                                            {order.eta_label ? (
-                                                <p className="mt-0.5 text-[11px] font-extrabold text-blue-700">{order.eta_label}</p>
-                                            ) : null}
-                                        </div>
-                                        <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${className}`}>{label}</span>
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </div>
-                ) : null}
             </div>
         </ShopLayout>
     );

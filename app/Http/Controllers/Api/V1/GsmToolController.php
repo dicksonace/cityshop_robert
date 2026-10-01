@@ -26,16 +26,19 @@ class GsmToolController extends Controller
             'groups' => $this->gsm->catalogGroups(),
             'service_types' => GsmServiceType::options(),
             'contact_email' => $user->email,
-            'orders' => GsmOrder::query()
-                ->where('user_id', $user->id)
-                ->latest()
-                ->limit(30)
-                ->get()
-                ->map(fn (GsmOrder $o) => $this->gsm->orderPayload($o))
-                ->values(),
             'wallet' => WalletService::ensure($user)->toFrontendArray(),
             'has_payment_pin' => PaymentPinService::hasPin($user),
             'kyc' => KycService::payload($user, withPhotos: false),
+        ]);
+    }
+
+    public function indexOrders(Request $request): JsonResponse
+    {
+        $page = $this->gsm->paginatedBuyerOrders($request->user(), $request);
+
+        return response()->json([
+            'data' => $page['data'],
+            'meta' => $page['meta'],
         ]);
     }
 

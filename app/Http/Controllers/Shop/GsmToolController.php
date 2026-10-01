@@ -22,23 +22,26 @@ class GsmToolController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        $orders = $user
-            ? GsmOrder::query()
-                ->where('user_id', $user->id)
-                ->latest()
-                ->limit(20)
-                ->get()
-                ->map(fn (GsmOrder $order) => $this->gsm->orderPayload($order))
-                ->values()
-                ->all()
-            : [];
 
         return Inertia::render('shop/gsm-tools/index', [
             'services' => $this->gsm->activeServices()->map(fn (GsmService $s) => $this->gsm->servicePayload($s))->values()->all(),
             'groups' => $this->gsm->catalogGroups(),
             'serviceTypes' => GsmServiceType::options(),
-            'orders' => $orders,
             'wallet' => $user ? WalletService::ensure($user)->toFrontendArray() : null,
+        ]);
+    }
+
+    public function history(Request $request): Response|RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        $page = $this->gsm->paginatedBuyerOrders($user, $request);
+
+        return Inertia::render('shop/gsm-tools/history', [
+            'orders' => $page['paginator']->through(fn (GsmOrder $order) => $this->gsm->orderPayload($order)),
         ]);
     }
 

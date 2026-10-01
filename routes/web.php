@@ -197,6 +197,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/wallet/sell-rmb/{sellRmbTransfer}/cancel', [BuyerSellRmbController::class, 'cancel'])->name('wallet.sell-rmb.cancel');
 
     Route::get('/gsm-tools', [BuyerGsmToolController::class, 'index'])->name('gsm-tools.index');
+    Route::get('/gsm-tools/history', [BuyerGsmToolController::class, 'history'])->name('gsm-tools.history');
     Route::get('/gsm-tools/services/{gsmService}', [BuyerGsmToolController::class, 'showService'])->name('gsm-tools.services.show');
     Route::post('/gsm-tools/orders', [BuyerGsmToolController::class, 'store'])->name('gsm-tools.orders.store');
     Route::get('/gsm-tools/orders/{gsmOrder}', [BuyerGsmToolController::class, 'showOrder'])->name('gsm-tools.orders.show');
