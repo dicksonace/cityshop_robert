@@ -8,7 +8,23 @@ class NotificationPrivacy
 {
     public static function money(float $amount): string
     {
-        return 'GH₵'.number_format($amount, 2);
+        return 'GHS '.number_format($amount, 2);
+    }
+
+    public static function rmb(float $amount): string
+    {
+        return 'RMB '.number_format($amount, 2);
+    }
+
+    /**
+     * Ghana SMS gateways mangle GH₵ and ¥ into "GHs u" / "A¥". Use ASCII only.
+     */
+    public static function smsSafe(string $message): string
+    {
+        $message = str_replace(['GH₵', 'Gh₵', 'gh₵'], 'GHS ', $message);
+        $message = str_replace(['¥', '￥'], 'RMB ', $message);
+
+        return preg_replace('/GHS\s+/', 'GHS ', $message) ?? $message;
     }
 
     /** Ghana-local date and time for SMS, e.g. 13 Aug 2026, 1:27 PM */

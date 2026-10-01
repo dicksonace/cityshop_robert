@@ -1,0 +1,191 @@
+import { QRCodeSVG } from 'qrcode.react';
+import { Head, useForm } from '@inertiajs/react';
+import { FormEventHandler, useState } from 'react';
+
+import HeadingSmall from '@/components/heading-small';
+import OtpCodeInput from '@/components/otp-code-input';
+import InputError from '@/components/input-error';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
+import AppLayout from '@/layouts/app-layout';
+import SettingsLayout from '@/layouts/settings/layout';
+import { type BreadcrumbItem } from '@/types';
+
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'Security', href: '/settings/security' }];
+
+type MfaStatus = {
+    email: string | null;
+    email_hint: string | null;
+    has_email: boolean;
+    email_enabled: boolean;
+    totp_enabled: boolean;
+};
+
+type Setup = { secret: string; otpauth_url: string } | null;
+
+export default function Security({ mfa, setup, status }: { mfa: MfaStatus; setup?: Setup; status?: string }) {
+    const [tab, setTab] = useState<'email' | 'totp'>('email');
+    const notice = status;
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Security" />
+            <SettingsLayout>
+                <div className="space-y-6">
+                    <HeadingSmall title="Two-factor sign-in" description="Turn on email codes, an authenticator app, or both. You choose." />
+                    {notice ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p> : null}
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === 'email' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                            onClick={() => setTab('email')}
+                        >
+                            Email / Gmail
+                        </button>
+                        <button
+                            type="button"
+                            className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === 'totp' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                            onClick={() => setTab('totp')}
+                        >
+                            Authenticator
+                        </button>
+                    </div>
+                    {tab === 'email' ? <EmailTab mfa={mfa} /> : <TotpTab mfa={mfa} setup={setup ?? null} />}
+                </div>
+            </SettingsLayout>
+        </AppLayout>
+    );
+}
+
+function EmailTab({ mfa }: { mfa: MfaStatus }) {
+    const send = useForm({ password: '' });
+    const confirm = useForm({ code: '' });
+    const disable = useForm({ password: '' });
+
+    const submitSend: FormEventHandler = (e) => {
+        e.preventDefault();
+        send.post(route('security.email'), { onSuccess: () => send.reset('password') });
+    };
+    const submitConfirm: FormEventHandler = (e) => {
+        e.preventDefault();
+        confirm.post(route('security.email.confirm'), { onSuccess: () => confirm.reset('code') });
+    };
+    const submitDisable: FormEventHandler = (e) => {
+        e.preventDefault();
+        disable.delete(route('security.email.disable'), { onSuccess: () => disable.reset('password') });
+    };
+
+    if (!mfa.has_email) {
+        return <p className="text-sm text-gray-600">Add an email on your profile first. Gmail and other inboxes both receive the code.</p>;
+    }
+
+    if (mfa.email_enabled) {
+        return (
+            <form onSubmit={submitDisable} className="space-y-3">
+                <p className="text-sm text-gray-600">Email codes are on. Sign-in codes go to {mfa.email_hint}.</p>
+                <div>
+                    <Label>Password to turn this off</Label>
+                    <PasswordInput className="mt-1" value={disable.data.password} onChange={(e) => disable.setData('password', e.target.value)} />
+                    <InputError message={disable.errors.password} />
+                </div>
+                <Button type="submit" variant="outline" disabled={disable.processing}>
+                    Turn off email codes
+                </Button>
+            </form>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <form onSubmit={submitSend} className="space-y-3">
+                <p className="text-sm text-gray-600">We email a 6-digit code to {mfa.email}. That includes Gmail.</p>
+                <div>
+                    <Label>Current password</Label>
+                    <PasswordInput className="mt-1" value={send.data.password} onChange={(e) => send.setData('password', e.target.value)} />
+                    <InputError message={send.errors.password} />
+                </div>
+                <Button type="submit" className="bg-orange-500 hover:bg-orange-600" disabled={send.processing}>
+                    Email me a code
+                </Button>
+            </form>
+            <form onSubmit={submitConfirm} className="space-y-3">
+                <div>
+                    <Label htmlFor="email-code">Code from the email</Label>
+                    <OtpCodeInput id="email-code" value={confirm.data.code} onChange={(code) => confirm.setData('code', code)} disabled={confirm.processing} />
+                    <InputError message={confirm.errors.code} />
+                </div>
+                <Button type="submit" disabled={confirm.processing}>
+                    Turn on email codes
+                </Button>
+            </form>
+        </div>
+    );
+}
+
+function TotpTab({ mfa, setup }: { mfa: MfaStatus; setup: Setup }) {
+    const start = useForm({ password: '' });
+    const confirm = useForm({ code: '' });
+    const disable = useForm({ password: '' });
+
+    const submitStart: FormEventHandler = (e) => {
+        e.preventDefault();
+        start.post(route('security.totp'), { onSuccess: () => start.reset('password') });
+    };
+    const submitConfirm: FormEventHandler = (e) => {
+        e.preventDefault();
+        confirm.post(route('security.totp.confirm'), { onSuccess: () => confirm.reset('code') });
+    };
+    const submitDisable: FormEventHandler = (e) => {
+        e.preventDefault();
+        disable.delete(route('security.totp.disable'), { onSuccess: () => disable.reset('password') });
+    };
+
+    if (mfa.totp_enabled) {
+        return (
+            <form onSubmit={submitDisable} className="space-y-3">
+                <p className="text-sm text-gray-600">Authenticator is on. Sign-in asks for the 6-digit code from the app you scanned.</p>
+                <div>
+                    <Label>Password to turn this off</Label>
+                    <PasswordInput className="mt-1" value={disable.data.password} onChange={(e) => disable.setData('password', e.target.value)} />
+                    <InputError message={disable.errors.password} />
+                </div>
+                <Button type="submit" variant="outline" disabled={disable.processing}>
+                    Turn off authenticator
+                </Button>
+            </form>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <form onSubmit={submitStart} className="space-y-3">
+                <p className="text-sm text-gray-600">Scan the QR code with Google Authenticator, Authy, or a similar app. You can also type the setup code.</p>
+                <div>
+                    <Label>Current password</Label>
+                    <PasswordInput className="mt-1" value={start.data.password} onChange={(e) => start.setData('password', e.target.value)} />
+                    <InputError message={start.errors.password} />
+                </div>
+                <Button type="submit" className="bg-orange-500 hover:bg-orange-600" disabled={start.processing}>
+                    Show QR code
+                </Button>
+            </form>
+            {setup ? (
+                <form onSubmit={submitConfirm} className="space-y-3">
+                    <div className="flex justify-center rounded-2xl border border-gray-100 bg-white p-4">
+                        <QRCodeSVG value={setup.otpauth_url} size={180} />
+                    </div>
+                    <p className="break-all text-center text-xs text-gray-500">Setup code: {setup.secret}</p>
+                    <div>
+                        <Label htmlFor="totp-code">Code from the authenticator app</Label>
+                        <OtpCodeInput id="totp-code" value={confirm.data.code} onChange={(code) => confirm.setData('code', code)} disabled={confirm.processing} />
+                        <InputError message={confirm.errors.code} />
+                    </div>
+                    <Button type="submit" disabled={confirm.processing}>
+                        Turn on authenticator
+                    </Button>
+                </form>
+            ) : null}
+        </div>
+    );
+}

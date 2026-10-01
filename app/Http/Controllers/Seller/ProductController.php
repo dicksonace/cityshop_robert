@@ -56,7 +56,7 @@ class ProductController extends Controller
                 'search' => $search ?: null,
                 'sort' => $sort,
             ],
-            'categories' => Category::activeOrdered()->get(['id', 'name']),
+            'categories' => Category::activeOrdered()->productListing()->get(['id', 'name']),
         ]);
     }
 
@@ -67,7 +67,7 @@ class ProductController extends Controller
         }
 
         return Inertia::render('seller/products/create', [
-            'categories' => Category::activeOrdered()->get(),
+            'categories' => Category::activeOrdered()->productListing()->get(),
             'profile' => auth()->user()->sellerProfile,
         ]);
     }
@@ -165,7 +165,7 @@ class ProductController extends Controller
 
         return Inertia::render('seller/products/edit', [
             'product' => $product->load(['images', 'category']),
-            'categories' => Category::activeOrdered()->get(),
+            'categories' => Category::activeOrdered()->productListing()->get(),
             'profile' => $request->user()->sellerProfile,
         ]);
     }
@@ -336,7 +336,7 @@ class ProductController extends Controller
             'action' => ['required', 'in:hide,delete,category'],
             'product_ids' => ['required', 'array', 'min:1'],
             'product_ids.*' => ['integer'],
-            'category_id' => ['nullable', 'exists:categories,id'],
+            'category_id' => Category::productIdRule(),
         ]);
 
         $products = Product::where('seller_id', $request->user()->id)
@@ -440,7 +440,7 @@ class ProductController extends Controller
             'meta_title' => ['nullable', 'string', 'max:255'],
             'meta_description' => ['nullable', 'string', 'max:500'],
             'meta_keywords' => ['nullable', 'string', 'max:255'],
-            'category_id' => ['nullable', 'exists:categories,id'],
+            'category_id' => Category::productIdRule(),
             'sku' => ['nullable', 'string', 'max:100'],
             'brand' => ['nullable', 'string', 'max:100'],
             'condition' => ['nullable', 'in:new,used,refurbished'],

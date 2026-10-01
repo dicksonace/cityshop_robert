@@ -14,6 +14,8 @@ type Order = {
     status_label: string;
     service_name: string;
     price_ghs: number;
+    quantity?: number;
+    contact_email?: string | null;
     admin_result_note: string | null;
     failure_reason: string | null;
     can_cancel: boolean;
@@ -64,7 +66,11 @@ export default function GsmToolShow({ order }: Props) {
                         {order.status_label}
                     </span>
                 </div>
-                <p className="mt-2 text-sm text-gray-700">Paid {formatPrice(order.price_ghs)}</p>
+                <p className="mt-2 text-sm text-gray-700">
+                    Paid {formatPrice(order.price_ghs)}
+                    {order.quantity && order.quantity > 1 ? ` × ${order.quantity}` : ''}
+                </p>
+                {order.contact_email ? <p className="text-xs text-gray-500">{order.contact_email}</p> : null}
                 {order.status === 'processing' ? (
                     <p className="mt-1 text-sm text-blue-700">Your request is Processing. The admin reply will appear below.</p>
                 ) : null}

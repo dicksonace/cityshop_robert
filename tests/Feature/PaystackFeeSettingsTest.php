@@ -184,13 +184,20 @@ class PaystackFeeSettingsTest extends TestCase
             ->assertJsonPath('paystack_payments.checkout_enabled', true);
     }
 
-    public function test_paystack_references_use_cityshop_prefix(): void
+    public function test_paystack_references_are_unprefixed_ids(): void
     {
-        $this->assertSame('cityshop-', substr(\App\Support\PaymentReference::recharge(), 0, 9));
-        $this->assertSame('cityshop-', substr(\App\Support\PaymentReference::order(), 0, 9));
-        $this->assertSame('cityshop-12-', substr(\App\Support\PaymentReference::withdrawal(12), 0, 12));
-        $this->assertStringNotContainsString('TOP-', \App\Support\PaymentReference::recharge());
-        $this->assertStringNotContainsString('CITYSHOP-ORD-', \App\Support\PaymentReference::order());
+        $recharge = \App\Support\PaymentReference::recharge();
+        $order = \App\Support\PaymentReference::order();
+        $withdrawal = \App\Support\PaymentReference::withdrawal(12);
+
+        $this->assertMatchesRegularExpression('/^[A-Z0-9]{12,}$/', $recharge);
+        $this->assertMatchesRegularExpression('/^[A-Z0-9]{12,}$/', $order);
+        $this->assertMatchesRegularExpression('/^[A-Z0-9]{13,}$/', $withdrawal);
+        $this->assertStringNotContainsString('TOP-', $recharge);
+        $this->assertStringNotContainsString('TOP-', $order);
+        $this->assertStringNotContainsString('cityshop', strtolower($recharge));
+        $this->assertStringNotContainsString('cityshop', strtolower($order));
+        $this->assertStringNotContainsString('CITYSHOP-ORD-', $order);
     }
 
     public function test_locked_paystack_blocks_new_transactions(): void

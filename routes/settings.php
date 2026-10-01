@@ -3,6 +3,7 @@
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\PaymentPinController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\TwoFactorController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -23,6 +24,14 @@ Route::middleware('auth')->group(function () {
     Route::put('settings/payment-pin', [PaymentPinController::class, 'update'])->name('payment-pin.update');
     Route::post('settings/payment-pin/forgot', [PaymentPinController::class, 'forgot'])->name('payment-pin.forgot');
     Route::post('settings/payment-pin/reset', [PaymentPinController::class, 'reset'])->name('payment-pin.reset');
+
+    Route::get('settings/security', [TwoFactorController::class, 'edit'])->name('security.edit');
+    Route::post('settings/security/email', [TwoFactorController::class, 'sendEmail'])->name('security.email');
+    Route::post('settings/security/email/confirm', [TwoFactorController::class, 'confirmEmail'])->name('security.email.confirm');
+    Route::delete('settings/security/email', [TwoFactorController::class, 'disableEmail'])->name('security.email.disable');
+    Route::post('settings/security/totp', [TwoFactorController::class, 'startTotp'])->name('security.totp');
+    Route::post('settings/security/totp/confirm', [TwoFactorController::class, 'confirmTotp'])->name('security.totp.confirm');
+    Route::delete('settings/security/totp', [TwoFactorController::class, 'disableTotp'])->name('security.totp.disable');
 
     Route::get('settings/appearance', function () {
         return Inertia::render('settings/appearance');

@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Check, ChevronRight, Download, LoaderCircle, Plus, QrCode, RefreshCw, Trash2, Wallet as WalletIcon } from 'lucide-react';
+import { Check, ChevronRight, Download, LoaderCircle, Plus, RefreshCw, Trash2, Wallet as WalletIcon } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -281,7 +281,7 @@ export default function SellerWallet({
                 />
             </div>
 
-            <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mb-6 grid grid-cols-2 gap-2">
                 {canUseRmbWallet && (
                     <Link
                         href={route('wallet.china-rmb.index')}
@@ -295,20 +295,6 @@ export default function SellerWallet({
                     className="flex items-center justify-center rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-900 hover:bg-amber-100"
                 >
                     Ghana Card
-                </Link>
-                <Link
-                    href={route('wallet.qr.receive')}
-                    className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-gray-800 shadow-sm hover:bg-gray-50"
-                >
-                    <QrCode className="h-3.5 w-3.5 text-orange-500" />
-                    My QR
-                </Link>
-                <Link
-                    href={route('wallet.qr.pay')}
-                    className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-3 text-xs font-bold text-gray-800 shadow-sm hover:bg-gray-50"
-                >
-                    <QrCode className="h-3.5 w-3.5 text-orange-500" />
-                    Pay QR
                 </Link>
             </div>
 

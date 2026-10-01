@@ -22,19 +22,37 @@ type Service = {
     id: number;
     name: string;
     description: string | null;
+    overview: string | null;
+    features: string[];
+    what_to_send: string | null;
+    eta_label: string;
+    allow_quantity: boolean;
+    min_qty: number;
+    max_qty: number;
     price_ghs: number;
     fields: Field[];
 };
+
+function isEmailField(field: Field): boolean {
+    return field.type === 'email' || field.name.toLowerCase() === 'email' || field.label.toLowerCase() === 'email';
+}
 
 interface Props {
     service: Service;
     wallet: { available_balance: number };
     hasPaymentPin: boolean;
+    contactEmail: string;
 }
 
-export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) {
+export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEmail }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [pin, setPin] = useState('');
+    const [qty, setQty] = useState(service.min_qty || 1);
+    const min = Math.max(1, service.min_qty || 1);
+    const max = Math.max(min, service.max_qty || 1000);
+    const quantity = service.allow_quantity === false ? 1 : Math.min(max, Math.max(min, qty));
+    const total = service.price_ghs * quantity;
+
     const initialFields = useMemo(() => {
         const map: Record<string, string | File | null> = {};
         for (const field of service.fields) map[field.name] = field.type === 'image' ? null : '';
@@ -43,11 +61,22 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
 
     const form = useForm({
         gsm_service_id: service.id,
+        quantity: quantity,
+        email: contactEmail || '',
         fields: initialFields,
         payment_pin: '',
     });
 
-    const enough = wallet.available_balance >= service.price_ghs;
+    const hasEmailField = service.fields.some(isEmailField);
+    const enough = wallet.available_balance >= total;
+
+    const setField = (name: string, value: string | File | null, emailSync = false) => {
+        form.setData({
+            ...form.data,
+            fields: { ...form.data.fields, [name]: value },
+            email: emailSync && typeof value === 'string' ? value : form.data.email,
+        });
+    };
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -58,7 +87,7 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                     fields[key] = value;
                 }
             }
-            return { ...data, fields, payment_pin: pin };
+            return { ...data, fields, quantity, payment_pin: pin };
         });
         form.post(route('gsm-tools.orders.store'), { forceFormData: true });
     };
@@ -68,13 +97,37 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
             <Head title={service.name} />
             <div className="mx-auto max-w-lg px-4 py-6">
                 <button type="button" onClick={() => router.visit(route('gsm-tools.index'))} className="mb-3 text-sm text-orange-600">
-                    ← GSM Tools
+                    ← Back to services
                 </button>
                 <h1 className="text-xl font-bold text-gray-900">{service.name}</h1>
-                {service.description ? <p className="mt-2 text-sm text-gray-600">{service.description}</p> : null}
+
+                {service.overview || service.description ? (
+                    <section className="mt-4">
+                        <h2 className="text-sm font-bold text-gray-900">Overview</h2>
+                        <p className="mt-1 whitespace-pre-line text-sm text-gray-600">{service.overview || service.description}</p>
+                    </section>
+                ) : null}
+
+                {service.features?.length ? (
+                    <section className="mt-4">
+                        <h2 className="text-sm font-bold text-gray-900">Key Features</h2>
+                        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
+                            {service.features.map((feature) => (
+                                <li key={feature}>{feature}</li>
+                            ))}
+                        </ul>
+                    </section>
+                ) : null}
+
+                {service.what_to_send ? (
+                    <section className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
+                        <h2 className="text-sm font-bold text-gray-900">What You Need To Send</h2>
+                        <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{service.what_to_send}</p>
+                    </section>
+                ) : null}
 
                 <p className="mt-4 text-sm font-semibold text-gray-900">
-                    Total {formatPrice(service.price_ghs)} — deducted from your wallet.
+                    Total {formatPrice(total)} — deducted from your wallet.
                 </p>
                 <p className="mt-1 text-sm text-gray-500">Balance {formatPrice(wallet.available_balance)}</p>
 
@@ -91,6 +144,29 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                 )}
 
                 <form onSubmit={submit} className="mt-5 space-y-4">
+                    {service.allow_quantity !== false ? (
+                        <div>
+                            <Label>Quantity *</Label>
+                            <div className="mt-1 flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    className="h-10 w-10 rounded-xl border border-gray-200 text-lg"
+                                    onClick={() => setQty(Math.max(min, quantity - 1))}
+                                >
+                                    −
+                                </button>
+                                <Input className="text-center" readOnly value={quantity} />
+                                <button
+                                    type="button"
+                                    className="h-10 w-10 rounded-xl border border-gray-200 text-lg"
+                                    onClick={() => setQty(Math.min(max, quantity + 1))}
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
+
                     {service.fields.map((field) => (
                         <div key={field.id}>
                             <Label htmlFor={field.name}>
@@ -103,12 +179,7 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                                     type="file"
                                     accept="image/*"
                                     className="mt-1 block w-full text-sm text-gray-700"
-                                    onChange={(e) =>
-                                        form.setData('fields', {
-                                            ...form.data.fields,
-                                            [field.name]: e.target.files?.[0] ?? null,
-                                        })
-                                    }
+                                    onChange={(e) => setField(field.name, e.target.files?.[0] ?? null)}
                                 />
                             ) : field.type === 'textarea' ? (
                                 <textarea
@@ -117,25 +188,44 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                                     rows={3}
                                     placeholder={field.placeholder ?? undefined}
                                     value={typeof form.data.fields[field.name] === 'string' ? (form.data.fields[field.name] as string) : ''}
-                                    onChange={(e) =>
-                                        form.setData('fields', { ...form.data.fields, [field.name]: e.target.value })
-                                    }
+                                    onChange={(e) => setField(field.name, e.target.value)}
                                 />
                             ) : (
                                 <Input
                                     id={field.name}
                                     className="mt-1"
-                                    inputMode={field.type === 'number' ? 'decimal' : field.type === 'phone' ? 'tel' : undefined}
+                                    type={field.type === 'password' ? 'password' : field.type === 'email' ? 'email' : 'text'}
+                                    inputMode={
+                                        field.type === 'number'
+                                            ? 'decimal'
+                                            : field.type === 'phone'
+                                              ? 'tel'
+                                              : field.type === 'email'
+                                                ? 'email'
+                                                : undefined
+                                    }
                                     placeholder={field.placeholder ?? undefined}
                                     value={typeof form.data.fields[field.name] === 'string' ? (form.data.fields[field.name] as string) : ''}
-                                    onChange={(e) =>
-                                        form.setData('fields', { ...form.data.fields, [field.name]: e.target.value })
-                                    }
+                                    onChange={(e) => setField(field.name, e.target.value, isEmailField(field))}
                                 />
                             )}
                             <InputError message={(form.errors as Record<string, string>)[`fields.${field.name}`]} />
                         </div>
                     ))}
+
+                    {!hasEmailField ? (
+                    <div>
+                        <Label htmlFor="email">Email*</Label>
+                        <Input
+                            id="email"
+                            className="mt-1"
+                            type="email"
+                            value={form.data.email}
+                            onChange={(e) => form.setData('email', e.target.value)}
+                        />
+                        <InputError message={form.errors.email} />
+                    </div>
+                    ) : null}
 
                     {hasPaymentPin ? (
                         <div>

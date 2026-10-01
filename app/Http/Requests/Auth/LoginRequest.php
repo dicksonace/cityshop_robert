@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Auth\MfaRequiredException;
 use App\Enums\SellerStatus;
 use App\Models\User;
+use App\Services\MfaService;
 use App\Support\GhanaMobile;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
@@ -103,6 +105,11 @@ class LoginRequest extends FormRequest
             throw ValidationException::withMessages([
                 'login' => 'This is an administrator account. Please use the admin login page.',
             ]);
+        }
+
+        if (app(MfaService::class)->requires($user)) {
+            RateLimiter::clear($this->throttleKey());
+            throw new MfaRequiredException($user);
         }
 
         Auth::login($user, $this->boolean('remember'));

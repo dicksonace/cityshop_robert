@@ -150,7 +150,7 @@ export default function PaystackFeeSettings({
                     <h1 className="text-xl font-bold text-gray-900">Paystack / Flutterwave</h1>
                     <p className="mt-1 text-sm text-gray-500">
                         Turn Paystack checkout, wallet recharge, and withdrawals on or off separately.
-                        New Paystack references start with cityshop-. Flutterwave keys stay below.
+                        New Paystack and Flutterwave references are ID numbers only — no TOP- or cityshop- prefix.
                     </p>
                 </div>
 
@@ -171,7 +171,7 @@ export default function PaystackFeeSettings({
                         <h2 className="text-base font-bold text-gray-900">Paystack on / off</h2>
                         <p className="mt-1 text-sm text-gray-500">
                             Turn checkout, wallet recharge, and withdrawals off independently. Payments already
-                            started can still finish. References sent to Paystack look like cityshop-8F3A…
+                            started can still finish. References sent to Paystack look like 8A4D456BA702.
                         </p>
                     </div>
 
@@ -329,7 +329,7 @@ export default function PaystackFeeSettings({
                             >
                                 Flutterwave dashboard
                             </a>
-                            . Leave a field blank to keep the current value. Webhook URL:{' '}
+                            . Paste public + secret, then Save and test — CityUnlock will call Flutterwave and tell you if Ghana GHS deposits can start. Leave a field blank to keep the current value. Webhook URL:{' '}
                             <span className="font-mono text-xs">https://cityunlock.net/webhooks/flutterwave</span>
                         </p>
                     </div>
@@ -407,8 +407,8 @@ export default function PaystackFeeSettings({
                             onChange={(e) => keysForm.setData('verify', e.target.checked)}
                             className="h-4 w-4 rounded border-gray-300 text-orange-600"
                         />
-                        Check the key with Flutterwave when saving
-                    </label>
+                            Check the keys with Flutterwave when saving (Ghana GHS test)
+                        </label>
 
                     <div className="flex flex-wrap gap-2">
                         <Button
@@ -418,11 +418,11 @@ export default function PaystackFeeSettings({
                             onClick={() => keysForm.post(route('admin.flutterwave.keys.update'), { preserveScroll: true })}
                         >
                             {keysForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                            Save Flutterwave keys
+                            Save and test keys
                         </Button>
                         <Button
                             type="button"
-                            variant="outline"
+                            className="bg-emerald-600 hover:bg-emerald-700"
                             disabled={verifyForm.processing}
                             onClick={() => {
                                 verifyForm.setData('secret_key', keysForm.data.secret_key);
@@ -430,7 +430,7 @@ export default function PaystackFeeSettings({
                             }}
                         >
                             {verifyForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                            Verify keys
+                            Test Flutterwave keys
                         </Button>
                         {(flutterwaveKeys?.admin_public_set || flutterwaveKeys?.admin_secret_set) && (
                             <Button

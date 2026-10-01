@@ -70,7 +70,9 @@ class WalletFlutterwaveTopUpTest extends TestCase
                 && ($payload['currency'] ?? null) === 'GHS'
                 && ($payload['customer']['email'] ?? null) === $buyer->billingEmail()
                 && ($payload['customer']['phone_number'] ?? null) === '233248620718'
-                && str_starts_with((string) ($payload['tx_ref'] ?? ''), 'cityshop-')
+                && ! str_starts_with((string) ($payload['tx_ref'] ?? ''), 'TOP-')
+                && ! str_starts_with(strtolower((string) ($payload['tx_ref'] ?? '')), 'cityshop-')
+                && preg_match('/^[A-Z0-9]{12,}$/', (string) ($payload['tx_ref'] ?? ''))
                 && ($payload['meta']['type'] ?? null) === 'wallet_topup';
         });
     }

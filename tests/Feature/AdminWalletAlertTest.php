@@ -133,7 +133,7 @@ class AdminWalletAlertTest extends TestCase
 
         $sms = (new WalletFundedNotification(10, 'paystack', 'TOP-6A7DE77468CE0', 2303.50, $at))->toSms($buyer);
 
-        $this->assertStringContainsString('GH₵10.00 credited to your wallet.', $sms);
+        $this->assertStringContainsString('GHS 10.00 credited to your wallet.', $sms);
         $this->assertStringContainsString('Available Balance: GHS 2303.50', $sms);
         $this->assertStringContainsString('Ref: TOP-6A7DE77468CE0.', $sms);
         $this->assertStringContainsString('Date: 13 Aug 2026, 3:49 PM.', $sms);
@@ -161,7 +161,7 @@ class AdminWalletAlertTest extends TestCase
         });
 
         $sms = (new AdminWithdrawalRequestedNotification($withdrawal))->toSms($admin);
-        $this->assertStringContainsString('Kofi Amoah requested a GH₵75.00 MoMo withdrawal', $sms);
+        $this->assertStringContainsString('Kofi Amoah requested a GHS 75.00 MoMo withdrawal', $sms);
         $this->assertStringContainsString('Review in admin', $sms);
     }
 

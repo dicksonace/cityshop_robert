@@ -51,10 +51,10 @@ class WalletConversionNotification extends Notification implements ShouldQueue
     public function toSms(object $notifiable): string
     {
         $line = $this->direction === 'ghs_to_rmb'
-            ? NotificationPrivacy::money($this->amountGhs).' to ¥'.number_format($this->amountRmb, 2)
-            : '¥'.number_format($this->amountRmb, 2).' to '.NotificationPrivacy::money($this->amountGhs);
+            ? NotificationPrivacy::money($this->amountGhs).' to '.NotificationPrivacy::rmb($this->amountRmb)
+            : NotificationPrivacy::rmb($this->amountRmb).' to '.NotificationPrivacy::money($this->amountGhs);
 
         return "CityShop: Exchange completed. {$line}. Ref {$this->reference}. GHS "
-            .number_format($this->availableBalance, 2).' · RMB ¥'.number_format($this->rmbBalance, 2).'.';
+            .number_format($this->availableBalance, 2).' · '.NotificationPrivacy::rmb($this->rmbBalance).'.';
     }
 }

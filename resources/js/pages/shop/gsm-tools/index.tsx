@@ -1,5 +1,4 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Smartphone } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import ShopLayout from '@/layouts/shop-layout';
@@ -10,12 +9,20 @@ type Field = { id: number; name: string; label: string; placeholder: string | nu
 type Service = {
     id: number;
     name: string;
-    slug: string;
     service_type: string;
-    service_type_label: string;
+    group_id: number | null;
+    image_url: string | null;
     description: string | null;
+    eta_label: string;
     price_ghs: number;
     fields: Field[];
+};
+type Group = {
+    id: number;
+    name: string;
+    service_type: string;
+    image_url: string | null;
+    services: Service[];
 };
 type Order = {
     id: number;
@@ -23,61 +30,79 @@ type Order = {
     status: string;
     status_label: string;
     service_name: string;
-    price_ghs: number;
     created_at: string | null;
 };
 
 interface Props {
     services: Service[];
+    groups: Group[];
+    serviceTypes: { value: string; label: string }[];
     orders: Order[];
     wallet: { available_balance: number } | null;
 }
 
-const SERVICE_TYPES = [
-    { value: 'all', label: 'All services' },
-    { value: 'imei', label: 'IMEI Service' },
-    { value: 'server', label: 'Server Service' },
-    { value: 'remote', label: 'Remote Service' },
-    { value: 'file', label: 'File Service' },
-];
-
-export default function GsmToolsIndex({ services, orders, wallet }: Props) {
+export default function GsmToolsIndex({ services, groups, serviceTypes, orders, wallet }: Props) {
     const { flash, auth } = usePage<SharedData>().props;
     const [query, setQuery] = useState('');
-    const [serviceType, setServiceType] = useState('all');
-    const visible = useMemo(() => {
+    const [serviceType, setServiceType] = useState('');
+    const [categoryId, setCategoryId] = useState('');
+
+    const categories = useMemo(
+        () => (serviceType ? groups.filter((group) => group.service_type === serviceType) : groups),
+        [groups, serviceType],
+    );
+
+    const visibleGroups = useMemo(() => {
+        const needle = query.trim().toLowerCase();
+        return categories
+            .filter((group) => !categoryId || String(group.id) === categoryId)
+            .map((group) => ({
+                ...group,
+                services: (group.services ?? []).filter((service) => {
+                    const text = `${service.name} ${service.description ?? ''} ${group.name}`.toLowerCase();
+                    return needle === '' || text.includes(needle);
+                }),
+            }))
+            .filter((group) => group.services.length > 0);
+    }, [categories, categoryId, query]);
+
+    const ungrouped = useMemo(() => {
         const needle = query.trim().toLowerCase();
         return services.filter((service) => {
-            const typeOk = serviceType === 'all' || (service.service_type || 'imei') === serviceType;
+            if (service.group_id) return false;
+            const typeOk = !serviceType || service.service_type === serviceType;
             const text = `${service.name} ${service.description ?? ''}`.toLowerCase();
             return typeOk && (needle === '' || text.includes(needle));
         });
-    }, [services, query, serviceType]);
+    }, [services, serviceType, query]);
+
+    const openService = (id: number) => {
+        if (!auth?.user) {
+            router.visit(route('login'));
+            return;
+        }
+        router.visit(route('gsm-tools.services.show', id));
+    };
+
+    const reset = () => {
+        setQuery('');
+        setServiceType('');
+        setCategoryId('');
+    };
 
     return (
         <ShopLayout>
-            <Head title="GSM Tools" />
+            <Head title="Place order" />
             <div className="mx-auto max-w-lg px-4 py-6">
-                <div className="mb-5 flex items-start gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-                        <Smartphone className="h-5 w-5" />
-                    </span>
-                    <div>
-                        <h1 className="text-xl font-bold text-gray-900">GSM Tools</h1>
-                        <p className="mt-0.5 text-sm text-gray-500">
-                            Unlock &amp; device services — paid from your CityShop wallet.
-                        </p>
-                        {wallet ? (
-                            <p className="mt-1 text-sm font-semibold text-emerald-700">
-                                Balance {formatPrice(wallet.available_balance)}
-                            </p>
-                        ) : null}
-                    </div>
-                </div>
+                <h1 className="text-xl font-bold text-gray-900">Place order</h1>
+                <p className="mt-1 text-sm text-gray-500">Instantly place orders using your wallet balance.</p>
+                {wallet ? (
+                    <p className="mt-1 text-sm font-semibold text-emerald-700">Balance {formatPrice(wallet.available_balance)}</p>
+                ) : null}
 
                 {(flash?.success || flash?.error) && (
                     <div
-                        className={`mb-4 rounded-xl border px-3 py-2 text-sm ${
+                        className={`mt-4 rounded-xl border px-3 py-2 text-sm ${
                             flash.success
                                 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                                 : 'border-red-200 bg-red-50 text-red-800'
@@ -87,57 +112,118 @@ export default function GsmToolsIndex({ services, orders, wallet }: Props) {
                     </div>
                 )}
 
-                <div className="mb-4 space-y-2">
-                    <input
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search services"
-                        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm"
-                    />
+                <div className="mt-5 space-y-2">
                     <select
                         value={serviceType}
-                        onChange={(e) => setServiceType(e.target.value)}
+                        onChange={(e) => {
+                            setServiceType(e.target.value);
+                            setCategoryId('');
+                        }}
                         className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm"
                     >
-                        {SERVICE_TYPES.map((type) => (
+                        <option value="">Select Type</option>
+                        {serviceTypes.map((type) => (
                             <option key={type.value} value={type.value}>
                                 {type.label}
                             </option>
                         ))}
                     </select>
+                    <select
+                        value={categoryId}
+                        onChange={(e) => setCategoryId(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm"
+                    >
+                        <option value="">All categories</option>
+                        {categories.map((group) => (
+                            <option key={group.id} value={group.id}>
+                                {group.name}
+                            </option>
+                        ))}
+                    </select>
+                    <input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Search services..."
+                        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm"
+                    />
+                    <button
+                        type="button"
+                        onClick={reset}
+                        className="h-10 w-full rounded-xl border border-orange-200 text-sm font-semibold text-orange-600"
+                    >
+                        Reset
+                    </button>
                 </div>
 
-                <div className="space-y-3">
-                    {visible.map((service) => (
-                        <button
-                            key={service.id}
-                            type="button"
-                            onClick={() => {
-                                if (!auth?.user) {
-                                    router.visit(route('login'));
-                                    return;
-                                }
-                                router.visit(route('gsm-tools.services.show', service.id));
-                            }}
-                            className="w-full rounded-2xl border border-orange-100 bg-white p-4 text-left shadow-sm transition hover:border-orange-300"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <h2 className="font-bold text-gray-900">{service.name}</h2>
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                                        {service.service_type_label || 'IMEI Service'}
-                                    </p>
-                                    {service.description ? (
-                                        <p className="mt-1 line-clamp-2 text-xs text-gray-500">{service.description}</p>
-                                    ) : null}
-                                </div>
-                                <span className="shrink-0 text-sm font-extrabold text-orange-600">
-                                    {formatPrice(service.price_ghs)}
-                                </span>
+                <div className="mt-5 space-y-6">
+                    {visibleGroups.map((group) => (
+                        <section key={group.id}>
+                            <div className="mb-2 flex items-center gap-2">
+                                {group.image_url ? (
+                                    <img src={group.image_url} alt="" className="h-7 w-7 rounded object-cover" />
+                                ) : null}
+                                <h2 className="text-sm font-bold text-gray-800">{group.name}</h2>
                             </div>
-                        </button>
+                            <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                                {group.services.map((service) => (
+                                    <button
+                                        key={service.id}
+                                        type="button"
+                                        onClick={() => openService(service.id)}
+                                        className="flex w-full items-center gap-3 px-3 py-3 text-left"
+                                    >
+                                        {service.image_url || group.image_url ? (
+                                            <img
+                                                src={service.image_url || group.image_url || ''}
+                                                alt=""
+                                                className="h-11 w-11 shrink-0 rounded-lg object-cover"
+                                            />
+                                        ) : (
+                                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-xs font-bold text-orange-600">
+                                                GSM
+                                            </span>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-semibold text-gray-900">{service.name}</p>
+                                            <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">
+                                                {service.eta_label || 'INSTANT'}
+                                            </p>
+                                        </div>
+                                        <span className="shrink-0 text-sm font-extrabold text-gray-900">
+                                            {formatPrice(service.price_ghs)}
+                                        </span>
+                                    </button>
+                                ))}
+                                {group.services.length === 0 ? (
+                                    <p className="px-3 py-4 text-center text-sm text-gray-500">No services in this category yet.</p>
+                                ) : null}
+                            </div>
+                        </section>
                     ))}
-                    {visible.length === 0 ? (
+
+                    {ungrouped.length > 0 ? (
+                        <section>
+                            <h2 className="mb-2 text-sm font-bold text-gray-800">Other services</h2>
+                            <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                                {ungrouped.map((service) => (
+                                    <button
+                                        key={service.id}
+                                        type="button"
+                                        onClick={() => openService(service.id)}
+                                        className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
+                                    >
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-900">{service.name}</p>
+                                            <p className="text-[11px] font-bold uppercase text-emerald-600">{service.eta_label || 'INSTANT'}</p>
+                                        </div>
+                                        <span className="text-sm font-extrabold">{formatPrice(service.price_ghs)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </section>
+                    ) : null}
+
+                    {visibleGroups.every((g) => g.services.length === 0) && ungrouped.length === 0 ? (
                         <p className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
                             {services.length === 0 ? 'No GSM services available yet.' : 'No services match this search.'}
                         </p>
@@ -159,19 +245,7 @@ export default function GsmToolsIndex({ services, orders, wallet }: Props) {
                                             <p className="text-sm font-semibold text-gray-900">{order.service_name}</p>
                                             <p className="text-xs text-gray-500">{order.reference}</p>
                                         </div>
-                                        <span
-                                            className={`text-xs font-extrabold uppercase ${
-                                                order.status === 'processing'
-                                                    ? 'text-blue-700'
-                                                    : order.status === 'completed'
-                                                      ? 'text-emerald-700'
-                                                      : order.status === 'failed' || order.status === 'cancelled'
-                                                        ? 'text-red-600'
-                                                        : 'text-amber-700'
-                                            }`}
-                                        >
-                                            {order.status_label}
-                                        </span>
+                                        <span className="text-xs font-extrabold uppercase text-amber-700">{order.status_label}</span>
                                     </div>
                                 </Link>
                             ))}

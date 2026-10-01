@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\User;
+use App\Services\MfaService;
 use App\Services\PasswordResetService;
 use App\Support\Countries;
 use App\Support\GhanaLocations;
@@ -182,6 +183,24 @@ class AuthController extends Controller
         }
 
         RateLimiter::clear($throttleKey);
+
+        $mfa = app(MfaService::class);
+        if ($mfa->requires($user)) {
+            if (in_array('email', $mfa->methods($user), true)) {
+                try {
+                    $mfa->sendEmailCode($user);
+                } catch (ValidationException) {
+                    // A code was sent moments ago.
+                }
+            }
+
+            return response()->json([
+                'mfa_required' => true,
+                'mfa_token' => $mfa->issueApiChallenge($user, $portal, $validated['device_name'] ?? null),
+                'methods' => $mfa->methods($user),
+                'email_hint' => $mfa->emailHint($user),
+            ]);
+        }
 
         $token = $user->createToken($validated['device_name'] ?? 'mobile')->plainTextToken;
 

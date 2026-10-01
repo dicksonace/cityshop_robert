@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\GsmOrder;
 use App\Models\GsmService;
 use App\Models\GsmServiceField;
+use App\Models\GsmServiceGroup;
 use App\Services\GsmToolService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,10 +23,15 @@ class GsmToolController extends Controller
     public function index(Request $request): Response
     {
         $status = $request->string('status')->toString();
-        $query = GsmOrder::query()->with(['user:id,name,email,mobile', 'fieldValues'])->latest();
+        $type = $request->string('type')->toString();
+        $query = GsmOrder::query()->with(['user:id,name,email,mobile', 'service', 'fieldValues'])->latest();
 
         if (in_array($status, array_column(GsmOrderStatus::cases(), 'value'), true)) {
             $query->where('status', $status);
+        }
+
+        if (in_array($type, array_map(fn (GsmServiceType $item) => $item->value, GsmServiceType::groups()), true)) {
+            $query->whereHas('service', fn ($q) => $q->where('service_type', $type));
         }
 
         $orders = $query->paginate(20)->withQueryString()->through(
@@ -34,7 +40,8 @@ class GsmToolController extends Controller
 
         return Inertia::render('admin/gsm-tools/index', [
             'orders' => $orders,
-            'filters' => ['status' => $status],
+            'filters' => ['status' => $status, 'type' => $type],
+            'serviceTypes' => GsmServiceType::options(),
             'pendingCount' => $this->gsm->pendingAdminCount(),
         ]);
     }
@@ -95,12 +102,17 @@ class GsmToolController extends Controller
         return back()->with('success', 'Order cancelled. Wallet refunded.');
     }
 
-    public function services(): Response
+    public function services(Request $request): Response|RedirectResponse
     {
-        $services = GsmService::query()
-            ->with('fields')
-            ->orderBy('sort_order')
-            ->orderBy('id')
+        $type = $request->string('type')->toString();
+        $allowed = array_map(fn (GsmServiceType $item) => $item->value, GsmServiceType::groups());
+        if (! in_array($type, $allowed, true)) {
+            return redirect()->route('admin.gsm-tools.services', ['type' => GsmServiceType::Imei->value]);
+        }
+
+        $query = GsmService::query()->with('fields')->orderBy('sort_order')->orderBy('id')->where('service_type', $type);
+
+        $services = $query
             ->get()
             ->map(function (GsmService $service) {
                 $payload = $this->gsm->servicePayload($service);
@@ -111,16 +123,36 @@ class GsmToolController extends Controller
             ->values()
             ->all();
 
+        $selected = GsmServiceType::tryFrom($type);
+        $active = match ($selected) {
+            GsmServiceType::Imei => 'gsm-tools-imei',
+            GsmServiceType::Server => 'gsm-tools-server',
+            GsmServiceType::Remote => 'gsm-tools-remote',
+            GsmServiceType::File => 'gsm-tools-file',
+            GsmServiceType::Credit => 'gsm-tools-credit',
+            default => 'gsm-tools-imei',
+        };
+
         return Inertia::render('admin/gsm-tools/services', [
             'services' => $services,
+            'groups' => GsmServiceGroup::query()
+                ->where('service_type', $type)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (GsmServiceGroup $group) => $this->gsm->groupPayload($group))
+                ->values()
+                ->all(),
             'fieldTypes' => GsmServiceField::TYPES,
             'serviceTypes' => GsmServiceType::options(),
+            'selectedType' => $selected && in_array($selected, GsmServiceType::groups(), true) ? $selected->value : 'imei',
+            'active' => $active,
         ]);
     }
 
     public function storeService(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'name' => ['required', 'string', 'max:160'],
             'service_type' => ['required', Rule::enum(GsmServiceType::class)],
             'description' => ['nullable', 'string', 'max:5000'],
@@ -132,16 +164,18 @@ class GsmToolController extends Controller
             'fields.*.placeholder' => ['nullable', 'string', 'max:160'],
             'fields.*.type' => ['nullable', Rule::in(GsmServiceField::TYPES)],
             'fields.*.required' => ['nullable', 'boolean'],
-        ]);
+        ], $this->catalogServiceRules()));
 
         $this->gsm->createService($validated, $validated['fields'] ?? []);
 
-        return back()->with('success', 'GSM service created.');
+        return redirect()
+            ->route('admin.gsm-tools.services', ['type' => $validated['service_type']])
+            ->with('success', 'GSM service created.');
     }
 
     public function updateService(Request $request, GsmService $gsmService): RedirectResponse
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'name' => ['required', 'string', 'max:160'],
             'service_type' => ['required', Rule::enum(GsmServiceType::class)],
             'description' => ['nullable', 'string', 'max:5000'],
@@ -155,10 +189,64 @@ class GsmToolController extends Controller
             'fields.*.type' => ['nullable', Rule::in(GsmServiceField::TYPES)],
             'fields.*.required' => ['nullable', 'boolean'],
             'fields.*.active' => ['nullable', 'boolean'],
-        ]);
+        ], $this->catalogServiceRules()));
 
         $this->gsm->updateService($gsmService, $validated, $validated['fields'] ?? []);
 
-        return back()->with('success', 'GSM service updated.');
+        return redirect()
+            ->route('admin.gsm-tools.services', ['type' => $validated['service_type']])
+            ->with('success', 'GSM service updated.');
+    }
+
+    public function storeGroup(Request $request): RedirectResponse
+    {
+        $validated = $request->validate($this->groupRules());
+        $this->gsm->createGroup($validated);
+
+        return redirect()
+            ->route('admin.gsm-tools.services', ['type' => $validated['service_type']])
+            ->with('success', 'Category added.');
+    }
+
+    public function updateGroup(Request $request, GsmServiceGroup $gsmServiceGroup): RedirectResponse
+    {
+        $validated = $request->validate($this->groupRules());
+        $this->gsm->updateGroup($gsmServiceGroup, $validated);
+
+        return redirect()
+            ->route('admin.gsm-tools.services', ['type' => $validated['service_type']])
+            ->with('success', 'Category updated.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function catalogServiceRules(): array
+    {
+        return [
+            'gsm_service_group_id' => ['nullable', 'integer', Rule::exists('gsm_service_groups', 'id')],
+            'overview' => ['nullable', 'string', 'max:8000'],
+            'features' => ['nullable'],
+            'what_to_send' => ['nullable', 'string', 'max:4000'],
+            'eta_label' => ['nullable', 'string', 'max:40'],
+            'allow_quantity' => ['nullable', 'boolean'],
+            'min_qty' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'max_qty' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'image' => ['nullable', 'image', 'max:4096'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function groupRules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:160'],
+            'service_type' => ['required', Rule::enum(GsmServiceType::class)],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'active' => ['nullable', 'boolean'],
+            'image' => ['nullable', 'image', 'max:4096'],
+        ];
     }
 }

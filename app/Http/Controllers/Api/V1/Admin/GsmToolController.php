@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\GsmOrder;
 use App\Models\GsmService;
 use App\Models\GsmServiceField;
+use App\Models\GsmServiceGroup;
 use App\Services\GsmToolService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,10 +21,16 @@ class GsmToolController extends Controller
     public function index(Request $request): JsonResponse
     {
         $status = $request->string('status')->toString();
-        $query = GsmOrder::query()->with(['user:id,name,email,mobile', 'fieldValues'])->latest();
+        $type = $request->string('type')->toString();
+        $query = GsmOrder::query()->with(['user:id,name,email,mobile', 'service', 'fieldValues'])->latest();
 
         if (in_array($status, array_column(GsmOrderStatus::cases(), 'value'), true)) {
             $query->where('status', $status);
+        }
+
+        $allowed = array_map(fn (GsmServiceType $item) => $item->value, GsmServiceType::groups());
+        if (in_array($type, $allowed, true)) {
+            $query->whereHas('service', fn ($q) => $q->where('service_type', $type));
         }
 
         $orders = $query->paginate(min(max((int) $request->integer('per_page', 20), 1), 50));
@@ -94,12 +101,16 @@ class GsmToolController extends Controller
         return response()->json(['order' => $this->gsm->orderPayload($order, withHistory: true)]);
     }
 
-    public function services(): JsonResponse
+    public function services(Request $request): JsonResponse
     {
-        $services = GsmService::query()
-            ->with('fields')
-            ->orderBy('sort_order')
-            ->orderBy('id')
+        $type = $request->string('type')->toString();
+        $allowed = array_map(fn (GsmServiceType $item) => $item->value, GsmServiceType::groups());
+        $query = GsmService::query()->with('fields')->orderBy('sort_order')->orderBy('id');
+        if (in_array($type, $allowed, true)) {
+            $query->where('service_type', $type);
+        }
+
+        $services = $query
             ->get()
             ->map(function (GsmService $service) {
                 $payload = $this->gsm->servicePayload($service);
@@ -111,6 +122,13 @@ class GsmToolController extends Controller
 
         return response()->json([
             'services' => $services,
+            'groups' => GsmServiceGroup::query()
+                ->when(in_array($type, $allowed, true), fn ($q) => $q->where('service_type', $type))
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (GsmServiceGroup $group) => $this->gsm->groupPayload($group))
+                ->values(),
             'field_types' => GsmServiceField::TYPES,
             'service_types' => GsmServiceType::options(),
         ]);
@@ -118,7 +136,7 @@ class GsmToolController extends Controller
 
     public function storeService(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'name' => ['required', 'string', 'max:160'],
             'service_type' => ['required', Rule::enum(GsmServiceType::class)],
             'description' => ['nullable', 'string', 'max:5000'],
@@ -130,7 +148,7 @@ class GsmToolController extends Controller
             'fields.*.placeholder' => ['nullable', 'string', 'max:160'],
             'fields.*.type' => ['nullable', Rule::in(GsmServiceField::TYPES)],
             'fields.*.required' => ['nullable', 'boolean'],
-        ]);
+        ], $this->catalogServiceRules()));
 
         $service = $this->gsm->createService($validated, $validated['fields'] ?? []);
 
@@ -139,7 +157,7 @@ class GsmToolController extends Controller
 
     public function updateService(Request $request, GsmService $gsmService): JsonResponse
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'name' => ['required', 'string', 'max:160'],
             'service_type' => ['required', Rule::enum(GsmServiceType::class)],
             'description' => ['nullable', 'string', 'max:5000'],
@@ -153,10 +171,41 @@ class GsmToolController extends Controller
             'fields.*.type' => ['nullable', Rule::in(GsmServiceField::TYPES)],
             'fields.*.required' => ['nullable', 'boolean'],
             'fields.*.active' => ['nullable', 'boolean'],
-        ]);
+        ], $this->catalogServiceRules()));
 
         $service = $this->gsm->updateService($gsmService, $validated, $validated['fields'] ?? []);
 
         return response()->json(['service' => $this->gsm->servicePayload($service->load('fields'))]);
+    }
+
+    public function storeGroup(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:160'],
+            'service_type' => ['required', Rule::enum(GsmServiceType::class)],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'active' => ['nullable', 'boolean'],
+            'image' => ['nullable', 'image', 'max:4096'],
+        ]);
+
+        return response()->json(['group' => $this->gsm->groupPayload($this->gsm->createGroup($validated))], 201);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function catalogServiceRules(): array
+    {
+        return [
+            'gsm_service_group_id' => ['nullable', 'integer', Rule::exists('gsm_service_groups', 'id')],
+            'overview' => ['nullable', 'string', 'max:8000'],
+            'features' => ['nullable'],
+            'what_to_send' => ['nullable', 'string', 'max:4000'],
+            'eta_label' => ['nullable', 'string', 'max:40'],
+            'allow_quantity' => ['nullable', 'boolean'],
+            'min_qty' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'max_qty' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'image' => ['nullable', 'image', 'max:4096'],
+        ];
     }
 }

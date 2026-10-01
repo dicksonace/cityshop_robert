@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Shop;
 
+use App\Enums\GsmServiceType;
 use App\Http\Controllers\Controller;
 use App\Models\GsmOrder;
 use App\Models\GsmService;
@@ -34,6 +35,8 @@ class GsmToolController extends Controller
 
         return Inertia::render('shop/gsm-tools/index', [
             'services' => $this->gsm->activeServices()->map(fn (GsmService $s) => $this->gsm->servicePayload($s))->values()->all(),
+            'groups' => $this->gsm->catalogGroups(),
+            'serviceTypes' => GsmServiceType::options(),
             'orders' => $orders,
             'wallet' => $user ? WalletService::ensure($user)->toFrontendArray() : null,
         ]);
@@ -49,10 +52,11 @@ class GsmToolController extends Controller
         }
 
         return Inertia::render('shop/gsm-tools/order', [
-            'service' => $this->gsm->servicePayload($gsmService->load('activeFields')),
+            'service' => $this->gsm->servicePayload($gsmService->load(['activeFields', 'group'])),
             'wallet' => WalletService::ensure($user)->toFrontendArray(),
             'hasPaymentPin' => PaymentPinService::hasPin($user),
             'kyc' => KycService::payload($user, withPhotos: false),
+            'contactEmail' => $user->email,
         ]);
     }
 

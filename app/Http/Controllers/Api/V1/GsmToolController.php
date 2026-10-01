@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\GsmServiceType;
 use App\Http\Controllers\Controller;
 use App\Models\GsmOrder;
 use App\Models\GsmService;
@@ -22,6 +23,9 @@ class GsmToolController extends Controller
 
         return response()->json([
             'services' => $this->gsm->activeServices()->map(fn (GsmService $s) => $this->gsm->servicePayload($s))->values(),
+            'groups' => $this->gsm->catalogGroups(),
+            'service_types' => GsmServiceType::options(),
+            'contact_email' => $user->email,
             'orders' => GsmOrder::query()
                 ->where('user_id', $user->id)
                 ->latest()
@@ -44,6 +48,7 @@ class GsmToolController extends Controller
             'wallet' => WalletService::ensure($request->user())->toFrontendArray(),
             'has_payment_pin' => PaymentPinService::hasPin($request->user()),
             'kyc' => KycService::payload($request->user(), withPhotos: false),
+            'contact_email' => $request->user()?->email,
         ]);
     }
 

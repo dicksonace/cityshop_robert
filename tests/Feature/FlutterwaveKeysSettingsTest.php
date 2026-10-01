@@ -31,7 +31,7 @@ class FlutterwaveKeysSettingsTest extends TestCase
         $this->assertFalse(app(FlutterwaveService::class)->isConfigured());
 
         Http::fake([
-            'https://api.flutterwave.com/v3/balances' => Http::response([
+            'https://api.flutterwave.com/v3/banks/GH' => Http::response([
                 'status' => 'success',
                 'data' => [],
             ], 200),
@@ -113,7 +113,7 @@ class FlutterwaveKeysSettingsTest extends TestCase
         ]);
 
         Http::fake([
-            'https://api.flutterwave.com/v3/balances' => Http::response([
+            'api.flutterwave.com/*' => Http::response([
                 'status' => 'error',
                 'message' => 'Invalid authorization key',
             ], 401),
@@ -134,7 +134,7 @@ class FlutterwaveKeysSettingsTest extends TestCase
         ]);
 
         Http::fake([
-            'https://api.flutterwave.com/v3/balances' => Http::response([
+            'https://api.flutterwave.com/v3/banks/GH' => Http::response([
                 'status' => 'success',
                 'data' => [],
             ], 200),

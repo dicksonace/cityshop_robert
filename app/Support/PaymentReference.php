@@ -6,17 +6,17 @@ class PaymentReference
 {
     public static function recharge(): string
     {
-        return 'cityshop-'.self::token();
+        return self::token();
     }
 
     public static function order(): string
     {
-        return 'cityshop-'.self::token();
+        return self::token();
     }
 
     public static function withdrawal(int $id): string
     {
-        return 'cityshop-'.$id.'-'.strtoupper(substr(uniqid(), -8));
+        return strtoupper(dechex(max(1, $id))).self::token();
     }
 
     public static function withdrawalLedger(int $id): string
@@ -31,6 +31,6 @@ class PaymentReference
 
     private static function token(): string
     {
-        return strtoupper(str_replace('.', '', uniqid('', true)));
+        return strtoupper(bin2hex(random_bytes(6)));
     }
 }

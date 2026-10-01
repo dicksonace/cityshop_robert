@@ -15,6 +15,7 @@ class CategoryController extends Controller
     public function index(): Response
     {
         $categories = Category::withCount('products')
+            ->productListing()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
@@ -58,6 +59,9 @@ class CategoryController extends Controller
 
     public function update(Request $request, Category $category): RedirectResponse
     {
+        if ($category->slug === Category::GSM_TOOLS_SLUG) {
+            return back()->with('error', 'GSM Tools is managed under Admin → GSM Tools, not product categories.');
+        }
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'icon' => ['nullable', 'string', 'max:10'],
@@ -77,6 +81,9 @@ class CategoryController extends Controller
 
     public function destroy(Category $category): RedirectResponse
     {
+        if ($category->slug === Category::GSM_TOOLS_SLUG) {
+            return back()->with('error', 'GSM Tools is managed under Admin → GSM Tools, not product categories.');
+        }
         if ($category->products()->exists()) {
             $category->update(['is_active' => false]);
 

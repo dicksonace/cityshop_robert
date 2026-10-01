@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class GsmServiceField extends Model
 {
-    public const TYPES = ['text', 'textarea', 'number', 'url', 'phone', 'image'];
+    public const TYPES = ['text', 'textarea', 'number', 'url', 'phone', 'email', 'password', 'image'];
 
     protected $fillable = [
         'gsm_service_id',

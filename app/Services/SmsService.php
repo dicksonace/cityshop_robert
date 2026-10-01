@@ -31,6 +31,8 @@ class SmsService
             ];
         }
 
+        $message = \App\Support\NotificationPrivacy::smsSafe($message);
+
         $msisdn = $this->normalizeGhanaMsisdn($phone);
         if (! $msisdn) {
             Log::warning('SMS skipped: invalid Ghana number.', ['phone' => $phone]);

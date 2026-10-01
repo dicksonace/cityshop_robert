@@ -10,12 +10,13 @@ use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Models\Withdrawal;
+use App\Services\GsmToolService;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function index(): Response
+    public function index(GsmToolService $gsm): Response
     {
         $stats = [
             'total_users' => User::count(),
@@ -25,6 +26,7 @@ class DashboardController extends Controller
             'total_orders' => Order::count(),
             'total_revenue' => Order::where('payment_status', 'paid')->sum('total'),
             'pending_withdrawals' => Withdrawal::where('status', WithdrawalStatus::Pending)->count(),
+            'pending_gsm_tools' => $gsm->pendingAdminCount(),
         ];
 
         $recentOrders = Order::with('buyer')->latest()->limit(5)->get();

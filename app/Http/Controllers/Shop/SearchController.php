@@ -47,6 +47,7 @@ class SearchController extends Controller
         }
 
         $categories = Category::where('is_active', true)
+            ->productListing()
             ->withCount(['products' => fn ($q) => $q->visibleInShop()])
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -102,6 +103,7 @@ class SearchController extends Controller
             ]);
 
         $categories = Category::where('is_active', true)
+            ->productListing()
             ->where(function ($query) use ($q) {
                 $query->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($q).'%']);
             })

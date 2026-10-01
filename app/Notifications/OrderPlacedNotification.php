@@ -6,6 +6,7 @@ use App\Channels\SmsChannel;
 use App\Enums\PaymentStatus;
 use App\Models\Checkout;
 use App\Models\Order;
+use App\Support\NotificationPrivacy;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -50,7 +51,7 @@ class OrderPlacedNotification extends Notification
         $number = $checkout?->checkout_number ?? $this->order->order_number;
         $total = $checkout?->total ?? $this->order->total;
 
-        return "CityShop: Order {$number} placed. Total GH₵".number_format((float) $total, 2).'.';
+        return "CityShop: Order {$number} placed. Total ".NotificationPrivacy::money((float) $total).'.';
     }
 
     public function buyerIntroLine(): string

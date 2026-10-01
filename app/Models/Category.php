@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Category extends Model
 {
+    public const GSM_TOOLS_SLUG = 'gsm-tools';
+
     protected $fillable = [
         'name',
         'slug',
@@ -50,5 +52,20 @@ class Category extends Model
     public function scopeActiveOrdered($query)
     {
         return $query->where('is_active', true)->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function scopeProductListing($query)
+    {
+        return $query->where('slug', '!=', self::GSM_TOOLS_SLUG);
+    }
+
+    public static function productIdRule(): array
+    {
+        return [
+            'nullable',
+            \Illuminate\Validation\Rule::exists('categories', 'id')->where(
+                fn ($query) => $query->where('slug', '!=', self::GSM_TOOLS_SLUG)
+            ),
+        ];
     }
 }

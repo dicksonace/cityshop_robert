@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Enums\GsmServiceType;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class GsmService extends Model
 {
@@ -12,7 +14,16 @@ class GsmService extends Model
         'name',
         'slug',
         'service_type',
+        'gsm_service_group_id',
         'description',
+        'image',
+        'overview',
+        'features',
+        'what_to_send',
+        'eta_label',
+        'allow_quantity',
+        'min_qty',
+        'max_qty',
         'price_ghs',
         'currency',
         'sort_order',
@@ -25,7 +36,23 @@ class GsmService extends Model
             'service_type' => GsmServiceType::class,
             'price_ghs' => 'decimal:2',
             'active' => 'boolean',
+            'allow_quantity' => 'boolean',
+            'features' => 'array',
         ];
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(GsmServiceGroup::class, 'gsm_service_group_id');
+    }
+
+    public function imageUrl(): ?string
+    {
+        if (filled($this->image)) {
+            return url(Storage::disk('public')->url($this->image));
+        }
+
+        return $this->group?->imageUrl();
     }
 
     public function fields(): HasMany

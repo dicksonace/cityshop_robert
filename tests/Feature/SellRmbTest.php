@@ -274,7 +274,7 @@ class SellRmbTest extends TestCase
         $sms = SellRmbSms::userMessage($transfer->fresh(), SellRmbStatus::Submitted, 'Robert Asare');
 
         $this->assertStringContainsString('Hi Robert Asare, RMB Sell submitted.', $sms);
-        $this->assertStringContainsString('Rmb 100.00 for Ghc', $sms);
+        $this->assertStringContainsString('RMB 100.00 for GHS', $sms);
         $this->assertStringContainsString('Payout via MTN.', $sms);
         $this->assertStringContainsString('Pending Review.', $sms);
 

@@ -28,6 +28,7 @@ class User extends Authenticatable
         'country',
         'whatsapp',
         'password',
+        'email_two_factor_enabled',
         'role',
         'digital_address',
         'residential_address',
@@ -42,6 +43,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'payment_pin',
+        'totp_secret',
         'remember_token',
     ];
 
@@ -49,6 +51,9 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'email_two_factor_enabled' => 'boolean',
+            'totp_secret' => 'encrypted',
+            'totp_confirmed_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'blocked_at' => 'datetime',
             'password' => 'hashed',

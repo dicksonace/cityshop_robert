@@ -4,6 +4,7 @@ import {
     Camera,
     Heart,
     KeyRound,
+    Shield,
     LayoutDashboard,
     LogIn,
     LogOut,
@@ -12,6 +13,7 @@ import {
     MessageCircle,
     Package,
     ShoppingCart,
+    Smartphone,
     Store,
     Truck,
     User,
@@ -254,16 +256,24 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                 <div className="flex items-center gap-3 sm:gap-5">
                     <CityShopBrand size="sm" className="shrink-0" />
 
-                    <div className={cn('hidden min-w-0 flex-1 md:flex', hideSearch && 'md:hidden')}>
-                        <SearchBox
-                            initialQuery={initialSearch}
-                            className="w-full"
-                            showBack={showSearchBack}
-                            backHref={route('home')}
-                        />
+                    <div className="flex min-w-0 flex-1 items-center justify-center md:justify-start md:gap-3">
+                        <Link
+                            href={auth.user ? route('gsm-tools.index') : route('login')}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1.5 text-xs font-extrabold text-violet-700 transition-colors hover:bg-violet-200 sm:px-3 sm:text-sm"
+                            title="GSM Tools"
+                        >
+                            <Smartphone className="h-4 w-4" />
+                            <span>GSM Tools</span>
+                        </Link>
+                        <div className={cn('hidden min-w-0 flex-1 md:flex', hideSearch && 'md:hidden')}>
+                            <SearchBox
+                                initialQuery={initialSearch}
+                                className="w-full"
+                                showBack={showSearchBack}
+                                backHref={route('home')}
+                            />
+                        </div>
                     </div>
-
-                    {hideSearch && <div className="hidden flex-1 md:block" />}
 
                     <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
                         {auth.user ? (
@@ -364,6 +374,12 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                                         <Link href={route('password.edit')} className="flex w-full cursor-pointer items-center">
                                             <KeyRound className="mr-2 h-4 w-4" />
                                             Change password
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href={route('security.edit')} className="flex w-full cursor-pointer items-center">
+                                            <Shield className="mr-2 h-4 w-4" />
+                                            Sign-in security
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
@@ -514,6 +530,7 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                             <div className="mt-3 space-y-0.5 border-t border-gray-100 pt-3">
                                 {renderMobileNavLink({ label: 'Profile settings', href: route('profile.edit'), icon: User })}
                                 {renderMobileNavLink({ label: 'Change password', href: route('password.edit'), icon: KeyRound })}
+                                {renderMobileNavLink({ label: 'Sign-in security', href: route('security.edit'), icon: Shield })}
                             </div>
                             <Button
                                 variant="outline"

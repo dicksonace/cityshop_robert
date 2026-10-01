@@ -3,6 +3,7 @@ import {
     MessageSquare,
     Package,
     ShoppingCart,
+    Smartphone,
     Store,
     Users,
     Wallet,
@@ -38,7 +39,11 @@ export type AdminNavKey =
     | 'china-transfers'
     | 'china-transfer-settings'
     | 'gsm-tools'
-    | 'gsm-tools-services'
+    | 'gsm-tools-imei'
+    | 'gsm-tools-server'
+    | 'gsm-tools-remote'
+    | 'gsm-tools-file'
+    | 'gsm-tools-credit'
     | 'sell-rmb'
     | 'sell-rmb-settings'
     | 'disputes'
@@ -76,8 +81,12 @@ const sectionMap: Record<AdminNavKey, string> = {
     'pending-funds': 'finance',
     'china-transfers': 'finance',
     'china-transfer-settings': 'finance',
-    'gsm-tools': 'finance',
-    'gsm-tools-services': 'finance',
+    'gsm-tools': 'gsm',
+    'gsm-tools-imei': 'gsm',
+    'gsm-tools-server': 'gsm',
+    'gsm-tools-remote': 'gsm',
+    'gsm-tools-file': 'gsm',
+    'gsm-tools-credit': 'gsm',
     'sell-rmb': 'finance',
     'sell-rmb-settings': 'finance',
     disputes: 'support',
@@ -173,6 +182,20 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
             ],
         },
         {
+            key: 'gsm',
+            label: 'GSM Tools',
+            icon: Smartphone,
+            defaultOpen: section === 'gsm',
+            items: [
+                { key: 'gsm-tools-imei', label: 'IMEI Service', href: route('admin.gsm-tools.services', { type: 'imei' }) },
+                { key: 'gsm-tools-server', label: 'Server Service', href: route('admin.gsm-tools.services', { type: 'server' }) },
+                { key: 'gsm-tools-remote', label: 'Remote Service', href: route('admin.gsm-tools.services', { type: 'remote' }) },
+                { key: 'gsm-tools-file', label: 'File Service', href: route('admin.gsm-tools.services', { type: 'file' }) },
+                { key: 'gsm-tools-credit', label: 'Credit | Box Activation', href: route('admin.gsm-tools.services', { type: 'credit' }) },
+                { key: 'gsm-tools', label: 'All GSM orders', href: route('admin.gsm-tools.index'), badgeKey: 'pending_gsm_tools', defaultOnPath: true },
+            ],
+        },
+        {
             key: 'finance',
             label: 'Finance',
             icon: Wallet,
@@ -188,8 +211,6 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'pending-funds', label: 'Pending Funds', href: route('admin.pending-funds.index'), badgeKey: 'pending_fund_releases', defaultOnPath: true },
                 { key: 'china-transfers', label: 'China Transfer', href: route('admin.china-transfers.index'), badgeKey: 'pending_china_transfers', defaultOnPath: true },
                 { key: 'china-transfer-settings', label: 'China Transfer Settings', href: route('admin.china-transfer.settings') },
-                { key: 'gsm-tools', label: 'GSM Tools', href: route('admin.gsm-tools.index'), badgeKey: 'pending_gsm_tools', defaultOnPath: true },
-                { key: 'gsm-tools-services', label: 'GSM Services', href: route('admin.gsm-tools.services') },
                 { key: 'rmb-conversions', label: 'RMB Conversions', href: route('admin.rmb-ops.conversions') },
                 { key: 'rmb-reconciliation', label: 'RMB Reconciliation', href: route('admin.rmb-ops.reconciliation') },
                 { key: 'rmb-rate-history', label: 'RMB Rate History', href: route('admin.rmb-ops.rate-history') },

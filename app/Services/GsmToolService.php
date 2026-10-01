@@ -9,6 +9,7 @@ use App\Models\GsmOrderFieldValue;
 use App\Models\GsmOrderReply;
 use App\Models\GsmOrderStatusHistory;
 use App\Models\GsmService;
+use App\Models\GsmServiceGroup;
 use App\Models\GsmServiceField;
 use App\Models\User;
 use App\Support\PaymentReference;
@@ -35,7 +36,7 @@ class GsmToolService
     {
         return GsmService::query()
             ->where('active', true)
-            ->with(['activeFields'])
+            ->with(['activeFields', 'group'])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -46,7 +47,7 @@ class GsmToolService
      */
     public function servicePayload(GsmService $service): array
     {
-        $service->loadMissing('activeFields');
+        $service->loadMissing(['activeFields', 'group']);
 
         return [
             'id' => $service->id,
@@ -54,13 +55,61 @@ class GsmToolService
             'slug' => $service->slug,
             'service_type' => ($service->service_type ?? GsmServiceType::Imei)->value,
             'service_type_label' => ($service->service_type ?? GsmServiceType::Imei)->label(),
+            'group_id' => $service->gsm_service_group_id,
+            'group_name' => $service->group?->name,
+            'image_url' => $service->imageUrl(),
             'description' => $service->description,
+            'overview' => $service->overview ?: $service->description,
+            'features' => array_values(array_filter((array) ($service->features ?? []))),
+            'what_to_send' => $service->what_to_send,
+            'eta_label' => $service->eta_label ?: 'INSTANT',
+            'allow_quantity' => $service->allow_quantity !== false,
+            'min_qty' => max(1, (int) ($service->min_qty ?: 1)),
+            'max_qty' => max(1, (int) ($service->max_qty ?: 1000)),
             'price_ghs' => (float) $service->price_ghs,
             'currency' => $service->currency ?: 'GHS',
             'sort_order' => (int) $service->sort_order,
             'active' => (bool) $service->active,
             'fields' => $service->activeFields->map(fn (GsmServiceField $field) => $this->fieldPayload($field))->values()->all(),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function groupPayload(GsmServiceGroup $group, bool $withServices = false): array
+    {
+        $payload = [
+            'id' => $group->id,
+            'name' => $group->name,
+            'slug' => $group->slug,
+            'service_type' => ($group->service_type ?? GsmServiceType::Imei)->value,
+            'image_url' => $group->imageUrl(),
+            'sort_order' => (int) $group->sort_order,
+            'active' => (bool) $group->active,
+        ];
+        if ($withServices) {
+            $payload['services'] = $group->services
+                ->where('active', true)
+                ->map(fn (GsmService $service) => $this->servicePayload($service))
+                ->values()
+                ->all();
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function catalogGroups(?string $type = null): array
+    {
+        $query = GsmServiceGroup::query()->where('active', true)->with(['services.activeFields', 'services.group'])->orderBy('sort_order')->orderBy('name');
+        if ($type) {
+            $query->where('service_type', $type);
+        }
+
+        return $query->get()->map(fn (GsmServiceGroup $group) => $this->groupPayload($group, true))->values()->all();
     }
 
     /**
@@ -97,6 +146,9 @@ class GsmToolService
             'status_tone' => $order->status->tone(),
             'service_id' => $order->gsm_service_id,
             'service_name' => $order->service_name,
+            'quantity' => max(1, (int) ($order->quantity ?: 1)),
+            'unit_price_ghs' => (float) ($order->unit_price_ghs ?? $order->price_ghs),
+            'contact_email' => $order->contact_email,
             'service_type' => ($order->service?->service_type ?? GsmServiceType::Imei)->value,
             'service_type_label' => ($order->service?->service_type ?? GsmServiceType::Imei)->label(),
             'price_ghs' => (float) $order->price_ghs,
@@ -155,6 +207,8 @@ class GsmToolService
     {
         $validated = $request->validate([
             'gsm_service_id' => ['required', 'integer', 'exists:gsm_services,id'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'email' => ['nullable', 'email', 'max:160'],
             'fields' => ['nullable', 'array'],
         ]);
 
@@ -172,15 +226,36 @@ class GsmToolService
 
         $fields = $service->activeFields;
         $values = $this->validatedFieldValues($request, $fields);
-        $price = round((float) $service->price_ghs, 2);
+        $email = trim((string) ($validated['email'] ?? ''));
+        if ($email === '') {
+            foreach ($fields as $field) {
+                $isEmail = $field->type === 'email' || strcasecmp((string) $field->name, 'email') === 0 || strcasecmp((string) $field->label, 'email') === 0;
+                if ($isEmail && filled($values[$field->name] ?? null)) {
+                    $email = trim((string) $values[$field->name]);
+                    break;
+                }
+            }
+        }
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw ValidationException::withMessages([
+                'email' => 'Email is required.',
+            ]);
+        }
+        $validated['email'] = $email;
+        $unit = round((float) $service->price_ghs, 2);
+        $minQty = max(1, (int) ($service->min_qty ?: 1));
+        $maxQty = max($minQty, (int) ($service->max_qty ?: 1000));
+        $quantity = $service->allow_quantity === false ? 1 : (int) ($validated['quantity'] ?? 1);
+        $quantity = max($minQty, min($maxQty, $quantity));
+        $price = round($unit * $quantity, 2);
 
-        if ($price < 1) {
+        if ($unit < 1) {
             throw ValidationException::withMessages([
                 'gsm_service_id' => 'This service price is invalid.',
             ]);
         }
 
-        return DB::transaction(function () use ($user, $request, $service, $fields, $values, $price) {
+        return DB::transaction(function () use ($user, $request, $service, $fields, $values, $price, $unit, $quantity, $validated) {
             try {
                 WalletService::ensure($user);
                 WalletService::debitAvailable(
@@ -199,6 +274,9 @@ class GsmToolService
                 'user_id' => $user->id,
                 'gsm_service_id' => $service->id,
                 'service_name' => $service->name,
+                'quantity' => $quantity,
+                'unit_price_ghs' => $unit,
+                'contact_email' => $validated['email'],
                 'price_ghs' => $price,
                 'status' => GsmOrderStatus::Pending,
                 'paid_at' => now(),
@@ -220,7 +298,7 @@ class GsmToolService
                 $user->id,
                 $price,
                 PaymentReference::gsm($order->id),
-                'GSM Tools · '.$service->name.' ('.$order->reference.')',
+                'GSM Tools · '.$service->name.($quantity > 1 ? ' ×'.$quantity : '').' ('.$order->reference.')',
             );
 
             $this->recordHistory($order, null, GsmOrderStatus::Pending, 'Paid from wallet — awaiting processing', $user->id);
@@ -378,6 +456,57 @@ class GsmToolService
         });
     }
 
+    public function createGroup(array $data): GsmServiceGroup
+    {
+        $name = trim((string) ($data['name'] ?? ''));
+        $slug = Str::slug((string) ($data['slug'] ?? $name));
+        if ($slug === '') {
+            $slug = 'gsm-cat-'.Str::lower(Str::random(6));
+        }
+        $base = $slug;
+        $i = 1;
+        while (GsmServiceGroup::query()->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$i;
+            $i++;
+        }
+
+        $image = null;
+        if (! empty($data['image']) && $data['image'] instanceof UploadedFile) {
+            $image = $data['image']->store('gsm-groups', 'public');
+        }
+
+        return GsmServiceGroup::create([
+            'name' => $name,
+            'slug' => $slug,
+            'service_type' => $this->serviceType($data['service_type'] ?? null),
+            'image' => $image,
+            'sort_order' => (int) ($data['sort_order'] ?? 0),
+            'active' => array_key_exists('active', $data) ? (bool) $data['active'] : true,
+        ]);
+    }
+
+    public function updateGroup(GsmServiceGroup $group, array $data): GsmServiceGroup
+    {
+        if (array_key_exists('name', $data)) {
+            $group->name = trim((string) $data['name']);
+        }
+        if (array_key_exists('service_type', $data)) {
+            $group->service_type = $this->serviceType($data['service_type']);
+        }
+        if (array_key_exists('sort_order', $data)) {
+            $group->sort_order = (int) $data['sort_order'];
+        }
+        if (array_key_exists('active', $data)) {
+            $group->active = (bool) $data['active'];
+        }
+        if (! empty($data['image']) && $data['image'] instanceof UploadedFile) {
+            $group->image = $data['image']->store('gsm-groups', 'public');
+        }
+        $group->save();
+
+        return $group->fresh();
+    }
+
     /**
      * @param  array<int, array{label?: string, name?: string, placeholder?: string|null, type?: string, required?: bool}>  $fields
      */
@@ -397,7 +526,7 @@ class GsmToolService
                 $i++;
             }
 
-            $service = GsmService::create([
+            $service = GsmService::create(array_merge([
                 'name' => $name,
                 'slug' => $slug,
                 'service_type' => $this->serviceType($data['service_type'] ?? null),
@@ -406,7 +535,7 @@ class GsmToolService
                 'currency' => 'GHS',
                 'sort_order' => (int) ($data['sort_order'] ?? 0),
                 'active' => (bool) ($data['active'] ?? true),
-            ]);
+            ], $this->catalogAttributes($data)));
 
             $this->syncFields($service, $fields);
 
@@ -438,6 +567,7 @@ class GsmToolService
             if (array_key_exists('active', $data)) {
                 $service->active = (bool) $data['active'];
             }
+            $service->fill($this->catalogAttributes($data));
             $service->save();
 
             if (is_array($fields)) {
@@ -516,6 +646,8 @@ class GsmToolService
                 $rule = [$field->required ? 'required' : 'nullable', 'image', 'max:8192'];
             } elseif ($field->type === 'number') {
                 $rule = [$field->required ? 'required' : 'nullable', 'numeric'];
+            } elseif ($field->type === 'email') {
+                $rule = [$field->required ? 'required' : 'nullable', 'email', 'max:160'];
             } else {
                 $rule = [$field->required ? 'required' : 'nullable', 'string', 'max:2000'];
                 if ($field->type === 'url') {
@@ -677,6 +809,66 @@ class GsmToolService
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function catalogAttributes(array $data): array
+    {
+        $attrs = [];
+        if (array_key_exists('gsm_service_group_id', $data)) {
+            $groupId = $data['gsm_service_group_id'] ? (int) $data['gsm_service_group_id'] : null;
+            if ($groupId) {
+                $group = GsmServiceGroup::query()->find($groupId);
+                $attrs['gsm_service_group_id'] = $group?->id;
+                if ($group && empty($data['service_type'])) {
+                    $attrs['service_type'] = $group->service_type;
+                }
+            } else {
+                $attrs['gsm_service_group_id'] = null;
+            }
+        }
+        if (array_key_exists('overview', $data)) {
+            $attrs['overview'] = $data['overview'] ?: null;
+        }
+        if (array_key_exists('what_to_send', $data)) {
+            $attrs['what_to_send'] = $data['what_to_send'] ?: null;
+        }
+        if (array_key_exists('eta_label', $data)) {
+            $attrs['eta_label'] = filled($data['eta_label'] ?? null) ? Str::limit((string) $data['eta_label'], 40, '') : 'INSTANT';
+        }
+        if (array_key_exists('allow_quantity', $data)) {
+            $attrs['allow_quantity'] = (bool) $data['allow_quantity'];
+        }
+        if (array_key_exists('min_qty', $data)) {
+            $attrs['min_qty'] = max(1, (int) $data['min_qty']);
+        }
+        if (array_key_exists('max_qty', $data)) {
+            $attrs['max_qty'] = max(1, (int) $data['max_qty']);
+        }
+        if (array_key_exists('features', $data)) {
+            $attrs['features'] = $this->parseFeatures($data['features']);
+        }
+        if (! empty($data['image']) && $data['image'] instanceof UploadedFile) {
+            $attrs['image'] = $data['image']->store('gsm-services', 'public');
+        }
+
+        return $attrs;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function parseFeatures(mixed $value): array
+    {
+        if (is_array($value)) {
+            return array_values(array_filter(array_map(fn ($row) => trim((string) $row), $value)));
+        }
+
+        $lines = preg_split('/\r\n|\r|\n/', (string) $value) ?: [];
+
+        return array_values(array_filter(array_map('trim', $lines)));
     }
 
     private function nextReference(): string

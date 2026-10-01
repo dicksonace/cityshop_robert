@@ -214,9 +214,7 @@ class PaystackService
         }
 
         $quote = $this->rechargeQuote($creditGhs, $method);
-        $reference = $referencePrefix
-            ? rtrim($referencePrefix, '-').'-'.strtoupper(str_replace('.', '', uniqid('', true)))
-            : PaymentReference::recharge();
+        $reference = PaymentReference::recharge();
         $email = $user->billingEmail();
 
         $data = $this->initializeTransaction(

@@ -5,6 +5,7 @@ namespace App\Channels;
 use App\Notifications\PasswordResetCodeNotification;
 use App\Notifications\PaymentPinResetCodeNotification;
 use App\Services\SmsService;
+use App\Support\NotificationPrivacy;
 use Illuminate\Notifications\Notification;
 
 class SmsChannel
@@ -22,6 +23,8 @@ class SmsChannel
         if (! $message) {
             return;
         }
+
+        $message = NotificationPrivacy::smsSafe($message);
 
         // OTP / reset codes must use the admin-selected provider only — no silent
         // fallback to Formula DC when TxtConnect is selected (and vice versa).

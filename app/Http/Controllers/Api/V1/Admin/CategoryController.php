@@ -13,6 +13,7 @@ class CategoryController extends Controller
     public function index(): JsonResponse
     {
         $categories = Category::withCount('products')
+            ->productListing()
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
@@ -54,6 +55,9 @@ class CategoryController extends Controller
 
     public function update(Request $request, Category $category): JsonResponse
     {
+        if ($category->slug === Category::GSM_TOOLS_SLUG) {
+            return response()->json(['message' => 'GSM Tools is managed under GSM Tools, not product categories.'], 422);
+        }
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'icon' => ['nullable', 'string', 'max:10'],
@@ -73,6 +77,9 @@ class CategoryController extends Controller
 
     public function destroy(Category $category): JsonResponse
     {
+        if ($category->slug === Category::GSM_TOOLS_SLUG) {
+            return response()->json(['message' => 'GSM Tools is managed under GSM Tools, not product categories.'], 422);
+        }
         if ($category->products()->exists()) {
             $category->update(['is_active' => false]);
 

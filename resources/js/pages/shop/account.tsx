@@ -7,7 +7,6 @@ import {
     KeyRound,
     LogOut,
     MapPin,
-    QrCode,
     Shield,
     Store,
     User,
@@ -37,12 +36,11 @@ export default function BuyerAccount({ kyc, hasPaymentPin }: Props) {
         { label: 'Ghana Card verification', href: route('kyc.index'), icon: BadgeCheck, hint: kycHint(kyc) },
         { label: 'Payment PIN', href: route('shop.payment-pin.edit'), icon: Shield, hint: hasPaymentPin ? 'PIN is set' : 'Set 4-digit PIN' },
         { label: 'Notifications', href: route('notifications.index'), icon: Bell, hint: 'Order & wallet alerts' },
-        { label: 'My QR code', href: route('wallet.qr.receive'), icon: QrCode, hint: 'Receive wallet payments' },
-        { label: 'Pay with QR', href: route('wallet.qr.pay'), icon: QrCode, hint: 'Scan or paste a code' },
         { label: 'Addresses', href: route('addresses.index'), icon: MapPin, hint: 'Saved delivery addresses' },
         { label: 'Wishlist', href: route('wishlist.index'), icon: Heart, hint: 'Saved products' },
         { label: 'Following', href: route('following.index'), icon: Store, hint: 'Sellers you follow' },
         { label: 'Change password', href: route('password.edit'), icon: KeyRound, hint: 'Account security' },
+        { label: 'Sign-in security', href: route('security.edit'), icon: Shield, hint: 'Email codes and authenticator' },
     ];
 
     return (

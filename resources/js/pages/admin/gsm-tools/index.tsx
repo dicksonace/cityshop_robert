@@ -17,7 +17,8 @@ type Order = {
 
 interface Props {
     orders: Paginated<Order>;
-    filters: { status: string };
+    filters: { status: string; type?: string };
+    serviceTypes: { value: string; label: string }[];
     pendingCount: number;
 }
 
@@ -30,7 +31,7 @@ const statuses = [
     { id: 'cancelled', label: 'Cancelled' },
 ];
 
-export default function AdminGsmToolsIndex({ orders, filters, pendingCount }: Props) {
+export default function AdminGsmToolsIndex({ orders, filters, serviceTypes = [], pendingCount }: Props) {
     const { flash } = usePage<SharedData>().props;
 
     return (
@@ -42,7 +43,7 @@ export default function AdminGsmToolsIndex({ orders, filters, pendingCount }: Pr
                         <h1 className="text-xl font-bold text-gray-900">GSM Tools orders</h1>
                         <p className="text-sm text-gray-500">{pendingCount} open · wallet-paid device services</p>
                     </div>
-                    <Link href={route('admin.gsm-tools.services')} className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white">
+                    <Link href={route('admin.gsm-tools.services', { type: 'imei' })} className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white">
                         Manage services
                     </Link>
                 </div>
@@ -54,11 +55,38 @@ export default function AdminGsmToolsIndex({ orders, filters, pendingCount }: Pr
                 )}
 
                 <div className="flex flex-wrap gap-2">
+                    {[{ value: '', label: 'All types' }, ...serviceTypes].map((type) => (
+                        <button
+                            key={type.value || 'all-types'}
+                            type="button"
+                            onClick={() =>
+                                router.get(
+                                    route('admin.gsm-tools.index'),
+                                    { ...(filters.status ? { status: filters.status } : {}), ...(type.value ? { type: type.value } : {}) },
+                                    { preserveState: true },
+                                )
+                            }
+                            className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                                (filters.type || '') === type.value ? 'bg-slate-800 text-white' : 'bg-gray-100 text-gray-700'
+                            }`}
+                        >
+                            {type.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
                     {statuses.map((s) => (
                         <button
                             key={s.id || 'all'}
                             type="button"
-                            onClick={() => router.get(route('admin.gsm-tools.index'), s.id ? { status: s.id } : {}, { preserveState: true })}
+                            onClick={() =>
+                                router.get(
+                                    route('admin.gsm-tools.index'),
+                                    { ...(s.id ? { status: s.id } : {}), ...(filters.type ? { type: filters.type } : {}) },
+                                    { preserveState: true },
+                                )
+                            }
                             className={`rounded-full px-3 py-1.5 text-xs font-bold ${
                                 (filters.status || '') === s.id ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'
                             }`}

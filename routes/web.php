@@ -413,6 +413,8 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::get('/gsm-tools/services', [AdminGsmToolController::class, 'services'])->name('gsm-tools.services');
     Route::post('/gsm-tools/services', [AdminGsmToolController::class, 'storeService'])->name('gsm-tools.services.store');
     Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService'])->name('gsm-tools.services.update');
+    Route::post('/gsm-tools/groups', [AdminGsmToolController::class, 'storeGroup'])->name('gsm-tools.groups.store');
+    Route::post('/gsm-tools/groups/{gsmServiceGroup}', [AdminGsmToolController::class, 'updateGroup'])->name('gsm-tools.groups.update');
     Route::get('/gsm-tools/{gsmOrder}', [AdminGsmToolController::class, 'show'])->name('gsm-tools.show');
     Route::post('/gsm-tools/{gsmOrder}/process', [AdminGsmToolController::class, 'process'])->name('gsm-tools.process');
     Route::post('/gsm-tools/{gsmOrder}/reply', [AdminGsmToolController::class, 'reply'])->name('gsm-tools.reply');

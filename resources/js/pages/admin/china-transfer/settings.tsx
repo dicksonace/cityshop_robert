@@ -278,7 +278,7 @@ export default function ChinaTransferSettings({
                                 {rmbPerGhs > 0 && ghsPerRmb > 0 && (
                                     <p className="rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
                                         Preview: buyers will see{' '}
-                                        <span className="font-black">1 GHS → ¥{formatRate(rmbPerGhs)} RMB</span>
+                                        <span className="font-black">1 GHS → {formatRate(rmbPerGhs)} RMB</span>
                                         {' · '}
                                         GH₵100 → ¥{(100 * rmbPerGhs).toFixed(2)}
                                         {' · '}

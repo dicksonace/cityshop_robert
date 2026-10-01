@@ -83,6 +83,8 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/login/mfa', [\App\Http\Controllers\Api\V1\MfaController::class, 'verifyLogin']);
+        Route::post('/login/mfa/email', [\App\Http\Controllers\Api\V1\MfaController::class, 'resendLoginEmail']);
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
         Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     });
@@ -328,6 +330,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/gsm-tools/services', [AdminGsmToolController::class, 'services']);
             Route::post('/gsm-tools/services', [AdminGsmToolController::class, 'storeService']);
             Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService']);
+            Route::post('/gsm-tools/groups', [AdminGsmToolController::class, 'storeGroup']);
             Route::get('/gsm-tools/{gsmOrder}', [AdminGsmToolController::class, 'show']);
             Route::post('/gsm-tools/{gsmOrder}/process', [AdminGsmToolController::class, 'process']);
             Route::post('/gsm-tools/{gsmOrder}/reply', [AdminGsmToolController::class, 'reply']);
@@ -369,6 +372,13 @@ Route::prefix('v1')->group(function () {
         Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
         Route::get('/profile/deletion', [ProfileController::class, 'deletionStatus']);
         Route::delete('/profile', [ProfileController::class, 'destroy']);
+        Route::get('/mfa', [\App\Http\Controllers\Api\V1\MfaController::class, 'show']);
+        Route::post('/mfa/email', [\App\Http\Controllers\Api\V1\MfaController::class, 'sendEmail']);
+        Route::post('/mfa/email/confirm', [\App\Http\Controllers\Api\V1\MfaController::class, 'confirmEmail']);
+        Route::delete('/mfa/email', [\App\Http\Controllers\Api\V1\MfaController::class, 'disableEmail']);
+        Route::post('/mfa/totp', [\App\Http\Controllers\Api\V1\MfaController::class, 'startTotp']);
+        Route::post('/mfa/totp/confirm', [\App\Http\Controllers\Api\V1\MfaController::class, 'confirmTotp']);
+        Route::delete('/mfa/totp', [\App\Http\Controllers\Api\V1\MfaController::class, 'disableTotp']);
         Route::post('/profile/payment-pin', [\App\Http\Controllers\Api\PaymentPinController::class, 'store']);
         Route::put('/profile/payment-pin', [\App\Http\Controllers\Api\PaymentPinController::class, 'update']);
         Route::post('/profile/payment-pin/forgot', [\App\Http\Controllers\Api\PaymentPinController::class, 'forgot']);

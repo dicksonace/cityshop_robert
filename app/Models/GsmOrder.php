@@ -14,6 +14,9 @@ class GsmOrder extends Model
         'user_id',
         'gsm_service_id',
         'service_name',
+        'quantity',
+        'unit_price_ghs',
+        'contact_email',
         'price_ghs',
         'status',
         'paid_at',
@@ -33,6 +36,7 @@ class GsmOrder extends Model
     {
         return [
             'price_ghs' => 'decimal:2',
+            'unit_price_ghs' => 'decimal:2',
             'status' => GsmOrderStatus::class,
             'paid_at' => 'datetime',
             'processing_at' => 'datetime',

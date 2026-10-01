@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { DollarSign, ShoppingCart, Store, Users } from 'lucide-react';
+import { DollarSign, ShoppingCart, Smartphone, Store, Users } from 'lucide-react';
 
 import AdminLayout from '@/layouts/admin-layout';
 import { formatPrice, Order, SellerProfile } from '@/types/marketplace';
@@ -23,6 +23,7 @@ interface AdminDashboardProps {
         total_orders: number;
         total_revenue: number;
         pending_withdrawals: number;
+        pending_gsm_tools?: number;
     };
     recentOrders: (Order & { buyer: { name: string } })[];
     pendingSellers: (SellerProfile & { user: { name: string; email: string } })[];
@@ -59,6 +60,13 @@ export default function AdminDashboard({
             icon: DollarSign,
             color: 'text-red-500',
             href: route('admin.withdrawals.index', { status: 'pending' }),
+        },
+        {
+            label: 'GSM Tools',
+            value: stats.pending_gsm_tools ?? 0,
+            icon: Smartphone,
+            color: 'text-violet-500',
+            href: route('admin.gsm-tools.index'),
         },
     ];
 

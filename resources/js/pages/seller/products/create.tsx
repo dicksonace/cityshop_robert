@@ -4,9 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import ImageUploader from '@/components/seller/image-uploader';
 import ProductVideoUploader from '@/components/seller/product-video-uploader';
-import BuyerFieldBuilder, { BuyerFieldRow } from '@/components/seller/buyer-field-builder';
-import CategorySpecFields from '@/components/seller/category-spec-fields';
 import ProductPreviewPanel, { ProductPreviewData } from '@/components/seller/product-preview-panel';
+import CategorySpecFields from '@/components/seller/category-spec-fields';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +45,7 @@ function stepForErrors(errors: Record<string, string>): number {
 }
 
 export default function CreateProduct({ categories, profile }: CreateProductProps) {
+    const listingCategories = categories.filter((c) => c.slug !== 'gsm-tools');
     const { flash } = usePage<SharedData>().props;
     const [step, setStep] = useState(0);
     const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -82,7 +82,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
         pickup_available: false,
         ships_nationwide: true,
         specifications: {} as Record<string, string>,
-        buyer_fields: [{ label: '', placeholder: '', type: 'text', required: true }] as BuyerFieldRow[],
+        buyer_fields: [] as { label: string; placeholder: string; type: string; required: boolean }[],
         images: [] as File[],
         video: null as File | null,
         video_duration: null as number | null,
@@ -283,7 +283,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                                             className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
                                         >
                                             <option value="">Select category</option>
-                                            {categories.map((c) => (
+                                            {listingCategories.map((c) => (
                                                 <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
                                             ))}
                                         </select>
@@ -307,14 +307,10 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                                 </div>
                                 <CategorySpecFields
                                     categoryId={data.category_id}
-                                    categories={categories}
+                                    categories={listingCategories}
                                     specifications={data.specifications}
                                     onChange={(specs) => setData('specifications', specs)}
                                     errors={errors as Record<string, string>}
-                                />
-                                <BuyerFieldBuilder
-                                    fields={data.buyer_fields}
-                                    onChange={(fields) => setData('buyer_fields', fields)}
                                 />
                             </>
                         )}
@@ -496,7 +492,7 @@ export default function CreateProduct({ categories, profile }: CreateProductProp
                     <div className="order-2 hidden w-full min-w-0 lg:block">
                         <ProductPreviewPanel
                             data={previewData}
-                            categories={categories}
+                            categories={listingCategories}
                             profile={profile}
                             previewMode={previewMode}
                             onPreviewModeChange={setPreviewMode}

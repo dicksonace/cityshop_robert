@@ -4,7 +4,6 @@ import { FormEventHandler, useEffect, useState } from 'react';
 
 import ImageUploader from '@/components/seller/image-uploader';
 import ProductVideoUploader from '@/components/seller/product-video-uploader';
-import BuyerFieldBuilder, { BuyerFieldRow } from '@/components/seller/buyer-field-builder';
 import CategorySpecFields from '@/components/seller/category-spec-fields';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -19,6 +18,7 @@ interface EditProductProps {
 }
 
 export default function EditProduct({ product, categories }: EditProductProps) {
+    const listingCategories = categories.filter((c) => c.slug !== 'gsm-tools');
     const [imageFiles, setImageFiles] = useState<File[]>([]);
     const [removeIds, setRemoveIds] = useState<number[]>([]);
     const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -36,7 +36,7 @@ export default function EditProduct({ product, categories }: EditProductProps) {
     const { data, setData, post, processing, errors, transform } = useForm({
         name: product.name,
         description: product.description ?? '',
-        category_id: product.category?.id?.toString() ?? '',
+        category_id: product.category?.slug === 'gsm-tools' ? '' : product.category?.id?.toString() ?? '',
         sku: product.sku ?? '',
         brand: product.brand ?? '',
         price: product.price.toString(),
@@ -58,13 +58,7 @@ export default function EditProduct({ product, categories }: EditProductProps) {
         ships_nationwide: (product as Product & { ships_nationwide?: boolean }).ships_nationwide ?? true,
         condition: (product as Product & { condition?: string }).condition ?? 'new',
         specifications: (product.specifications ?? {}) as Record<string, string>,
-        buyer_fields: ((product.buyer_fields ?? []).map((field) => ({
-            key: field.key,
-            label: field.label,
-            placeholder: field.placeholder ?? '',
-            type: field.type ?? 'text',
-            required: field.required !== false,
-        })) as BuyerFieldRow[]) || [{ label: '', placeholder: '', type: 'text', required: true }],
+        buyer_fields: [] as { label: string; placeholder: string; type: string; required: boolean }[],
         _method: 'PUT',
     });
 
@@ -187,7 +181,7 @@ export default function EditProduct({ product, categories }: EditProductProps) {
                             className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm"
                         >
                             <option value="">Select category</option>
-                            {categories.map((c) => (
+                            {listingCategories.map((c) => (
                                 <option key={c.id} value={c.id}>
                                     {c.icon ? `${c.icon} ` : ''}{c.name}
                                 </option>
@@ -210,14 +204,10 @@ export default function EditProduct({ product, categories }: EditProductProps) {
 
                 <CategorySpecFields
                     categoryId={data.category_id}
-                    categories={categories}
+                    categories={listingCategories}
                     specifications={data.specifications}
                     onChange={(specs) => setData('specifications', specs)}
                     errors={errors as Record<string, string>}
-                />
-                <BuyerFieldBuilder
-                    fields={data.buyer_fields}
-                    onChange={(fields) => setData('buyer_fields', fields)}
                 />
 
                 <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-4">

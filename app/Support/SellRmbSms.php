@@ -51,12 +51,12 @@ class SellRmbSms
 
     public static function formatRmb(float $amount): string
     {
-        return 'Rmb '.number_format($amount, 2, '.', '');
+        return 'RMB '.number_format($amount, 2, '.', '');
     }
 
     public static function formatGhc(float $amount): string
     {
-        return 'Ghc'.number_format($amount, 2, '.', '');
+        return 'GHS '.number_format($amount, 2, '.', '');
     }
 
     public static function refToken(SellRmbTransfer $transfer): string

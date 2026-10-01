@@ -190,7 +190,7 @@ class BuyerWalletWithdrawTest extends TestCase
 
         $sms = (new WithdrawalRequestedNotification($withdrawal, 6445))->toSms($buyer);
 
-        $this->assertStringContainsString('GH₵10.00 debited from your wallet for withdrawal', $sms);
+        $this->assertStringContainsString('GHS 10.00 debited from your wallet for withdrawal', $sms);
         $this->assertStringContainsString('024****718', $sms);
         $this->assertStringContainsString('MTN Mobile Money', $sms);
         $this->assertStringContainsString('Available Balance: GHS 6445.00', $sms);

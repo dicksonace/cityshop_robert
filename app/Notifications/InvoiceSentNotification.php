@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Channels\SmsChannel;
 use App\Enums\InvoiceType;
 use App\Models\Invoice;
+use App\Support\NotificationPrivacy;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -57,6 +58,8 @@ class InvoiceSentNotification extends Notification implements ShouldQueue
 
     public function toSms(object $notifiable): string
     {
-        return "CityShop: Invoice {$this->invoice->invoice_number} for GH₵".number_format((float) $this->invoice->total, 2).'. Payment: '.($this->invoice->payment_status ?? 'pending').'.';
+        return 'CityShop: Invoice '.$this->invoice->invoice_number.' for '
+            .NotificationPrivacy::money((float) $this->invoice->total)
+            .'. Payment: '.($this->invoice->payment_status ?? 'pending').'.';
     }
 }

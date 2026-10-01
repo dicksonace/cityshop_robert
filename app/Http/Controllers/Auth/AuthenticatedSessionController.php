@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\MfaRequiredException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\User;
+use App\Services\MfaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -63,6 +66,8 @@ class AuthenticatedSessionController extends Controller
     {
         try {
             $request->authenticate();
+        } catch (MfaRequiredException $e) {
+            return $this->beginMfa($request, $e->user);
         } catch (ValidationException $e) {
             $portal = $request->input('portal', 'buyer');
             $loginRoute = match ($portal) {
@@ -78,8 +83,11 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        $user = $request->user();
+        return $this->redirectFor($request->user());
+    }
 
+    public function redirectFor(User $user): RedirectResponse
+    {
         if ($user->isSeller()) {
             $profile = $user->sellerProfile;
             if (! $profile || $profile->status->value !== 'approved') {
@@ -97,6 +105,27 @@ class AuthenticatedSessionController extends Controller
             $user->isAdmin() => redirect()->intended(route('admin.dashboard', absolute: false)),
             default => redirect()->intended(route('home', absolute: false)),
         };
+    }
+
+    private function beginMfa(LoginRequest $request, User $user): RedirectResponse
+    {
+        $mfa = app(MfaService::class);
+        if (in_array('email', $mfa->methods($user), true)) {
+            try {
+                $mfa->sendEmailCode($user);
+            } catch (ValidationException) {
+                // A code was sent moments ago. The challenge page can resend it.
+            }
+        }
+
+        $request->session()->put('mfa_login', [
+            'user_id' => $user->id,
+            'remember' => $request->boolean('remember'),
+            'portal' => $request->input('portal', 'buyer'),
+            'expires' => now()->addMinutes(10)->timestamp,
+        ]);
+
+        return redirect()->route('mfa.challenge');
     }
 
     /**

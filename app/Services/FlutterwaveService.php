@@ -50,7 +50,7 @@ class FlutterwaveService
     }
 
     /**
-     * Ask Flutterwave if this secret key is valid.
+     * Ask Flutterwave if this secret key can take Ghana (GHS) payments.
      *
      * @return array{ok: bool, message: string}
      */
@@ -64,31 +64,76 @@ class FlutterwaveService
             ];
         }
 
-        $response = Http::withToken($secret)
-            ->acceptJson()
-            ->timeout(20)
-            ->get("{$this->baseUrl}/balances");
+        $http = Http::withToken($secret)->acceptJson()->timeout(20);
 
-        $body = $response->json();
-        if (! is_array($body)) {
-            $body = [];
+        $banks = $http->get("{$this->baseUrl}/banks/GH");
+        if ($this->flutterwaveOk($banks)) {
+            return ['ok' => true, 'message' => $this->probeSuccessMessage($secret)];
         }
 
-        $message = trim((string) ($body['message'] ?? ''));
-        if ($response->successful() && ($body['status'] ?? '') === 'success') {
-            return [
-                'ok' => true,
-                'message' => 'Flutterwave accepted these keys. Wallet deposits can start.',
-            ];
+        $balances = $http->get("{$this->baseUrl}/balances");
+        if ($this->flutterwaveOk($balances)) {
+            return ['ok' => true, 'message' => $this->probeSuccessMessage($secret)];
         }
 
-        if ($message === '') {
-            $message = $response->status() === 401
-                ? 'Invalid authorization key'
-                : 'Flutterwave rejected these keys.';
+        $pay = $http->asJson()->post("{$this->baseUrl}/payments", [
+            'tx_ref' => PaymentReference::recharge(),
+            'amount' => 1,
+            'currency' => 'GHS',
+            'redirect_url' => url('/'),
+            'customer' => [
+                'email' => 'flutterwave-key-test@cityunlock.net',
+                'name' => 'Key test',
+            ],
+            'customizations' => [
+                'title' => 'CityUnlock key test',
+            ],
+        ]);
+        if ($this->flutterwaveOk($pay) && filled($pay->json('data.link'))) {
+            return ['ok' => true, 'message' => $this->probeSuccessMessage($secret).' A GHS payment link opened successfully.'];
+        }
+
+        $message = $this->flutterwaveErrorMessage($banks)
+            ?: $this->flutterwaveErrorMessage($balances)
+            ?: $this->flutterwaveErrorMessage($pay)
+            ?: 'Flutterwave rejected these keys.';
+
+        if ($pay->status() === 400 && str_contains(strtolower($message), 'currency')) {
+            $message = 'Keys are valid, but GHS is not enabled on this Flutterwave account. Turn on Ghana / GHS in Flutterwave settings.';
         }
 
         return ['ok' => false, 'message' => $message];
+    }
+
+    private function probeSuccessMessage(string $secret): string
+    {
+        $mode = PlatformSettings::isFlutterwaveTestKey($secret) ? 'TEST' : 'live';
+        $message = 'Flutterwave accepted these '.$mode.' keys for Ghana (GHS).';
+        if (PlatformSettings::flutterwavePaymentsLocked()) {
+            $message .= ' Turn Flutterwave payments on above so buyers can pay.';
+        } else {
+            $message .= ' Wallet deposits and checkout can start.';
+        }
+
+        return $message;
+    }
+
+    private function flutterwaveOk(\Illuminate\Http\Client\Response $response): bool
+    {
+        $body = $response->json();
+
+        return $response->successful() && is_array($body) && ($body['status'] ?? '') === 'success';
+    }
+
+    private function flutterwaveErrorMessage(\Illuminate\Http\Client\Response $response): string
+    {
+        $body = $response->json();
+        $message = is_array($body) ? trim((string) ($body['message'] ?? '')) : '';
+        if ($message !== '') {
+            return $message;
+        }
+
+        return $response->status() === 401 ? 'Invalid authorization key' : '';
     }
 
     /**
@@ -205,9 +250,7 @@ class FlutterwaveService
         array $extraMetadata = [],
     ): array {
         $quote = $this->rechargeQuote($creditGhs, $method);
-        $reference = $referencePrefix
-            ? rtrim($referencePrefix, '-').'-'.strtoupper(str_replace('.', '', uniqid('', true)))
-            : PaymentReference::recharge();
+        $reference = PaymentReference::recharge();
         $email = $user->billingEmail();
 
         $data = $this->initializePayment(

@@ -70,12 +70,25 @@ function sellPayoutLabel(item: SellTransfer): string {
         : `$${item.quote.usd_payout.toFixed(2)}`;
 }
 
+function sellGhsPerRmb(rate: SellRate): number | null {
+    if (!rate) {
+        return null;
+    }
+
+    const fromDirect = Number(rate.ghs_per_rmb);
+    const fromUsd = Number(rate.usd_per_rmb) * Number(rate.ghs_per_usd);
+    const value = fromDirect > 0 ? fromDirect : fromUsd;
+
+    return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 /** China / RMB entry: Buy RMB (pay GHS → Alipay) or Sell RMB. No convert / no hold. */
 export default function ChinaRmbHub({ buy, sell }: Props) {
     const { flash } = usePage<SharedData>().props;
     const buyRate = buy.config.rate;
-    const sellRate = sell.config.rate;
+    const sellRateValue = sellGhsPerRmb(sell.config.rate);
     const buyHours = buy.config.transfer_hours;
+    const sellOpen = sell.config.enabled && sellRateValue !== null;
     const buyProcessingNote = buy.config.enabled && buyRate && buyHours?.in_processing_window === false
         ? 'Transfer now will be processed tomorrow morning by 7:00 AM.'
         : null;
@@ -115,7 +128,7 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                 <div className="mt-5 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 p-5 text-white shadow-lg">
                     <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Buy RMB</p>
                     <p className="mt-2 text-2xl font-black">
-                        {buyRate ? `1 GHS → ¥${buyRate.rmb_per_ghs.toFixed(3)} RMB` : 'Rate not published'}
+                        {buyRate ? `1 GHS → ${buyRate.rmb_per_ghs.toFixed(3)} RMB` : 'Rate not published'}
                     </p>
                     <p className="mt-1 text-sm text-white/80">No hidden fees · Secure transactions</p>
                     {buy.config.enabled && buyRate && buyProcessingNote && (
@@ -133,22 +146,26 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                     </button>
                 </div>
 
-                <button
-                    type="button"
-                    disabled={!sell.config.enabled}
-                    onClick={() => router.visit(route('wallet.sell-rmb.index'))}
-                    className="mt-3 w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-4 text-left transition hover:border-emerald-500 disabled:opacity-50"
-                >
-                    <p className="text-sm font-extrabold text-gray-900">Sell RMB → GHS</p>
-                    <p className="mt-1 text-xs font-semibold text-gray-500">
-                        {sellRate
-                            ? `1 RMB = GH₵${(sellRate.ghs_per_rmb ?? sellRate.usd_per_rmb * sellRate.ghs_per_usd).toFixed(4)}`
-                            : 'Send RMB to CityShop, get MoMo payout'}
+                <div className="mt-3 rounded-2xl bg-gradient-to-br from-emerald-700 to-emerald-500 p-5 text-white shadow-lg">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-white/70">Sell RMB</p>
+                    <p className="mt-2 text-2xl font-black">
+                        {sellRateValue ? `1 RMB → GH₵${sellRateValue.toFixed(4)}` : 'Rate not published'}
                     </p>
+                    <p className="mt-1 text-sm text-white/80">Send RMB via Alipay · get MoMo payout</p>
                     {!sell.config.enabled && (
-                        <p className="mt-2 text-[10px] font-bold text-amber-700">Paused</p>
+                        <p className="mt-3 rounded-xl border border-white/25 bg-white/15 px-3 py-2.5 text-sm font-semibold leading-snug text-white">
+                            Sell RMB is paused
+                        </p>
                     )}
-                </button>
+                    <button
+                        type="button"
+                        disabled={!sellOpen}
+                        onClick={() => router.visit(route('wallet.sell-rmb.index'))}
+                        className="mt-4 w-full rounded-xl bg-white py-3 text-sm font-extrabold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-white"
+                    >
+                        {!sell.config.enabled ? 'Sell RMB paused' : sellRateValue ? 'Sell RMB →' : 'Rate not published'}
+                    </button>
+                </div>
 
                 <div className="mt-8 flex items-center justify-between gap-3">
                     <h2 className="text-lg font-bold text-gray-900">Recent activity</h2>

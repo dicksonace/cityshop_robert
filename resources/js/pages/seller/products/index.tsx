@@ -23,6 +23,7 @@ const statusTabs = [
 ];
 
 export default function ProductsIndex({ products, filters, categories = [] }: ProductsIndexProps) {
+    const listingCategories = categories.filter((c) => c.name.toLowerCase() !== 'gsm tools');
     const { flash } = usePage<SharedData>().props;
     const [search, setSearch] = useState(filters.search ?? '');
     const [selected, setSelected] = useState<number[]>([]);
@@ -119,11 +120,11 @@ export default function ProductsIndex({ products, filters, categories = [] }: Pr
                     <span className="text-sm font-medium text-orange-900">{selected.length} selected</span>
                     <Button size="sm" variant="outline" onClick={() => runBulk('hide')}>Hide</Button>
                     <Button size="sm" variant="outline" onClick={() => runBulk('delete')}>Delete</Button>
-                    {categories.length > 0 && (
+                    {listingCategories.length > 0 && (
                         <>
                             <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} className="rounded-md border px-2 py-1 text-sm">
                                 <option value="">Change category…</option>
-                                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                {listingCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                             <Button size="sm" variant="outline" disabled={!bulkCategory} onClick={() => runBulk('category')}>Apply</Button>
                         </>

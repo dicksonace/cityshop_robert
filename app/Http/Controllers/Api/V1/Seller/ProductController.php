@@ -66,7 +66,7 @@ class ProductController extends Controller
                 'rejected' => (clone $base)->where('status', ProductStatus::Rejected)->count(),
                 'sold_out' => (clone $base)->where('quantity', 0)->where('is_preorder', false)->count(),
             ],
-            'categories' => Category::activeOrdered()->get()->map(fn (Category $c) => [
+            'categories' => Category::activeOrdered()->productListing()->get()->map(fn (Category $c) => [
                 'id' => $c->id,
                 'name' => $c->name,
                 'slug' => $c->slug,
@@ -236,7 +236,7 @@ class ProductController extends Controller
             'action' => ['required', 'in:hide,delete,category'],
             'product_ids' => ['required', 'array', 'min:1'],
             'product_ids.*' => ['integer'],
-            'category_id' => ['nullable', 'exists:categories,id'],
+            'category_id' => Category::productIdRule(),
         ]);
 
         if ($validated['action'] === 'category' && empty($validated['category_id'])) {
@@ -569,7 +569,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'name' => [$nameRule, 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'category_id' => ['nullable', 'exists:categories,id'],
+            'category_id' => Category::productIdRule(),
             'sku' => ['nullable', 'string', 'max:100'],
             'brand' => ['nullable', 'string', 'max:100'],
             'condition' => ['nullable', 'in:new,used,refurbished'],
