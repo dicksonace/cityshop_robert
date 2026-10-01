@@ -279,8 +279,9 @@ class GsmToolService
                 'unit_price_ghs' => $unit,
                 'contact_email' => $validated['email'],
                 'price_ghs' => $price,
-                'status' => GsmOrderStatus::Pending,
+                'status' => GsmOrderStatus::Processing,
                 'paid_at' => now(),
+                'processing_at' => now(),
                 'ip_address' => $request->ip(),
                 'user_agent' => Str::limit((string) $request->userAgent(), 500, ''),
             ]);
@@ -302,13 +303,13 @@ class GsmToolService
                 'GSM Tools · '.$service->name.($quantity > 1 ? ' ×'.$quantity : '').' ('.$order->reference.')',
             );
 
-            $this->recordHistory($order, null, GsmOrderStatus::Pending, 'Paid from wallet — awaiting processing', $user->id);
+            $this->recordHistory($order, null, GsmOrderStatus::Processing, 'Paid from wallet — Processing', $user->id);
 
             $fresh = $order->fresh(['fieldValues', 'service', 'user']);
             $this->notifyBuyer(
                 $fresh,
                 'GSM Tools order placed',
-                $fresh->service_name.' is Pending. We will start Processing shortly.',
+                $fresh->service_name.' is Processing.',
             );
             $this->notifyAdminsNewOrder($fresh);
 

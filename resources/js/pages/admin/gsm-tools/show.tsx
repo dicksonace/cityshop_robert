@@ -1,4 +1,5 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Check, Copy } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,31 @@ type Order = {
 
 interface Props {
     order: Order;
+}
+
+function CopyValue({ value, label }: { value?: string | null; label?: string }) {
+    const [copied, setCopied] = useState(false);
+    const text = (value ?? '').trim();
+    if (!text) return null;
+
+    return (
+        <button
+            type="button"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-bold text-gray-600 hover:border-orange-200 hover:text-orange-600"
+            onClick={async () => {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    setCopied(true);
+                    window.setTimeout(() => setCopied(false), 1500);
+                } catch {
+                    window.prompt(label ? `Copy ${label}` : 'Copy', text);
+                }
+            }}
+        >
+            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            {copied ? 'Copied' : 'Copy'}
+        </button>
+    );
 }
 
 function statusClass(status: string): string {
@@ -101,12 +127,25 @@ export default function AdminGsmToolShow({ order }: Props) {
                             {order.status_label}
                         </span>
                     </div>
-                    <p className="mt-2 text-sm">
-                        {formatPrice(order.price_ghs)} · {order.user?.name}
+                    <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                        <span>
+                            {formatPrice(order.price_ghs)} · {order.user?.name}
+                        </span>
                     </p>
-                    <p className="text-xs text-gray-500">
-                        {order.user?.mobile} · {order.user?.email}
-                    </p>
+                    <div className="mt-2 space-y-1.5">
+                        {order.user?.mobile ? (
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <span className="min-w-0 flex-1 break-all">{order.user.mobile}</span>
+                                <CopyValue value={order.user.mobile} label="mobile" />
+                            </div>
+                        ) : null}
+                        {order.user?.email ? (
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                                <span className="min-w-0 flex-1 break-all">{order.user.email}</span>
+                                <CopyValue value={order.user.email} label="email" />
+                            </div>
+                        ) : null}
+                    </div>
 
                     {(flash?.success || flash?.error) && (
                         <div
@@ -116,16 +155,22 @@ export default function AdminGsmToolShow({ order }: Props) {
                         </div>
                     )}
 
-                    <div className="mt-4 space-y-2 border-t border-gray-100 pt-4">
+                    <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
                         {order.fields.map((field) => (
                             <div key={field.name}>
                                 <p className="text-xs font-semibold uppercase text-gray-400">{field.label}</p>
                                 {field.type === 'image' && field.value ? (
-                                    <a href={field.value} target="_blank" rel="noreferrer">
-                                        <img src={field.value} alt="" className="mt-1 max-h-56 rounded-xl border border-gray-200" />
-                                    </a>
+                                    <div className="mt-1 flex items-start gap-2">
+                                        <a href={field.value} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
+                                            <img src={field.value} alt="" className="max-h-56 rounded-xl border border-gray-200" />
+                                        </a>
+                                        <CopyValue value={field.value} label={field.label} />
+                                    </div>
                                 ) : (
-                                    <p className="break-all text-sm text-gray-900">{field.value || '—'}</p>
+                                    <div className="mt-1 flex items-start gap-2">
+                                        <p className="min-w-0 flex-1 break-all text-sm font-semibold text-gray-900">{field.value || '—'}</p>
+                                        <CopyValue value={field.value} label={field.label} />
+                                    </div>
                                 )}
                             </div>
                         ))}
@@ -138,7 +183,7 @@ export default function AdminGsmToolShow({ order }: Props) {
                     <div className="mt-3 space-y-2">
                         {replies.length === 0 ? (
                             <p className="rounded-xl border border-dashed border-gray-200 px-3 py-4 text-sm text-gray-500">
-                                No reply yet. Send a message, then mark Processing or Complete.
+                                No reply yet. Send a message, then Complete.
                             </p>
                         ) : (
                             replies.map((reply) => (
