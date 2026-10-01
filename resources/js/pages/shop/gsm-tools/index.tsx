@@ -10,6 +10,7 @@ type Service = {
     id: number;
     name: string;
     service_type: string;
+    service_type_label?: string;
     group_id: number | null;
     image_url: string | null;
     description: string | null;
@@ -17,6 +18,51 @@ type Service = {
     price_ghs: number;
     fields: Field[];
 };
+
+function typeChip(type: string): string {
+    if (type === 'credit') return 'CREDIT';
+    return type.replace(/_/g, ' ').toUpperCase();
+}
+
+function ServiceCard({
+    service,
+    fallbackImage,
+    onOpen,
+}: {
+    service: Service;
+    fallbackImage?: string | null;
+    onOpen: (id: number) => void;
+}) {
+    const logo = service.image_url || fallbackImage || '/images/gsm/gmt-logo.jpg';
+
+    return (
+        <button
+            type="button"
+            onClick={() => onOpen(service.id)}
+            className="flex w-full items-start gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-3 text-left"
+        >
+            {logo ? (
+                <img src={logo} alt="" className="h-[52px] w-[52px] shrink-0 rounded-xl object-contain" />
+            ) : (
+                <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-orange-50 text-xs font-bold text-orange-600">
+                    GSM
+                </span>
+            )}
+            <div className="min-w-0 pt-0.5">
+                <p className="text-[15px] font-semibold leading-snug text-gray-900">{service.name}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-800">
+                        {formatPrice(service.price_ghs)}
+                    </span>
+                    <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-500">
+                        {typeChip(service.service_type)}
+                    </span>
+                </div>
+            </div>
+        </button>
+    );
+}
+
 type Group = {
     id: number;
     name: string;
@@ -30,6 +76,7 @@ type Order = {
     status: string;
     status_label: string;
     service_name: string;
+    image_url?: string | null;
     created_at: string | null;
 };
 
@@ -155,69 +202,29 @@ export default function GsmToolsIndex({ services, groups, serviceTypes, orders, 
                     </button>
                 </div>
 
-                <div className="mt-5 space-y-6">
+                <div className="mt-5 space-y-5">
                     {visibleGroups.map((group) => (
-                        <section key={group.id}>
-                            <div className="mb-2 flex items-center gap-2">
-                                {group.image_url ? (
-                                    <img src={group.image_url} alt="" className="h-7 w-7 rounded object-cover" />
-                                ) : null}
-                                <h2 className="text-sm font-bold text-gray-800">{group.name}</h2>
-                            </div>
-                            <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                        <section key={group.id} className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                            <h2 className="border-b border-gray-100 px-4 py-3 text-sm font-medium text-gray-500">{group.name}</h2>
+                            <div className="space-y-3 p-3">
                                 {group.services.map((service) => (
-                                    <button
+                                    <ServiceCard
                                         key={service.id}
-                                        type="button"
-                                        onClick={() => openService(service.id)}
-                                        className="flex w-full items-center gap-3 px-3 py-3 text-left"
-                                    >
-                                        {service.image_url || group.image_url ? (
-                                            <img
-                                                src={service.image_url || group.image_url || ''}
-                                                alt=""
-                                                className="h-11 w-11 shrink-0 rounded-lg object-cover"
-                                            />
-                                        ) : (
-                                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-xs font-bold text-orange-600">
-                                                GSM
-                                            </span>
-                                        )}
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold text-gray-900">{service.name}</p>
-                                            <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">
-                                                {service.eta_label || 'INSTANT'}
-                                            </p>
-                                        </div>
-                                        <span className="shrink-0 text-sm font-extrabold text-gray-900">
-                                            {formatPrice(service.price_ghs)}
-                                        </span>
-                                    </button>
+                                        service={service}
+                                        fallbackImage={group.image_url}
+                                        onOpen={openService}
+                                    />
                                 ))}
-                                {group.services.length === 0 ? (
-                                    <p className="px-3 py-4 text-center text-sm text-gray-500">No services in this category yet.</p>
-                                ) : null}
                             </div>
                         </section>
                     ))}
 
                     {ungrouped.length > 0 ? (
-                        <section>
-                            <h2 className="mb-2 text-sm font-bold text-gray-800">Other services</h2>
-                            <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                        <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                            <h2 className="border-b border-gray-100 px-4 py-3 text-sm font-medium text-gray-500">Other services</h2>
+                            <div className="space-y-3 p-3">
                                 {ungrouped.map((service) => (
-                                    <button
-                                        key={service.id}
-                                        type="button"
-                                        onClick={() => openService(service.id)}
-                                        className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left"
-                                    >
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-900">{service.name}</p>
-                                            <p className="text-[11px] font-bold uppercase text-emerald-600">{service.eta_label || 'INSTANT'}</p>
-                                        </div>
-                                        <span className="text-sm font-extrabold">{formatPrice(service.price_ghs)}</span>
-                                    </button>
+                                    <ServiceCard key={service.id} service={service} onOpen={openService} />
                                 ))}
                             </div>
                         </section>
@@ -238,9 +245,12 @@ export default function GsmToolsIndex({ services, groups, serviceTypes, orders, 
                                 <Link
                                     key={order.id}
                                     href={route('gsm-tools.orders.show', order.id)}
-                                    className="block rounded-xl border border-gray-100 bg-white px-3 py-3"
+                                    className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-3 py-3"
                                 >
-                                    <div className="flex items-center justify-between gap-2">
+                                    {order.image_url ? (
+                                        <img src={order.image_url} alt="" className="h-10 w-10 shrink-0 rounded-lg bg-slate-950 object-contain" />
+                                    ) : null}
+                                    <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
                                         <div>
                                             <p className="text-sm font-semibold text-gray-900">{order.service_name}</p>
                                             <p className="text-xs text-gray-500">{order.reference}</p>

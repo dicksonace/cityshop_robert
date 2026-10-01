@@ -15,6 +15,7 @@ type Order = {
     status_label: string;
     status_tone?: string;
     service_name: string;
+    image_url?: string | null;
     price_ghs: number;
     can_cancel: boolean;
     admin_result_note: string | null;
@@ -87,9 +88,14 @@ export default function AdminGsmToolShow({ order }: Props) {
 
                 <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
-                        <div>
-                            <h1 className="text-lg font-bold text-gray-900">{order.service_name}</h1>
-                            <p className="text-sm text-gray-500">{order.reference}</p>
+                        <div className="flex min-w-0 items-start gap-3">
+                            {order.image_url ? (
+                                <img src={order.image_url} alt="" className="h-14 w-14 shrink-0 rounded-2xl bg-slate-950 object-contain" />
+                            ) : null}
+                            <div>
+                                <h1 className="text-lg font-bold text-gray-900">{order.service_name}</h1>
+                                <p className="text-sm text-gray-500">{order.reference}</p>
+                            </div>
                         </div>
                         <span className={`rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-wide ${statusClass(order.status)}`}>
                             {order.status_label}

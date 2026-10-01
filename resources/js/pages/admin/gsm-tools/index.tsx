@@ -10,6 +10,7 @@ type Order = {
     status: string;
     status_label: string;
     service_name: string;
+    image_url?: string | null;
     price_ghs: number;
     created_at: string | null;
     user?: { id: number; name: string; mobile: string | null } | null;
@@ -103,11 +104,16 @@ export default function AdminGsmToolsIndex({ orders, filters, serviceTypes = [],
                             href={route('admin.gsm-tools.show', order.id)}
                             className="flex items-center justify-between gap-3 border-b border-gray-50 px-4 py-3 last:border-0 hover:bg-orange-50/40"
                         >
-                            <div>
-                                <p className="text-sm font-semibold text-gray-900">{order.service_name}</p>
-                                <p className="text-xs text-gray-500">
-                                    {order.reference} · {order.user?.name ?? 'Buyer'} {order.user?.mobile ? `· ${order.user.mobile}` : ''}
-                                </p>
+                            <div className="flex min-w-0 items-center gap-3">
+                                {order.image_url ? (
+                                    <img src={order.image_url} alt="" className="h-10 w-10 shrink-0 rounded-lg bg-slate-950 object-contain" />
+                                ) : null}
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-900">{order.service_name}</p>
+                                    <p className="text-xs text-gray-500">
+                                        {order.reference} · {order.user?.name ?? 'Buyer'} {order.user?.mobile ? `· ${order.user.mobile}` : ''}
+                                    </p>
+                                </div>
                             </div>
                             <div className="text-right">
                                 <p className="text-sm font-bold text-gray-900">{formatPrice(order.price_ghs)}</p>

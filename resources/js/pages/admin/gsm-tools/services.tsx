@@ -27,9 +27,13 @@ type Service = {
     features: string[];
     what_to_send: string | null;
     eta_label: string;
+    allow_quantity: boolean;
+    min_qty: number;
+    max_qty: number;
     gsm_service_group_id?: number | null;
     group_id: number | null;
     group_name: string | null;
+    image_url: string | null;
     service_type: string;
     service_type_label: string;
     price_ghs: number;
@@ -129,6 +133,46 @@ function FieldInputs({
     );
 }
 
+function QuantitySettings({
+    allowQuantity,
+    minQty,
+    maxQty,
+    onAllow,
+    onMin,
+    onMax,
+}: {
+    allowQuantity: boolean;
+    minQty: string;
+    maxQty: string;
+    onAllow: (value: boolean) => void;
+    onMin: (value: string) => void;
+    onMax: (value: string) => void;
+}) {
+    return (
+        <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <label className="flex items-start gap-2 text-sm font-semibold text-gray-800">
+                <input type="checkbox" className="mt-0.5" checked={allowQuantity} onChange={(e) => onAllow(e.target.checked)} />
+                <span>
+                    This service uses quantity
+                    <span className="block text-xs font-normal text-gray-500">Leave off unless the buyer should order more than one (credits, IMEI lots, etc.).</span>
+                </span>
+            </label>
+            {allowQuantity ? (
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <Label>Minimum quantity</Label>
+                        <Input className="mt-1" inputMode="numeric" value={minQty} onChange={(e) => onMin(e.target.value)} />
+                    </div>
+                    <div>
+                        <Label>Maximum quantity</Label>
+                        <Input className="mt-1" inputMode="numeric" value={maxQty} onChange={(e) => onMax(e.target.value)} />
+                    </div>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
 export default function AdminGsmServices({ services, groups, fieldTypes, serviceTypes, selectedType, active }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -149,6 +193,9 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
         features: '',
         what_to_send: '',
         eta_label: 'INSTANT',
+        allow_quantity: false,
+        min_qty: '1',
+        max_qty: '10',
         price_ghs: '50',
         sort_order: '0',
         active: true,
@@ -165,6 +212,9 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
         features: '',
         what_to_send: '',
         eta_label: 'INSTANT',
+        allow_quantity: false,
+        min_qty: '1',
+        max_qty: '10',
         price_ghs: '',
         sort_order: '0',
         active: true,
@@ -183,10 +233,16 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
 
     const submitCreate: FormEventHandler = (e) => {
         e.preventDefault();
-        createForm.transform((data) => ({ ...data, service_type: selectedType }));
+        createForm.transform((data) => {
+            const next = { ...data, service_type: selectedType };
+            if (!next.image) {
+                delete (next as { image?: File | null }).image;
+            }
+            return next;
+        });
         createForm.post(route('admin.gsm-tools.services.store'), {
             forceFormData: true,
-            onSuccess: () => createForm.reset('name', 'description', 'overview', 'features', 'what_to_send'),
+            onSuccess: () => createForm.reset('name', 'description', 'overview', 'features', 'what_to_send', 'image'),
         });
     };
 
@@ -201,6 +257,9 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
             features: (service.features ?? []).join('\n'),
             what_to_send: service.what_to_send ?? '',
             eta_label: service.eta_label || 'INSTANT',
+            allow_quantity: !!service.allow_quantity,
+            min_qty: String(service.min_qty || 1),
+            max_qty: String(service.max_qty || 10),
             price_ghs: String(service.price_ghs),
             sort_order: String(service.sort_order),
             active: service.active,
@@ -219,6 +278,13 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
     const submitEdit: FormEventHandler = (e) => {
         e.preventDefault();
         if (!editingId) return;
+        editForm.transform((data) => {
+            const next = { ...data };
+            if (!next.image) {
+                delete (next as { image?: File | null }).image;
+            }
+            return next;
+        });
         editForm.post(route('admin.gsm-tools.services.update', editingId), {
             forceFormData: true,
             onSuccess: () => setEditingId(null),
@@ -267,7 +333,15 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                     <h2 className="font-bold text-gray-900">Categories (like Galaxy Multi Tool, T-Mobile)</h2>
                     <p className="text-sm text-gray-500">Buyers see these groups with logos on Place order.</p>
                     <Input placeholder="Category name" value={groupForm.data.name} onChange={(e) => groupForm.setData('name', e.target.value)} />
-                    <input type="file" accept="image/*" onChange={(e) => groupForm.setData('image', e.target.files?.[0] ?? null)} />
+                    <div>
+                        <Label>Category logo</Label>
+                        <input
+                            className="mt-1 block w-full text-sm"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => groupForm.setData('image', e.target.files?.[0] ?? null)}
+                        />
+                    </div>
                     <Button type="submit" className="bg-slate-800 hover:bg-slate-900" disabled={groupForm.processing}>
                         Add category
                     </Button>
@@ -275,7 +349,9 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                         <ul className="divide-y divide-gray-100 text-sm">
                             {groups.map((group) => (
                                 <li key={group.id} className="flex items-center gap-2 py-2">
-                                    {group.image_url ? <img src={group.image_url} alt="" className="h-8 w-8 rounded object-cover" /> : null}
+                                    {group.image_url ? (
+                                        <img src={group.image_url} alt="" className="h-9 w-9 rounded-lg bg-slate-950 object-contain" />
+                                    ) : null}
                                     {group.name}
                                 </li>
                             ))}
@@ -306,14 +382,37 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                         <InputError message={createForm.errors.name} />
                     </div>
                     <div>
-                        <Label>Description</Label>
+                        <Label>Service description</Label>
                         <textarea
                             className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
                             rows={3}
+                            placeholder="What this service does"
                             value={createForm.data.description}
                             onChange={(e) => createForm.setData('description', e.target.value)}
                         />
                     </div>
+                    <div>
+                        <Label>Delivery time</Label>
+                        <Input
+                            className="mt-1"
+                            placeholder="INSTANT, 1-24 hours, 1-3 days…"
+                            value={createForm.data.eta_label}
+                            onChange={(e) => createForm.setData('eta_label', e.target.value)}
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Shown to the buyer on Place order.</p>
+                    </div>
+                    <div>
+                        <Label>Price (GH₵)</Label>
+                        <Input className="mt-1" value={createForm.data.price_ghs} onChange={(e) => createForm.setData('price_ghs', e.target.value)} />
+                    </div>
+                    <QuantitySettings
+                        allowQuantity={createForm.data.allow_quantity}
+                        minQty={createForm.data.min_qty}
+                        maxQty={createForm.data.max_qty}
+                        onAllow={(value) => createForm.setData('allow_quantity', value)}
+                        onMin={(value) => createForm.setData('min_qty', value)}
+                        onMax={(value) => createForm.setData('max_qty', value)}
+                    />
                     <div>
                         <Label>Overview (shown on Place order)</Label>
                         <textarea
@@ -342,17 +441,14 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                         />
                     </div>
                     <div>
-                        <Label>Logo / image</Label>
+                        <Label>Service logo</Label>
+                        <p className="mt-0.5 text-xs text-gray-500">Shown on web and in the app next to this service.</p>
                         <input
                             type="file"
                             accept="image/*"
                             className="mt-1 block w-full text-sm"
                             onChange={(e) => createForm.setData('image', e.target.files?.[0] ?? null)}
                         />
-                    </div>
-                    <div>
-                        <Label>Price (GH₵)</Label>
-                        <Input className="mt-1" value={createForm.data.price_ghs} onChange={(e) => createForm.setData('price_ghs', e.target.value)} />
                     </div>
 
                     <div>
@@ -427,15 +523,35 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                     {services.map((service) => (
                         <div key={service.id} className="rounded-2xl border border-gray-100 bg-white p-4">
                             <div className="flex items-start justify-between gap-3">
+                                <div className="flex min-w-0 items-start gap-3">
+                                    {service.image_url ? (
+                                        <img
+                                            src={service.image_url}
+                                            alt=""
+                                            className="h-12 w-12 shrink-0 rounded-xl bg-slate-950 object-contain"
+                                        />
+                                    ) : (
+                                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[10px] font-bold text-orange-600">
+                                            GSM
+                                        </span>
+                                    )}
                                 <div>
                                     <h3 className="font-bold text-gray-900">{service.name}</h3>
                                     <p className="text-sm text-orange-600">{formatPrice(service.price_ghs)}</p>
+                                    {service.description ? (
+                                        <p className="mt-1 line-clamp-2 text-sm text-gray-600">{service.description}</p>
+                                    ) : null}
                                     <p className="text-xs text-gray-500">
-                                        {service.group_name || 'No category'} · {service.service_type_label} · {service.active ? 'Active' : 'Inactive'}
+                                        {service.group_name || 'No category'} · {service.service_type_label} · {service.eta_label || 'INSTANT'} ·{' '}
+                                        {service.allow_quantity
+                                            ? `Qty ${service.min_qty}–${service.max_qty}`
+                                            : 'No quantity'}{' '}
+                                        · {service.active ? 'Active' : 'Inactive'}
                                         {service.fields.length > 0
                                             ? ` · asks for ${service.fields.map((f) => f.label).join(', ')}`
                                             : ' · no extra fields'}
                                     </p>
+                                </div>
                                 </div>
                                 <Button type="button" variant="outline" onClick={() => startEdit(service)}>
                                     Edit
@@ -445,6 +561,23 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                             {editingId === service.id ? (
                                 <form onSubmit={submitEdit} className="mt-4 space-y-3 border-t border-gray-100 pt-4">
                                     <Input value={editForm.data.name} onChange={(e) => editForm.setData('name', e.target.value)} />
+                                    <div>
+                                        <Label>Service description</Label>
+                                        <textarea
+                                            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"
+                                            rows={3}
+                                            value={editForm.data.description}
+                                            onChange={(e) => editForm.setData('description', e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label>Delivery time</Label>
+                                        <Input
+                                            className="mt-1"
+                                            value={editForm.data.eta_label}
+                                            onChange={(e) => editForm.setData('eta_label', e.target.value)}
+                                        />
+                                    </div>
                                     <select
                                         className="h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
                                         value={editForm.data.gsm_service_group_id}
@@ -468,7 +601,19 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                                             </option>
                                         ))}
                                     </select>
-                                    <Input value={editForm.data.price_ghs} onChange={(e) => editForm.setData('price_ghs', e.target.value)} />
+                                    <Input
+                                        value={editForm.data.price_ghs}
+                                        onChange={(e) => editForm.setData('price_ghs', e.target.value)}
+                                        placeholder="Price (GH₵)"
+                                    />
+                                    <QuantitySettings
+                                        allowQuantity={editForm.data.allow_quantity}
+                                        minQty={editForm.data.min_qty}
+                                        maxQty={editForm.data.max_qty}
+                                        onAllow={(value) => editForm.setData('allow_quantity', value)}
+                                        onMin={(value) => editForm.setData('min_qty', value)}
+                                        onMax={(value) => editForm.setData('max_qty', value)}
+                                    />
                                     <label className="flex items-center gap-2 text-sm">
                                         <input
                                             type="checkbox"
@@ -477,6 +622,22 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                                         />
                                         Active
                                     </label>
+                                    <div>
+                                        <Label>Service logo</Label>
+                                        {service.image_url ? (
+                                            <img
+                                                src={service.image_url}
+                                                alt=""
+                                                className="mt-1 h-14 w-14 rounded-xl bg-slate-950 object-contain"
+                                            />
+                                        ) : null}
+                                        <input
+                                            className="mt-2 block w-full text-sm"
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => editForm.setData('image', e.target.files?.[0] ?? null)}
+                                        />
+                                    </div>
                                     <p className="text-sm font-semibold text-gray-800">Buyer form fields</p>
                                     <div className="flex flex-wrap gap-1.5">
                                         {FIELD_PRESETS.map((preset) => (

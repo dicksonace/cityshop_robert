@@ -52,7 +52,7 @@ class GsmService extends Model
             return url(Storage::disk('public')->url($this->image));
         }
 
-        return $this->group?->imageUrl();
+        return $this->group?->imageUrl() ?: url('/images/gsm/gmt-logo.jpg');
     }
 
     public function fields(): HasMany

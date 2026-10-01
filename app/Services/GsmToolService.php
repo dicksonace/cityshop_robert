@@ -63,9 +63,9 @@ class GsmToolService
             'features' => array_values(array_filter((array) ($service->features ?? []))),
             'what_to_send' => $service->what_to_send,
             'eta_label' => $service->eta_label ?: 'INSTANT',
-            'allow_quantity' => $service->allow_quantity !== false,
+            'allow_quantity' => (bool) $service->allow_quantity,
             'min_qty' => max(1, (int) ($service->min_qty ?: 1)),
-            'max_qty' => max(1, (int) ($service->max_qty ?: 1000)),
+            'max_qty' => max(1, (int) ($service->max_qty ?: 10)),
             'price_ghs' => (float) $service->price_ghs,
             'currency' => $service->currency ?: 'GHS',
             'sort_order' => (int) $service->sort_order,
@@ -134,7 +134,7 @@ class GsmToolService
      */
     public function orderPayload(GsmOrder $order, bool $withHistory = false): array
     {
-        $order->loadMissing(['fieldValues', 'service.fields', 'user:id,name,email,mobile', 'replies.admin:id,name']);
+        $order->loadMissing(['fieldValues', 'service.fields', 'service.group', 'user:id,name,email,mobile', 'replies.admin:id,name']);
         $fieldsById = $order->service?->fields?->keyBy('id') ?? collect();
         $fieldsByName = $order->service?->fields?->keyBy('name') ?? collect();
 
@@ -146,6 +146,7 @@ class GsmToolService
             'status_tone' => $order->status->tone(),
             'service_id' => $order->gsm_service_id,
             'service_name' => $order->service_name,
+            'image_url' => $order->service?->imageUrl(),
             'quantity' => max(1, (int) ($order->quantity ?: 1)),
             'unit_price_ghs' => (float) ($order->unit_price_ghs ?? $order->price_ghs),
             'contact_email' => $order->contact_email,
@@ -244,8 +245,8 @@ class GsmToolService
         $validated['email'] = $email;
         $unit = round((float) $service->price_ghs, 2);
         $minQty = max(1, (int) ($service->min_qty ?: 1));
-        $maxQty = max($minQty, (int) ($service->max_qty ?: 1000));
-        $quantity = $service->allow_quantity === false ? 1 : (int) ($validated['quantity'] ?? 1);
+        $maxQty = max($minQty, (int) ($service->max_qty ?: 10));
+        $quantity = $service->allow_quantity ? (int) ($validated['quantity'] ?? $minQty) : 1;
         $quantity = max($minQty, min($maxQty, $quantity));
         $price = round($unit * $quantity, 2);
 
@@ -535,6 +536,9 @@ class GsmToolService
                 'currency' => 'GHS',
                 'sort_order' => (int) ($data['sort_order'] ?? 0),
                 'active' => (bool) ($data['active'] ?? true),
+                'allow_quantity' => false,
+                'min_qty' => 1,
+                'max_qty' => 10,
             ], $this->catalogAttributes($data)));
 
             $this->syncFields($service, $fields);
@@ -839,13 +843,13 @@ class GsmToolService
             $attrs['eta_label'] = filled($data['eta_label'] ?? null) ? Str::limit((string) $data['eta_label'], 40, '') : 'INSTANT';
         }
         if (array_key_exists('allow_quantity', $data)) {
-            $attrs['allow_quantity'] = (bool) $data['allow_quantity'];
+            $attrs['allow_quantity'] = filter_var($data['allow_quantity'], FILTER_VALIDATE_BOOLEAN);
         }
         if (array_key_exists('min_qty', $data)) {
             $attrs['min_qty'] = max(1, (int) $data['min_qty']);
         }
         if (array_key_exists('max_qty', $data)) {
-            $attrs['max_qty'] = max(1, (int) $data['max_qty']);
+            $attrs['max_qty'] = max((int) ($attrs['min_qty'] ?? $data['min_qty'] ?? 1), (int) $data['max_qty']);
         }
         if (array_key_exists('features', $data)) {
             $attrs['features'] = $this->parseFeatures($data['features']);

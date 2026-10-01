@@ -30,6 +30,7 @@ type Service = {
     min_qty: number;
     max_qty: number;
     price_ghs: number;
+    image_url: string | null;
     fields: Field[];
 };
 
@@ -50,7 +51,7 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEm
     const [qty, setQty] = useState(service.min_qty || 1);
     const min = Math.max(1, service.min_qty || 1);
     const max = Math.max(min, service.max_qty || 1000);
-    const quantity = service.allow_quantity === false ? 1 : Math.min(max, Math.max(min, qty));
+    const quantity = service.allow_quantity ? Math.min(max, Math.max(min, qty)) : 1;
     const total = service.price_ghs * quantity;
 
     const initialFields = useMemo(() => {
@@ -99,7 +100,17 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEm
                 <button type="button" onClick={() => router.visit(route('gsm-tools.index'))} className="mb-3 text-sm text-orange-600">
                     ← Back to services
                 </button>
-                <h1 className="text-xl font-bold text-gray-900">{service.name}</h1>
+                <div className="flex items-start gap-3">
+                    {service.image_url ? (
+                        <img src={service.image_url} alt="" className="h-16 w-16 shrink-0 rounded-2xl bg-slate-950 object-contain" />
+                    ) : null}
+                    <div>
+                        <h1 className="text-xl font-bold text-gray-900">{service.name}</h1>
+                        <p className="mt-1 text-sm font-semibold text-orange-600">
+                            {formatPrice(service.price_ghs)} · Delivery {service.eta_label || 'INSTANT'}
+                        </p>
+                    </div>
+                </div>
 
                 {service.overview || service.description ? (
                     <section className="mt-4">
@@ -144,7 +155,7 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin, contactEm
                 )}
 
                 <form onSubmit={submit} className="mt-5 space-y-4">
-                    {service.allow_quantity !== false ? (
+                    {service.allow_quantity ? (
                         <div>
                             <Label>Quantity *</Label>
                             <div className="mt-1 flex items-center gap-2">
