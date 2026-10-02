@@ -10,6 +10,7 @@ use App\Models\ProductImage;
 use App\Models\SellerProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AppLinkTest extends TestCase
@@ -45,6 +46,10 @@ class AppLinkTest extends TestCase
     public function test_app_store_link_preview_uses_the_store_logo(): void
     {
         config(['app.url' => 'https://cityunlock.net']);
+        Storage::fake('public');
+        Storage::disk('public')->put('stores/city-unlock-logo.png', base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+        ));
 
         $store = $this->approvedStore();
         $store->update(['shop_photo' => 'sellers/shop-front.jpg']);
@@ -60,8 +65,10 @@ class AppLinkTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('property="og:image"', $html);
-        $this->assertStringContainsString('stores/city-unlock-logo.png', $html);
+        $this->assertStringContainsString('/storage/og/store-'.$store->slug.'-', $html);
+        $this->assertStringContainsString('image/jpeg', $html);
         $this->assertStringNotContainsString('sellers/shop-front.jpg', $html);
+        $this->assertStringNotContainsString('stores/city-unlock-logo.png', $html);
     }
 
     public function test_web_product_url_is_not_the_app_link(): void

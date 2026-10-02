@@ -12,6 +12,9 @@
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:image" content="{{ $share['image'] }}">
     <meta property="og:image:secure_url" content="{{ $share['image'] }}">
+    <meta property="og:image:type" content="{{ $share['image_type'] }}">
+    <meta property="og:image:width" content="{{ $share['image_width'] }}">
+    <meta property="og:image:height" content="{{ $share['image_height'] }}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $share['title'] }}">
     <meta name="twitter:description" content="{{ $share['description'] }}">

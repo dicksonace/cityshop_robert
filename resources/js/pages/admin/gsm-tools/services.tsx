@@ -575,48 +575,48 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                                     </span>
                                 )}
                                 <div className="min-w-0 flex-1">
-                                    <h3 className="text-[15px] font-bold leading-snug text-gray-900">{service.name}</h3>
+                                    <div className="flex items-start gap-1">
+                                        <h3 className="min-w-0 flex-1 text-[15px] font-bold leading-snug text-gray-900">{service.name}</h3>
+                                        <button
+                                            type="button"
+                                            className="rounded-lg p-1 text-orange-600 hover:bg-orange-50"
+                                            aria-label="Edit"
+                                            onClick={() => startEdit(service)}
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="rounded-lg p-1 text-red-600 hover:bg-red-50"
+                                            aria-label="Delete"
+                                            onClick={() => {
+                                                if (!window.confirm(`Delete “${service.name}”? Buyers will no longer see it. Existing orders stay in history.`)) {
+                                                    return;
+                                                }
+                                                router.delete(route('admin.gsm-tools.services.destroy', service.id), {
+                                                    preserveScroll: true,
+                                                    onSuccess: () => {
+                                                        if (editingId === service.id) {
+                                                            setEditingId(null);
+                                                        }
+                                                    },
+                                                });
+                                            }}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
                                     <div className="mt-2 flex flex-wrap gap-1.5">
                                         <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-bold text-emerald-800">
                                             {formatPrice(service.price_ghs)}
                                         </span>
                                         <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-orange-500">
-                                            {service.service_type_label || 'GSM'}
+                                            {(service.service_type || 'gsm').toUpperCase()}
                                         </span>
                                         <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-blue-700">
                                             {service.eta_label || 'INSTANT'}
                                         </span>
                                     </div>
-                                </div>
-                                <div className="flex shrink-0 flex-col">
-                                    <button
-                                        type="button"
-                                        className="rounded-lg p-1.5 text-orange-600 hover:bg-orange-50"
-                                        aria-label="Edit"
-                                        onClick={() => startEdit(service)}
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="rounded-lg p-1.5 text-red-600 hover:bg-red-50"
-                                        aria-label="Delete"
-                                        onClick={() => {
-                                            if (!window.confirm(`Delete “${service.name}”? Buyers will no longer see it. Existing orders stay in history.`)) {
-                                                return;
-                                            }
-                                            router.delete(route('admin.gsm-tools.services.destroy', service.id), {
-                                                preserveScroll: true,
-                                                onSuccess: () => {
-                                                    if (editingId === service.id) {
-                                                        setEditingId(null);
-                                                    }
-                                                },
-                                            });
-                                        }}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
                                 </div>
                             </div>
 

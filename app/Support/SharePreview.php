@@ -36,6 +36,9 @@ class SharePreview
             'url' => $appUrl.$path,
             'type' => 'website',
             'image_alt' => $site,
+            'image_width' => '1200',
+            'image_height' => '1200',
+            'image_type' => 'image/png',
         ];
 
         if ($component === 'shop/product-show') {
@@ -76,6 +79,9 @@ class SharePreview
             'url' => $appUrl,
             'type' => 'website',
             'image_alt' => $site,
+            'image_width' => '1200',
+            'image_height' => '1200',
+            'image_type' => 'image/png',
         ];
 
         return self::forProduct($product, $defaults, $appUrl, $site);
@@ -96,6 +102,9 @@ class SharePreview
             'url' => $appUrl,
             'type' => 'website',
             'image_alt' => $site,
+            'image_width' => '1200',
+            'image_height' => '1200',
+            'image_type' => 'image/png',
         ];
 
         return self::forStore($store, $defaults, $appUrl, $site);
@@ -133,6 +142,9 @@ class SharePreview
             'url' => $slug !== '' ? $appUrl.'/products/'.$slug : $defaults['url'],
             'type' => 'product',
             'image_alt' => $name,
+            'image_width' => $defaults['image_width'],
+            'image_height' => $defaults['image_height'],
+            'image_type' => $defaults['image_type'],
         ];
     }
 
@@ -151,7 +163,10 @@ class SharePreview
             : "Shop {$name} on {$site} — products from a trusted Ghana seller.";
 
         $logo = $store['store_logo'] ?? $store['shop_photo'] ?? null;
-        $image = self::absoluteMediaUrl(is_string($logo) ? $logo : null) ?? $defaults['image'];
+        $preview = self::shareJpeg(is_string($logo) ? $logo : null, $slug !== '' ? 'store-'.$slug : 'store');
+        $image = is_array($preview)
+            ? $preview['url']
+            : (self::absoluteMediaUrl(is_string($logo) ? $logo : null) ?? $defaults['image']);
 
         return [
             'title' => $name.' · '.$site,
@@ -160,6 +175,9 @@ class SharePreview
             'url' => $slug !== '' ? $appUrl.'/store/'.$slug : $defaults['url'],
             'type' => 'profile',
             'image_alt' => $name,
+            'image_width' => (string) ($preview['width'] ?? $defaults['image_width']),
+            'image_height' => (string) ($preview['height'] ?? $defaults['image_height']),
+            'image_type' => $preview !== null ? 'image/jpeg' : $defaults['image_type'],
         ];
     }
 
@@ -191,6 +209,109 @@ class SharePreview
         }
 
         return $primary ?? $first;
+    }
+
+    /**
+     * WhatsApp drops large PNGs and ignores images whose declared size is wrong.
+     * Write a small JPEG next to the public files and point the preview at that.
+     *
+     * @return array{url: string, width: int, height: int}|null
+     */
+    private static function shareJpeg(?string $path, string $name): ?array
+    {
+        if (! is_string($path) || trim($path) === '' || ! function_exists('imagejpeg') || ! function_exists('imagecreatefromstring')) {
+            return null;
+        }
+
+        $path = trim($path);
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '//')) {
+            return null;
+        }
+
+        $relative = ltrim($path, '/');
+        if (str_starts_with($relative, 'storage/')) {
+            $relative = substr($relative, strlen('storage/'));
+        }
+
+        $disk = Storage::disk('public');
+        if (! $disk->exists($relative)) {
+            return null;
+        }
+
+        $source = $disk->path($relative);
+        $stamp = @filemtime($source) ?: 0;
+        $safe = trim((string) preg_replace('/[^a-z0-9\-]+/i', '-', $name), '-');
+        $target = 'og/'.$safe.'-'.$stamp.'.jpg';
+
+        if (! $disk->exists($target)) {
+            $made = self::makeShareJpeg($source);
+            if ($made === null) {
+                return null;
+            }
+            $disk->put($target, $made['bytes']);
+            $width = $made['width'];
+            $height = $made['height'];
+        } else {
+            $size = @getimagesize($disk->path($target));
+            $width = is_array($size) ? (int) $size[0] : 640;
+            $height = is_array($size) ? (int) $size[1] : 640;
+        }
+
+        $url = self::absoluteMediaUrl($target);
+
+        return $url === null ? null : ['url' => $url, 'width' => $width, 'height' => $height];
+    }
+
+    /**
+     * @return array{bytes: string, width: int, height: int}|null
+     */
+    private static function makeShareJpeg(string $source): ?array
+    {
+        $raw = @file_get_contents($source);
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        $src = @imagecreatefromstring($raw);
+        if ($src === false) {
+            return null;
+        }
+
+        $width = imagesx($src);
+        $height = imagesy($src);
+        if ($width < 1 || $height < 1) {
+            imagedestroy($src);
+
+            return null;
+        }
+
+        $max = 640;
+        $scale = min($max / $width, $max / $height, 1);
+        $newWidth = max(1, (int) round($width * $scale));
+        $newHeight = max(1, (int) round($height * $scale));
+        $canvas = imagecreatetruecolor($newWidth, $newHeight);
+        if ($canvas === false) {
+            imagedestroy($src);
+
+            return null;
+        }
+
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        imagefill($canvas, 0, 0, $white);
+        imagealphablending($canvas, true);
+        imagecopyresampled($canvas, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+
+        ob_start();
+        imagejpeg($canvas, null, 82);
+        $jpeg = ob_get_clean();
+        imagedestroy($src);
+        imagedestroy($canvas);
+
+        if (! is_string($jpeg) || $jpeg === '') {
+            return null;
+        }
+
+        return ['bytes' => $jpeg, 'width' => $newWidth, 'height' => $newHeight];
     }
 
     public static function absoluteMediaUrl(?string $path): ?string
