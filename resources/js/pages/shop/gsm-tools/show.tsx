@@ -31,6 +31,24 @@ function displayStatus(status: string): string {
     return status === 'pending' ? 'processing' : status;
 }
 
+function CopyReply({ text }: { text: string }) {
+    const [copied, setCopied] = useState(false);
+
+    return (
+        <button
+            type="button"
+            onClick={async () => {
+                await navigator.clipboard.writeText(text);
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1500);
+            }}
+            className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-extrabold text-orange-700 hover:bg-orange-100"
+        >
+            {copied ? 'Copied' : 'Copy'}
+        </button>
+    );
+}
+
 function statusClass(status: string): string {
     return {
         processing: 'bg-blue-100 text-blue-800',
@@ -164,13 +182,19 @@ export default function GsmToolShow({ order }: Props) {
                             <div className="space-y-2">
                                 {replies.length === 0 && order.admin_result_note ? (
                                     <div className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-3">
-                                        <p className="whitespace-pre-wrap text-sm font-semibold text-orange-950">{order.admin_result_note}</p>
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="whitespace-pre-wrap text-sm font-semibold text-orange-950">{order.admin_result_note}</p>
+                                            <CopyReply text={order.admin_result_note} />
+                                        </div>
                                         <p className="mt-1 text-[11px] font-bold text-orange-700">System</p>
                                     </div>
                                 ) : null}
                                 {replies.map((reply) => (
                                     <div key={reply.id} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-3">
-                                        <p className="whitespace-pre-wrap text-sm font-semibold text-orange-950">{reply.body}</p>
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="whitespace-pre-wrap text-sm font-semibold text-orange-950">{reply.body}</p>
+                                            <CopyReply text={reply.body} />
+                                        </div>
                                         <p className="mt-1 text-[11px] font-bold text-orange-700">
                                             {reply.admin ?? 'System'}
                                             {reply.created_at ? ` · ${new Date(reply.created_at).toLocaleString()}` : ''}

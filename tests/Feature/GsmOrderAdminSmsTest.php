@@ -8,6 +8,7 @@ use App\Enums\UserRole;
 use App\Models\GsmService;
 use App\Models\User;
 use App\Notifications\GsmOrderAdminNotification;
+use App\Notifications\GsmOrderBuyerNotification;
 use App\Services\GsmToolService;
 use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,6 +32,8 @@ class GsmOrderAdminSmsTest extends TestCase
         $buyer = User::factory()->create([
             'role' => UserRole::Buyer,
             'name' => 'Kofi Amoah',
+            'mobile' => '0244111222',
+            'email' => 'kofi@example.com',
         ]);
         WalletService::creditFromVerifiedTopUp($buyer->id, 500, 'GSM-SMS-TEST', 'admin');
 
@@ -61,5 +64,18 @@ class GsmOrderAdminSmsTest extends TestCase
         $this->assertStringContainsString('GHS 20.00', $sms);
         $this->assertStringContainsString('Review in admin', $sms);
         $this->assertStringNotContainsString('₵', $sms);
+
+        Notification::assertSentTo($buyer, GsmOrderBuyerNotification::class, function ($notification, $channels) use ($order) {
+            return $notification->order->is($order)
+                && $notification->title === 'GSM Tools order placed'
+                && in_array('mail', $channels, true)
+                && in_array(SmsChannel::class, $channels, true);
+        });
+
+        $buyerSms = (new GsmOrderBuyerNotification($order, 'GSM Tools order placed', $order->service_name.' is Processing.'))->toSms($buyer);
+        $this->assertStringContainsString('GSM Tools order placed', $buyerSms);
+        $this->assertStringContainsString($order->reference, $buyerSms);
+        $this->assertStringContainsString('GHS 20.00', $buyerSms);
+        $this->assertStringNotContainsString('₵', $buyerSms);
     }
 }

@@ -24,7 +24,7 @@ class PlatformSettings
     public const FLUTTERWAVE_PAYMENTS_KEY = 'flutterwave_payments';
 
     /** Admin-entered Flutterwave public key, secret, and webhook hash. */
-    public const FLUTTERWAVE_KEYS_KEY = 'flutterwave_api_keys';
+    public const FLUTTERWAVE_KEYS_KEY = 'flutterwave_keys';
 
     /** When false, no buyer or seller can use China / RMB, even if their own switch is on. */
     public const CHINA_RMB_ACCESS_KEY = 'china_rmb_access';
@@ -544,6 +544,9 @@ class PlatformSettings
     public static function storedFlutterwaveKeys(): array
     {
         $raw = static::get(self::FLUTTERWAVE_KEYS_KEY);
+        if ($raw === null) {
+            $raw = static::get('flutterwave_api_keys');
+        }
         $decoded = is_array($raw)
             ? $raw
             : (is_string($raw) ? json_decode($raw, true) : null);

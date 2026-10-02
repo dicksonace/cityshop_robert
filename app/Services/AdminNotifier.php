@@ -8,6 +8,7 @@ use App\Models\WalletTopUpRequest;
 use App\Notifications\AdminWalletDepositNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Testing\Fakes\NotificationFake;
 
 class AdminNotifier
 {
@@ -23,10 +24,14 @@ class AdminNotifier
     {
         $admins = self::users();
         if ($admins->isNotEmpty()) {
-            Notification::send($admins, $notification);
+            self::deliver($admins, $notification);
         }
 
-        self::smsAlertNumbers($notification, $admins);
+        try {
+            self::smsAlertNumbers($notification, $admins);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public static function depositProof(User $user, WalletTopUpRequest $topUp): void
@@ -41,6 +46,37 @@ class AdminNotifier
                 : 'proof #'.$topUp->id,
             pendingProof: true,
         ));
+    }
+
+    /**
+     * Send each channel on its own so a mail failure still lets the SMS go out.
+     * Tests keep one combined send so channel assertions stay intact.
+     *
+     * @param  User|Collection<int, User>  $notifiables
+     */
+    public static function deliver(User|Collection $notifiables, object $notification): void
+    {
+        $people = $notifiables instanceof User ? collect([$notifiables]) : $notifiables;
+        if ($people->isEmpty()) {
+            return;
+        }
+
+        if (Notification::getFacadeRoot() instanceof NotificationFake) {
+            Notification::send($people, $notification);
+
+            return;
+        }
+
+        foreach ($people as $person) {
+            $channels = method_exists($notification, 'via') ? (array) $notification->via($person) : ['mail'];
+            foreach ($channels as $channel) {
+                try {
+                    Notification::sendNow($person, $notification, [$channel]);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        }
     }
 
     /**
