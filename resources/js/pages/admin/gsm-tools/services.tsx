@@ -1,5 +1,5 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -176,6 +176,13 @@ function QuantitySettings({
 export default function AdminGsmServices({ services, groups, fieldTypes, serviceTypes, selectedType, active }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [query, setQuery] = useState('');
+    const needle = query.trim().toLowerCase();
+    const visibleServices = needle
+        ? services.filter((service) =>
+              `${service.name} ${service.description ?? ''} ${service.group_name ?? ''}`.toLowerCase().includes(needle),
+          )
+        : services;
     const current = serviceTypes.find((type) => type.value === selectedType) ?? serviceTypes[0];
 
     const groupForm = useForm({
@@ -535,12 +542,25 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                 </form>
 
                 <div className="space-y-3">
+                    <div className="relative">
+                        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search services"
+                            className="pl-9"
+                        />
+                    </div>
                     {services.length === 0 ? (
                         <p className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
                             No {current?.label ?? 'services'} yet. Add the first one here. More details can be filled in later.
                         </p>
+                    ) : visibleServices.length === 0 ? (
+                        <p className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
+                            No services match that search.
+                        </p>
                     ) : null}
-                    {services.map((service) => (
+                    {visibleServices.map((service) => (
                         <div key={service.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="flex items-start gap-3">
                                 {service.image_url ? (
