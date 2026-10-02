@@ -385,6 +385,7 @@ class GsmToolService
                 'message' => 'Reply message cannot be empty.',
             ]);
         }
+        $this->assertGsmReplyWords($body, 'message');
 
         if ($order->status->isTerminal()) {
             throw ValidationException::withMessages([
@@ -409,7 +410,7 @@ class GsmToolService
         $this->notifyBuyer(
             $fresh,
             'GSM Tools reply',
-            Str::limit($body, 180),
+            $body,
         );
 
         return $fresh;
@@ -422,6 +423,9 @@ class GsmToolService
         }
 
         $note = trim((string) $resultNote);
+        if ($note !== '') {
+            $this->assertGsmReplyWords($note, 'result_note');
+        }
         if ($note === '' && blank($order->admin_result_note) && $order->replies()->doesntExist()) {
             throw ValidationException::withMessages([
                 'result_note' => 'Add a reply message for the buyer before completing.',
@@ -445,7 +449,7 @@ class GsmToolService
             $updated,
             'GSM Tools Completed',
             $note !== ''
-                ? Str::limit($note, 180)
+                ? $note
                 : $updated->service_name.' ('.$updated->reference.') is Completed.',
         );
 
@@ -968,6 +972,17 @@ class GsmToolService
         $lines = preg_split('/\r\n|\r|\n/', (string) $value) ?: [];
 
         return array_values(array_filter(array_map('trim', $lines)));
+    }
+
+    private function assertGsmReplyWords(string $text, string $field): void
+    {
+        $words = preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY);
+
+        if (is_array($words) && count($words) > 20) {
+            throw ValidationException::withMessages([
+                $field => 'Keep the reply to 20 words or fewer so the SMS can be delivered.',
+            ]);
+        }
     }
 
     private function nextReference(): string

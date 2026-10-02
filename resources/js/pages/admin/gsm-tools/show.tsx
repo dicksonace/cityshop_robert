@@ -56,6 +56,18 @@ function CopyValue({ value, label }: { value?: string | null; label?: string }) 
     );
 }
 
+function wordCount(text: string): number {
+    const trimmed = text.trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).length;
+}
+
+function WordCount({ text }: { text: string }) {
+    const count = wordCount(text);
+    const over = count > 20;
+    return <p className={`text-xs font-bold ${over ? 'text-red-600' : 'text-gray-500'}`}>{count}/20 words</p>;
+}
+
 function statusClass(status: string): string {
     return {
         pending: 'bg-amber-100 text-amber-800',
@@ -77,6 +89,10 @@ export default function AdminGsmToolShow({ order }: Props) {
 
     const sendReply: FormEventHandler = (e) => {
         e.preventDefault();
+        if (wordCount(replyForm.data.message) > 20) {
+            replyForm.setError('message', 'Keep the reply to 20 words or fewer so the SMS can be delivered.');
+            return;
+        }
         replyForm.post(route('admin.gsm-tools.reply', order.id), {
             onSuccess: () => replyForm.reset('message'),
         });
@@ -85,6 +101,10 @@ export default function AdminGsmToolShow({ order }: Props) {
     const complete: FormEventHandler = (e) => {
         e.preventDefault();
         const note = completeForm.data.result_note.trim() || replyForm.data.message.trim();
+        if (wordCount(note) > 20) {
+            completeForm.setError('result_note', 'Keep the reply to 20 words or fewer so the SMS can be delivered.');
+            return;
+        }
         router.post(
             route('admin.gsm-tools.complete', order.id),
             { result_note: note },
@@ -211,6 +231,7 @@ export default function AdminGsmToolShow({ order }: Props) {
                                 value={replyForm.data.message}
                                 onChange={(e) => replyForm.setData('message', e.target.value)}
                             />
+                            <WordCount text={replyForm.data.message} />
                             {replyForm.errors.message ? <p className="text-xs text-red-600">{replyForm.errors.message}</p> : null}
                             <Button type="submit" variant="outline" className="w-full" disabled={replyForm.processing}>
                                 Send reply
@@ -225,6 +246,7 @@ export default function AdminGsmToolShow({ order }: Props) {
                                 value={completeForm.data.result_note}
                                 onChange={(e) => completeForm.setData('result_note', e.target.value)}
                             />
+                            <WordCount text={completeForm.data.result_note} />
                             {completeForm.errors.result_note ? <p className="text-xs text-red-600">{completeForm.errors.result_note}</p> : null}
                             <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={completing}>
                                 Complete

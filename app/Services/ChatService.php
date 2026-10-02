@@ -1466,7 +1466,7 @@ class ChatService
      *
      * @return \Illuminate\Support\Collection<int, array<string, mixed>>
      */
-    public static function threadMessagesFor(Conversation $conversation, User $viewer, int $limit = 100)
+    public static function threadMessagesFor(Conversation $conversation, User $viewer, int $limit = 300)
     {
         $query = $conversation->messages()
             ->whereIn('type', static::visibleTypes())
