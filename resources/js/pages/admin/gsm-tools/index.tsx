@@ -12,9 +12,26 @@ type Order = {
     service_name: string;
     image_url?: string | null;
     price_ghs: number;
+    quantity?: number;
+    eta_label?: string | null;
     created_at: string | null;
     user?: { id: number; name: string; mobile: string | null } | null;
 };
+
+function statusChip(status: string): string {
+    if (status === 'completed') return 'bg-emerald-100 text-emerald-800';
+    if (status === 'failed') return 'bg-red-100 text-red-700';
+    if (status === 'cancelled') return 'bg-gray-100 text-gray-600';
+    if (status === 'pending') return 'bg-amber-100 text-amber-800';
+    return 'bg-orange-100 text-orange-800';
+}
+
+function whenLabel(value: string | null): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
 
 interface Props {
     orders: Paginated<Order>;
@@ -97,44 +114,58 @@ export default function AdminGsmToolsIndex({ orders, filters, serviceTypes = [],
                     ))}
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
-                    {orders.data.map((order) => (
-                        <Link
-                            key={order.id}
-                            href={route('admin.gsm-tools.show', order.id)}
-                            className="flex items-center justify-between gap-3 border-b border-gray-50 px-4 py-3 last:border-0 hover:bg-orange-50/40"
-                        >
-                            <div className="flex min-w-0 items-center gap-3">
-                                {order.image_url ? (
-                                    <img src={order.image_url} alt="" className="h-10 w-10 shrink-0 rounded-lg bg-slate-950 object-contain" />
-                                ) : null}
-                                <div>
-                                    <p className="text-sm font-semibold text-gray-900">{order.service_name}</p>
-                                    <p className="text-xs text-gray-500">
-                                        {order.reference} · {order.user?.name ?? 'Buyer'} {order.user?.mobile ? `· ${order.user.mobile}` : ''}
-                                    </p>
+                <div className="space-y-3">
+                    {orders.data.map((order) => {
+                        const qty = order.quantity ?? 1;
+                        const when = whenLabel(order.created_at);
+                        return (
+                            <Link
+                                key={order.id}
+                                href={route('admin.gsm-tools.show', order.id)}
+                                className="block rounded-2xl border border-gray-200 bg-white p-3.5 shadow-sm hover:border-orange-200"
+                            >
+                                <div className="flex items-start gap-3">
+                                    {order.image_url ? (
+                                        <img src={order.image_url} alt="" className="h-14 w-14 shrink-0 rounded-2xl bg-slate-950 object-contain" />
+                                    ) : (
+                                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-xs font-black text-orange-600">
+                                            GSM
+                                        </span>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[15px] font-black leading-snug text-gray-900">{order.service_name}</p>
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-extrabold text-emerald-800">
+                                                {formatPrice(order.price_ghs)}
+                                            </span>
+                                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold uppercase ${statusChip(order.status)}`}>
+                                                {order.status_label}
+                                            </span>
+                                            {order.eta_label ? (
+                                                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-extrabold uppercase text-blue-700">
+                                                    {order.eta_label}
+                                                </span>
+                                            ) : null}
+                                            {qty > 1 ? (
+                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-extrabold text-gray-700">
+                                                    QTY {qty}
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                    <span className="text-lg font-black text-gray-300">›</span>
                                 </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-sm font-bold text-gray-900">{formatPrice(order.price_ghs)}</p>
-                                <p
-                                    className={`text-xs font-extrabold uppercase ${
-                                        order.status === 'processing'
-                                            ? 'text-blue-700'
-                                            : order.status === 'completed'
-                                              ? 'text-emerald-700'
-                                              : order.status === 'failed' || order.status === 'cancelled'
-                                                ? 'text-red-600'
-                                                : 'text-amber-700'
-                                    }`}
-                                >
-                                    {order.status_label}
-                                </p>
-                            </div>
-                        </Link>
-                    ))}
+                                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-slate-50 px-2.5 py-2 text-xs">
+                                    <span className="font-extrabold text-gray-900">{order.reference}</span>
+                                    <span className="font-bold text-gray-500">{order.user?.name ?? 'Buyer'}</span>
+                                    {order.user?.mobile ? <span className="font-semibold text-gray-400">{order.user.mobile}</span> : null}
+                                    {when ? <span className="ml-auto font-bold text-gray-400">{when}</span> : null}
+                                </div>
+                            </Link>
+                        );
+                    })}
                     {orders.data.length === 0 ? (
-                        <p className="px-4 py-8 text-center text-sm text-gray-500">No orders yet.</p>
+                        <p className="rounded-2xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">No orders yet.</p>
                     ) : null}
                 </div>
             </div>
