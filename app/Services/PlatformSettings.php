@@ -23,8 +23,8 @@ class PlatformSettings
     /** When locked, buyers cannot start Flutterwave checkout or wallet top-up. */
     public const FLUTTERWAVE_PAYMENTS_KEY = 'flutterwave_payments';
 
-    /** Admin-saved Flutterwave API keys (override .env when set). */
-    public const FLUTTERWAVE_KEYS_KEY = 'flutterwave_keys';
+    /** When false, no buyer or seller can use China / RMB, even if their own switch is on. */
+    public const CHINA_RMB_ACCESS_KEY = 'china_rmb_access';
 
     public const SMS_KEY = 'sms_provider';
 
@@ -493,6 +493,30 @@ class PlatformSettings
     {
         static::set(self::FLUTTERWAVE_PAYMENTS_KEY, [
             'locked' => (bool) ($data['locked'] ?? false),
+        ]);
+    }
+
+    /**
+     * Master switch for Buy RMB and Sell RMB. Off until an admin turns it on.
+     */
+    public static function chinaRmbGloballyEnabled(): bool
+    {
+        $raw = static::get(self::CHINA_RMB_ACCESS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return false;
+        }
+
+        return (bool) ($decoded['enabled'] ?? false);
+    }
+
+    public static function setChinaRmbGloballyEnabled(bool $enabled): void
+    {
+        static::set(self::CHINA_RMB_ACCESS_KEY, [
+            'enabled' => $enabled,
         ]);
     }
 
@@ -1229,7 +1253,7 @@ class PlatformSettings
         ]);
     }
 
-    /** Extra Ghana numbers that always get finance / KYC SMS (withdrawal, deposit, China transfer, Ghana Card). */
+    /** Extra Ghana numbers that always get admin SMS (withdrawal, deposit, China transfer, GSM Tools, Ghana Card). */
     public static function adminAlertNumbers(): array
     {
         $settings = static::smsSettings();

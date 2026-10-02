@@ -7,6 +7,7 @@ use App\Models\ChinaTransferFormField;
 use App\Models\ChinaTransferPaymentMethod;
 use App\Models\ChinaTransferRate;
 use App\Services\ChinaTransferService;
+use App\Services\PlatformSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -55,6 +56,7 @@ class ChinaTransferSettingsController extends Controller
                 ->map(fn (ChinaTransferFormField $f) => $this->transfers->fieldPayload($f)),
             'fieldTypes' => ChinaTransferFormField::TYPES,
             'open' => $this->transfers->isOpen(),
+            'chinaRmbGloballyEnabled' => PlatformSettings::chinaRmbGloballyEnabled(),
         ]);
     }
 
@@ -93,6 +95,22 @@ class ChinaTransferSettingsController extends Controller
             $validated['enabled']
                 ? 'GHS → RMB set to Live (buyers can start Transfer to China when rate & method are ready).'
                 : 'GHS → RMB paused. New Transfer to China requests are blocked.',
+        );
+    }
+
+    public function updateChinaRmbAccess(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        PlatformSettings::setChinaRmbGloballyEnabled($validated['enabled']);
+
+        return back()->with(
+            'success',
+            $validated['enabled']
+                ? 'China / RMB is on. Only accounts you enable can use it.'
+                : 'China / RMB is off for every buyer and seller.',
         );
     }
 

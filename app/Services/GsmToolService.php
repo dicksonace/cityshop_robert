@@ -12,6 +12,7 @@ use App\Models\GsmService;
 use App\Models\GsmServiceGroup;
 use App\Models\GsmServiceField;
 use App\Models\User;
+use App\Notifications\GsmOrderAdminNotification;
 use App\Support\PaymentReference;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -854,6 +855,8 @@ class GsmToolService
                     'path' => '/gsm-tools/'.$order->id,
                 ]);
             }
+
+            AdminNotifier::notify(new GsmOrderAdminNotification($order));
         } catch (\Throwable $e) {
             report($e);
         }

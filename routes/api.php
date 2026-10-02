@@ -314,6 +314,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/china-transfers', [AdminChinaTransferController::class, 'index']);
             Route::get('/china-transfers/settings', [AdminChinaTransferController::class, 'settings']);
             Route::post('/china-transfers/settings', [AdminChinaTransferController::class, 'updateSettings']);
+            Route::post('/china-rmb/access', [AdminChinaTransferController::class, 'updateChinaRmbAccess']);
             Route::post('/china-transfers/rates', [AdminChinaTransferController::class, 'publishRate']);
             Route::post('/china-transfers/methods/{method}/deactivate', [AdminChinaTransferController::class, 'deactivateMethod']);
             Route::post('/china-transfers/fields/{field}/deactivate', [AdminChinaTransferController::class, 'deactivateField']);

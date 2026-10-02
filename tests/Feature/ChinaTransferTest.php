@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Notifications\ChinaTransferUserNotification;
 use App\Services\ChinaTransferService;
+use App\Services\PlatformSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
@@ -27,6 +28,7 @@ class ChinaTransferTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        PlatformSettings::setChinaRmbGloballyEnabled(true);
     }
 
     public function test_publish_rate_from_rmb_per_ghs_matches_buyer_calculator(): void

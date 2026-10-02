@@ -63,6 +63,7 @@ interface Props {
         transfer_open_time?: string;
         transfer_close_time?: string;
     };
+    chinaRmbGloballyEnabled: boolean;
     currentRate: Rate | null;
     rates: Rate[];
     methods: Method[];
@@ -73,6 +74,7 @@ interface Props {
 
 export default function ChinaTransferSettings({
     settings,
+    chinaRmbGloballyEnabled,
     currentRate,
     rates,
     methods,
@@ -181,6 +183,35 @@ export default function ChinaTransferSettings({
                 </div>
 
                 {flash?.success && <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{flash.success}</p>}
+
+                <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 className="font-bold text-gray-900">China / RMB for all buyers and sellers</h2>
+                            <p className="mt-1 text-sm text-gray-600">
+                                Off means nobody can Buy RMB or Sell RMB, even accounts you enabled one by one.
+                                On means only the accounts you enable can use it.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold ${
+                                chinaRmbGloballyEnabled
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-white text-red-700 ring-1 ring-red-200'
+                            }`}
+                            onClick={() =>
+                                router.post(
+                                    route('admin.china-rmb.access'),
+                                    { enabled: !chinaRmbGloballyEnabled },
+                                    { preserveScroll: true },
+                                )
+                            }
+                        >
+                            {chinaRmbGloballyEnabled ? 'Enabled' : 'Disabled for all'}
+                        </button>
+                    </div>
+                </div>
 
                 <LivePauseControl
                     title="GHS → RMB (Transfer to China)"

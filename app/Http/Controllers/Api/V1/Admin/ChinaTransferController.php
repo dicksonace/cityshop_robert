@@ -9,6 +9,7 @@ use App\Models\ChinaTransferFormField;
 use App\Models\ChinaTransferPaymentMethod;
 use App\Models\ChinaTransferRate;
 use App\Services\ChinaTransferService;
+use App\Services\PlatformSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -133,6 +134,23 @@ class ChinaTransferController extends Controller
             'methods' => ChinaTransferPaymentMethod::query()->orderBy('sort_order')->get()->map(fn (ChinaTransferPaymentMethod $m) => $this->transfers->methodPayload($m)),
             'fields' => ChinaTransferFormField::query()->orderBy('group')->orderBy('sort_order')->get()->map(fn (ChinaTransferFormField $f) => $this->transfers->fieldPayload($f)),
             'open' => $this->transfers->isOpen(),
+            'china_rmb_globally_enabled' => PlatformSettings::chinaRmbGloballyEnabled(),
+        ]);
+    }
+
+    public function updateChinaRmbAccess(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        PlatformSettings::setChinaRmbGloballyEnabled($validated['enabled']);
+
+        return response()->json([
+            'message' => $validated['enabled']
+                ? 'China / RMB is on. Only accounts you enable can use it.'
+                : 'China / RMB is off for every buyer and seller.',
+            'china_rmb_globally_enabled' => PlatformSettings::chinaRmbGloballyEnabled(),
         ]);
     }
 

@@ -13,6 +13,7 @@ use App\Models\SellRmbTransfer;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Notifications\SellRmbUserNotification;
+use App\Services\PlatformSettings;
 use App\Services\SellRmbService;
 use App\Support\SellRmbSms;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,6 +31,7 @@ class SellRmbTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        PlatformSettings::setChinaRmbGloballyEnabled(true);
     }
 
     public function test_quote_math_uses_usd_per_rmb_and_fee(): void

@@ -144,10 +144,15 @@ class User extends Authenticatable
     }
 
     /**
-     * Buyers and approved sellers can use China / RMB only when admin has enabled it.
+     * Buyers and approved sellers can use China / RMB only when the master switch
+     * is on and admin has enabled it for this account.
      */
     public function canUseRmbWallet(): bool
     {
+        if (! \App\Services\PlatformSettings::chinaRmbGloballyEnabled()) {
+            return false;
+        }
+
         if (! $this->china_rmb_enabled) {
             return false;
         }

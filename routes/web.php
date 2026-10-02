@@ -403,6 +403,7 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/china-transfers/{chinaTransfer}/note', [AdminChinaTransferController::class, 'note'])->name('china-transfers.note');
     Route::get('/china-transfer/settings', [AdminChinaTransferSettingsController::class, 'edit'])->name('china-transfer.settings');
     Route::post('/china-transfer/settings', [AdminChinaTransferSettingsController::class, 'updateSettings'])->name('china-transfer.settings.update');
+    Route::post('/china-rmb/access', [AdminChinaTransferSettingsController::class, 'updateChinaRmbAccess'])->name('china-rmb.access');
     Route::post('/china-transfer/rates', [AdminChinaTransferSettingsController::class, 'publishRate'])->name('china-transfer.rates.store');
     Route::post('/china-transfer/methods', [AdminChinaTransferSettingsController::class, 'storeMethod'])->name('china-transfer.methods.store');
     Route::post('/china-transfer/methods/{method}', [AdminChinaTransferSettingsController::class, 'updateMethod'])->name('china-transfer.methods.update');
