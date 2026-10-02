@@ -73,7 +73,7 @@ class GsmToolController extends Controller
 
         return response()->json([
             'message' => 'Order placed. Deducted from your wallet.',
-            'order' => $this->gsm->orderPayload($order, withHistory: true),
+            'order' => $this->gsm->orderPayload($order, withHistory: true, buyerView: true),
             'wallet' => WalletService::ensure($user)->toFrontendArray(),
         ], 201);
     }
@@ -83,20 +83,12 @@ class GsmToolController extends Controller
         abort_unless((int) $gsmOrder->user_id === (int) $request->user()->id, 403);
 
         return response()->json([
-            'order' => $this->gsm->orderPayload($gsmOrder, withHistory: true),
+            'order' => $this->gsm->orderPayload($gsmOrder, withHistory: true, buyerView: true),
         ]);
     }
 
     public function cancel(Request $request, GsmOrder $gsmOrder): JsonResponse
     {
-        abort_unless((int) $gsmOrder->user_id === (int) $request->user()->id, 403);
-
-        $order = $this->gsm->cancel($gsmOrder, $request->user(), 'Cancelled by buyer');
-
-        return response()->json([
-            'message' => 'Order cancelled. Funds returned to your wallet.',
-            'order' => $this->gsm->orderPayload($order, withHistory: true),
-            'wallet' => WalletService::ensure($request->user())->toFrontendArray(),
-        ]);
+        abort(403, 'Only an admin can cancel this GSM order.');
     }
 }

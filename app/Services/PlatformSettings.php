@@ -893,14 +893,19 @@ class PlatformSettings
             ];
         }
 
+        $rawAccounts = $decoded['accounts'] ?? [];
+        if (! is_array($rawAccounts)) {
+            $rawAccounts = [];
+        }
+
         $accounts = array_values(array_map(function ($account) {
             if (! is_array($account)) {
                 return null;
             }
 
             $type = ($account['type'] ?? '') === 'bank' ? 'bank' : 'momo';
-            $accountNumber = (string) ($account['account_number'] ?? '');
-            $accountName = (string) ($account['account_name'] ?? '');
+            $accountNumber = static::asString($account['account_number'] ?? '');
+            $accountName = static::asString($account['account_name'] ?? '');
 
             // CityShop receive numbers should always show business + Robert Asare.
             $canonical = static::cityShopReceiveAccountName($accountNumber);
@@ -908,21 +913,22 @@ class PlatformSettings
                 $accountName = $canonical;
             }
 
+            $label = static::asString($account['label'] ?? '');
+            $bankName = static::asString($account['bank_name'] ?? '');
+
             return [
                 'type' => $type,
-                'label' => (string) ($account['label'] ?? ''),
+                'label' => $label,
                 'account_name' => $accountName,
                 'account_number' => $accountNumber,
                 'network' => $type === 'momo'
                     ? (static::normalizeMomoNetwork($account['network'] ?? null) ?? 'mtn')
                     : null,
                 'bank_name' => $type === 'bank'
-                    ? (filled($account['bank_name'] ?? null)
-                        ? (string) $account['bank_name']
-                        : (filled($account['label'] ?? null) ? (string) $account['label'] : null))
+                    ? ($bankName !== '' ? $bankName : ($label !== '' ? $label : null))
                     : null,
             ];
-        }, $decoded['accounts'] ?? []));
+        }, $rawAccounts));
 
         $accounts = array_values(array_filter($accounts));
         $hadCustomAccounts = count($accounts) > 0;
@@ -940,7 +946,9 @@ class PlatformSettings
 
         return [
             'enabled' => $enabled,
-            'instructions' => (string) ($decoded['instructions'] ?? 'Send payment to one of the CityShop Mobile Money accounts below, then submit your proof and transaction reference so we can credit your wallet.'),
+            'instructions' => static::asString($decoded['instructions'] ?? '') !== ''
+                ? static::asString($decoded['instructions'] ?? '')
+                : 'Send payment to one of the CityShop Mobile Money accounts below, then submit your proof and transaction reference so we can credit your wallet.',
             'accounts' => $accounts,
         ];
     }
@@ -1035,12 +1043,31 @@ class PlatformSettings
         ]);
     }
 
+    private static function asString(mixed $value): string
+    {
+        if (is_string($value) || is_numeric($value)) {
+            return trim((string) $value);
+        }
+
+        return '';
+    }
+
+    private static function asFloat(mixed $value, float $fallback): float
+    {
+        return is_numeric($value) ? (float) $value : $fallback;
+    }
+
     /**
      * Normalize free-text / legacy network labels to canonical ids: mtn|telecel|airteltigo.
      */
-    public static function normalizeMomoNetwork(?string $network): ?string
+    public static function normalizeMomoNetwork(mixed $network): ?string
     {
-        if ($network === null || trim($network) === '') {
+        if (! is_string($network) && ! is_numeric($network)) {
+            return null;
+        }
+
+        $network = trim((string) $network);
+        if ($network === '') {
             return null;
         }
 
@@ -1081,7 +1108,7 @@ class PlatformSettings
             return static::defaultPaystackFeeSettings();
         }
 
-        $mode = (string) ($decoded['mode'] ?? 'percent');
+        $mode = static::asString($decoded['mode'] ?? 'percent');
         if (! in_array($mode, ['percent', 'flat', 'tiers'], true)) {
             $mode = 'percent';
         }
@@ -1089,8 +1116,8 @@ class PlatformSettings
         return [
             'enabled' => (bool) ($decoded['enabled'] ?? true),
             'mode' => $mode,
-            'percent' => max(0, min(25, round((float) ($decoded['percent'] ?? 1.95), 4))),
-            'flat' => max(0, round((float) ($decoded['flat'] ?? 0), 2)),
+            'percent' => max(0, min(25, round(static::asFloat($decoded['percent'] ?? 1.95, 1.95), 4))),
+            'flat' => max(0, round(static::asFloat($decoded['flat'] ?? 0, 0), 2)),
             'tiers' => static::normalizePaystackFeeTiers($decoded['tiers'] ?? null),
         ];
     }
@@ -1142,10 +1169,12 @@ class PlatformSettings
             if (! is_array($row)) {
                 continue;
             }
-            $min = max(0, round((float) ($row['min'] ?? 0), 2));
-            $fee = max(0, round((float) ($row['fee'] ?? 0), 2));
+            $min = max(0, round(static::asFloat($row['min'] ?? 0, 0), 2));
+            $fee = max(0, round(static::asFloat($row['fee'] ?? 0, 0), 2));
             $maxRaw = $row['max'] ?? null;
-            $max = $maxRaw === null || $maxRaw === '' ? null : max($min, round((float) $maxRaw, 2));
+            $max = $maxRaw === null || $maxRaw === '' || ! is_numeric($maxRaw)
+                ? null
+                : max($min, round((float) $maxRaw, 2));
             $tiers[] = ['min' => $min, 'max' => $max, 'fee' => $fee];
         }
 

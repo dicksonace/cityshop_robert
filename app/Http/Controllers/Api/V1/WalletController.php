@@ -45,7 +45,27 @@ class WalletController extends Controller
         abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
 
         $wallet = WalletService::ensure($user);
-        $funding = PlatformSettings::manualFundingAccounts();
+        $funding = $this->safe(fn () => PlatformSettings::manualFundingAccounts(), [
+            'enabled' => false,
+            'accounts' => [],
+        ]);
+        $paystackOn = $this->safe(fn () => $this->paystack->isRechargeOffered(), false);
+        $flutterwaveOn = $this->safe(fn () => $this->flutterwave->isAvailable(), false);
+        $paystackFee = $this->safe(fn () => $this->paystack->rechargeFeePayload(), [
+            'enabled' => false,
+            'mode' => 'percent',
+            'percent' => 0.0,
+            'flat' => 0.0,
+            'tiers' => [],
+        ]);
+        $kyc = $this->safe(fn () => KycService::payload($user, withPhotos: false), [
+            'status' => 'unverified',
+            'status_label' => 'Not verified',
+            'can_store_funds' => false,
+            'can_submit' => true,
+        ]);
+        $canUseRmb = $this->safe(fn () => $user->canUseRmbWallet(), false);
+        $accounts = is_array($funding['accounts'] ?? null) ? $funding['accounts'] : [];
 
         return response()->json([
             'data' => [
@@ -53,19 +73,38 @@ class WalletController extends Controller
                 'pending_balance' => (float) $wallet->pending_balance,
                 'total_earnings' => (float) $wallet->total_earnings,
                 'withdrawn_amount' => (float) $wallet->withdrawn_amount,
-                'rmb_balance' => (float) $wallet->rmb_balance,
-                'paystack_configured' => $this->paystack->isRechargeOffered(),
-                'paystack_fee' => $this->paystack->rechargeFeePayload(),
-                'flutterwave_configured' => $this->flutterwave->isAvailable(),
+                'rmb_balance' => (float) ($wallet->rmb_balance ?? 0),
+                'paystack_configured' => $paystackOn,
+                'paystack_fee' => $paystackFee,
+                'flutterwave_configured' => $flutterwaveOn,
                 'online_gateways' => [
-                    'paystack' => $this->paystack->isRechargeOffered(),
-                    'flutterwave' => $this->flutterwave->isAvailable(),
+                    'paystack' => $paystackOn,
+                    'flutterwave' => $flutterwaveOn,
                 ],
-                'manual_top_up_enabled' => $funding['enabled'] && count($funding['accounts']) > 0,
-                'kyc' => KycService::payload($user, withPhotos: false),
-                'can_use_rmb_wallet' => $user->canUseRmbWallet(),
+                'manual_top_up_enabled' => ($funding['enabled'] ?? false) && count($accounts) > 0,
+                'kyc' => $kyc,
+                'can_use_rmb_wallet' => $canUseRmb,
             ],
-        ]);
+        ], 200, [], JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
+    /**
+     * Wallet extras (fees, KYC, China/RMB) must not take down the balance.
+     *
+     * @template T
+     * @param  callable(): T  $callback
+     * @param  T  $fallback
+     * @return T
+     */
+    private function safe(callable $callback, mixed $fallback): mixed
+    {
+        try {
+            return $callback();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $fallback;
+        }
     }
 
     /**
@@ -100,7 +139,7 @@ class WalletController extends Controller
         return response()->json([
             'data' => $transactions->getCollection()->map(fn (WalletTransaction $tx) => [
                 'id' => $tx->id,
-                'type' => $tx->type->value,
+                'type' => $tx->type?->value ?? (string) $tx->getRawOriginal('type'),
                 'type_label' => WalletTransactionService::displayTypeLabel($tx),
                 'amount' => (float) $tx->amount,
                 'currency' => strtoupper((string) ($tx->currency ?? 'GHS')),
@@ -157,7 +196,7 @@ class WalletController extends Controller
         return response()->json([
             'transaction' => [
                 'id' => $tx->id,
-                'type' => $tx->type->value,
+                'type' => $tx->type?->value ?? (string) $tx->getRawOriginal('type'),
                 'type_label' => WalletTransactionService::displayTypeLabel($tx),
                 'amount' => (float) $tx->amount,
                 'currency' => strtoupper((string) ($tx->currency ?? 'GHS')),

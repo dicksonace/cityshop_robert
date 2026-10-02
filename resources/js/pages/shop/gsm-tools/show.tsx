@@ -1,7 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 import { formatPrice } from '@/types/marketplace';
@@ -187,20 +186,6 @@ export default function GsmToolShow({ order }: Props) {
                     <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800">{order.failure_reason}</div>
                 ) : null}
 
-                {order.can_cancel ? (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="mt-5 h-12 w-full rounded-xl border-red-200 font-extrabold text-red-600"
-                        onClick={() => {
-                            if (confirm('Cancel this order and refund your wallet?')) {
-                                router.post(route('gsm-tools.orders.cancel', order.id));
-                            }
-                        }}
-                    >
-                        Cancel &amp; refund
-                    </Button>
-                ) : null}
             </div>
         </ShopLayout>
     );

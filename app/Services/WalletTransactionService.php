@@ -543,6 +543,10 @@ class WalletTransactionService
      */
     public static function displayTypeLabel(WalletTransaction $tx): string
     {
+        if (! $tx->type instanceof WalletTransactionType) {
+            return 'Wallet';
+        }
+
         if ($tx->type === WalletTransactionType::Withdrawal) {
             $withdrawal = $tx->relationLoaded('withdrawal')
                 ? $tx->withdrawal

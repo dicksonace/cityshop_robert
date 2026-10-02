@@ -143,7 +143,7 @@ class GsmToolService
             ->paginate($perPage);
 
         return [
-            'data' => $page->getCollection()->map(fn (GsmOrder $order) => $this->orderPayload($order))->values()->all(),
+            'data' => $page->getCollection()->map(fn (GsmOrder $order) => $this->orderPayload($order, buyerView: true))->values()->all(),
             'meta' => [
                 'current_page' => $page->currentPage(),
                 'last_page' => $page->lastPage(),
@@ -158,7 +158,7 @@ class GsmToolService
     /**
      * @return array<string, mixed>
      */
-    public function orderPayload(GsmOrder $order, bool $withHistory = false): array
+    public function orderPayload(GsmOrder $order, bool $withHistory = false, bool $buyerView = false): array
     {
         $order->loadMissing(['fieldValues', 'service.fields', 'service.group', 'user:id,name,email,mobile', 'replies.admin:id,name']);
         $fieldsById = $order->service?->fields?->keyBy('id') ?? collect();
@@ -205,7 +205,7 @@ class GsmToolService
                     'value' => $row->value,
                 ];
             })->values()->all(),
-            'can_cancel' => in_array($order->status, [GsmOrderStatus::Pending, GsmOrderStatus::Processing], true),
+            'can_cancel' => ! $buyerView && in_array($order->status, [GsmOrderStatus::Pending, GsmOrderStatus::Processing], true),
         ];
 
         if ($order->relationLoaded('user') && $order->user) {

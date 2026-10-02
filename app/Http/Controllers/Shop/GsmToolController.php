@@ -90,16 +90,12 @@ class GsmToolController extends Controller
         abort_unless($request->user() && (int) $gsmOrder->user_id === (int) $request->user()->id, 403);
 
         return Inertia::render('shop/gsm-tools/show', [
-            'order' => $this->gsm->orderPayload($gsmOrder, withHistory: true),
+            'order' => $this->gsm->orderPayload($gsmOrder, withHistory: true, buyerView: true),
         ]);
     }
 
     public function cancel(Request $request, GsmOrder $gsmOrder): RedirectResponse
     {
-        abort_unless($request->user() && (int) $gsmOrder->user_id === (int) $request->user()->id, 403);
-
-        $this->gsm->cancel($gsmOrder, $request->user(), 'Cancelled by buyer');
-
-        return back()->with('success', 'Order cancelled. Funds returned to your wallet.');
+        abort(403, 'Only an admin can cancel this GSM order.');
     }
 }

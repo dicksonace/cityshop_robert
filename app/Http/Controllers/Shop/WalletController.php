@@ -32,6 +32,28 @@ class WalletController extends Controller
         private FlutterwaveService $flutterwave,
     ) {}
 
+    private function safeWalletFlag(callable $callback): bool
+    {
+        try {
+            return (bool) $callback();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
+    }
+
+    private function safeWalletValue(callable $callback, mixed $fallback): mixed
+    {
+        try {
+            return $callback();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $fallback;
+        }
+    }
+
     public function index(Request $request): Response
     {
         abort_unless($request->user()->isBuyer(), 403);
@@ -70,7 +92,15 @@ class WalletController extends Controller
             ->whereIn('status', [WithdrawalStatus::Pending, WithdrawalStatus::Processing])
             ->exists();
 
-        $funding = PlatformSettings::manualFundingAccounts();
+        try {
+            $funding = PlatformSettings::manualFundingAccounts();
+        } catch (\Throwable $e) {
+            report($e);
+            $funding = ['enabled' => false, 'accounts' => [], 'instructions' => ''];
+        }
+
+        $accounts = is_array($funding['accounts'] ?? null) ? $funding['accounts'] : [];
+        $manualOn = (bool) ($funding['enabled'] ?? false) && count($accounts) > 0;
 
         return Inertia::render('shop/wallet', [
             'wallet' => $wallet->toFrontendArray(),
@@ -78,17 +108,26 @@ class WalletController extends Controller
             'currencyFilter' => in_array($currency, ['GHS', 'RMB'], true) ? $currency : 'all',
             'withdrawals' => $withdrawals,
             'hasPendingWithdrawal' => $hasPendingWithdrawal,
-            'paystackConfigured' => $this->paystack->isRechargeOffered(),
+            'paystackConfigured' => $this->safeWalletFlag(fn () => $this->paystack->isRechargeOffered()),
             'paystackPublicKey' => config('services.paystack.public_key'),
-            'paystackFee' => $this->paystack->rechargeFeePayload(),
-            'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
-            'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
-            'manualFundingAccounts' => ($funding['enabled'] && count($funding['accounts']) > 0)
-                ? $funding['accounts']
-                : [],
+            'paystackFee' => $this->safeWalletValue(fn () => $this->paystack->rechargeFeePayload(), [
+                'enabled' => false,
+                'mode' => 'percent',
+                'percent' => 0.0,
+                'flat' => 0.0,
+                'tiers' => [],
+            ]),
+            'flutterwaveConfigured' => $this->safeWalletFlag(fn () => $this->flutterwave->isAvailable()),
+            'manualTopUpEnabled' => $manualOn,
+            'manualFundingAccounts' => $manualOn ? $accounts : [],
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
-            'kyc' => KycService::payload($request->user(), withPhotos: false),
-            'canUseRmbWallet' => $request->user()->canUseRmbWallet(),
+            'kyc' => $this->safeWalletValue(fn () => KycService::payload($request->user(), withPhotos: false), [
+                'status' => 'unverified',
+                'status_label' => 'Not verified',
+                'can_store_funds' => false,
+                'can_submit' => true,
+            ]),
+            'canUseRmbWallet' => $this->safeWalletFlag(fn () => (bool) $request->user()->canUseRmbWallet()),
         ]);
     }
 
