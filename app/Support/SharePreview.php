@@ -48,6 +48,12 @@ class SharePreview
         if ($component === 'shop/store') {
             $store = is_array($props['store'] ?? null) ? $props['store'] : [];
             if ($store !== []) {
+                $customization = is_array($props['customization'] ?? null) ? $props['customization'] : [];
+                $logo = $customization['branding']['store_logo'] ?? null;
+                if (is_string($logo) && $logo !== '') {
+                    $store['store_logo'] = $logo;
+                }
+
                 return self::forStore($store, $defaults, $appUrl, $site);
             }
         }
@@ -144,7 +150,8 @@ class SharePreview
             ? $rawDesc
             : "Shop {$name} on {$site} — products from a trusted Ghana seller.";
 
-        $image = self::absoluteMediaUrl($store['shop_photo'] ?? null) ?? $defaults['image'];
+        $logo = $store['store_logo'] ?? $store['shop_photo'] ?? null;
+        $image = self::absoluteMediaUrl(is_string($logo) ? $logo : null) ?? $defaults['image'];
 
         return [
             'title' => $name.' · '.$site,

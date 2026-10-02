@@ -1,5 +1,5 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -561,78 +561,63 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                         </p>
                     ) : null}
                     {visibleServices.map((service) => (
-                        <div key={service.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <div key={service.id} className="rounded-2xl border border-gray-200 bg-white px-3 py-3">
                             <div className="flex items-start gap-3">
                                 {service.image_url ? (
                                     <img
                                         src={service.image_url}
                                         alt=""
-                                        className="h-14 w-14 shrink-0 rounded-2xl bg-slate-950 object-contain"
+                                        className="h-[52px] w-[52px] shrink-0 rounded-xl bg-slate-950 object-contain"
                                     />
                                 ) : (
-                                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-[10px] font-bold text-orange-600">
+                                    <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-xl bg-orange-50 text-[10px] font-bold text-orange-600">
                                         GSM
                                     </span>
                                 )}
                                 <div className="min-w-0 flex-1">
-                                    <h3 className="text-base font-black text-gray-900">{service.name}</h3>
+                                    <h3 className="text-[15px] font-bold leading-snug text-gray-900">{service.name}</h3>
                                     <div className="mt-2 flex flex-wrap gap-1.5">
-                                        <span className="rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-extrabold text-emerald-800">
+                                        <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-bold text-emerald-800">
                                             {formatPrice(service.price_ghs)}
                                         </span>
-                                        <span className="rounded-md bg-blue-50 px-2 py-1 text-[11px] font-extrabold uppercase text-blue-700">
+                                        <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-orange-500">
+                                            {service.service_type_label || 'GSM'}
+                                        </span>
+                                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-blue-700">
                                             {service.eta_label || 'INSTANT'}
                                         </span>
-                                        <span className="rounded-md bg-gray-100 px-2 py-1 text-[11px] font-extrabold uppercase text-gray-700">
-                                            {service.allow_quantity ? `Qty ${service.min_qty}–${service.max_qty}` : 'No quantity'}
-                                        </span>
-                                        <span
-                                            className={`rounded-md px-2 py-1 text-[11px] font-extrabold uppercase ${service.active ? 'bg-orange-50 text-orange-700' : 'bg-red-50 text-red-700'}`}
-                                        >
-                                            {service.active ? 'Active' : 'Inactive'}
-                                        </span>
                                     </div>
-                                    {service.fields.length > 0 ? (
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                            {service.fields.map((field) => (
-                                                <span
-                                                    key={field.id}
-                                                    className="rounded-md bg-orange-50 px-2 py-1 text-[11px] font-extrabold text-orange-800"
-                                                >
-                                                    {field.label}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    ) : null}
-                                    {service.description ? (
-                                        <p className="mt-2 line-clamp-2 text-sm text-gray-600">{service.description}</p>
-                                    ) : null}
                                 </div>
-                            </div>
-                            <div className="mt-3 flex gap-2">
-                                <Button type="button" className="flex-1 bg-orange-600 hover:bg-orange-700" onClick={() => startEdit(service)}>
-                                    Edit
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="border-red-200 text-red-600 hover:bg-red-50"
-                                    onClick={() => {
-                                        if (!window.confirm(`Delete “${service.name}”? Buyers will no longer see it. Existing orders stay in history.`)) {
-                                            return;
-                                        }
-                                        router.delete(route('admin.gsm-tools.services.destroy', service.id), {
-                                            preserveScroll: true,
-                                            onSuccess: () => {
-                                                if (editingId === service.id) {
-                                                    setEditingId(null);
-                                                }
-                                            },
-                                        });
-                                    }}
-                                >
-                                    Delete
-                                </Button>
+                                <div className="flex shrink-0 flex-col">
+                                    <button
+                                        type="button"
+                                        className="rounded-lg p-1.5 text-orange-600 hover:bg-orange-50"
+                                        aria-label="Edit"
+                                        onClick={() => startEdit(service)}
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="rounded-lg p-1.5 text-red-600 hover:bg-red-50"
+                                        aria-label="Delete"
+                                        onClick={() => {
+                                            if (!window.confirm(`Delete “${service.name}”? Buyers will no longer see it. Existing orders stay in history.`)) {
+                                                return;
+                                            }
+                                            router.delete(route('admin.gsm-tools.services.destroy', service.id), {
+                                                preserveScroll: true,
+                                                onSuccess: () => {
+                                                    if (editingId === service.id) {
+                                                        setEditingId(null);
+                                                    }
+                                                },
+                                            });
+                                        }}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
                             </div>
 
                             {editingId === service.id ? (

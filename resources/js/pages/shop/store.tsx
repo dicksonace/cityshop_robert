@@ -56,7 +56,8 @@ export default function StorePage({
     const storeDesc =
         store.store_description?.replace(/\s+/g, ' ').trim().slice(0, 300) ||
         `Shop ${storeName} on CityShop — products from a trusted Ghana seller.`;
-    const storeImage = store.shop_photo ? productImageUrl(store.shop_photo) : null;
+    const logoPath = customization.branding?.store_logo || store.shop_photo;
+    const storeImage = logoPath ? productImageUrl(logoPath) : null;
 
     const handleAddToCart = (productId: number) => {
         if (!auth.user) {

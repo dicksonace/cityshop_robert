@@ -26,7 +26,8 @@
     </style>
 </head>
 <body>
-    <div class="card">
+        <div class="card">
+        <img src="{{ $share['image'] }}" alt="{{ $share['image_alt'] }}" width="88" height="88" style="width:88px;height:88px;border-radius:50%;object-fit:cover;margin:0 auto 12px;display:block;background:#fff7ed;">
         <h1>{{ $heading }}</h1>
         <p>Opening this {{ $kind }} in the CityShop app…</p>
         <a href="{{ $appUrl }}">Open in app</a>

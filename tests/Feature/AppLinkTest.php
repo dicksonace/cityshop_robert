@@ -42,6 +42,28 @@ class AppLinkTest extends TestCase
             ->assertSee('/store/'.$store->slug, false);
     }
 
+    public function test_app_store_link_preview_uses_the_store_logo(): void
+    {
+        config(['app.url' => 'https://cityunlock.net']);
+
+        $store = $this->approvedStore();
+        $store->update(['shop_photo' => 'sellers/shop-front.jpg']);
+        $store->storeCustomization()->create([
+            'published_settings' => [
+                'branding' => ['store_logo' => 'stores/city-unlock-logo.png'],
+            ],
+            'draft_settings' => [],
+        ]);
+
+        $html = $this->get('/app/store/'.$store->slug)
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('property="og:image"', $html);
+        $this->assertStringContainsString('stores/city-unlock-logo.png', $html);
+        $this->assertStringNotContainsString('sellers/shop-front.jpg', $html);
+    }
+
     public function test_web_product_url_is_not_the_app_link(): void
     {
         $product = $this->visibleProduct();

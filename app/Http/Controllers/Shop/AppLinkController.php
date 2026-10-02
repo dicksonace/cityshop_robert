@@ -39,7 +39,7 @@ class AppLinkController extends Controller
             ->serviceActive()
             ->firstOrFail();
 
-        $share = SharePreview::storePreview($store->toArray());
+        $share = SharePreview::storePreview($this->storeSharePayload($store));
         $webUrl = url('/store/'.$slug);
 
         return $this->landing(
@@ -58,7 +58,7 @@ class AppLinkController extends Controller
             ->where('status', SellerStatus::Approved)
             ->firstOrFail();
 
-        $share = SharePreview::storePreview($store->toArray());
+        $share = SharePreview::storePreview($this->storeSharePayload($store));
         $share['title'] = $store->displayName().' is live · CityShop';
         $webUrl = url('/store/'.$slug);
 
@@ -91,6 +91,22 @@ class AppLinkController extends Controller
             ->json($body)
             ->header('Content-Type', 'application/json')
             ->header('Cache-Control', 'public, max-age=3600');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function storeSharePayload(SellerProfile $store): array
+    {
+        $store->loadMissing('storeCustomization');
+        $payload = $store->toArray();
+        $settings = $store->storeCustomization?->published_settings;
+        $logo = is_array($settings) ? ($settings['branding']['store_logo'] ?? null) : null;
+        if (is_string($logo) && $logo !== '') {
+            $payload['store_logo'] = $logo;
+        }
+
+        return $payload;
     }
 
     /**
