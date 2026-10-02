@@ -99,12 +99,33 @@ class SettingsController extends Controller
 
     public function paystack(): JsonResponse
     {
+        $flutterwaveKeys = [
+            'source' => 'none',
+            'configured' => false,
+            'available' => false,
+            'is_test' => false,
+            'admin_public_set' => false,
+            'admin_secret_set' => false,
+            'admin_hash_set' => false,
+            'env_public_set' => false,
+            'env_secret_set' => false,
+            'public_key_masked' => '',
+            'secret_key_masked' => '',
+            'webhook_hash_set' => false,
+        ];
+
+        try {
+            $flutterwaveKeys = PlatformSettings::flutterwaveKeysStatus();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return response()->json([
             'settings' => PlatformSettings::paystackFeeSettings(),
             'payments_locked' => PlatformSettings::paystackPaymentsLocked(),
             'paystack_payments' => PlatformSettings::paystackPaymentsSettings(),
             'flutterwave_locked' => PlatformSettings::flutterwavePaymentsLocked(),
-            'flutterwave_keys' => PlatformSettings::flutterwaveKeysStatus(),
+            'flutterwave_keys' => $flutterwaveKeys,
         ]);
     }
 

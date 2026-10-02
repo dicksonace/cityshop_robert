@@ -23,6 +23,9 @@ class PlatformSettings
     /** When locked, buyers cannot start Flutterwave checkout or wallet top-up. */
     public const FLUTTERWAVE_PAYMENTS_KEY = 'flutterwave_payments';
 
+    /** Admin-entered Flutterwave public key, secret, and webhook hash. */
+    public const FLUTTERWAVE_KEYS_KEY = 'flutterwave_api_keys';
+
     /** When false, no buyer or seller can use China / RMB, even if their own switch is on. */
     public const CHINA_RMB_ACCESS_KEY = 'china_rmb_access';
 
@@ -554,7 +557,7 @@ class PlatformSettings
         }
 
         return [
-            'public_key' => trim((string) ($decoded['public_key'] ?? '')),
+            'public_key' => static::asString($decoded['public_key'] ?? ''),
             'secret_key' => static::unsealSecret($decoded['secret_key'] ?? ''),
             'webhook_hash' => static::unsealSecret($decoded['webhook_hash'] ?? ''),
         ];
@@ -745,7 +748,7 @@ class PlatformSettings
 
     private static function unsealSecret(mixed $value): string
     {
-        $value = trim((string) $value);
+        $value = static::asString($value);
         if ($value === '') {
             return '';
         }
