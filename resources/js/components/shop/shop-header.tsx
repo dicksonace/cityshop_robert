@@ -379,7 +379,7 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                                     <DropdownMenuItem asChild>
                                         <Link href={route('security.edit')} className="flex w-full cursor-pointer items-center">
                                             <Shield className="mr-2 h-4 w-4" />
-                                            Sign-in security
+                                            Google Authenticator
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
@@ -530,7 +530,7 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                             <div className="mt-3 space-y-0.5 border-t border-gray-100 pt-3">
                                 {renderMobileNavLink({ label: 'Profile settings', href: route('profile.edit'), icon: User })}
                                 {renderMobileNavLink({ label: 'Change password', href: route('password.edit'), icon: KeyRound })}
-                                {renderMobileNavLink({ label: 'Sign-in security', href: route('security.edit'), icon: Shield })}
+                                {renderMobileNavLink({ label: 'Google Authenticator', href: route('security.edit'), icon: Shield })}
                             </div>
                             <Button
                                 variant="outline"

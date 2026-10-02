@@ -63,7 +63,7 @@ function SellerSidebar({
             />
             <div className="space-y-2 border-t border-gray-100 p-4">
                 <Link href={route('security.edit')} onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">
-                    Sign-in security
+                    Google Authenticator
                 </Link>
                 <Link href={route('home')} onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-50">
                     View marketplace →

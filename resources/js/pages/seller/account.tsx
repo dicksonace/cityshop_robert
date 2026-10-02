@@ -28,7 +28,7 @@ const links = [
     { label: 'Customize store', href: route('seller.store-appearance.index'), icon: Store, hint: 'Store logo & appearance' },
     { label: 'Followers', href: route('seller.followers.index'), icon: Users, hint: 'People following your store' },
     { label: 'Change password', href: route('password.edit'), icon: KeyRound, hint: 'Account security' },
-    { label: 'Sign-in security', href: route('security.edit'), icon: Shield, hint: 'Email codes and authenticator' },
+    { label: 'Google Authenticator', href: route('security.edit'), icon: Shield, hint: 'Email codes and authenticator QR' },
 ];
 
 export default function SellerAccount({ profile, accountMobile }: Props) {

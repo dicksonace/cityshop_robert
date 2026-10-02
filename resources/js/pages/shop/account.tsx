@@ -40,7 +40,7 @@ export default function BuyerAccount({ kyc, hasPaymentPin }: Props) {
         { label: 'Wishlist', href: route('wishlist.index'), icon: Heart, hint: 'Saved products' },
         { label: 'Following', href: route('following.index'), icon: Store, hint: 'Sellers you follow' },
         { label: 'Change password', href: route('password.edit'), icon: KeyRound, hint: 'Account security' },
-        { label: 'Sign-in security', href: route('security.edit'), icon: Shield, hint: 'Email codes and authenticator' },
+        { label: 'Google Authenticator', href: route('security.edit'), icon: Shield, hint: 'Email codes and authenticator QR' },
     ];
 
     return (

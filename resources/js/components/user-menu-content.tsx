@@ -30,7 +30,7 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
                 <DropdownMenuItem asChild>
                     <Link className="block w-full" href={route('security.edit')} as="button" prefetch onClick={cleanup}>
                         <Shield className="mr-2" />
-                        Sign-in security
+                        Google Authenticator
                     </Link>
                 </DropdownMenuItem>
             </DropdownMenuGroup>

@@ -1,5 +1,5 @@
 import { QRCodeSVG } from 'qrcode.react';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler, useState } from 'react';
 
 import HeadingSmall from '@/components/heading-small';
@@ -8,9 +8,11 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
+import AdminLayout from '@/layouts/admin-layout';
 import AppLayout from '@/layouts/app-layout';
+import SellerLayout from '@/layouts/seller-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import { type BreadcrumbItem } from '@/types';
+import { SharedData, type BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Security', href: '/settings/security' }];
 
@@ -25,35 +27,58 @@ type MfaStatus = {
 type Setup = { secret: string; otpauth_url: string } | null;
 
 export default function Security({ mfa, setup, status }: { mfa: MfaStatus; setup?: Setup; status?: string }) {
-    const [tab, setTab] = useState<'email' | 'totp'>('email');
+    const role = usePage<SharedData>().props.auth.user?.role;
+    const seller = role === 'seller';
+    const admin = role === 'admin';
+    const [tab, setTab] = useState<'email' | 'totp'>(seller || admin ? 'totp' : 'email');
     const notice = status;
+
+    const panel = (
+        <>
+            <Head title="Google Authenticator" />
+            <div className="space-y-6">
+                <HeadingSmall title="Two-factor sign-in" description="Turn on email codes, Google Authenticator, or both. You choose." />
+                {notice ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p> : null}
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === 'email' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                        onClick={() => setTab('email')}
+                    >
+                        Email / Gmail
+                    </button>
+                    <button
+                        type="button"
+                        className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === 'totp' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
+                        onClick={() => setTab('totp')}
+                    >
+                        Google Authenticator
+                    </button>
+                </div>
+                {tab === 'email' ? <EmailTab mfa={mfa} /> : <TotpTab mfa={mfa} setup={setup ?? null} />}
+            </div>
+        </>
+    );
+
+    if (seller) {
+        return (
+            <SellerLayout title="Google Authenticator" active="account">
+                {panel}
+            </SellerLayout>
+        );
+    }
+
+    if (admin) {
+        return (
+            <AdminLayout title="Google Authenticator" active="dashboard">
+                {panel}
+            </AdminLayout>
+        );
+    }
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Security" />
-            <SettingsLayout>
-                <div className="space-y-6">
-                    <HeadingSmall title="Two-factor sign-in" description="Turn on email codes, an authenticator app, or both. You choose." />
-                    {notice ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p> : null}
-                    <div className="flex gap-2">
-                        <button
-                            type="button"
-                            className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === 'email' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            onClick={() => setTab('email')}
-                        >
-                            Email / Gmail
-                        </button>
-                        <button
-                            type="button"
-                            className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === 'totp' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
-                            onClick={() => setTab('totp')}
-                        >
-                            Authenticator
-                        </button>
-                    </div>
-                    {tab === 'email' ? <EmailTab mfa={mfa} /> : <TotpTab mfa={mfa} setup={setup ?? null} />}
-                </div>
-            </SettingsLayout>
+            <SettingsLayout>{panel}</SettingsLayout>
         </AppLayout>
     );
 }

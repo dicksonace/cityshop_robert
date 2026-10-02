@@ -55,7 +55,7 @@ function PanelShell({
                     onClick={onNavigate}
                     className="block rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
                 >
-                    Sign-in security
+                    Google Authenticator
                 </Link>
                 <Link
                     href={route('home')}
