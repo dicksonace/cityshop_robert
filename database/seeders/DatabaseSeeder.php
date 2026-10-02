@@ -64,6 +64,7 @@ class DatabaseSeeder extends Seeder
             'auto-parts' => 'Auto Parts & Accessories',
             'tools-hardware' => 'Tools & Hardware',
             'pet-supplies' => 'Pet Supplies',
+            'general-goods' => 'General Goods',
         ];
 
         $sort = 1;

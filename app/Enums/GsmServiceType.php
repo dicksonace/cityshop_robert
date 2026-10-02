@@ -22,13 +22,13 @@ enum GsmServiceType: string
     }
 
     /**
-     * Place-order types (GSM Player): IMEI, Server, Remote, File, plus Credit | Box Activation.
+     * Place-order types: IMEI, Server, Remote, and File.
      *
      * @return list<self>
      */
     public static function groups(): array
     {
-        return [self::Imei, self::Server, self::Remote, self::File, self::Credit];
+        return [self::Imei, self::Server, self::Remote, self::File];
     }
 
     /**

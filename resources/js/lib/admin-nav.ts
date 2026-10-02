@@ -191,7 +191,6 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'gsm-tools-server', label: 'Server Service', href: route('admin.gsm-tools.services', { type: 'server' }) },
                 { key: 'gsm-tools-remote', label: 'Remote Service', href: route('admin.gsm-tools.services', { type: 'remote' }) },
                 { key: 'gsm-tools-file', label: 'File Service', href: route('admin.gsm-tools.services', { type: 'file' }) },
-                { key: 'gsm-tools-credit', label: 'Credit | Box Activation', href: route('admin.gsm-tools.services', { type: 'credit' }) },
                 { key: 'gsm-tools', label: 'All GSM orders', href: route('admin.gsm-tools.index'), badgeKey: 'pending_gsm_tools', defaultOnPath: true },
             ],
         },

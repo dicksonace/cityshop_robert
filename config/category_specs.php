@@ -233,4 +233,13 @@ return [
         ],
     ],
 
+    'general-goods' => [
+        'icon' => '📦',
+        'fields' => [
+            ['key' => 'product_type', 'label' => 'Type', 'type' => 'text'],
+            ['key' => 'brand', 'label' => 'Brand', 'type' => 'text'],
+            ['key' => 'condition', 'label' => 'Condition', 'type' => 'select', 'options' => ['Brand New', 'Used - Like New', 'Used']],
+        ],
+    ],
+
 ];

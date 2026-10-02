@@ -38,6 +38,7 @@ class GsmToolService
     {
         return GsmService::query()
             ->where('active', true)
+            ->where('service_type', '!=', GsmServiceType::Credit->value)
             ->with(['activeFields', 'group'])
             ->orderBy('sort_order')
             ->orderBy('id')
@@ -93,6 +94,7 @@ class GsmToolService
         if ($withServices) {
             $payload['services'] = $group->services
                 ->where('active', true)
+                ->reject(fn (GsmService $service) => $service->service_type === GsmServiceType::Credit)
                 ->map(fn (GsmService $service) => $this->servicePayload($service))
                 ->values()
                 ->all();
@@ -106,7 +108,12 @@ class GsmToolService
      */
     public function catalogGroups(?string $type = null): array
     {
-        $query = GsmServiceGroup::query()->where('active', true)->with(['services.activeFields', 'services.group'])->orderBy('sort_order')->orderBy('name');
+        $query = GsmServiceGroup::query()
+            ->where('active', true)
+            ->where('service_type', '!=', GsmServiceType::Credit->value)
+            ->with(['services.activeFields', 'services.group'])
+            ->orderBy('sort_order')
+            ->orderBy('name');
         if ($type) {
             $query->where('service_type', $type);
         }
@@ -245,7 +252,7 @@ class GsmToolService
             ->with('activeFields')
             ->first();
 
-        if (! $service) {
+        if (! $service || $service->service_type === GsmServiceType::Credit) {
             throw ValidationException::withMessages([
                 'gsm_service_id' => 'This GSM service is not available.',
             ]);
