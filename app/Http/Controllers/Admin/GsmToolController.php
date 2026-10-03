@@ -200,6 +200,18 @@ class GsmToolController extends Controller
             ->with('success', 'GSM service updated.');
     }
 
+    public function setServiceActive(Request $request, GsmService $gsmService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'active' => ['required', 'boolean'],
+        ]);
+
+        $gsmService->active = $validated['active'];
+        $gsmService->save();
+
+        return back()->with('success', $gsmService->active ? 'GSM service enabled.' : 'GSM service disabled.');
+    }
+
     public function destroyService(GsmService $gsmService): RedirectResponse
     {
         $type = ($gsmService->service_type ?? GsmServiceType::Imei)->value;

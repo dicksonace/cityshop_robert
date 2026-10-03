@@ -561,7 +561,7 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                         </p>
                     ) : null}
                     {visibleServices.map((service) => (
-                        <div key={service.id} className="rounded-2xl border border-gray-200 bg-white px-3 py-3">
+                        <div key={service.id} className={`rounded-2xl border bg-white px-3 py-3 ${service.active ? 'border-gray-200' : 'border-gray-200 opacity-70'}`}>
                             <div className="flex items-start gap-3">
                                 {service.image_url ? (
                                     <img
@@ -577,6 +577,23 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-start gap-1">
                                         <h3 className="min-w-0 flex-1 text-[15px] font-bold leading-snug text-gray-900">{service.name}</h3>
+                                        <button
+                                            type="button"
+                                            className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-extrabold ${
+                                                service.active
+                                                    ? 'text-red-700 hover:bg-red-50'
+                                                    : 'text-emerald-700 hover:bg-emerald-50'
+                                            }`}
+                                            onClick={() =>
+                                                router.post(
+                                                    route('admin.gsm-tools.services.active', service.id),
+                                                    { active: !service.active },
+                                                    { preserveScroll: true },
+                                                )
+                                            }
+                                        >
+                                            {service.active ? 'Disable' : 'Enable'}
+                                        </button>
                                         <button
                                             type="button"
                                             className="rounded-lg p-1 text-orange-600 hover:bg-orange-50"
@@ -616,6 +633,11 @@ export default function AdminGsmServices({ services, groups, fieldTypes, service
                                         <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-blue-700">
                                             {service.eta_label || 'INSTANT'}
                                         </span>
+                                        {!service.active && (
+                                            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-gray-500">
+                                                Disabled
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>

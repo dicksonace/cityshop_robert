@@ -51,7 +51,7 @@ export default function ChatLinkedText({ text, mine = false, onOpenCityShop, onC
                         );
                     }
 
-                    const href = segment.text.startsWith('www.') ? `https://${segment.text}` : segment.text;
+                    const href = /^(https?:|cityshop:)/i.test(segment.text) ? segment.text : `https://${segment.text}`;
                     return (
                         <a
                             key={index}

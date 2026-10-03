@@ -2,6 +2,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler, useMemo, useState } from 'react';
 
 import InputError from '@/components/input-error';
+import LinkedDescription from '@/components/shop/linked-description';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -225,7 +226,9 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                 {service.overview || service.description ? (
                     <section className="mt-8">
                         <h2 className="text-sm font-bold text-gray-900">Overview</h2>
-                        <p className="mt-1 whitespace-pre-line text-sm text-gray-600">{service.overview || service.description}</p>
+                        <p className="mt-1 whitespace-pre-line text-sm text-gray-600">
+                            <LinkedDescription text={service.overview || service.description || ''} />
+                        </p>
                     </section>
                 ) : null}
 
@@ -234,7 +237,9 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                         <h2 className="text-sm font-bold text-gray-900">Key Features</h2>
                         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600">
                             {service.features.map((feature) => (
-                                <li key={feature}>{feature}</li>
+                                <li key={feature}>
+                                    <LinkedDescription text={feature} />
+                                </li>
                             ))}
                         </ul>
                     </section>
@@ -243,7 +248,9 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                 {service.what_to_send ? (
                     <section className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
                         <h2 className="text-sm font-bold text-gray-900">What You Need To Send</h2>
-                        <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{service.what_to_send}</p>
+                        <p className="mt-1 whitespace-pre-line text-sm text-gray-700">
+                            <LinkedDescription text={service.what_to_send} />
+                        </p>
                     </section>
                 ) : null}
             </div>

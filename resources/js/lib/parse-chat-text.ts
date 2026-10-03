@@ -12,6 +12,8 @@ export type CityShopDeepLink = {
 };
 
 const urlPattern = /(?:https?:\/\/[^\s<>"\]]+|www\.[^\s<>"\]]+|cityshop:\/\/[^\s<>"\]]+)/gi;
+const domainPattern =
+    /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|io|co|shop|app|info|biz|me|tv|cc|gh|store|online|site|xyz|download|tools|pro|dev)(?:\/[^\s<>"\]]*)?/gi;
 const phonePattern = /(?:\+233|233|0)[\s-]*\d(?:[\s-]*\d){8}/g;
 
 function trimTrailingPunctuation(value: string): string {
@@ -25,7 +27,7 @@ function isCityShopHost(host: string): boolean {
 
 export function parseCityShopDeepLink(raw: string): CityShopDeepLink | null {
     let value = raw.trim();
-    if (value.startsWith('www.')) {
+    if (!value.includes('://')) {
         value = `https://${value}`;
     }
 
@@ -81,13 +83,22 @@ export function parseChatText(text: string): ChatTextSegment[] {
     const occupied: Array<{ start: number; end: number }> = [];
     const found: Array<{ start: number; end: number; kind: ChatTextKind }> = [];
 
-    for (const match of text.matchAll(urlPattern)) {
-        const raw = match[0];
+    const addUrl = (start: number, raw: string) => {
         const trimmed = trimTrailingPunctuation(raw);
-        const start = match.index ?? 0;
         const end = start + trimmed.length;
+        if (occupied.some((range) => start < range.end && end > range.start)) return;
         occupied.push({ start, end });
         found.push({ start, end, kind: 'url' });
+    };
+
+    for (const match of text.matchAll(urlPattern)) {
+        addUrl(match.index ?? 0, match[0]);
+    }
+
+    for (const match of text.matchAll(domainPattern)) {
+        const start = match.index ?? 0;
+        if (start > 0 && /[\w@.]/.test(text[start - 1] ?? '')) continue;
+        addUrl(start, match[0]);
     }
 
     for (const match of text.matchAll(phonePattern)) {

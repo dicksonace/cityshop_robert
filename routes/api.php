@@ -333,6 +333,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/gsm-tools/services', [AdminGsmToolController::class, 'services']);
             Route::post('/gsm-tools/services', [AdminGsmToolController::class, 'storeService']);
             Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService']);
+            Route::post('/gsm-tools/services/{gsmService}/active', [AdminGsmToolController::class, 'setServiceActive']);
             Route::delete('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'destroyService']);
             Route::post('/gsm-tools/groups', [AdminGsmToolController::class, 'storeGroup']);
             Route::delete('/gsm-tools/groups/{gsmServiceGroup}', [AdminGsmToolController::class, 'destroyGroup']);

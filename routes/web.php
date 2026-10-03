@@ -416,6 +416,7 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::get('/gsm-tools/services', [AdminGsmToolController::class, 'services'])->name('gsm-tools.services');
     Route::post('/gsm-tools/services', [AdminGsmToolController::class, 'storeService'])->name('gsm-tools.services.store');
     Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService'])->name('gsm-tools.services.update');
+    Route::post('/gsm-tools/services/{gsmService}/active', [AdminGsmToolController::class, 'setServiceActive'])->name('gsm-tools.services.active');
     Route::delete('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'destroyService'])->name('gsm-tools.services.destroy');
     Route::post('/gsm-tools/groups', [AdminGsmToolController::class, 'storeGroup'])->name('gsm-tools.groups.store');
     Route::post('/gsm-tools/groups/{gsmServiceGroup}', [AdminGsmToolController::class, 'updateGroup'])->name('gsm-tools.groups.update');

@@ -180,6 +180,20 @@ class GsmToolController extends Controller
         return response()->json(['service' => $this->gsm->servicePayload($service->load('fields'))]);
     }
 
+    public function setServiceActive(Request $request, GsmService $gsmService): JsonResponse
+    {
+        $validated = $request->validate([
+            'active' => ['required', 'boolean'],
+        ]);
+
+        $gsmService->active = $validated['active'];
+        $gsmService->save();
+
+        return response()->json([
+            'service' => $this->gsm->servicePayload($gsmService->load('fields')),
+        ]);
+    }
+
     public function destroyService(GsmService $gsmService): JsonResponse
     {
         $this->gsm->deleteService($gsmService);

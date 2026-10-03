@@ -8,6 +8,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { MapPin, MessageSquare, Package, ShoppingBag, Store, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import LinkedDescription from '@/components/shop/linked-description';
 import ProductCard from '@/components/shop/product-card';
 import ProductEngagementStats from '@/components/shop/product-engagement-stats';
 import ProductImageGallery from '@/components/shop/product-image-gallery';
@@ -215,7 +216,9 @@ export default function ProductShow({ product, cashOnDelivery, related, reviews,
                         <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-slate-100 bg-gradient-to-b from-slate-50/90 to-white shadow-sm">
                             <div className="border-b border-slate-100 px-4 py-4">
                                 {product.description ? (
-                                    <p className="text-[15px] leading-relaxed text-slate-700">{product.description}</p>
+                                    <p className="whitespace-pre-line text-[15px] leading-relaxed text-slate-700">
+                                        <LinkedDescription text={product.description} />
+                                    </p>
                                 ) : (
                                     <p className="text-sm text-slate-400">No description provided.</p>
                                 )}
