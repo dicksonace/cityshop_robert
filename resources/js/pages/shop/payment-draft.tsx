@@ -42,7 +42,7 @@ export default function PaymentDraft({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [gateway, setGateway] = useState<'paystack' | 'flutterwave'>(
-        paystackConfigured ? 'paystack' : 'flutterwave',
+        flutterwaveConfigured ? 'flutterwave' : 'paystack',
     );
 
     useEffect(() => {
@@ -57,8 +57,8 @@ export default function PaymentDraft({
     }, [paystackConfigured]);
 
     useEffect(() => {
-        if (paystackConfigured) setGateway('paystack');
-        else if (flutterwaveConfigured) setGateway('flutterwave');
+        if (flutterwaveConfigured) setGateway('flutterwave');
+        else if (paystackConfigured) setGateway('paystack');
     }, [paystackConfigured, flutterwaveConfigured]);
 
     const payWithPaystack = useCallback(async () => {
@@ -155,17 +155,6 @@ export default function PaymentDraft({
                                     <div className="mt-3 grid grid-cols-2 gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => setGateway('paystack')}
-                                            className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
-                                                gateway === 'paystack'
-                                                    ? 'border-orange-500 bg-white text-orange-700'
-                                                    : 'border-transparent bg-white/50 text-gray-600'
-                                            }`}
-                                        >
-                                            Paystack
-                                        </button>
-                                        <button
-                                            type="button"
                                             onClick={() => setGateway('flutterwave')}
                                             className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
                                                 gateway === 'flutterwave'
@@ -174,6 +163,17 @@ export default function PaymentDraft({
                                             }`}
                                         >
                                             Flutterwave
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGateway('paystack')}
+                                            className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                                                gateway === 'paystack'
+                                                    ? 'border-orange-500 bg-white text-orange-700'
+                                                    : 'border-transparent bg-white/50 text-gray-600'
+                                            }`}
+                                        >
+                                            Paystack
                                         </button>
                                     </div>
                                 )}

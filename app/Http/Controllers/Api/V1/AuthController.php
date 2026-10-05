@@ -198,7 +198,8 @@ class AuthController extends Controller
                 'mfa_required' => true,
                 'mfa_token' => $mfa->issueApiChallenge($user, $portal, $validated['device_name'] ?? null),
                 'methods' => $mfa->methods($user),
-                'email_hint' => $mfa->emailHint($user),
+                'email_hint' => $mfa->destinationHint($user),
+                'code_channel' => $mfa->codeChannel(),
             ]);
         }
 

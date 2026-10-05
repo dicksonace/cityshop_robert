@@ -6,9 +6,12 @@ use App\Enums\GsmServiceType;
 use App\Http\Controllers\Controller;
 use App\Models\GsmOrder;
 use App\Models\GsmService;
+use App\Services\FlutterwaveService;
 use App\Services\GsmToolService;
 use App\Services\KycService;
 use App\Services\PaymentPinService;
+use App\Services\PaystackService;
+use App\Services\PlatformSettings;
 use App\Services\WalletService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,15 +22,51 @@ class GsmToolController extends Controller
 {
     public function __construct(private GsmToolService $gsm) {}
 
+    private function safeFlag(callable $callback): bool
+    {
+        try {
+            return (bool) $callback();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
+    }
+
+    private function safeValue(callable $callback, mixed $fallback): mixed
+    {
+        try {
+            return $callback();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return $fallback;
+        }
+    }
+
     public function index(Request $request): Response
     {
         $user = $request->user();
+
+        $funding = ['enabled' => false, 'accounts' => []];
+        try {
+            $funding = PlatformSettings::manualFundingAccounts();
+        } catch (\Throwable $e) {
+            report($e);
+        }
+        $accounts = is_array($funding['accounts'] ?? null) ? $funding['accounts'] : [];
+        $manualOn = (bool) ($funding['enabled'] ?? false) && count($accounts) > 0;
 
         return Inertia::render('shop/gsm-tools/index', [
             'services' => $this->gsm->activeServices()->map(fn (GsmService $s) => $this->gsm->servicePayload($s))->values()->all(),
             'groups' => $this->gsm->catalogGroups(),
             'serviceTypes' => GsmServiceType::options(),
             'wallet' => $user ? WalletService::ensure($user)->toFrontendArray() : null,
+            'paystackConfigured' => $user && $this->safeFlag(fn () => app(PaystackService::class)->isRechargeOffered()),
+            'flutterwaveConfigured' => $user && $this->safeFlag(fn () => app(FlutterwaveService::class)->isAvailable()),
+            'paystackFee' => $user ? $this->safeValue(fn () => app(PaystackService::class)->rechargeFeePayload(), null) : null,
+            'manualTopUpEnabled' => $manualOn,
+            'manualFundingAccounts' => $manualOn ? $accounts : [],
         ]);
     }
 

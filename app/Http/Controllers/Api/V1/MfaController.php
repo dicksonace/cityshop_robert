@@ -26,7 +26,7 @@ class MfaController extends Controller
         $this->mfa->sendEmailCode($user, 'setup');
 
         return response()->json([
-            'message' => 'A code was sent to '.$this->mfa->emailHint($user).'.',
+            'message' => $this->mfa->sentMessage($user),
             'email_hint' => $this->mfa->emailHint($user),
         ]);
     }
@@ -135,7 +135,7 @@ class MfaController extends Controller
         $this->mfa->sendEmailCode($user);
 
         return response()->json([
-            'message' => 'A new code was sent to '.$this->mfa->emailHint($user).'.',
+            'message' => $this->mfa->sentMessage($user),
         ]);
     }
 }

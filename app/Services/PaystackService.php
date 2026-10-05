@@ -252,7 +252,9 @@ class PaystackService
         ?string $callbackUrl = null,
         ?User $customer = null,
     ): array {
-        $purpose = ($metadata['type'] ?? '') === 'wallet_topup' ? 'recharge' : 'checkout';
+        $purpose = in_array(($metadata['type'] ?? ''), ['wallet_topup', 'qr_direct_pay'], true)
+            ? 'recharge'
+            : 'checkout';
         if ($purpose === 'recharge' && ! $this->isRechargeOffered()) {
             throw new \RuntimeException($this->unavailableMessage('recharge'));
         }

@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 
 import BuyerMobileNav from '@/components/shop/buyer-mobile-nav';
 import ShopHeader from '@/components/shop/shop-header';
@@ -28,9 +28,22 @@ export default function ShopLayout({
     const showBuyerNav = !hideChrome && auth.user?.role === 'buyer';
     const component = typeof page.component === 'string' ? page.component : '';
     const hasValidationErrors = Object.keys(page.props.errors ?? {}).length > 0;
+    const flashKey = `${flash?.success ?? ''}\n${flash?.error ?? ''}`;
+    const [flashVisible, setFlashVisible] = useState(flashKey.trim() !== '');
+
+    useEffect(() => {
+        if (flashKey.trim() === '') {
+            setFlashVisible(false);
+            return;
+        }
+        setFlashVisible(true);
+        const timer = window.setTimeout(() => setFlashVisible(false), 4000);
+        return () => window.clearTimeout(timer);
+    }, [flashKey]);
+
     // Auth/forms already show errors next to the fields — don't duplicate as a top banner.
     const showLayoutError =
-        Boolean(flash?.error) && !hideFlash && !hideFlashError && !hasValidationErrors && !component.startsWith('auth/');
+        flashVisible && Boolean(flash?.error) && !hideFlash && !hideFlashError && !hasValidationErrors && !component.startsWith('auth/');
 
     // Prevent a stuck horizontal scroll offset (looks like content "shifted" with empty space on one side).
     useEffect(() => {
@@ -54,7 +67,7 @@ export default function ShopLayout({
                     <ShopHeader hideSearch={hideHeaderSearch} />
                 </div>
             )}
-            {!hideChrome && !hideFlash && flash?.success && (
+            {!hideChrome && !hideFlash && flashVisible && flash?.success && (
                 <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-800 print:hidden">
                     {flash.success}
                 </div>

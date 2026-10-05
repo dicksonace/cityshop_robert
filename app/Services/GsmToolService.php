@@ -862,14 +862,6 @@ class GsmToolService
     private function notifyAdminsNewOrder(GsmOrder $order): void
     {
         try {
-            $body = $order->service_name.' · '.$order->reference.' · GH₵'.number_format((float) $order->price_ghs, 2);
-            foreach (AdminNotifier::users() as $admin) {
-                AppNotificationService::send($admin, 'gsm_tools', 'New GSM Tools order', $body, [
-                    'gsm_order_id' => $order->id,
-                    'path' => '/gsm-tools/'.$order->id,
-                ]);
-            }
-
             AdminNotifier::notify(new GsmOrderAdminNotification($order));
         } catch (\Throwable $e) {
             report($e);

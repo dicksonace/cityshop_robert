@@ -1,8 +1,7 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 import ShopLayout from '@/layouts/shop-layout';
-import { SharedData } from '@/types';
 import { formatPrice } from '@/types/marketplace';
 
 type Reply = { id: number; body: string; admin: string | null; created_at: string | null };
@@ -64,7 +63,6 @@ function statusLabel(status: string, fallback?: string): string {
 }
 
 export default function GsmToolShow({ order }: Props) {
-    const { flash } = usePage<SharedData>().props;
     const replies = order.replies ?? [];
     const status = displayStatus(order.status);
     const open = order.status === 'pending' || order.status === 'processing';
@@ -73,7 +71,7 @@ export default function GsmToolShow({ order }: Props) {
     const refreshOrder = () => {
         setChecking(true);
         router.reload({
-            only: ['order'],
+            only: ['order', 'flash'],
             preserveScroll: true,
             onFinish: () => setChecking(false),
         });
@@ -124,14 +122,6 @@ export default function GsmToolShow({ order }: Props) {
                         {open ? <p className="mt-1 text-xs font-semibold text-orange-800">Processing now. Watch System Reply below.</p> : null}
                     </div>
                 </section>
-
-                {(flash?.success || flash?.error) && (
-                    <div
-                        className={`mt-4 rounded-xl border px-3 py-2 text-sm ${flash.success ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}
-                    >
-                        {flash.success ?? flash.error}
-                    </div>
-                )}
 
                 <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <h2 className="text-sm font-black text-gray-900">Your details</h2>

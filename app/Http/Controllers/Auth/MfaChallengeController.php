@@ -35,7 +35,8 @@ class MfaChallengeController extends Controller
 
         return Inertia::render('auth/mfa', [
             'methods' => $this->mfa->methods($user),
-            'emailHint' => $this->mfa->emailHint($user),
+            'emailHint' => $this->mfa->destinationHint($user),
+            'codeChannel' => $this->mfa->codeChannel(),
             'portal' => $pending['portal'],
         ]);
     }
@@ -86,7 +87,7 @@ class MfaChallengeController extends Controller
             return back()->withErrors($e->errors());
         }
 
-        return back()->with('success', 'A new code was sent to your email.');
+        return back()->with('success', $this->mfa->sentMessage($user));
     }
 
     /**

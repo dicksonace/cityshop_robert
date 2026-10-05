@@ -99,7 +99,7 @@ class WalletService
         return $wallet->fresh();
     }
 
-    public static function creditFromVerifiedTopUp(int $userId, float $amount, string $reference, string $method): bool
+    public static function creditFromVerifiedTopUp(int $userId, float $amount, string $reference, string $method, bool $notify = true): bool
     {
         $available = DB::transaction(function () use ($userId, $amount, $reference, $method) {
             if (WalletTransaction::where('reference', $reference)->exists()) {
@@ -125,7 +125,7 @@ class WalletService
             return (float) $wallet->available_balance;
         });
 
-        if ($available !== null) {
+        if ($available !== null && $notify) {
             $user = User::query()->find($userId);
             try {
                 $user?->notify(new WalletFundedNotification(
@@ -154,7 +154,7 @@ class WalletService
      *
      * @throws \RuntimeException when balance is insufficient or users are invalid
      */
-    public static function transfer(User $from, User $to, float $amount, ?string $note = null): array
+    public static function transfer(User $from, User $to, float $amount, ?string $note = null, ?string $reference = null): array
     {
         if ($from->id === $to->id) {
             throw new \RuntimeException('You cannot transfer money to yourself.');
@@ -180,7 +180,7 @@ class WalletService
             throw new \RuntimeException('Note must be 120 characters or fewer.');
         }
 
-        $result = DB::transaction(function () use ($from, $to, $amount, $note) {
+        $result = DB::transaction(function () use ($from, $to, $amount, $note, $reference) {
             static::ensure($from);
             static::ensure($to);
 
@@ -202,6 +202,25 @@ class WalletService
                 throw new \RuntimeException('Could not load wallets for this transfer.');
             }
 
+            if ($reference !== null && $reference !== '') {
+                $alreadySent = WalletTransaction::query()
+                    ->where('reference', $reference)
+                    ->where('user_id', $from->id)
+                    ->where('type', WalletTransactionType::TransferOut)
+                    ->exists();
+                if ($alreadySent) {
+                    return [
+                        'reference' => $reference,
+                        'amount' => round($amount, 2),
+                        'note' => $note,
+                        'currency' => 'GHS',
+                        'already' => true,
+                    ];
+                }
+            } else {
+                $reference = 'TRF-'.strtoupper(bin2hex(random_bytes(6)));
+            }
+
             $available = (float) $senderWallet->available_balance;
             if ($available + 0.0001 < $amount) {
                 throw new \RuntimeException(
@@ -209,8 +228,6 @@ class WalletService
                     .' but this transfer needs GH₵'.number_format($amount, 2).'.'
                 );
             }
-
-            $reference = 'TRF-'.strtoupper(bin2hex(random_bytes(6)));
 
             $senderWallet->decrement('available_balance', $amount);
             $recipientWallet->increment('available_balance', $amount);
@@ -243,17 +260,19 @@ class WalletService
             ];
         });
 
-        try {
-            $to->notify(new WalletTransferReceivedNotification(
-                $from,
-                (float) $result['amount'],
-                $result['reference'],
-                $result['note'],
-                (float) $result['recipient_available'],
-                now('Africa/Accra'),
-            ));
-        } catch (\Throwable $e) {
-            report($e);
+        if (empty($result['already'])) {
+            try {
+                $to->notify(new WalletTransferReceivedNotification(
+                    $from,
+                    (float) $result['amount'],
+                    $result['reference'],
+                    $result['note'],
+                    (float) ($result['recipient_available'] ?? 0),
+                    now('Africa/Accra'),
+                ));
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return $result;

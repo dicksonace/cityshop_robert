@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { FormEventHandler, useMemo, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ShopLayout from '@/layouts/shop-layout';
-import { SharedData } from '@/types';
 import { formatPrice } from '@/types/marketplace';
 
 type Field = {
@@ -43,7 +42,6 @@ interface Props {
 }
 
 export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) {
-    const { flash } = usePage<SharedData>().props;
     const [pin, setPin] = useState('');
     const [qty, setQty] = useState(service.min_qty || 1);
     const min = Math.max(1, service.min_qty || 1);
@@ -120,12 +118,6 @@ export default function GsmToolOrder({ service, wallet, hasPaymentPin }: Props) 
                         You don&apos;t have enough balance. Please top up your wallet.
                     </div>
                 ) : null}
-
-                {(flash?.success || flash?.error) && (
-                    <div className={`mt-3 rounded-xl border px-3 py-2 text-sm ${flash.success ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
-                        {flash.success ?? flash.error}
-                    </div>
-                )}
 
                 <form onSubmit={submit} className="mt-5 space-y-4">
                     {service.allow_quantity ? (

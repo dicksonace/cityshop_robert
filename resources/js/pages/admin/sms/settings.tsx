@@ -18,6 +18,7 @@ interface Props {
     settings: {
         driver: 'formula_dc' | 'txtconnect';
         failover: boolean;
+        code_channel?: 'sms' | 'email' | 'both';
         alert_mobile_1?: string;
         alert_mobile_2?: string;
         alert_mobile_3?: string;
@@ -31,6 +32,7 @@ export default function SmsSettings({ settings, providers }: Props) {
     const form = useForm({
         driver: settings.driver,
         failover: settings.failover,
+        code_channel: settings.code_channel ?? 'sms',
         alert_mobile_1: settings.alert_mobile_1 ?? '',
         alert_mobile_2: settings.alert_mobile_2 ?? '',
         alert_mobile_3: settings.alert_mobile_3 ?? '',
@@ -104,6 +106,36 @@ export default function SmsSettings({ settings, providers }: Props) {
                             </span>
                         </span>
                     </label>
+
+                    <div className="space-y-3">
+                        <Label>Sign-in codes go by</Label>
+                        {(
+                            [
+                                ['sms', 'SMS', 'Text the code to the person’s phone. Use this while email is unreliable.'],
+                                ['email', 'Email', 'Send the code to their inbox.'],
+                                ['both', 'SMS and email', 'Send the same code both ways.'],
+                            ] as const
+                        ).map(([value, label, help]) => (
+                            <label
+                                key={value}
+                                className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${
+                                    form.data.code_channel === value ? 'border-orange-400 bg-orange-50' : 'border-gray-200'
+                                }`}
+                            >
+                                <input
+                                    type="radio"
+                                    name="code_channel"
+                                    className="mt-1"
+                                    checked={form.data.code_channel === value}
+                                    onChange={() => form.setData('code_channel', value)}
+                                />
+                                <span>
+                                    <span className="block font-semibold text-gray-900">{label}</span>
+                                    <span className="mt-0.5 block text-xs text-gray-500">{help}</span>
+                                </span>
+                            </label>
+                        ))}
+                    </div>
 
                     <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-4">
                         <div>

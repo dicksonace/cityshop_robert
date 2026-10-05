@@ -31,7 +31,7 @@ class TwoFactorController extends Controller
         $this->mfa->assertPassword($user, $validated['password']);
         $this->mfa->sendEmailCode($user, 'setup');
 
-        return back()->with('status', 'A code was sent to '.$this->mfa->emailHint($user).'.');
+        return back()->with('status', $this->mfa->sentMessage($user));
     }
 
     public function confirmEmail(Request $request): RedirectResponse
@@ -43,7 +43,11 @@ class TwoFactorController extends Controller
         $this->mfa->verifyEmailCode($user, $validated['code'], 'setup');
         $this->mfa->enableEmail($user);
 
-        return back()->with('status', 'Email sign-in codes are on.');
+        return back()->with('status', match ($this->mfa->codeChannel()) {
+            'email' => 'Email sign-in codes are on.',
+            'both' => 'SMS and email sign-in codes are on.',
+            default => 'SMS sign-in codes are on.',
+        });
     }
 
     public function disableEmail(Request $request): RedirectResponse

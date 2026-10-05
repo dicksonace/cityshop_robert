@@ -33,7 +33,11 @@ class SmsChannel
 
         $phones = method_exists($notification, 'smsRecipients')
             ? $notification->smsRecipients($notifiable)
-            : [$notifiable->mobile ?? $notifiable->phone ?? null];
+            : [
+                $notifiable->mobile ?? null,
+                $notifiable->whatsapp ?? null,
+                $notifiable->phone ?? null,
+            ];
 
         $sent = [];
         foreach ($phones as $phone) {

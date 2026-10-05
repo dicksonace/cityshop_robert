@@ -2,8 +2,8 @@
 
 namespace App\Notifications;
 
-use App\Channels\SmsChannel;
 use App\Models\Withdrawal;
+use App\Services\AdminNotifier;
 use App\Support\NotificationPrivacy;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -14,12 +14,7 @@ class AdminWithdrawalRequestedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        $channels = ['mail'];
-        if (filled($notifiable->mobile ?? null)) {
-            $channels[] = SmsChannel::class;
-        }
-
-        return $channels;
+        return AdminNotifier::channels($notifiable);
     }
 
     public function toMail(object $notifiable): MailMessage

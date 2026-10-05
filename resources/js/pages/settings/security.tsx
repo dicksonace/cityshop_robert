@@ -20,6 +20,10 @@ type MfaStatus = {
     email: string | null;
     email_hint: string | null;
     has_email: boolean;
+    mobile?: string | null;
+    mobile_hint?: string | null;
+    has_mobile?: boolean;
+    code_channel?: 'sms' | 'email' | 'both';
     email_enabled: boolean;
     totp_enabled: boolean;
 };
@@ -32,12 +36,14 @@ export default function Security({ mfa, setup, status }: { mfa: MfaStatus; setup
     const admin = role === 'admin';
     const [tab, setTab] = useState<'email' | 'totp'>(seller || admin ? 'totp' : 'email');
     const notice = status;
+    const channel = mfa.code_channel ?? 'sms';
+    const codeLabel = channel === 'email' ? 'Email / Gmail' : channel === 'both' ? 'SMS or email' : 'SMS';
 
     const panel = (
         <>
             <Head title="Google Authenticator" />
             <div className="space-y-6">
-                <HeadingSmall title="Two-factor sign-in" description="Turn on email codes, Google Authenticator, or both. You choose." />
+                <HeadingSmall title="Two-factor sign-in" description="Turn on SMS codes, Google Authenticator, or both. You choose." />
                 {notice ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p> : null}
                 <div className="flex gap-2">
                     <button
@@ -45,7 +51,7 @@ export default function Security({ mfa, setup, status }: { mfa: MfaStatus; setup
                         className={`rounded-full px-4 py-1.5 text-sm font-semibold ${tab === 'email' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
                         onClick={() => setTab('email')}
                     >
-                        Email / Gmail
+                        {codeLabel}
                     </button>
                     <button
                         type="button"
@@ -87,6 +93,14 @@ function EmailTab({ mfa }: { mfa: MfaStatus }) {
     const send = useForm({ password: '' });
     const confirm = useForm({ code: '' });
     const disable = useForm({ password: '' });
+    const channel = mfa.code_channel ?? 'sms';
+    const viaSms = channel !== 'email';
+    const ready = channel === 'both' ? Boolean(mfa.has_mobile || mfa.has_email) : viaSms ? Boolean(mfa.has_mobile) : Boolean(mfa.has_email);
+    const where = channel === 'both' ? `${mfa.mobile || 'your phone'} and ${mfa.email || 'your email'}` : viaSms ? mfa.mobile || 'your phone' : mfa.email || 'your email';
+    const sendLabel = channel === 'both' ? 'Send me a code' : viaSms ? 'Text me a code' : 'Email me a code';
+    const onLabel = channel === 'email' ? 'Turn on email codes' : channel === 'both' ? 'Turn on codes' : 'Turn on SMS codes';
+    const offLabel = channel === 'email' ? 'Turn off email codes' : channel === 'both' ? 'Turn off codes' : 'Turn off SMS codes';
+    const codeFrom = channel === 'email' ? 'Code from the email' : channel === 'both' ? 'Code from the message' : 'Code from the text';
 
     const submitSend: FormEventHandler = (e) => {
         e.preventDefault();
@@ -101,21 +115,25 @@ function EmailTab({ mfa }: { mfa: MfaStatus }) {
         disable.delete(route('security.email.disable'), { onSuccess: () => disable.reset('password') });
     };
 
-    if (!mfa.has_email) {
-        return <p className="text-sm text-gray-600">Add an email on your profile first. Gmail and other inboxes both receive the code.</p>;
+    if (!ready) {
+        return (
+            <p className="text-sm text-gray-600">
+                {viaSms ? 'Add a phone number on your profile first. Codes are sent by SMS.' : 'Add an email on your profile first.'}
+            </p>
+        );
     }
 
     if (mfa.email_enabled) {
         return (
             <form onSubmit={submitDisable} className="space-y-3">
-                <p className="text-sm text-gray-600">Email codes are on. Sign-in codes go to {mfa.email_hint}.</p>
+                <p className="text-sm text-gray-600">Sign-in codes are on. They go to {where}.</p>
                 <div>
                     <Label>Password to turn this off</Label>
                     <PasswordInput className="mt-1" value={disable.data.password} onChange={(e) => disable.setData('password', e.target.value)} />
                     <InputError message={disable.errors.password} />
                 </div>
                 <Button type="submit" variant="outline" disabled={disable.processing}>
-                    Turn off email codes
+                    {offLabel}
                 </Button>
             </form>
         );
@@ -124,24 +142,24 @@ function EmailTab({ mfa }: { mfa: MfaStatus }) {
     return (
         <div className="space-y-6">
             <form onSubmit={submitSend} className="space-y-3">
-                <p className="text-sm text-gray-600">We email a 6-digit code to {mfa.email}. That includes Gmail.</p>
+                <p className="text-sm text-gray-600">We send a 6-digit code to {where}.</p>
                 <div>
                     <Label>Current password</Label>
                     <PasswordInput className="mt-1" value={send.data.password} onChange={(e) => send.setData('password', e.target.value)} />
                     <InputError message={send.errors.password} />
                 </div>
                 <Button type="submit" className="bg-orange-500 hover:bg-orange-600" disabled={send.processing}>
-                    Email me a code
+                    {sendLabel}
                 </Button>
             </form>
             <form onSubmit={submitConfirm} className="space-y-3">
                 <div>
-                    <Label htmlFor="email-code">Code from the email</Label>
+                    <Label htmlFor="email-code">{codeFrom}</Label>
                     <OtpCodeInput id="email-code" value={confirm.data.code} onChange={(code) => confirm.setData('code', code)} disabled={confirm.processing} />
                     <InputError message={confirm.errors.code} />
                 </div>
                 <Button type="submit" disabled={confirm.processing}>
-                    Turn on email codes
+                    {onLabel}
                 </Button>
             </form>
         </div>

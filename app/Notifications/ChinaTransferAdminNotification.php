@@ -2,8 +2,8 @@
 
 namespace App\Notifications;
 
-use App\Channels\SmsChannel;
 use App\Enums\ChinaTransferStatus;
+use App\Services\AdminNotifier;
 use App\Models\ChinaTransfer;
 use App\Support\NotificationPrivacy;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -18,12 +18,7 @@ class ChinaTransferAdminNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        $channels = ['mail'];
-        if (filled($notifiable->mobile ?? null)) {
-            $channels[] = SmsChannel::class;
-        }
-
-        return $channels;
+        return AdminNotifier::channels($notifiable);
     }
 
     public function toMail(object $notifiable): MailMessage

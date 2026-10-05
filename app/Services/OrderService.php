@@ -1303,8 +1303,7 @@ class OrderService
                 );
             }
 
-            $admins = User::where('role', UserRole::Admin)->get();
-            Notification::send($admins, new DisputeOpenedNotification($dispute));
+            AdminNotifier::notify(new DisputeOpenedNotification($dispute));
         });
     }
 

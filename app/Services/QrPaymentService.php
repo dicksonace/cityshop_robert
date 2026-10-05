@@ -204,6 +204,90 @@ class QrPaymentService
     }
 
     /**
+     * Mobile Money or card paid the QR amount. Credit the payer, then send that
+     * same amount straight to the person on the QR. Safe to call twice.
+     *
+     * @return array{reference: string, amount: float, note: ?string, currency: string, recipient: array<string, mixed>, already?: bool, conversation_id?: int|null}
+     */
+    public static function settleGatewayPayment(
+        User $payer,
+        int $recipientId,
+        float $amount,
+        string $gatewayReference,
+        string $method,
+        ?string $note = null,
+    ): array {
+        $recipient = User::query()
+            ->whereKey($recipientId)
+            ->where('role', '!=', UserRole::Admin)
+            ->first();
+
+        if (! $recipient) {
+            throw new \RuntimeException('No CityShop account found for this payment.');
+        }
+
+        if ($payer->id === $recipient->id) {
+            throw new \RuntimeException('You cannot pay your own QR code.');
+        }
+
+        $safeRef = preg_replace('/[^A-Za-z0-9]/', '', $gatewayReference) ?: 'PAY';
+        $transferNote = trim((string) $note);
+        if ($transferNote === '') {
+            $transferNote = 'QR Code payment';
+        }
+
+        WalletService::creditFromVerifiedTopUp($payer->id, $amount, 'QRIN-'.$safeRef, $method, false);
+        $transfer = WalletService::transfer($payer, $recipient, $amount, $transferNote, 'QRPAY-'.$safeRef);
+
+        $conversationId = null;
+        if (empty($transfer['already'])) {
+            try {
+                $conversation = ChatService::findOrCreateConversation($payer, $recipient);
+                $amountLabel = 'GH₵'.number_format($transfer['amount'], 2);
+                $body = $transfer['note']
+                    ? "Transferred {$amountLabel} — {$transfer['note']}"
+                    : "Transferred {$amountLabel}";
+
+                ChatService::sendMessage(
+                    $conversation,
+                    $payer,
+                    $body,
+                    MessageType::Transfer,
+                    [
+                        'transfer' => [
+                            'amount' => $transfer['amount'],
+                            'currency' => 'GHS',
+                            'note' => $transfer['note'],
+                            'reference' => $transfer['reference'],
+                            'from_user_id' => $payer->id,
+                            'to_user_id' => $recipient->id,
+                            'from_name' => $payer->name,
+                            'to_name' => $recipient->name,
+                            'via' => 'qr',
+                            'funded_by' => $method,
+                        ],
+                    ],
+                );
+                $conversationId = $conversation->id;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
+            try {
+                AppNotificationService::notifyQrPayment($payer, $recipient, $transfer, $conversationId);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return [
+            ...$transfer,
+            'recipient' => self::publicUser($recipient),
+            'conversation_id' => $conversationId,
+        ];
+    }
+
+    /**
      * @return array{id: int, name: string, mobile: ?string, role: ?string, avatar: ?string}
      */
     public static function publicUser(User $user): array

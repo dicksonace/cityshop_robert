@@ -325,6 +325,15 @@ class SellerRegisterController extends Controller
 
             $invites->markUsed($invite, $sellerProfile);
 
+            try {
+                \App\Services\AdminNotifier::notify(new \App\Notifications\AdminSellerApplicationNotification(
+                    $user,
+                    (string) ($sellerProfile->store_name ?: $sellerProfile->business_name ?: $user->name),
+                ));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
             if (! $existingUser) {
                 event(new Registered($user));
             }

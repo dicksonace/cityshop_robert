@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Api\V1\QrPaymentController;
 use App\Models\Checkout;
 use App\Models\Order;
+use App\Models\User;
 use App\Services\CheckoutPaymentVerifier;
 use App\Services\OrderService;
 use App\Services\PaystackService;
@@ -68,6 +70,23 @@ class PaystackWebhookController extends Controller
 
                     if ($userId > 0 && $credit > 0) {
                         WalletService::creditFromVerifiedTopUp($userId, $credit, $data['reference'], $method);
+                    }
+
+                    return response('OK', 200);
+                }
+
+                if (($metadata['type'] ?? '') === 'qr_direct_pay') {
+                    $payer = User::query()->find((int) ($metadata['user_id'] ?? 0));
+                    $reference = (string) ($data['reference'] ?? '');
+                    if ($payer && $reference !== '') {
+                        try {
+                            QrPaymentController::settlePaystack($payer, $reference, $this->paystack);
+                        } catch (\Throwable $e) {
+                            Log::warning('Paystack QR direct pay failed', [
+                                'reference' => $reference,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
                     }
 
                     return response('OK', 200);

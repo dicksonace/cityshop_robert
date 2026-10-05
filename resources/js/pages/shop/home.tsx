@@ -29,7 +29,6 @@ interface HomeProps {
     priceRange: { min: number; max: number };
     filters: ShopFilters;
     counts: { in_ghana: number; free_ship: number; total: number };
-    heroSlides: { title: string; subtitle: string; accent: string }[];
     hasSaleProducts?: boolean;
     liveNow?: LiveNowCard[];
 }
@@ -49,7 +48,7 @@ const quickFilters = [
     { key: 'free_ship', label: 'Free Delivery', param: { free_ship: true } },
 ];
 
-export default function Home({ products, categories, brands, priceRange, filters, counts, heroSlides, hasSaleProducts = false, liveNow = [] }: HomeProps) {
+export default function Home({ products, categories, brands, priceRange, filters, counts, hasSaleProducts = false, liveNow = [] }: HomeProps) {
     const { auth, livestreamEnabled } = usePage<SharedData>().props;
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -75,7 +74,7 @@ export default function Home({ products, categories, brands, priceRange, filters
                 description="Discover products from trusted Ghana sellers. Free delivery options, secure checkout, and local stores on CityShop."
                 url="/"
             />
-            <HeroBanner slides={heroSlides} />
+            <HeroBanner />
 
             <HomeCategoryShortcuts
                 categories={categories}

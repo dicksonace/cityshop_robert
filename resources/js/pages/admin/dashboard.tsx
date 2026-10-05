@@ -28,6 +28,7 @@ interface AdminDashboardProps {
     recentOrders: (Order & { buyer: { name: string } })[];
     pendingSellers: (SellerProfile & { user: { name: string; email: string } })[];
     pendingWithdrawals: PendingWithdrawalRow[];
+    alerts?: { id: number; title: string; body: string | null; created_at: string | null }[];
 }
 
 export default function AdminDashboard({
@@ -35,6 +36,7 @@ export default function AdminDashboard({
     recentOrders,
     pendingSellers,
     pendingWithdrawals = [],
+    alerts = [],
 }: AdminDashboardProps) {
     const cards: {
         label: string;
@@ -73,6 +75,16 @@ export default function AdminDashboard({
     return (
         <AdminLayout title="Admin Panel" active="dashboard">
             <Head title="Admin Dashboard" />
+            {alerts.length > 0 ? (
+                <div className="mb-4 space-y-2">
+                    {alerts.map((alert) => (
+                        <div key={alert.id} className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+                            <p className="text-sm font-extrabold text-orange-950">{alert.title}</p>
+                            {alert.body ? <p className="mt-1 text-sm text-orange-900">{alert.body}</p> : null}
+                        </div>
+                    ))}
+                </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {cards.map((card) => {
                     const inner = (

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Api\V1\QrPaymentController;
 use App\Models\Checkout;
+use App\Models\User;
 use App\Services\FlutterwaveCheckoutVerifier;
 use App\Services\FlutterwaveService;
 use App\Services\OrderService;
@@ -66,6 +68,22 @@ class FlutterwaveWebhookController extends Controller
 
                 if ($userId > 0 && $credit > 0 && $reference !== '') {
                     WalletService::creditFromVerifiedTopUp($userId, $credit, $reference, $method);
+                }
+
+                return response('OK', 200);
+            }
+
+            if (($meta['type'] ?? '') === 'qr_direct_pay') {
+                $payer = User::query()->find((int) ($meta['user_id'] ?? 0));
+                if ($payer && $reference !== '') {
+                    try {
+                        QrPaymentController::settleFlutterwave($payer, $reference, $this->flutterwave);
+                    } catch (\Throwable $e) {
+                        Log::warning('Flutterwave QR direct pay failed', [
+                            'reference' => $reference,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
                 }
 
                 return response('OK', 200);

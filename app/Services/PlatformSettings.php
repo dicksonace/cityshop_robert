@@ -1252,6 +1252,9 @@ class PlatformSettings
         return [
             'driver' => $driver,
             'failover' => is_array($decoded) ? (bool) ($decoded['failover'] ?? false) : false,
+            'code_channel' => is_array($decoded)
+                ? static::normalizeCodeChannel((string) ($decoded['code_channel'] ?? 'sms'))
+                : 'sms',
             'alert_mobile_1' => is_array($decoded) ? (string) ($decoded['alert_mobile_1'] ?? '') : '',
             'alert_mobile_2' => is_array($decoded) ? (string) ($decoded['alert_mobile_2'] ?? '') : '',
             'alert_mobile_3' => is_array($decoded) ? (string) ($decoded['alert_mobile_3'] ?? '') : '',
@@ -1273,6 +1276,9 @@ class PlatformSettings
         static::set(self::SMS_KEY, [
             'driver' => $driver,
             'failover' => $failover,
+            'code_channel' => array_key_exists('code_channel', $data)
+                ? static::normalizeCodeChannel((string) $data['code_channel'])
+                : $current['code_channel'],
             'alert_mobile_1' => array_key_exists('alert_mobile_1', $data)
                 ? trim((string) $data['alert_mobile_1'])
                 : $current['alert_mobile_1'],
@@ -1309,6 +1315,11 @@ class PlatformSettings
     public static function smsFailoverEnabled(): bool
     {
         return static::smsSettings()['failover'];
+    }
+
+    public static function normalizeCodeChannel(string $channel): string
+    {
+        return in_array($channel, ['sms', 'email', 'both'], true) ? $channel : 'sms';
     }
 
     private static function normalizeSmsDriver(string $driver): string

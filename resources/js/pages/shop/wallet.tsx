@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { RefreshCw } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import RechargeModal from '@/components/wallet/recharge-modal';
 import { type FundingAccount } from '@/components/wallet/manual-top-up-form';
@@ -77,13 +77,25 @@ export default function BuyerWallet({
     const { flash, auth } = usePage<SharedData>().props;
     const [refreshing, setRefreshing] = useState(false);
     const [rechargeOpen, setRechargeOpen] = useState(false);
+    const flashKey = `${flash?.success ?? ''}\n${flash?.error ?? ''}`;
+    const [flashVisible, setFlashVisible] = useState(flashKey.trim() !== '');
+
+    useEffect(() => {
+        if (flashKey.trim() === '') {
+            setFlashVisible(false);
+            return;
+        }
+        setFlashVisible(true);
+        const timer = window.setTimeout(() => setFlashVisible(false), 4000);
+        return () => window.clearTimeout(timer);
+    }, [flashKey]);
 
     const canRecharge = paystackConfigured || !!flutterwaveConfigured || !!manualTopUpEnabled;
 
     const refreshBalance = () => {
         setRefreshing(true);
         router.reload({
-            only: ['wallet', 'transactions', 'withdrawals', 'hasPendingWithdrawal'],
+            only: ['wallet', 'transactions', 'withdrawals', 'hasPendingWithdrawal', 'flash'],
             onFinish: () => setRefreshing(false),
         });
     };
@@ -91,7 +103,7 @@ export default function BuyerWallet({
     return (
         <ShopLayout hideFlash>
             <Head title="Wallet" />
-            {(flash.success || flash.error) && (
+            {flashVisible && (flash.success || flash.error) && (
                 <div
                     className={`fixed inset-x-4 top-[4.75rem] z-[60] mx-auto max-w-lg rounded-xl border px-4 py-3 text-sm font-medium shadow-lg sm:max-w-2xl ${
                         flash.success

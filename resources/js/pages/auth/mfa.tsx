@@ -11,10 +11,11 @@ import { SharedData } from '@/types';
 type Props = {
     methods: string[];
     emailHint: string | null;
+    codeChannel?: 'sms' | 'email' | 'both';
     portal: string;
 };
 
-export default function MfaChallenge({ methods, emailHint, portal }: Props) {
+export default function MfaChallenge({ methods, emailHint, codeChannel = 'sms', portal }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [method, setMethod] = useState(methods.includes('email') ? 'email' : 'totp');
     const form = useForm({ method, code: '' });
@@ -47,7 +48,7 @@ export default function MfaChallenge({ methods, emailHint, portal }: Props) {
                                     className={`rounded-full px-3 py-1 text-sm font-semibold ${method === 'email' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700'}`}
                                     onClick={() => setMethod('email')}
                                 >
-                                    Email
+                                    {codeChannel === 'email' ? 'Email' : codeChannel === 'both' ? 'SMS or email' : 'SMS'}
                                 </button>
                             ) : null}
                             {methods.includes('totp') ? (
@@ -64,7 +65,7 @@ export default function MfaChallenge({ methods, emailHint, portal }: Props) {
 
                     <form onSubmit={submit} className="mt-5 space-y-4">
                         <div>
-                            <Label htmlFor="code">{method === 'email' ? 'Email code' : 'Authenticator code'}</Label>
+                            <Label htmlFor="code">{method === 'email' ? (codeChannel === 'email' ? 'Email code' : 'SMS code') : 'Authenticator code'}</Label>
                             <OtpCodeInput
                                 id="code"
                                 value={form.data.code}
@@ -73,7 +74,7 @@ export default function MfaChallenge({ methods, emailHint, portal }: Props) {
                             />
                             <p className="mt-1 text-xs text-gray-500">
                                 {method === 'email'
-                                    ? `Sent to ${emailHint ?? 'your email'}. Gmail and other inboxes both work.`
+                                    ? `Sent to ${emailHint ?? (codeChannel === 'email' ? 'your email' : 'your phone')}.`
                                     : 'Open the authenticator app you scanned and enter the current code.'}
                             </p>
                             <InputError message={form.errors.code || form.errors.method} />
@@ -90,7 +91,7 @@ export default function MfaChallenge({ methods, emailHint, portal }: Props) {
                             disabled={resend.processing}
                             onClick={() => resend.post(route('mfa.email'))}
                         >
-                            Send a new email code
+                            {codeChannel === 'email' ? 'Send a new email code' : 'Send a new SMS code'}
                         </button>
                     ) : null}
                 </div>

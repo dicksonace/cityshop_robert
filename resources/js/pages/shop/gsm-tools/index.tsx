@@ -1,6 +1,9 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 
+import RechargeModal from '@/components/wallet/recharge-modal';
+import { type FundingAccount } from '@/components/wallet/manual-top-up-form';
+import { type PaystackFeeSettings } from '@/lib/paystack-fees';
 import ShopLayout from '@/layouts/shop-layout';
 import { SharedData } from '@/types';
 import { formatPrice } from '@/types/marketplace';
@@ -81,13 +84,29 @@ interface Props {
     groups: Group[];
     serviceTypes: { value: string; label: string }[];
     wallet: { available_balance: number } | null;
+    paystackConfigured?: boolean;
+    flutterwaveConfigured?: boolean;
+    paystackFee?: PaystackFeeSettings | null;
+    manualTopUpEnabled?: boolean;
+    manualFundingAccounts?: FundingAccount[];
 }
 
-export default function GsmToolsIndex({ services, groups, serviceTypes, wallet }: Props) {
-    const { flash, auth } = usePage<SharedData>().props;
+export default function GsmToolsIndex({
+    services,
+    groups,
+    serviceTypes,
+    wallet,
+    paystackConfigured = false,
+    flutterwaveConfigured = false,
+    paystackFee = null,
+    manualTopUpEnabled = false,
+    manualFundingAccounts = [],
+}: Props) {
+    const { auth } = usePage<SharedData>().props;
     const [query, setQuery] = useState('');
     const [serviceType, setServiceType] = useState('');
     const [categoryId, setCategoryId] = useState('');
+    const [rechargeOpen, setRechargeOpen] = useState(false);
 
     const categories = useMemo(
         () => (serviceType ? groups.filter((group) => group.service_type === serviceType) : groups),
@@ -145,26 +164,36 @@ export default function GsmToolsIndex({ services, groups, serviceTypes, wallet }
                     ) : null}
                 </div>
                 {wallet ? (
-                    <div className="mt-3 rounded-2xl bg-gradient-to-br from-orange-600 to-orange-500 p-4 text-white shadow-lg shadow-orange-500/20">
-                        <p className="text-[11px] font-extrabold tracking-wide text-white/70">WALLET BALANCE</p>
-                        <p className="mt-1 text-[28px] font-black leading-none">{formatPrice(wallet.available_balance)}</p>
-                        <p className="mt-2 text-sm font-semibold text-white/90">Place orders instantly from your wallet.</p>
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-orange-600 p-4 text-white">
+                        <div>
+                            <p className="text-[11px] font-extrabold tracking-wide text-white">WALLET BALANCE</p>
+                            <p className="mt-1 text-[28px] font-black leading-none">{formatPrice(wallet.available_balance)}</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setRechargeOpen(true)}
+                            className="shrink-0 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-orange-600"
+                        >
+                            Recharge
+                        </button>
                     </div>
                 ) : (
                     <p className="mt-1 text-sm text-gray-500">Instantly place orders using your wallet balance.</p>
                 )}
 
-                {(flash?.success || flash?.error) && (
-                    <div
-                        className={`mt-4 rounded-xl border px-3 py-2 text-sm ${
-                            flash.success
-                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                                : 'border-red-200 bg-red-50 text-red-800'
-                        }`}
-                    >
-                        {flash.success ?? flash.error}
-                    </div>
-                )}
+                <RechargeModal
+                    open={rechargeOpen}
+                    onClose={() => setRechargeOpen(false)}
+                    paystackConfigured={paystackConfigured}
+                    flutterwaveConfigured={flutterwaveConfigured}
+                    manualTopUpEnabled={manualTopUpEnabled}
+                    manualFundingAccounts={manualFundingAccounts}
+                    manualHref={route('wallet.manual-top-up')}
+                    paystackRoute={route('wallet.add-funds')}
+                    flutterwaveRoute={route('wallet.add-funds.flutterwave')}
+                    amountInputId="gsm-recharge-amount"
+                    paystackFee={paystackFee}
+                />
 
                 <div className="mt-5 space-y-2">
                     <select

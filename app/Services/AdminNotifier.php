@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Channels\SmsChannel;
 use App\Enums\UserRole;
 use App\Models\User;
 use App\Models\WalletTopUpRequest;
@@ -25,6 +26,7 @@ class AdminNotifier
         $admins = self::users();
         if ($admins->isNotEmpty()) {
             self::deliver($admins, $notification);
+            self::remember($admins, $notification);
         }
 
         try {
@@ -32,6 +34,22 @@ class AdminNotifier
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * Mail plus SMS when the admin has a phone on the account (mobile or WhatsApp).
+     *
+     * @return list<string|class-string>
+     */
+    public static function channels(object $notifiable): array
+    {
+        $channels = ['mail'];
+        $phone = $notifiable->mobile ?? $notifiable->whatsapp ?? null;
+        if (filled($phone)) {
+            $channels[] = SmsChannel::class;
+        }
+
+        return $channels;
     }
 
     public static function depositProof(User $user, WalletTopUpRequest $topUp): void
@@ -98,7 +116,7 @@ class AdminNotifier
         $sms = app(SmsService::class);
         $already = [];
         foreach ($admins as $admin) {
-            foreach ([$admin->mobile ?? null, $admin->whatsapp ?? null] as $phone) {
+            foreach ([$admin->mobile ?? null, $admin->whatsapp ?? null, $admin->phone ?? null] as $phone) {
                 $msisdn = is_string($phone) ? $sms->normalizeGhanaMsisdn($phone) : null;
                 if ($msisdn) {
                     $already[$msisdn] = true;
@@ -114,6 +132,36 @@ class AdminNotifier
             }
             $already[$msisdn] = true;
             $sms->send($phone, $message);
+        }
+    }
+
+    /**
+     * @param  Collection<int, User>  $admins
+     */
+    private static function remember(Collection $admins, object $notification): void
+    {
+        if (! method_exists($notification, 'toSms') || Notification::getFacadeRoot() instanceof NotificationFake) {
+            return;
+        }
+
+        try {
+            $body = trim((string) $notification->toSms($admins->first() ?? new User));
+        } catch (\Throwable $e) {
+            report($e);
+
+            return;
+        }
+
+        if ($body === '') {
+            return;
+        }
+
+        foreach ($admins as $admin) {
+            try {
+                AppNotificationService::send($admin, 'admin_action', 'Needs a decision', $body);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
     }
 }

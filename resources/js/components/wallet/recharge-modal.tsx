@@ -220,22 +220,6 @@ export default function RechargeModal({
 
                 {showChooser ? (
                     <div className="mt-4 space-y-2.5">
-                        {paystackConfigured ? (
-                            <button
-                                type="button"
-                                onClick={() => setStep('paystack')}
-                                className="flex w-full items-center gap-3 rounded-xl border border-orange-200 bg-orange-50/60 px-3.5 py-3 text-left transition hover:border-orange-300 hover:bg-orange-50"
-                            >
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white">
-                                    <Smartphone className="h-5 w-5" />
-                                </span>
-                                <span className="min-w-0">
-                                    <span className="block text-sm font-semibold text-gray-900">Paystack</span>
-                                    <span className="block text-xs text-gray-500">Instant MoMo or card</span>
-                                </span>
-                            </button>
-                        ) : null}
-
                         {flutterwaveConfigured && flutterwaveRoute ? (
                             <button
                                 type="button"
@@ -247,6 +231,22 @@ export default function RechargeModal({
                                 </span>
                                 <span className="min-w-0">
                                     <span className="block text-sm font-semibold text-gray-900">Flutterwave</span>
+                                    <span className="block text-xs text-gray-500">Instant MoMo or card</span>
+                                </span>
+                            </button>
+                        ) : null}
+
+                        {paystackConfigured ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep('paystack')}
+                                className="flex w-full items-center gap-3 rounded-xl border border-orange-200 bg-orange-50/60 px-3.5 py-3 text-left transition hover:border-orange-300 hover:bg-orange-50"
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500 text-white">
+                                    <Smartphone className="h-5 w-5" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-gray-900">Paystack</span>
                                     <span className="block text-xs text-gray-500">Instant MoMo or card</span>
                                 </span>
                             </button>

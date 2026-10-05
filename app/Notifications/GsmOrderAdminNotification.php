@@ -2,8 +2,8 @@
 
 namespace App\Notifications;
 
-use App\Channels\SmsChannel;
 use App\Models\GsmOrder;
+use App\Services\AdminNotifier;
 use App\Support\NotificationPrivacy;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -14,15 +14,7 @@ class GsmOrderAdminNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        $channels = [];
-        if (filled($notifiable->mobile ?? null)) {
-            $channels[] = SmsChannel::class;
-        }
-        if (filled($notifiable->email ?? null)) {
-            $channels[] = 'mail';
-        }
-
-        return $channels;
+        return AdminNotifier::channels($notifiable);
     }
 
     public function toMail(object $notifiable): MailMessage

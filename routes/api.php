@@ -526,5 +526,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/wallet/qr/receive', [QrPaymentController::class, 'receive']);
         Route::post('/wallet/qr/resolve', [QrPaymentController::class, 'resolve']);
         Route::post('/wallet/qr/pay', [QrPaymentController::class, 'pay']);
+        Route::post('/wallet/qr/pay/gateway', [QrPaymentController::class, 'initializeGateway']);
+        Route::post('/wallet/qr/pay/gateway/verify', [QrPaymentController::class, 'verifyGateway']);
     });
 });

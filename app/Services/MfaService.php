@@ -24,7 +24,7 @@ class MfaService
     public function methods(User $user): array
     {
         $methods = [];
-        if ($user->email_two_factor_enabled && filled($user->email)) {
+        if ($user->email_two_factor_enabled && $this->canDeliverCode($user)) {
             $methods[] = 'email';
         }
         if ($user->totp_confirmed_at && filled($user->totp_secret)) {
@@ -47,13 +47,52 @@ class MfaService
         return $visible.'***@'.$domain;
     }
 
+    public function codeChannel(): string
+    {
+        return PlatformSettings::normalizeCodeChannel((string) (PlatformSettings::smsSettings()['code_channel'] ?? 'sms'));
+    }
+
+    public function mobileHint(User $user): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $user->mobile) ?? '';
+        if (strlen($digits) < 6) {
+            return null;
+        }
+
+        return substr($digits, 0, 3).'****'.substr($digits, -2);
+    }
+
+    public function destinationHint(User $user): string
+    {
+        return match ($this->codeChannel()) {
+            'email' => $this->emailHint($user) ?? 'your email',
+            'both' => trim(($this->mobileHint($user) ?? 'your phone').' and '.($this->emailHint($user) ?? 'your email')),
+            default => $this->mobileHint($user) ?? 'your phone',
+        };
+    }
+
+    public function sentMessage(User $user): string
+    {
+        return match ($this->codeChannel()) {
+            'email' => 'A code was sent to '.$this->destinationHint($user).'.',
+            'both' => 'A code was sent by SMS and email.',
+            default => 'A code was sent by SMS to '.$this->destinationHint($user).'.',
+        };
+    }
+
     public function status(User $user): array
     {
+        $channel = $this->codeChannel();
+
         return [
             'email' => $user->email,
             'email_hint' => $this->emailHint($user),
             'has_email' => filled($user->email),
-            'email_enabled' => (bool) $user->email_two_factor_enabled && filled($user->email),
+            'mobile' => $user->mobile,
+            'mobile_hint' => $this->mobileHint($user),
+            'has_mobile' => filled($user->mobile),
+            'code_channel' => $channel,
+            'email_enabled' => (bool) $user->email_two_factor_enabled && $this->canDeliverCode($user),
             'totp_enabled' => $user->totp_confirmed_at !== null && filled($user->totp_secret),
         ];
     }
@@ -69,7 +108,16 @@ class MfaService
 
     public function sendEmailCode(User $user, string $purpose = 'login'): void
     {
-        if (! filled($user->email)) {
+        $channel = $this->codeChannel();
+        $sendSms = in_array($channel, ['sms', 'both'], true);
+        $sendMail = in_array($channel, ['email', 'both'], true);
+
+        if ($sendSms && ! filled($user->mobile) && ! ($sendMail && filled($user->email))) {
+            throw ValidationException::withMessages([
+                'mobile' => 'Add a phone number before using SMS sign-in codes.',
+            ]);
+        }
+        if ($sendMail && ! filled($user->email) && ! ($sendSms && filled($user->mobile))) {
             throw ValidationException::withMessages([
                 'email' => 'Add an email address before using email sign-in codes.',
             ]);
@@ -85,7 +133,32 @@ class MfaService
 
         $code = (string) random_int(100000, 999999);
         Cache::put($this->emailCacheKey($user, $purpose), Hash::make($code), now()->addMinutes(10));
-        $user->notify(new TwoFactorCodeNotification($code));
+
+        $sent = false;
+        if ($sendSms && filled($user->mobile)) {
+            $sent = app(SmsService::class)->send(
+                (string) $user->mobile,
+                'Your CityUnlock code is '.$code.'. It expires in 10 minutes.',
+            ) || $sent;
+        }
+        if ($sendMail && filled($user->email)) {
+            try {
+                $user->notify(new TwoFactorCodeNotification($code));
+                $sent = true;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        if (! $sent) {
+            Cache::forget($this->emailCacheKey($user, $purpose));
+            throw ValidationException::withMessages([
+                'code' => $sendSms
+                    ? 'The SMS could not be sent. Try again in a moment.'
+                    : 'The email could not be sent. Try again in a moment.',
+            ]);
+        }
+
         RateLimiter::hit($key, 60);
     }
 
@@ -95,7 +168,7 @@ class MfaService
         $code = preg_replace('/\s+/', '', $code) ?? '';
         if (! is_string($cached) || ! preg_match('/^\d{6}$/', $code) || ! Hash::check($code, $cached)) {
             throw ValidationException::withMessages([
-                'code' => 'That email code is incorrect or expired.',
+                'code' => 'That code is incorrect or expired.',
             ]);
         }
 
@@ -238,6 +311,15 @@ class MfaService
             'portal' => (string) ($payload['portal'] ?? 'buyer'),
             'device' => isset($payload['device']) ? (string) $payload['device'] : null,
         ];
+    }
+
+    private function canDeliverCode(User $user): bool
+    {
+        return match ($this->codeChannel()) {
+            'email' => filled($user->email),
+            'both' => filled($user->mobile) || filled($user->email),
+            default => filled($user->mobile),
+        };
     }
 
     private function emailCacheKey(User $user, string $purpose): string
