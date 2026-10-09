@@ -33,6 +33,7 @@ interface BuyerWalletProps {
     manualTopUpEnabled?: boolean;
     manualFundingAccounts?: FundingAccount[];
     canUseRmbWallet?: boolean;
+    kyc?: { can_store_funds?: boolean; status_label?: string };
 }
 
 function formatDate(value?: string): string {
@@ -73,6 +74,7 @@ export default function BuyerWallet({
     manualTopUpEnabled,
     manualFundingAccounts = [],
     canUseRmbWallet = false,
+    kyc,
 }: BuyerWalletProps) {
     const { flash, auth } = usePage<SharedData>().props;
     const [refreshing, setRefreshing] = useState(false);
@@ -169,6 +171,15 @@ export default function BuyerWallet({
                         </button>
                     </div>
                 </div>
+
+                {canUseRmbWallet && !kyc?.can_store_funds && (
+                    <Link
+                        href={route('kyc.index')}
+                        className="mb-4 block rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900"
+                    >
+                        China / RMB is on for you. Verify your Ghana Card to use it.
+                    </Link>
+                )}
 
                 {hasPendingWithdrawal && (
                     <Link

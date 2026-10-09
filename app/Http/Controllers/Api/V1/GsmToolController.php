@@ -6,6 +6,7 @@ use App\Enums\GsmServiceType;
 use App\Http\Controllers\Controller;
 use App\Models\GsmOrder;
 use App\Models\GsmService;
+use App\Models\PlaceOrderSlide;
 use App\Services\GsmToolService;
 use App\Services\KycService;
 use App\Services\PaymentPinService;
@@ -29,6 +30,17 @@ class GsmToolController extends Controller
             'wallet' => WalletService::ensure($user)->toFrontendArray(),
             'has_payment_pin' => PaymentPinService::hasPin($user),
             'kyc' => KycService::payload($user, withPhotos: false),
+            'slides' => PlaceOrderSlide::query()
+                ->where('active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(fn (PlaceOrderSlide $slide) => [
+                    'id' => $slide->id,
+                    'image_url' => $slide->imageUrl(),
+                ])
+                ->filter(fn (array $slide) => $slide['image_url'] !== '')
+                ->values(),
         ]);
     }
 

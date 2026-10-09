@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ChinaTransfer;
 use App\Models\SellRmbTransfer;
 use App\Services\ChinaTransferService;
+use App\Services\KycService;
 use App\Services\SellRmbService;
 use App\Services\WalletService;
 use Illuminate\Http\Request;
@@ -55,6 +56,7 @@ class ChinaRmbController extends Controller
                 'config' => $this->sellRmb->configPayload(),
                 'transfers' => $sellTransfers,
             ],
+            'kyc' => KycService::payload($user, withPhotos: false),
         ]);
     }
 }

@@ -53,6 +53,7 @@ interface WalletProps {
     withdrawalFee?: WithdrawalFeeSettings;
     hasPaymentPin?: boolean;
     canUseRmbWallet?: boolean;
+    kyc?: { can_store_funds?: boolean };
 }
 
 type BankFeeTier = NonNullable<NonNullable<WalletProps['withdrawalFee']>['bank_tiers']>;
@@ -84,6 +85,7 @@ export default function SellerWallet({
     withdrawalFee,
     hasPaymentPin = false,
     canUseRmbWallet = false,
+    kyc,
 }: WalletProps) {
     const { auth } = usePage<SharedData>().props;
     const [withdrawStep, setWithdrawStep] = useState<'details' | 'amount' | 'review'>('details');
@@ -281,22 +283,24 @@ export default function SellerWallet({
                 />
             </div>
 
-            <div className="mb-6 grid grid-cols-2 gap-2">
-                {canUseRmbWallet && (
+            {canUseRmbWallet && (
+                <div className="mb-6 grid grid-cols-2 gap-2">
                     <Link
                         href={route('wallet.china-rmb.index')}
                         className="flex items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-3 text-center text-xs font-bold text-indigo-800 hover:bg-indigo-100"
                     >
                         China / RMB
                     </Link>
-                )}
-                <Link
-                    href={route('kyc.index')}
-                    className="flex items-center justify-center rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-900 hover:bg-amber-100"
-                >
-                    Ghana Card
-                </Link>
-            </div>
+                    {!kyc?.can_store_funds && (
+                        <Link
+                            href={route('kyc.index')}
+                            className="flex items-center justify-center rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-900 hover:bg-amber-100"
+                        >
+                            Verify Ghana Card
+                        </Link>
+                    )}
+                </div>
+            )}
 
             <div className="mb-6 grid gap-4 sm:grid-cols-3">
                 {[

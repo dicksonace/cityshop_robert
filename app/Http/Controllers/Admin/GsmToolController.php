@@ -9,9 +9,11 @@ use App\Models\GsmOrder;
 use App\Models\GsmService;
 use App\Models\GsmServiceField;
 use App\Models\GsmServiceGroup;
+use App\Models\PlaceOrderSlide;
 use App\Services\GsmToolService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -242,6 +244,56 @@ class GsmToolController extends Controller
         return redirect()
             ->route('admin.gsm-tools.services', ['type' => $validated['service_type']])
             ->with('success', 'Category updated.');
+    }
+
+    public function slides(): Response
+    {
+        $slides = PlaceOrderSlide::query()->orderBy('sort_order')->orderBy('id')->get()->map(fn (PlaceOrderSlide $slide) => [
+            'id' => $slide->id,
+            'image_url' => $slide->imageUrl(),
+            'sort_order' => $slide->sort_order,
+            'active' => $slide->active,
+        ])->values();
+
+        return Inertia::render('admin/gsm-tools/slides', [
+            'slides' => $slides,
+        ]);
+    }
+
+    public function storeSlide(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'image' => ['required', 'file', 'image', 'max:8192'],
+        ]);
+
+        $next = ((int) PlaceOrderSlide::query()->max('sort_order')) + 1;
+        PlaceOrderSlide::query()->create([
+            'image' => $request->file('image')->store('place-order-slides', 'public'),
+            'sort_order' => $next,
+            'active' => true,
+        ]);
+
+        return back()->with('success', 'Slide added. It shows at the top of Place order.');
+    }
+
+    public function setSlideActive(Request $request, PlaceOrderSlide $placeOrderSlide): RedirectResponse
+    {
+        $placeOrderSlide->update([
+            'active' => $request->boolean('active'),
+        ]);
+
+        return back()->with('success', $placeOrderSlide->active ? 'Slide is showing.' : 'Slide hidden.');
+    }
+
+    public function destroySlide(PlaceOrderSlide $placeOrderSlide): RedirectResponse
+    {
+        $image = (string) $placeOrderSlide->image;
+        if ($image !== '' && ! str_starts_with($image, 'slider/') && ! str_starts_with($image, '/')) {
+            Storage::disk('public')->delete($image);
+        }
+        $placeOrderSlide->delete();
+
+        return back()->with('success', 'Slide removed.');
     }
 
     public function destroyGroup(GsmServiceGroup $gsmServiceGroup): RedirectResponse

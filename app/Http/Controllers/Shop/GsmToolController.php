@@ -6,6 +6,7 @@ use App\Enums\GsmServiceType;
 use App\Http\Controllers\Controller;
 use App\Models\GsmOrder;
 use App\Models\GsmService;
+use App\Models\PlaceOrderSlide;
 use App\Services\FlutterwaveService;
 use App\Services\GsmToolService;
 use App\Services\KycService;
@@ -67,7 +68,27 @@ class GsmToolController extends Controller
             'paystackFee' => $user ? $this->safeValue(fn () => app(PaystackService::class)->rechargeFeePayload(), null) : null,
             'manualTopUpEnabled' => $manualOn,
             'manualFundingAccounts' => $manualOn ? $accounts : [],
+            'slides' => $this->slides(),
         ]);
+    }
+
+    /**
+     * @return list<array{id: int, image_url: string}>
+     */
+    private function slides(): array
+    {
+        return PlaceOrderSlide::query()
+            ->where('active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (PlaceOrderSlide $slide) => [
+                'id' => $slide->id,
+                'image_url' => $slide->imageUrl(),
+            ])
+            ->filter(fn (array $slide) => $slide['image_url'] !== '')
+            ->values()
+            ->all();
     }
 
     public function history(Request $request): Response|RedirectResponse

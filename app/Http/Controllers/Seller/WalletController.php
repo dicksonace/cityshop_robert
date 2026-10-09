@@ -88,6 +88,7 @@ class WalletController extends Controller
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($user),
             'canUseRmbWallet' => $user->canUseRmbWallet(),
+            'kyc' => KycService::payload($user, withPhotos: false),
         ]);
     }
 

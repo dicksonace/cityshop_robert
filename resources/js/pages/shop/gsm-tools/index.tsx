@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 
+import PlaceOrderSlider from '@/components/shop/place-order-slider';
 import RechargeModal from '@/components/wallet/recharge-modal';
 import { type FundingAccount } from '@/components/wallet/manual-top-up-form';
 import { type PaystackFeeSettings } from '@/lib/paystack-fees';
@@ -89,6 +90,7 @@ interface Props {
     paystackFee?: PaystackFeeSettings | null;
     manualTopUpEnabled?: boolean;
     manualFundingAccounts?: FundingAccount[];
+    slides?: { id: number; image_url: string }[];
 }
 
 export default function GsmToolsIndex({
@@ -101,6 +103,7 @@ export default function GsmToolsIndex({
     paystackFee = null,
     manualTopUpEnabled = false,
     manualFundingAccounts = [],
+    slides = [],
 }: Props) {
     const { auth } = usePage<SharedData>().props;
     const [query, setQuery] = useState('');
@@ -163,6 +166,7 @@ export default function GsmToolsIndex({
                         </Link>
                     ) : null}
                 </div>
+                <PlaceOrderSlider slides={slides} />
                 {wallet ? (
                     <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-orange-600 p-4 text-white">
                         <div>

@@ -52,8 +52,11 @@ type SellTransfer = {
     };
 };
 
+type Kyc = { can_store_funds?: boolean };
+
 interface Props {
     wallet: Wallet;
+    kyc?: Kyc;
     buy: {
         config: BuyConfig;
         transfers: BuyTransfer[];
@@ -83,12 +86,20 @@ function sellGhsPerRmb(rate: SellRate): number | null {
 }
 
 /** China / RMB entry: Buy RMB (pay GHS → Alipay) or Sell RMB. No convert / no hold. */
-export default function ChinaRmbHub({ buy, sell }: Props) {
+export default function ChinaRmbHub({ buy, sell, kyc }: Props) {
     const { flash } = usePage<SharedData>().props;
     const buyRate = buy.config.rate;
     const sellRateValue = sellGhsPerRmb(sell.config.rate);
     const buyHours = buy.config.transfer_hours;
     const sellOpen = sell.config.enabled && sellRateValue !== null;
+    const openRequest = (href: string) => {
+        if (!kyc?.can_store_funds) {
+            router.visit(route('kyc.index'));
+            return;
+        }
+        router.visit(href);
+    };
+
     const buyProcessingNote = buy.config.enabled && buyRate && buyHours?.in_processing_window === false
         ? 'Transfer now will be processed tomorrow morning by 7:00 AM.'
         : null;
@@ -139,7 +150,7 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                     <button
                         type="button"
                         disabled={!buy.config.enabled || !buyRate}
-                        onClick={() => router.visit(route('wallet.china-transfer.index'))}
+                        onClick={() => openRequest(route('wallet.china-transfer.index'))}
                         className="mt-4 w-full rounded-xl bg-white py-3 text-sm font-extrabold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-white"
                     >
                         {!buy.config.enabled ? 'Buy RMB paused' : 'Buy RMB →'}
@@ -160,7 +171,7 @@ export default function ChinaRmbHub({ buy, sell }: Props) {
                     <button
                         type="button"
                         disabled={!sellOpen}
-                        onClick={() => router.visit(route('wallet.sell-rmb.index'))}
+                        onClick={() => openRequest(route('wallet.sell-rmb.index'))}
                         className="mt-4 w-full rounded-xl bg-white py-3 text-sm font-extrabold text-emerald-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:bg-white/40 disabled:text-white"
                     >
                         {!sell.config.enabled ? 'Sell RMB paused' : sellRateValue ? 'Sell RMB →' : 'Rate not published'}

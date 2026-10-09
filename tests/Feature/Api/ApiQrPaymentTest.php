@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\UserRole;
+use App\Http\Controllers\Api\V1\QrPaymentController;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Models\Wallet;
@@ -229,5 +230,12 @@ class ApiQrPaymentTest extends TestCase
 
         $this->assertSame('Kofi Market Stall', $receive['user']['name']);
         $this->assertSame('seller', $receive['user']['role']);
+    }
+
+    public function test_scan_to_pay_confirm_uses_the_account_model(): void
+    {
+        $method = new \ReflectionMethod(QrPaymentController::class, 'settlePaystack');
+
+        $this->assertSame(User::class, $method->getParameters()[0]->getType()->getName());
     }
 }

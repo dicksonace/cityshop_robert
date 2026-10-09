@@ -61,9 +61,14 @@ export default function AdminGsmToolsIndex({ orders, filters, serviceTypes = [],
                         <h1 className="text-xl font-bold text-gray-900">GSM Tools orders</h1>
                         <p className="text-sm text-gray-500">{pendingCount} open · wallet-paid device services</p>
                     </div>
-                    <Link href={route('admin.gsm-tools.services', { type: 'imei' })} className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white">
-                        Manage services
-                    </Link>
+                    <div className="flex gap-2">
+                        <Link href={route('admin.gsm-tools.slides')} className="rounded-xl border border-orange-200 bg-white px-4 py-2 text-sm font-bold text-orange-600">
+                            Place order slides
+                        </Link>
+                        <Link href={route('admin.gsm-tools.services', { type: 'imei' })} className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-white">
+                            Manage services
+                        </Link>
+                    </div>
                 </div>
 
                 {(flash?.success || flash?.error) && (

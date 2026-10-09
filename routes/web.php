@@ -413,6 +413,10 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/china-transfer/fields/{field}/deactivate', [AdminChinaTransferSettingsController::class, 'destroyField'])->name('china-transfer.fields.destroy');
 
     Route::get('/gsm-tools', [AdminGsmToolController::class, 'index'])->name('gsm-tools.index');
+    Route::get('/gsm-tools/slides', [AdminGsmToolController::class, 'slides'])->name('gsm-tools.slides');
+    Route::post('/gsm-tools/slides', [AdminGsmToolController::class, 'storeSlide'])->name('gsm-tools.slides.store');
+    Route::post('/gsm-tools/slides/{placeOrderSlide}/active', [AdminGsmToolController::class, 'setSlideActive'])->name('gsm-tools.slides.active');
+    Route::delete('/gsm-tools/slides/{placeOrderSlide}', [AdminGsmToolController::class, 'destroySlide'])->name('gsm-tools.slides.destroy');
     Route::get('/gsm-tools/services', [AdminGsmToolController::class, 'services'])->name('gsm-tools.services');
     Route::post('/gsm-tools/services', [AdminGsmToolController::class, 'storeService'])->name('gsm-tools.services.store');
     Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService'])->name('gsm-tools.services.update');
