@@ -17,7 +17,7 @@ class LegalController extends Controller
             'canonical' => url('/privacy'),
             'email' => $contact['email'] ?? 'support@cityunlock.net',
             'phone' => $contact['phone'] ?? ($contact['whatsapp'] ?? null),
-            'updatedAt' => '7 September 2026',
+            'updatedAt' => '9 October 2026',
         ]);
     }
 
@@ -30,7 +30,7 @@ class LegalController extends Controller
             'description' => 'Terms for using CityUnlock marketplace, wallet, and related services.',
             'canonical' => url('/terms'),
             'email' => $contact['email'] ?? 'support@cityunlock.net',
-            'updatedAt' => '7 September 2026',
+            'updatedAt' => '9 October 2026',
         ]);
     }
 }

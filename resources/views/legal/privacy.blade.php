@@ -66,15 +66,19 @@
     <h2>7. Data retention and deletion</h2>
     <p>
         We keep account and transaction records as needed for operations, fraud prevention, and legal requirements.
-        You may request account deletion or data access by contacting
+        You can delete your account yourself in the CityUnlock app: open <strong>Profile</strong>, then
+        <strong>Profile settings</strong>, then <strong>Delete account</strong>, and confirm with your password.
+        Deletion removes the account so the same email and phone can be used to register again.
+        Some records, such as completed orders or records we must keep by law, may be retained.
+        To ask for a copy of your data, email
         <a href="mailto:{{ $email }}">{{ $email }}</a>.
-        Some records may be retained where required by law or to resolve disputes.
     </p>
 
     <h2>8. Your choices</h2>
     <ul>
         <li>Update profile and address details in the app or website</li>
-        <li>Contact support to request account deletion or a copy of your data</li>
+        <li>Delete your account in the app under Profile settings. You do not need to email us first.</li>
+        <li>Report a listing, message, or status, and block another person, from that item in the app. We review reports within 24 hours.</li>
         <li>Disable push notifications in your device settings</li>
     </ul>
 

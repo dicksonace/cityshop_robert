@@ -79,8 +79,9 @@ export default function Privacy({ contact, updatedAt }: Props) {
                         <h2 className="text-lg font-semibold text-gray-900">5. Data retention and deletion</h2>
                         <p className="mt-2">
                             We keep account and transaction records as needed for operations, fraud prevention, and
-                            legal requirements. You may request account deletion or data access by contacting support.
-                            Some records may be retained where required by law or to resolve disputes.
+                            legal requirements. You can delete your account in the CityUnlock app: Profile, then
+                            Profile settings, then Delete account. Confirm with your password. You do not need to
+                            email us first. Some records may be retained where required by law or to resolve disputes.
                         </p>
                     </section>
 
@@ -88,7 +89,8 @@ export default function Privacy({ contact, updatedAt }: Props) {
                         <h2 className="text-lg font-semibold text-gray-900">6. Your choices</h2>
                         <ul className="mt-2 list-disc space-y-1 pl-5">
                             <li>Update profile and address details in the app or website</li>
-                            <li>Contact support to request account deletion</li>
+                            <li>Delete your account in the app under Profile settings</li>
+                            <li>Report a listing, message, or status, and block the other person, from that item in the app</li>
                             <li>Disable push notifications in device settings</li>
                         </ul>
                     </section>

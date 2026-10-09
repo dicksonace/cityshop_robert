@@ -38,14 +38,21 @@
 
     <h2>5. Acceptable use</h2>
     <p>
-        You may not use CityUnlock for illegal activity, fraud, harassment, spam, IP infringement, or to
-        upload harmful content. We may remove content and restrict access to protect users and the platform.
+        There is no tolerance for objectionable content or abusive users. You may not use CityUnlock for
+        illegal activity, fraud, harassment, hate, sexual content involving minors, spam, intellectual-property
+        infringement, or to upload harmful content.
+    </p>
+    <p>
+        Listings, messages, and status updates can be reported from that item in the app. You can block
+        another person from the chat. CityUnlock reviews reports within 24 hours and removes content and
+        accounts that break these terms.
     </p>
 
     <h2>6. Third-party content</h2>
     <p>
         Seller listings and user-generated content belong to those users. By posting content you grant
-        CityUnlock a licence to host and display it to operate the marketplace.
+        CityUnlock a licence to host and display it to operate the marketplace. You can report that content
+        and block the person who posted it.
     </p>
 
     <h2>7. Limitation of liability</h2>
