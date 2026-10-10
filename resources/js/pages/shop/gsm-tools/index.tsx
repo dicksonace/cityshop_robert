@@ -192,11 +192,12 @@ export default function GsmToolsIndex({
                     flutterwaveConfigured={flutterwaveConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
                     manualFundingAccounts={manualFundingAccounts}
-                    manualHref={route('wallet.manual-top-up')}
+                    manualHref={`${route('wallet.manual-top-up')}?gsm=1`}
                     paystackRoute={route('wallet.add-funds')}
                     flutterwaveRoute={route('wallet.add-funds.flutterwave')}
                     amountInputId="gsm-recharge-amount"
                     paystackFee={paystackFee}
+                    gsm
                 />
 
                 <div className="mt-5 space-y-2">

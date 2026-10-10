@@ -55,6 +55,7 @@ interface Props {
     cancelRouteName?: string;
     /** Seller layout has no flash banner — show inline. Shop layout already shows flash at top. */
     showFlash?: boolean;
+    gsm?: boolean;
 }
 
 function formatDate(value?: string | null): string {
@@ -76,6 +77,7 @@ export default function ManualTopUpForm({
     statusRouteName,
     cancelRouteName,
     showFlash = false,
+    gsm = false,
 }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
@@ -98,6 +100,7 @@ export default function ManualTopUpForm({
         network: '',
         user_note: '',
         proof: null as File | null,
+        gsm: gsm ? '1' : '',
     });
 
     useEffect(() => {

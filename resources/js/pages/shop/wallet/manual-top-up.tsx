@@ -16,6 +16,7 @@ interface Props {
     walletRoute: string;
     statusRouteName?: string;
     cancelRouteName?: string;
+    gsm?: boolean;
 }
 
 export default function BuyerManualTopUp(props: Props) {
@@ -26,6 +27,7 @@ export default function BuyerManualTopUp(props: Props) {
                 <ManualTopUpForm
                     {...props}
                     submitRoute={route('wallet.manual-top-up.store')}
+                    gsm={props.gsm}
                     statusRouteName={props.statusRouteName ?? 'wallet.manual-top-up.show'}
                     cancelRouteName={props.cancelRouteName ?? 'wallet.manual-top-up.cancel'}
                 />

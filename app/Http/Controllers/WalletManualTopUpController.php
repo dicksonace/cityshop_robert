@@ -43,6 +43,7 @@ class WalletManualTopUpController extends Controller
             'cancelRouteName' => $user->isSeller()
                 ? 'seller.wallet.manual-top-up.cancel'
                 : 'wallet.manual-top-up.cancel',
+            'gsm' => $request->boolean('gsm'),
         ]);
     }
 
@@ -51,7 +52,7 @@ class WalletManualTopUpController extends Controller
         $user = $request->user();
         abort_unless($user && in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
 
-        if ($denied = KycService::denyStoreFundsRedirect($user)) {
+        if (! $request->boolean('gsm') && ($denied = KycService::denyStoreFundsRedirect($user))) {
             return $denied;
         }
 

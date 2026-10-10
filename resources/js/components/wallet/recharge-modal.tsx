@@ -12,7 +12,6 @@ import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import { csrfHeaders } from '@/lib/csrf';
 import { normalizeMomoNetworkId } from '@/lib/momo-networks';
 import { paystackRechargeQuote, type PaystackFeeSettings } from '@/lib/paystack-fees';
-import { cn } from '@/lib/utils';
 
 interface RechargeModalProps {
     open: boolean;
@@ -27,6 +26,8 @@ interface RechargeModalProps {
     chooseHint?: string;
     amountInputId?: string;
     paystackFee?: PaystackFeeSettings | null;
+    /** GSM Tools recharge does not require Ghana Card. China/RMB still does. */
+    gsm?: boolean;
 }
 
 type RechargeStep = 'choose' | 'paystack' | 'flutterwave' | 'manual';
@@ -48,6 +49,7 @@ export default function RechargeModal({
     chooseHint = 'Choose how you want to add funds.',
     amountInputId = 'recharge-amount',
     paystackFee,
+    gsm = false,
 }: RechargeModalProps) {
     const [step, setStep] = useState<RechargeStep>('choose');
     const [submitting, setSubmitting] = useState(false);
@@ -144,6 +146,7 @@ export default function RechargeModal({
                 body: JSON.stringify({
                     amount,
                     method: form.data.method,
+                    ...(gsm ? { gsm: true } : {}),
                 }),
             });
             const data = (await res.json().catch(() => ({}))) as {
@@ -231,7 +234,7 @@ export default function RechargeModal({
                                 </span>
                                 <span className="min-w-0">
                                     <span className="block text-sm font-semibold text-gray-900">Flutterwave</span>
-                                    <span className="block text-xs text-gray-500">Instant MoMo or card</span>
+                                    <span className="block text-xs text-gray-500">Mobile Money and card</span>
                                 </span>
                             </button>
                         ) : null}
@@ -247,7 +250,7 @@ export default function RechargeModal({
                                 </span>
                                 <span className="min-w-0">
                                     <span className="block text-sm font-semibold text-gray-900">Paystack</span>
-                                    <span className="block text-xs text-gray-500">Instant MoMo or card</span>
+                                    <span className="block text-xs text-gray-500">Mobile Money and card</span>
                                 </span>
                             </button>
                         ) : null}
@@ -344,27 +347,9 @@ export default function RechargeModal({
                             />
                             <InputError message={form.errors.amount} />
                         </div>
-                        <div>
-                            <Label>Pay with</Label>
-                            <div className="mt-1.5 flex gap-2">
-                                {(['momo', 'card'] as const).map((method) => (
-                                    <button
-                                        key={method}
-                                        type="button"
-                                        onClick={() => form.setData('method', method)}
-                                        className={cn(
-                                            'flex-1 rounded-lg px-3 py-2 text-sm font-medium ring-1',
-                                            form.data.method === method
-                                                ? 'bg-orange-500 text-white ring-orange-500'
-                                                : 'bg-white text-gray-700 ring-gray-200',
-                                        )}
-                                    >
-                                        {method === 'momo' ? 'Mobile Money' : 'Card'}
-                                    </button>
-                                ))}
-                            </div>
-                            <InputError message={form.errors.method} />
-                        </div>
+                        <p className="text-sm text-gray-500">
+                            {showFlutterwave ? 'Flutterwave' : 'Paystack'} takes Mobile Money and card on the next page.
+                        </p>
                         {submitError && (
                             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
                                 {submitError}

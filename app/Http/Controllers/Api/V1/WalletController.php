@@ -459,9 +459,10 @@ class WalletController extends Controller
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
             'method' => ['required', 'in:momo,card'],
+            'gsm' => ['sometimes', 'boolean'],
         ]);
 
-        if ($denied = KycService::denyStoreFundsResponse($user)) {
+        if (! $request->boolean('gsm') && ($denied = KycService::denyStoreFundsResponse($user))) {
             return $denied;
         }
 
@@ -576,9 +577,10 @@ class WalletController extends Controller
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
             'method' => ['required', 'in:momo,card'],
+            'gsm' => ['sometimes', 'boolean'],
         ]);
 
-        if ($denied = KycService::denyStoreFundsResponse($user)) {
+        if (! $request->boolean('gsm') && ($denied = KycService::denyStoreFundsResponse($user))) {
             return $denied;
         }
 
@@ -692,7 +694,7 @@ class WalletController extends Controller
 
         $settings = PlatformSettings::manualFundingAccounts();
 
-        if ($denied = KycService::denyStoreFundsResponse($user)) {
+        if (! $request->boolean('gsm') && ($denied = KycService::denyStoreFundsResponse($user))) {
             return $denied;
         }
 

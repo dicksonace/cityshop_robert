@@ -160,12 +160,14 @@ class WalletController extends Controller
     {
         abort_unless($request->user()->isBuyer(), 403);
 
-        if ($request->expectsJson()) {
-            if ($denied = KycService::denyStoreFundsResponse($request->user())) {
-                return $denied;
+        if (! $request->boolean('gsm')) {
+            if ($request->expectsJson()) {
+                if ($denied = KycService::denyStoreFundsResponse($request->user())) {
+                    return $denied;
+                }
+            } elseif (! KycService::canStoreFunds($request->user())) {
+                return back()->with('error', KycService::denyStoreFundsMessage($request->user()));
             }
-        } elseif (! KycService::canStoreFunds($request->user())) {
-            return back()->with('error', KycService::denyStoreFundsMessage($request->user()));
         }
 
         $validated = $request->validate([
@@ -270,12 +272,14 @@ class WalletController extends Controller
     {
         abort_unless($request->user()->isBuyer(), 403);
 
-        if ($request->expectsJson()) {
-            if ($denied = KycService::denyStoreFundsResponse($request->user())) {
-                return $denied;
+        if (! $request->boolean('gsm')) {
+            if ($request->expectsJson()) {
+                if ($denied = KycService::denyStoreFundsResponse($request->user())) {
+                    return $denied;
+                }
+            } elseif (! KycService::canStoreFunds($request->user())) {
+                return back()->with('error', KycService::denyStoreFundsMessage($request->user()));
             }
-        } elseif (! KycService::canStoreFunds($request->user())) {
-            return back()->with('error', KycService::denyStoreFundsMessage($request->user()));
         }
 
         $validated = $request->validate([

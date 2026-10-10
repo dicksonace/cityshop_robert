@@ -128,10 +128,6 @@ class GsmToolController extends Controller
         $user = $request->user();
         abort_unless($user, 403);
 
-        if ($denied = KycService::denyStoreFundsRedirect($user)) {
-            return $denied;
-        }
-
         $request->validate([
             'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
         ]);
