@@ -7,6 +7,7 @@ use App\Http\Controllers\KorapayWebhookController;
 use App\Models\KorapayPayment;
 use App\Models\User;
 use App\Services\PlatformSettings;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,6 +16,30 @@ use Inertia\Response;
 class KorapayPaymentController extends Controller
 {
     public function index(Request $request): Response
+    {
+        $search = $request->string('search')->trim()->toString();
+        $status = $request->string('status')->trim()->toString();
+
+        return Inertia::render('admin/korapay-payments/index', [
+            'payments' => self::paginate($request, 30),
+            'search' => $search !== '' ? $search : null,
+            'status' => $status !== '' ? $status : 'all',
+            'korapay' => PlatformSettings::korapayKeysStatus(),
+            'totals' => self::totals(),
+        ]);
+    }
+
+    public function recheck(KorapayPayment $korapayPayment, KorapayWebhookController $settler): RedirectResponse
+    {
+        [$ok, $message] = self::settle($korapayPayment, $settler);
+
+        return back()->with($ok ? 'success' : 'error', $message);
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public static function paginate(Request $request, int $perPage): LengthAwarePaginator
     {
         $search = $request->string('search')->trim()->toString();
         $status = $request->string('status')->trim()->toString();
@@ -32,7 +57,7 @@ class KorapayPaymentController extends Controller
             })
             ->when($status !== '' && $status !== 'all', fn ($query) => $query->where('status', $status))
             ->latest('id')
-            ->paginate(30)
+            ->paginate($perPage)
             ->withQueryString();
 
         $users = User::query()
@@ -40,7 +65,7 @@ class KorapayPaymentController extends Controller
             ->get(['id', 'name', 'mobile', 'role'])
             ->keyBy('id');
 
-        $payments->through(function (KorapayPayment $payment) use ($users) {
+        return $payments->through(function (KorapayPayment $payment) use ($users) {
             $meta = $payment->meta ?? [];
             $user = $users->get($payment->user_id);
 
@@ -60,32 +85,31 @@ class KorapayPaymentController extends Controller
                 ] : null,
             ];
         });
-
-        return Inertia::render('admin/korapay-payments/index', [
-            'payments' => $payments,
-            'search' => $search !== '' ? $search : null,
-            'status' => $status !== '' ? $status : 'all',
-            'korapay' => PlatformSettings::korapayKeysStatus(),
-            'totals' => [
-                'success' => (float) KorapayPayment::where('status', 'success')->sum('amount'),
-                'count' => KorapayPayment::where('status', 'success')->count(),
-            ],
-        ]);
     }
 
-    public function recheck(KorapayPayment $korapayPayment, KorapayWebhookController $settler): RedirectResponse
+    /** @return array{success: float, count: int} */
+    public static function totals(): array
+    {
+        return [
+            'success' => (float) KorapayPayment::where('status', 'success')->sum('amount'),
+            'count' => KorapayPayment::where('status', 'success')->count(),
+        ];
+    }
+
+    /** @return array{0: bool, 1: string} */
+    public static function settle(KorapayPayment $payment, KorapayWebhookController $settler): array
     {
         try {
-            $status = $settler->settle($korapayPayment->reference);
+            $status = $settler->settle($payment->reference);
         } catch (\Throwable $e) {
-            return back()->with('error', 'Korapay check failed: '.$e->getMessage());
+            return [false, 'Korapay check failed: '.$e->getMessage()];
         }
 
-        return back()->with('success', match ($status) {
+        return [true, match ($status) {
             'success' => 'Korapay confirms this payment. It has been credited or completed.',
             'failed' => 'Korapay says this payment failed. Nothing was credited.',
             default => 'Korapay says this payment is still '.$status.'. Check again later.',
-        });
+        }];
     }
 
     /**

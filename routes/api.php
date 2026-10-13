@@ -291,6 +291,8 @@ Route::prefix('v1')->group(function () {
             Route::delete('/buyer-announcements/{buyerAnnouncement}', [AdminAnnouncementController::class, 'buyerDestroy']);
 
             Route::get('/transactions', [AdminTransactionController::class, 'index']);
+            Route::get('/korapay-payments', [\App\Http\Controllers\Api\V1\Admin\KorapayPaymentController::class, 'index']);
+            Route::post('/korapay-payments/{korapayPayment}/recheck', [\App\Http\Controllers\Api\V1\Admin\KorapayPaymentController::class, 'recheck']);
             Route::get('/seller-reports', [AdminSellerReportController::class, 'index']);
             Route::patch('/seller-reports/{report}', [AdminSellerReportController::class, 'update']);
             Route::get('/content-reports', [\App\Http\Controllers\Api\V1\Admin\ContentReportController::class, 'index']);

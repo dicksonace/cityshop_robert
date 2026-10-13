@@ -11,6 +11,7 @@ use App\Models\WalletTransaction;
 use App\Services\KorapayService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class WalletKorapayTopUpTest extends TestCase
@@ -165,5 +166,48 @@ class WalletKorapayTopUpTest extends TestCase
             ->assertRedirect(route('wallet.index'));
 
         $this->assertSame(1, WalletTransaction::where('reference', 'KORA999')->count());
+    }
+
+    public function test_admin_app_lists_korapay_payments_and_recheck_credits_stuck_payment(): void
+    {
+        $buyer = $this->verifiedBuyer();
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $payment = KorapayPayment::create([
+            'reference' => 'KORA777',
+            'user_id' => $buyer->id,
+            'amount' => 30,
+            'meta' => [
+                'type' => 'wallet_topup',
+                'user_id' => $buyer->id,
+                'method' => 'momo',
+                'wallet_credit' => 30,
+                'expected_amount' => 30,
+            ],
+        ]);
+
+        Http::fake([
+            'https://api.korapay.com/merchant/api/v1/charges/KORA777' => Http::response([
+                'status' => true,
+                'data' => ['reference' => 'KORA777', 'status' => 'success', 'amount' => '30.00', 'currency' => 'GHS'],
+            ], 200),
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/v1/admin/korapay-payments?status=pending')
+            ->assertOk()
+            ->assertJsonPath('data.0.reference', 'KORA777')
+            ->assertJsonPath('data.0.purpose', 'Wallet recharge')
+            ->assertJsonPath('data.0.user.name', 'Ama Mensah');
+
+        $this->postJson("/api/v1/admin/korapay-payments/{$payment->id}/recheck")
+            ->assertOk()
+            ->assertJsonPath('status', 'success');
+
+        $this->assertSame(1, WalletTransaction::where('reference', 'KORA777')->count());
+
+        Sanctum::actingAs($buyer);
+        $this->getJson('/api/v1/admin/korapay-payments')->assertForbidden();
     }
 }
