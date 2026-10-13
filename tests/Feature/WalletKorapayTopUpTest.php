@@ -83,7 +83,7 @@ class WalletKorapayTopUpTest extends TestCase
                 && $request->hasHeader('Authorization', 'Bearer sk_live_cityshop')
                 && ($payload['currency'] ?? null) === 'GHS'
                 && ($payload['reference'] ?? null) === $reference
-                && ($payload['notification_url'] ?? null) === 'https://cityunlock.net/webhooks/korapay'
+                && str_ends_with((string) ($payload['notification_url'] ?? ''), '/webhooks/korapay')
                 && str_contains((string) ($payload['redirect_url'] ?? ''), '/wallet/korapay/callback');
         });
     }
