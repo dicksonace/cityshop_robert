@@ -220,6 +220,8 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
             <div className="hidden border-b border-gray-100 bg-gray-50/80 md:block">
                 <div className="mx-auto flex h-9 max-w-7xl items-center justify-between px-4 text-xs">
                     <p className="flex items-center gap-1.5 text-gray-500">
+                        <span className="font-bold tracking-wide text-gray-800">CITY UNLOCK VENTURES</span>
+                        <span className="mx-1 text-gray-300">|</span>
                         <Truck className="h-3.5 w-3.5 text-orange-500" />
                         Delivery across Ghana
                         <span className="mx-1 text-gray-300">|</span>
@@ -249,6 +251,10 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                         )}
                     </div>
                 </div>
+            </div>
+
+            <div className="border-b border-gray-100 bg-gray-50/80 py-1 text-center text-[11px] font-bold tracking-wide text-gray-800 md:hidden">
+                CITY UNLOCK VENTURES
             </div>
 
             {/* Main bar — brand, search, actions */}

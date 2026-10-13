@@ -27,7 +27,7 @@
 <body>
     <div class="wrap">
         <div class="top">
-            <a class="brand" href="{{ url('/') }}">CityUnlock</a>
+            <a class="brand" href="{{ url('/') }}">CITY UNLOCK VENTURES</a>
             <div class="nav">
                 <a href="{{ url('/privacy') }}">Privacy</a>
                 <a href="{{ url('/terms') }}">Terms</a>
@@ -37,6 +37,7 @@
         <article class="card">
             @yield('content')
         </article>
+        <p class="muted" style="text-align:center;margin-top:24px;">&copy; {{ date('Y') }} CITY UNLOCK VENTURES. All rights reserved.</p>
     </div>
 </body>
 </html>

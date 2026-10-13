@@ -86,6 +86,7 @@ export default function ShopLayout({
                             <h3 className="text-lg font-bold">
                                 City<span className="text-orange-500">Shop</span>
                             </h3>
+                            <p className="mt-1 text-xs font-bold tracking-wide text-gray-700">CITY UNLOCK VENTURES</p>
                             <p className="mt-2 text-sm text-gray-500">Ghana&apos;s trusted online marketplace.</p>
                         </div>
                         <div>
@@ -147,7 +148,7 @@ export default function ShopLayout({
                             </ul>
                         </div>
                     </div>
-                    <p className="mt-8 text-center text-xs text-gray-400">&copy; {new Date().getFullYear()} CityShop. All rights reserved.</p>
+                    <p className="mt-8 text-center text-xs text-gray-400">&copy; {new Date().getFullYear()} CITY UNLOCK VENTURES. All rights reserved.</p>
                 </div>
             </footer>
             )}
