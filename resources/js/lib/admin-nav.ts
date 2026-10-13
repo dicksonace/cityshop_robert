@@ -33,6 +33,7 @@ export type AdminNavKey =
     | 'rmb-reconciliation'
     | 'rmb-rate-history'
     | 'transactions'
+    | 'korapay-payments'
     | 'manual-funding-settings'
     | 'manual-top-ups'
     | 'pending-funds'
@@ -76,6 +77,7 @@ const sectionMap: Record<AdminNavKey, string> = {
     'rmb-reconciliation': 'finance',
     'rmb-rate-history': 'finance',
     transactions: 'finance',
+    'korapay-payments': 'finance',
     'manual-funding-settings': 'finance',
     'manual-top-ups': 'finance',
     'pending-funds': 'finance',
@@ -205,7 +207,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'withdrawals-buyers', label: 'Buyer Withdrawals', href: route('admin.withdrawals.index', { status: 'pending', role: 'buyer' }) },
                 { key: 'withdrawals-all', label: 'All Withdrawals', href: route('admin.withdrawals.index', { status: 'all' }) },
                 { key: 'withdrawal-fees', label: 'Withdrawal Fees', href: route('admin.withdrawal-fees.settings') },
-                { key: 'paystack-fees', label: 'Paystack / Flutterwave', href: route('admin.paystack-fees.settings') },
+                { key: 'paystack-fees', label: 'Paystack / Flutterwave / Korapay', href: route('admin.paystack-fees.settings') },
                 { key: 'manual-top-ups', label: 'Manual Top-ups', href: route('admin.manual-top-ups.index'), badgeKey: 'pending_manual_top_ups', defaultOnPath: true },
                 { key: 'pending-funds', label: 'Pending Funds', href: route('admin.pending-funds.index'), badgeKey: 'pending_fund_releases', defaultOnPath: true },
                 { key: 'china-transfers', label: 'China Transfer', href: route('admin.china-transfers.index'), badgeKey: 'pending_china_transfers', defaultOnPath: true },
@@ -216,6 +218,7 @@ export function adminNavGroups(active: AdminNavKey): PanelNavGroup[] {
                 { key: 'sell-rmb', label: 'Sell RMB', href: route('admin.sell-rmb.index'), badgeKey: 'pending_sell_rmb', defaultOnPath: true },
                 { key: 'sell-rmb-settings', label: 'Sell RMB Settings', href: route('admin.sell-rmb.settings') },
                 { key: 'transactions', label: 'Transactions', href: route('admin.transactions.index'), defaultOnPath: true },
+                { key: 'korapay-payments', label: 'Korapay Payments', href: route('admin.korapay-payments.index') },
                 { key: 'manual-funding-settings', label: 'Receive Accounts', href: route('admin.manual-funding.settings') },
                 { key: 'wallet-funding', label: 'Add Funds to Wallet', href: route('admin.wallet-funding.index'), defaultOnPath: true },
             ],

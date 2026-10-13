@@ -51,14 +51,26 @@ class KorapayWebhookController extends FlutterwaveWebhookController
         }
 
         try {
-            $verified = $this->korapay->verifyByReference($reference);
-            if ($this->korapay->isSuccessful($verified) && strtoupper((string) ($verified['currency'] ?? '')) === 'GHS') {
-                $this->fulfill($this->korapay, $verified, $reference);
-            }
+            $this->settle($reference);
         } catch (\Throwable $e) {
             Log::error('Korapay webhook error', ['error' => $e->getMessage(), 'reference' => $reference]);
         }
 
         return response('OK', 200);
+    }
+
+    /**
+     * Ask Korapay for the charge and give value if it is paid. Safe to repeat.
+     *
+     * @return string Korapay charge status (success, failed, processing, pending)
+     */
+    public function settle(string $reference): string
+    {
+        $verified = $this->korapay->verifyByReference($reference);
+        if ($this->korapay->isSuccessful($verified) && strtoupper((string) ($verified['currency'] ?? '')) === 'GHS') {
+            $this->fulfill($this->korapay, $verified, $reference);
+        }
+
+        return strtolower((string) ($verified['status'] ?? 'unknown'));
     }
 }

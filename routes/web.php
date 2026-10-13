@@ -389,6 +389,8 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::get('/rmb-ops/reconciliation', [\App\Http\Controllers\Admin\RmbOpsController::class, 'reconciliation'])->name('rmb-ops.reconciliation');
     Route::get('/rmb-ops/rate-history', [\App\Http\Controllers\Admin\RmbOpsController::class, 'rateHistory'])->name('rmb-ops.rate-history');
     Route::get('/transactions', [\App\Http\Controllers\Admin\TransactionController::class, 'index'])->name('transactions.index');
+    Route::get('/korapay-payments', [\App\Http\Controllers\Admin\KorapayPaymentController::class, 'index'])->name('korapay-payments.index');
+    Route::post('/korapay-payments/{korapayPayment}/recheck', [\App\Http\Controllers\Admin\KorapayPaymentController::class, 'recheck'])->name('korapay-payments.recheck');
 
     Route::get('/withdrawal-fees/settings', [WithdrawalFeeSettingsController::class, 'edit'])->name('withdrawal-fees.settings');
     Route::post('/withdrawal-fees/settings', [WithdrawalFeeSettingsController::class, 'update'])->name('withdrawal-fees.settings.update');

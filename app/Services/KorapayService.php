@@ -246,8 +246,9 @@ class KorapayService implements HostedPaymentGateway
         }
 
         $record = KorapayPayment::query()->where('reference', $reference)->first();
-        if ($record && $this->isSuccessful($data) && $record->status !== 'success') {
-            $record->update(['status' => 'success']);
+        $status = strtolower((string) ($data['status'] ?? ''));
+        if ($record && $status !== '' && $record->status !== 'success' && $record->status !== $status) {
+            $record->update(['status' => $status]);
         }
 
         $data['tx_ref'] = $reference;
