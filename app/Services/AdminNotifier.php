@@ -7,6 +7,8 @@ use App\Enums\UserRole;
 use App\Models\User;
 use App\Models\WalletTopUpRequest;
 use App\Notifications\AdminWalletDepositNotification;
+use App\Support\AdminAlerts;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Testing\Fakes\NotificationFake;
@@ -21,12 +23,12 @@ class AdminNotifier
             ->get();
     }
 
-    public static function notify(object $notification): void
+    public static function notify(object $notification, ?Model $subject = null): void
     {
         $admins = self::users();
         if ($admins->isNotEmpty()) {
             self::deliver($admins, $notification);
-            self::remember($admins, $notification);
+            self::remember($admins, $notification, $subject);
         }
 
         try {
@@ -63,7 +65,7 @@ class AdminNotifier
                 ? (string) $topUp->payment_reference
                 : 'proof #'.$topUp->id,
             pendingProof: true,
-        ));
+        ), $topUp);
     }
 
     /**
@@ -138,7 +140,7 @@ class AdminNotifier
     /**
      * @param  Collection<int, User>  $admins
      */
-    private static function remember(Collection $admins, object $notification): void
+    private static function remember(Collection $admins, object $notification, ?Model $subject = null): void
     {
         if (! method_exists($notification, 'toSms') || Notification::getFacadeRoot() instanceof NotificationFake) {
             return;
@@ -156,9 +158,11 @@ class AdminNotifier
             return;
         }
 
+        $data = AdminAlerts::subjectData($notification, $subject);
+
         foreach ($admins as $admin) {
             try {
-                AppNotificationService::send($admin, 'admin_action', 'Needs a decision', $body);
+                AppNotificationService::send($admin, 'admin_action', 'Needs a decision', $body, $data);
             } catch (\Throwable $e) {
                 report($e);
             }

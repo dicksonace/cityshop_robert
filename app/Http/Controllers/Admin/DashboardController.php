@@ -5,13 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\SellerStatus;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
-use App\Models\AppNotification;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\SellerProfile;
 use App\Models\User;
 use App\Models\Withdrawal;
 use App\Services\GsmToolService;
+use App\Support\AdminAlerts;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -52,19 +52,7 @@ class DashboardController extends Controller
                 ] : null,
             ]);
 
-        $alerts = AppNotification::query()
-            ->where('user_id', $request->user()->id)
-            ->where('type', 'admin_action')
-            ->where('created_at', '>=', now()->subDays(2))
-            ->latest()
-            ->limit(6)
-            ->get()
-            ->map(fn (AppNotification $alert) => [
-                'id' => $alert->id,
-                'title' => $alert->title,
-                'body' => $alert->body,
-                'created_at' => $alert->created_at?->toIso8601String(),
-            ]);
+        $alerts = AdminAlerts::forUser($request->user());
 
         return Inertia::render('admin/dashboard', [
             'stats' => $stats,

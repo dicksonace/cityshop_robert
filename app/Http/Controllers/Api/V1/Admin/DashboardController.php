@@ -9,7 +9,6 @@ use App\Enums\SellerStatus;
 use App\Enums\WalletTopUpStatus;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
-use App\Models\AppNotification;
 use App\Models\Dispute;
 use App\Models\KycVerification;
 use App\Models\Order;
@@ -23,6 +22,7 @@ use App\Services\ChinaTransferService;
 use App\Services\GsmToolService;
 use App\Services\OrderService;
 use App\Services\SellRmbService;
+use App\Support\AdminAlerts;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -30,20 +30,7 @@ class DashboardController extends Controller
 {
     public function show(Request $request, OrderService $orders, ChinaTransferService $china, SellRmbService $sellRmb, GsmToolService $gsm): JsonResponse
     {
-        $alerts = AppNotification::query()
-            ->where('user_id', $request->user()->id)
-            ->where('type', 'admin_action')
-            ->where('created_at', '>=', now()->subDays(2))
-            ->latest()
-            ->limit(6)
-            ->get()
-            ->map(fn (AppNotification $alert) => [
-                'id' => $alert->id,
-                'title' => $alert->title,
-                'body' => $alert->body,
-                'created_at' => $alert->created_at?->toIso8601String(),
-            ])
-            ->values();
+        $alerts = AdminAlerts::forUser($request->user());
 
         return response()->json([
             'alerts' => $alerts,
