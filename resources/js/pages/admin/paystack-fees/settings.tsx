@@ -43,6 +43,152 @@ interface Props {
     };
     flutterwaveLocked?: boolean;
     flutterwaveKeys?: FlutterwaveKeys;
+    korapayKeys?: KorapayKeys;
+}
+
+interface KorapayKeys {
+    source: 'none' | 'env' | 'admin' | 'mixed';
+    configured: boolean;
+    available: boolean;
+    locked: boolean;
+    is_test: boolean;
+    admin_public_set: boolean;
+    admin_secret_set: boolean;
+    public_key_masked: string;
+    secret_key_masked: string;
+    webhook_url: string;
+}
+
+function KorapaySettings({ keys }: { keys?: KorapayKeys }) {
+    const lockForm = useForm({ locked: keys?.locked ?? false });
+    const keysForm = useForm({ public_key: '', secret_key: '' });
+    const verifyForm = useForm({});
+    const clearForm = useForm({});
+    const setLocked = (locked: boolean) => {
+        lockForm.setData('locked', locked);
+        router.post(route('admin.korapay.lock.update'), { locked }, { preserveScroll: true });
+    };
+
+    return (
+        <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 className="text-base font-bold text-gray-900">Korapay payments</h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Extra option for checkout, wallet and GSM recharge, and scan to pay. Uses the same collection fees as
+                        Paystack. Copy keys from Korapay → Settings → API Configuration. Webhook URL:{' '}
+                        <span className="font-mono text-xs">{keys?.webhook_url ?? 'https://cityunlock.net/webhooks/korapay'}</span>
+                    </p>
+                </div>
+                <span className="rounded-full bg-gray-50 px-3 py-1 text-xs font-extrabold uppercase tracking-wide ring-1 ring-black/5">
+                    {lockForm.data.locked ? 'Disabled' : 'Enabled'}
+                </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+                <Button
+                    type="button"
+                    disabled={!lockForm.data.locked}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => setLocked(false)}
+                >
+                    Enable
+                </Button>
+                <Button
+                    type="button"
+                    disabled={lockForm.data.locked}
+                    className="bg-amber-600 hover:bg-amber-700"
+                    onClick={() => setLocked(true)}
+                >
+                    Disable
+                </Button>
+            </div>
+
+            <div
+                className={`rounded-xl border px-4 py-3 text-sm ${
+                    keys?.configured
+                        ? keys.is_test
+                            ? 'border-amber-200 bg-amber-50 text-amber-950'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                        : 'border-red-200 bg-red-50 text-red-900'
+                }`}
+            >
+                <p className="font-bold">
+                    {keys?.configured
+                        ? keys.available
+                            ? 'Keys are set and Korapay is enabled'
+                            : 'Keys are set, but Korapay is disabled'
+                        : 'No Korapay keys yet — buyers will not see Korapay'}
+                </p>
+                {keys?.public_key_masked ? <p className="mt-2 font-mono text-xs">Public: {keys.public_key_masked}</p> : null}
+                {keys?.secret_key_masked ? <p className="font-mono text-xs">Secret: {keys.secret_key_masked}</p> : null}
+                {keys?.is_test ? (
+                    <p className="mt-2 text-xs font-semibold">These are test keys. Real payments need pk_live_ / sk_live_ keys.</p>
+                ) : null}
+            </div>
+
+            <div>
+                <Label>Public key</Label>
+                <Input
+                    value={keysForm.data.public_key}
+                    onChange={(e) => keysForm.setData('public_key', e.target.value)}
+                    className="mt-1 font-mono text-sm"
+                    placeholder={keys?.public_key_masked || 'pk_live_…'}
+                    autoComplete="off"
+                />
+                <InputError message={keysForm.errors.public_key} />
+            </div>
+            <div>
+                <Label>Secret key</Label>
+                <Input
+                    type="password"
+                    value={keysForm.data.secret_key}
+                    onChange={(e) => keysForm.setData('secret_key', e.target.value)}
+                    className="mt-1 font-mono text-sm"
+                    placeholder={keys?.secret_key_masked || 'sk_live_…'}
+                    autoComplete="new-password"
+                />
+                <InputError message={keysForm.errors.secret_key} />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+                <Button
+                    type="button"
+                    disabled={keysForm.processing}
+                    className="bg-orange-500 hover:bg-orange-600"
+                    onClick={() =>
+                        keysForm.post(route('admin.korapay.keys.update'), {
+                            preserveScroll: true,
+                            onSuccess: () => keysForm.reset(),
+                        })
+                    }
+                >
+                    {keysForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                    Save and test keys
+                </Button>
+                <Button
+                    type="button"
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    disabled={verifyForm.processing}
+                    onClick={() => verifyForm.post(route('admin.korapay.keys.verify'), { preserveScroll: true })}
+                >
+                    {verifyForm.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                    Test Korapay keys
+                </Button>
+                {(keys?.admin_public_set || keys?.admin_secret_set) && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="text-red-600"
+                        disabled={clearForm.processing}
+                        onClick={() => clearForm.post(route('admin.korapay.keys.clear'), { preserveScroll: true })}
+                    >
+                        Clear saved keys
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
 }
 
 function tiersFromSettings(settings: Props['settings']): FeeTier[] {
@@ -67,6 +213,7 @@ export default function PaystackFeeSettings({
     paystackPayments,
     flutterwaveLocked = false,
     flutterwaveKeys,
+    korapayKeys,
 }: Props) {
     const { flash } = usePage<SharedData>().props;
     const payments = paystackPayments ?? {
@@ -449,6 +596,8 @@ export default function PaystackFeeSettings({
                     </div>
                     <InputError message={verifyForm.errors.secret_key} />
                 </div>
+
+                <KorapaySettings keys={korapayKeys} />
 
                 <form onSubmit={submit} className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                     <label className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">

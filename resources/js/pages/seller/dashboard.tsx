@@ -66,6 +66,7 @@ interface DashboardProps {
     orderPipelineCounts: Record<string, number>;
     paystackConfigured?: boolean;
     flutterwaveConfigured?: boolean;
+    korapayConfigured?: boolean;
     manualTopUpEnabled?: boolean;
     paystackFee?: PaystackFeeSettings | null;
     isLive?: boolean;
@@ -83,6 +84,7 @@ export default function SellerDashboard({
     orderPipelineCounts,
     paystackConfigured = false,
     flutterwaveConfigured = false,
+    korapayConfigured = false,
     manualTopUpEnabled = false,
     paystackFee,
     isLive = false,
@@ -190,6 +192,7 @@ export default function SellerDashboard({
                     countdownSec={secondsLeft}
                     paystackConfigured={paystackConfigured}
                     flutterwaveConfigured={flutterwaveConfigured}
+                    korapayConfigured={korapayConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
                     paystackFee={paystackFee}
                 />

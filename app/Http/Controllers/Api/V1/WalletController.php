@@ -12,18 +12,19 @@ use App\Models\WalletTopUpRequest;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Services\AdminNotifier;
+use App\Services\FlutterwaveService;
 use App\Services\KycService;
 use App\Services\PaymentPinService;
 use App\Services\PaystackService;
-use App\Services\FlutterwaveService;
 use App\Services\PlatformSettings;
 use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
+use App\Support\HostedGateways;
 use App\Support\PaymentReference;
-use App\Support\WithdrawalPresentation;
 use App\Support\PayoutNetwork;
+use App\Support\WithdrawalPresentation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -77,9 +78,11 @@ class WalletController extends Controller
                 'paystack_configured' => $paystackOn,
                 'paystack_fee' => $paystackFee,
                 'flutterwave_configured' => $flutterwaveOn,
+                'korapay_configured' => app(\App\Services\KorapayService::class)->isAvailable(),
                 'online_gateways' => [
                     'paystack' => $paystackOn,
                     'flutterwave' => $flutterwaveOn,
+                    'korapay' => app(\App\Services\KorapayService::class)->isAvailable(),
                 ],
                 'manual_top_up_enabled' => ($funding['enabled'] ?? false) && count($accounts) > 0,
                 'kyc' => $kyc,
@@ -415,6 +418,7 @@ class WalletController extends Controller
             'accounts' => $settings['accounts'],
             'paystack_configured' => $this->paystack->isRechargeOffered(),
             'flutterwave_configured' => $this->flutterwave->isAvailable(),
+            'korapay_configured' => app(\App\Services\KorapayService::class)->isAvailable(),
             'requests' => WalletTopUpRequest::where('user_id', $request->user()->id)
                 ->latest()
                 ->limit(20)
@@ -559,6 +563,7 @@ class WalletController extends Controller
                     'paystack_configured' => $this->paystack->isRechargeOffered(),
                     'paystack_fee' => $this->paystack->rechargeFeePayload(),
                     'flutterwave_configured' => $this->flutterwave->isAvailable(),
+                    'korapay_configured' => app(\App\Services\KorapayService::class)->isAvailable(),
                     'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,
                 ],
             ]);
@@ -571,6 +576,8 @@ class WalletController extends Controller
 
     public function initializeFlutterwaveTopUp(Request $request): JsonResponse
     {
+        $gateway = HostedGateways::fromRequest($request);
+
         $user = $request->user();
         abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
 
@@ -584,14 +591,14 @@ class WalletController extends Controller
             return $denied;
         }
 
-        if (! $this->flutterwave->isAvailable()) {
-            return response()->json(['message' => $this->flutterwave->unavailableMessage()], 503);
+        if (! $gateway->isAvailable()) {
+            return response()->json(['message' => $gateway->unavailableMessage()], 503);
         }
 
         $callbackUrl = url('/api/v1/flutterwave/mobile-return');
 
         try {
-            $data = $this->flutterwave->initializeWalletTopUp(
+            $data = $gateway->initializeWalletTopUp(
                 $user,
                 (float) $validated['amount'],
                 $validated['method'],
@@ -608,7 +615,7 @@ class WalletController extends Controller
                 'fee' => $data['fee'],
                 'charge' => $data['charge'],
                 'currency' => 'GHS',
-                'gateway' => 'flutterwave',
+                'gateway' => $gateway->name(),
             ]);
         } catch (\Throwable $e) {
             Log::error('API Flutterwave wallet top-up init failed', ['error' => $e->getMessage()]);
@@ -622,6 +629,8 @@ class WalletController extends Controller
 
     public function verifyFlutterwaveTopUp(Request $request): JsonResponse
     {
+        $gateway = HostedGateways::fromRequest($request);
+
         $user = $request->user();
         abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
 
@@ -632,13 +641,13 @@ class WalletController extends Controller
         $reference = $validated['reference'];
 
         try {
-            $data = $this->flutterwave->verifyByReference($reference);
+            $data = $gateway->verifyByReference($reference);
 
-            if (! $this->flutterwave->isSuccessful($data)) {
+            if (! $gateway->isSuccessful($data)) {
                 return response()->json(['message' => 'Payment was not successful.'], 422);
             }
 
-            $metadata = $this->flutterwave->normalizeMeta($data);
+            $metadata = $gateway->normalizeMeta($data);
             if (($metadata['type'] ?? '') !== 'wallet_topup') {
                 return response()->json(['message' => 'Invalid wallet top-up.'], 422);
             }
@@ -647,14 +656,14 @@ class WalletController extends Controller
                 return response()->json(['message' => 'Payment does not belong to your account.'], 403);
             }
 
-            $paid = $this->flutterwave->paidAmountGhs($data);
-            $credit = $this->flutterwave->topUpCreditFromMetadata($metadata, $paid);
+            $paid = $gateway->paidAmountGhs($data);
+            $credit = $gateway->topUpCreditFromMetadata($metadata, $paid);
             if ($credit < 5) {
                 return response()->json(['message' => 'Invalid payment amount.'], 422);
             }
 
             $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
-            if ($expected !== null && ! $this->flutterwave->amountsMatch($paid, $expected)) {
+            if ($expected !== null && ! $gateway->amountsMatch($paid, $expected)) {
                 return response()->json(['message' => 'Payment amount could not be verified.'], 422);
             }
 
@@ -677,6 +686,7 @@ class WalletController extends Controller
                     'paystack_configured' => $this->paystack->isRechargeOffered(),
                     'paystack_fee' => $this->paystack->rechargeFeePayload(),
                     'flutterwave_configured' => $this->flutterwave->isAvailable(),
+                    'korapay_configured' => app(\App\Services\KorapayService::class)->isAvailable(),
                     'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,
                 ],
             ]);

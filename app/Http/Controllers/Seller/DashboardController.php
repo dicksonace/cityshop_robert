@@ -49,6 +49,7 @@ class DashboardController extends Controller
             'orderPipelineCounts' => $this->dashboard->orderPipelineCounts($seller),
             'paystackConfigured' => $this->paystack->isRechargeOffered(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
+            'korapayConfigured' => app(\App\Services\KorapayService::class)->isAvailable(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'isLive' => LiveStreamService::currentForSeller($seller) !== null,

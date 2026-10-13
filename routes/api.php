@@ -303,9 +303,13 @@ Route::prefix('v1')->group(function () {
             Route::post('/settings/paystack', [AdminSettingsController::class, 'updatePaystack']);
             Route::post('/settings/paystack/lock', [AdminSettingsController::class, 'updatePaystackLock']);
             Route::post('/settings/flutterwave/lock', [AdminSettingsController::class, 'updateFlutterwaveLock']);
+            Route::post('/settings/korapay/lock', [AdminSettingsController::class, 'updateKorapayLock']);
             Route::post('/settings/flutterwave/keys', [AdminSettingsController::class, 'updateFlutterwaveKeys']);
+            Route::post('/settings/korapay/keys', [AdminSettingsController::class, 'updateKorapayKeys']);
             Route::post('/settings/flutterwave/keys/verify', [AdminSettingsController::class, 'verifyFlutterwaveKeys']);
+            Route::post('/settings/korapay/keys/verify', [AdminSettingsController::class, 'verifyKorapayKeys']);
             Route::post('/settings/flutterwave/keys/clear', [AdminSettingsController::class, 'clearFlutterwaveKeys']);
+            Route::post('/settings/korapay/keys/clear', [AdminSettingsController::class, 'clearKorapayKeys']);
             Route::get('/settings/withdrawal', [AdminSettingsController::class, 'withdrawal']);
             Route::post('/settings/withdrawal', [AdminSettingsController::class, 'updateWithdrawal']);
             Route::get('/settings/manual-funding', [AdminSettingsController::class, 'manualFunding']);
@@ -474,13 +478,17 @@ Route::prefix('v1')->group(function () {
         Route::post('/checkout/paystack/initialize', [CheckoutController::class, 'initializeDraftPaystack']);
         Route::post('/checkout/paystack/verify', [CheckoutController::class, 'verifyDraftPaystack']);
         Route::post('/checkout/flutterwave/initialize', [CheckoutController::class, 'initializeDraftFlutterwave']);
+        Route::post('/checkout/korapay/initialize', [CheckoutController::class, 'initializeDraftFlutterwave'])->defaults('gateway', 'korapay');
         Route::post('/checkout/flutterwave/verify', [CheckoutController::class, 'verifyDraftFlutterwave']);
+        Route::post('/checkout/korapay/verify', [CheckoutController::class, 'verifyDraftFlutterwave'])->defaults('gateway', 'korapay');
         Route::get('/checkouts/{checkout}', [CheckoutController::class, 'show']);
         Route::post('/checkouts/{checkout}/pay/wallet', [CheckoutController::class, 'payWithWallet']);
         Route::post('/checkouts/{checkout}/pay/initialize', [CheckoutController::class, 'initializePaystack']);
         Route::post('/checkouts/{checkout}/pay/verify', [CheckoutController::class, 'verifyPaystack']);
         Route::post('/checkouts/{checkout}/pay/flutterwave/initialize', [CheckoutController::class, 'initializeFlutterwave']);
+        Route::post('/checkouts/{checkout}/pay/korapay/initialize', [CheckoutController::class, 'initializeFlutterwave'])->defaults('gateway', 'korapay');
         Route::post('/checkouts/{checkout}/pay/flutterwave/verify', [CheckoutController::class, 'verifyFlutterwave']);
+        Route::post('/checkouts/{checkout}/pay/korapay/verify', [CheckoutController::class, 'verifyFlutterwave'])->defaults('gateway', 'korapay');
         Route::post('/orders/{order}/direct-payment', [CheckoutController::class, 'submitDirectPayment']);
 
         Route::get('/orders', [OrderController::class, 'index']);
@@ -522,7 +530,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/wallet/paystack/initialize', [WalletController::class, 'initializePaystackTopUp']);
         Route::post('/wallet/paystack/verify', [WalletController::class, 'verifyPaystackTopUp']);
         Route::post('/wallet/flutterwave/initialize', [WalletController::class, 'initializeFlutterwaveTopUp']);
+        Route::post('/wallet/korapay/initialize', [WalletController::class, 'initializeFlutterwaveTopUp'])->defaults('gateway', 'korapay');
         Route::post('/wallet/flutterwave/verify', [WalletController::class, 'verifyFlutterwaveTopUp']);
+        Route::post('/wallet/korapay/verify', [WalletController::class, 'verifyFlutterwaveTopUp'])->defaults('gateway', 'korapay');
         Route::get('/wallet/qr/receive', [QrPaymentController::class, 'receive']);
         Route::post('/wallet/qr/resolve', [QrPaymentController::class, 'resolve']);
         Route::post('/wallet/qr/pay', [QrPaymentController::class, 'pay']);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\FlutterwaveService;
+use App\Services\KorapayService;
 use App\Services\PlatformSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -128,6 +129,7 @@ class SettingsController extends Controller
             'paystack_payments' => PlatformSettings::paystackPaymentsSettings(),
             'flutterwave_locked' => PlatformSettings::flutterwavePaymentsLocked(),
             'flutterwave_keys' => $flutterwaveKeys,
+            'korapay_keys' => PlatformSettings::korapayKeysStatus(),
         ]);
     }
 
@@ -281,6 +283,66 @@ class SettingsController extends Controller
                 ? 'Admin Flutterwave keys cleared. Deposits will use the server .env keys.'
                 : 'Admin Flutterwave keys cleared. Set keys here or on the server before buyers can deposit.',
             'flutterwave_keys' => $status,
+        ]);
+    }
+
+    public function updateKorapayLock(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'locked' => ['required', 'boolean'],
+        ]);
+        $locked = (bool) $validated['locked'];
+        PlatformSettings::saveKorapayPaymentsSettings(['locked' => $locked]);
+
+        return response()->json([
+            'message' => $locked ? 'Korapay disabled.' : 'Korapay enabled.',
+            'korapay_keys' => PlatformSettings::korapayKeysStatus(),
+        ]);
+    }
+
+    public function updateKorapayKeys(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'public_key' => ['nullable', 'string', 'max:255'],
+            'secret_key' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $public = trim((string) ($validated['public_key'] ?? ''));
+        $secret = trim((string) ($validated['secret_key'] ?? ''));
+        if ($public === '' && $secret === '') {
+            return response()->json(['message' => 'Paste at least a Korapay public or secret key.'], 422);
+        }
+
+        PlatformSettings::saveKorapayApiKeys(['public_key' => $public, 'secret_key' => $secret]);
+        $probe = app(KorapayService::class)->probeCredentials($secret !== '' ? $secret : null);
+
+        return response()->json([
+            'message' => $probe['ok']
+                ? 'Korapay keys saved. '.$probe['message']
+                : 'Keys saved, but Korapay rejected them: '.$probe['message'],
+            'verified' => $probe['ok'],
+            'korapay_keys' => PlatformSettings::korapayKeysStatus(),
+        ], $probe['ok'] ? 200 : 422);
+    }
+
+    public function verifyKorapayKeys(): JsonResponse
+    {
+        $probe = app(KorapayService::class)->probeCredentials();
+
+        return response()->json([
+            'message' => $probe['message'],
+            'verified' => $probe['ok'],
+            'korapay_keys' => PlatformSettings::korapayKeysStatus(),
+        ], $probe['ok'] ? 200 : 422);
+    }
+
+    public function clearKorapayKeys(): JsonResponse
+    {
+        PlatformSettings::clearKorapayApiKeys();
+
+        return response()->json([
+            'message' => 'Admin Korapay keys cleared.',
+            'korapay_keys' => PlatformSettings::korapayKeysStatus(),
         ]);
     }
 

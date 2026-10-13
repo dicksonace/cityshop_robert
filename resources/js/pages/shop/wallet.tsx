@@ -28,6 +28,7 @@ interface BuyerWalletProps {
     hasPendingWithdrawal: boolean;
     paystackConfigured: boolean;
     flutterwaveConfigured?: boolean;
+    korapayConfigured?: boolean;
     paystackPublicKey: string;
     paystackFee?: PaystackFeeSettings | null;
     manualTopUpEnabled?: boolean;
@@ -70,6 +71,7 @@ export default function BuyerWallet({
     hasPendingWithdrawal,
     paystackConfigured,
     flutterwaveConfigured = false,
+    korapayConfigured = false,
     paystackFee,
     manualTopUpEnabled,
     manualFundingAccounts = [],
@@ -92,7 +94,7 @@ export default function BuyerWallet({
         return () => window.clearTimeout(timer);
     }, [flashKey]);
 
-    const canRecharge = paystackConfigured || !!flutterwaveConfigured || !!manualTopUpEnabled;
+    const canRecharge = paystackConfigured || !!flutterwaveConfigured || !!korapayConfigured || !!manualTopUpEnabled;
 
     const refreshBalance = () => {
         setRefreshing(true);
@@ -199,11 +201,13 @@ export default function BuyerWallet({
                     onClose={() => setRechargeOpen(false)}
                     paystackConfigured={paystackConfigured}
                     flutterwaveConfigured={flutterwaveConfigured}
+                    korapayConfigured={korapayConfigured}
                     manualTopUpEnabled={!!manualTopUpEnabled}
                     manualFundingAccounts={manualFundingAccounts}
                     manualHref={route('wallet.manual-top-up')}
                     paystackRoute={route('wallet.add-funds')}
                     flutterwaveRoute={route('wallet.add-funds.flutterwave')}
+                    korapayRoute={route('wallet.add-funds.korapay')}
                     amountInputId="buyer-recharge-amount"
                     paystackFee={paystackFee}
                 />

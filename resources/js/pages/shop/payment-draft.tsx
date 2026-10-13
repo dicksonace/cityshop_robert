@@ -19,6 +19,7 @@ interface PaymentDraftProps {
     paystackPublicKey: string;
     paystackConfigured: boolean;
     flutterwaveConfigured?: boolean;
+    korapayConfigured?: boolean;
 }
 
 declare global {
@@ -36,14 +37,20 @@ export default function PaymentDraft({
     paystackPublicKey,
     paystackConfigured,
     flutterwaveConfigured = false,
+    korapayConfigured = false,
 }: PaymentDraftProps) {
     const totalDue = paystackCharge && paystackCharge > 0 ? paystackCharge : amount;
-    const onlineAvailable = paystackConfigured || flutterwaveConfigured;
+    const gatewayOptions = (
+        [
+            { id: 'flutterwave', label: 'Flutterwave', on: flutterwaveConfigured },
+            { id: 'korapay', label: 'Korapay', on: korapayConfigured },
+            { id: 'paystack', label: 'Paystack', on: paystackConfigured },
+        ] as const
+    ).filter((option) => option.on);
+    const onlineAvailable = gatewayOptions.length > 0;
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [gateway, setGateway] = useState<'paystack' | 'flutterwave'>(
-        flutterwaveConfigured ? 'flutterwave' : 'paystack',
-    );
+    const [gateway, setGateway] = useState<'paystack' | 'flutterwave' | 'korapay'>(gatewayOptions[0]?.id ?? 'paystack');
 
     useEffect(() => {
         if (!paystackConfigured) return;
@@ -58,8 +65,9 @@ export default function PaymentDraft({
 
     useEffect(() => {
         if (flutterwaveConfigured) setGateway('flutterwave');
+        else if (korapayConfigured) setGateway('korapay');
         else if (paystackConfigured) setGateway('paystack');
-    }, [paystackConfigured, flutterwaveConfigured]);
+    }, [paystackConfigured, flutterwaveConfigured, korapayConfigured]);
 
     const payWithPaystack = useCallback(async () => {
         if (!paystackConfigured) {
@@ -95,9 +103,9 @@ export default function PaymentDraft({
         }
     }, [paystackConfigured, paystackPublicKey]);
 
-    const payWithFlutterwave = useCallback(async () => {
-        if (!flutterwaveConfigured) {
-            setError('Flutterwave payment is temporarily disabled.');
+    const payHosted = useCallback(async (name: 'flutterwave' | 'korapay') => {
+        if (!(name === 'korapay' ? korapayConfigured : flutterwaveConfigured)) {
+            setError(`${name === 'korapay' ? 'Korapay' : 'Flutterwave'} payment is temporarily disabled.`);
             return;
         }
 
@@ -106,7 +114,7 @@ export default function PaymentDraft({
 
         try {
             const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
-            const res = await fetch(route('checkout.flutterwave-draft.initialize'), {
+            const res = await fetch(route(`checkout.${name}-draft.initialize`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
             });
@@ -118,10 +126,10 @@ export default function PaymentDraft({
             setError(e instanceof Error ? e.message : 'Payment failed');
             setLoading(false);
         }
-    }, [flutterwaveConfigured]);
+    }, [flutterwaveConfigured, korapayConfigured]);
 
     const pay = () => {
-        if (gateway === 'flutterwave') return payWithFlutterwave();
+        if (gateway !== 'paystack') return payHosted(gateway);
         return payWithPaystack();
     };
 
@@ -151,34 +159,26 @@ export default function PaymentDraft({
                         <p className="mt-2 text-2xl font-bold text-orange-500">{formatPrice(totalDue)}</p>
                         {onlineAvailable ? (
                             <>
-                                {paystackConfigured && flutterwaveConfigured && (
-                                    <div className="mt-3 grid grid-cols-2 gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setGateway('flutterwave')}
-                                            className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
-                                                gateway === 'flutterwave'
-                                                    ? 'border-orange-500 bg-white text-orange-700'
-                                                    : 'border-transparent bg-white/50 text-gray-600'
-                                            }`}
-                                        >
-                                            Flutterwave
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setGateway('paystack')}
-                                            className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
-                                                gateway === 'paystack'
-                                                    ? 'border-orange-500 bg-white text-orange-700'
-                                                    : 'border-transparent bg-white/50 text-gray-600'
-                                            }`}
-                                        >
-                                            Paystack
-                                        </button>
+                                {gatewayOptions.length > 1 && (
+                                    <div className={`mt-3 grid gap-2 ${gatewayOptions.length > 2 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                                        {gatewayOptions.map((option) => (
+                                            <button
+                                                key={option.id}
+                                                type="button"
+                                                onClick={() => setGateway(option.id)}
+                                                className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                                                    gateway === option.id
+                                                        ? 'border-orange-500 bg-white text-orange-700'
+                                                        : 'border-transparent bg-white/50 text-gray-600'
+                                                }`}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
                                     </div>
                                 )}
                                 <p className="mt-2 text-sm text-gray-500">
-                                    Pay securely via {gateway === 'flutterwave' ? 'Flutterwave' : 'Paystack'}.
+                                    Pay securely via {gatewayOptions.find((option) => option.id === gateway)?.label ?? 'Paystack'}.
                                 </p>
                                 {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
                                 <Button

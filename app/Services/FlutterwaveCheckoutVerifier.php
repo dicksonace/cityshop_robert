@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\HostedPaymentGateway;
 use App\Enums\PaymentChannel;
 use App\Models\Checkout;
 use Illuminate\Support\Facades\Cache;
@@ -31,8 +32,10 @@ class FlutterwaveCheckoutVerifier
      * @param  array<string, mixed>|null  $flutterwaveData
      * @return array<string, mixed>
      */
-    public function verifyForCheckout(Checkout $checkout, string $reference, ?array $flutterwaveData = null): array
+    public function verifyForCheckout(Checkout $checkout, string $reference, ?array $flutterwaveData = null, ?HostedPaymentGateway $gateway = null): array
     {
+        $gateway ??= $this->flutterwave;
+
         $reference = trim($reference);
         if ($reference === '') {
             throw ValidationException::withMessages([
@@ -58,15 +61,15 @@ class FlutterwaveCheckoutVerifier
             }
         }
 
-        $data = $flutterwaveData ?? $this->flutterwave->verifyByReference($reference);
+        $data = $flutterwaveData ?? $gateway->verifyByReference($reference);
 
-        if (! $this->flutterwave->isSuccessful($data)) {
+        if (! $gateway->isSuccessful($data)) {
             throw ValidationException::withMessages([
                 'reference' => 'Payment was not successful.',
             ]);
         }
 
-        $meta = $this->flutterwave->normalizeMeta($data);
+        $meta = $gateway->normalizeMeta($data);
         $metaCheckoutId = (int) ($meta['checkout_id'] ?? 0);
         if ($metaCheckoutId !== (int) $checkout->id) {
             Log::warning('Flutterwave checkout_id mismatch', [
@@ -87,17 +90,17 @@ class FlutterwaveCheckoutVerifier
             ]);
         }
 
-        $paid = $this->flutterwave->paidAmountGhs($data);
+        $paid = $gateway->paidAmountGhs($data);
         $expectedMeta = isset($meta['expected_amount']) ? (float) $meta['expected_amount'] : null;
-        if ($expectedMeta !== null && ! $this->flutterwave->amountsMatch($paid, $expectedMeta)) {
+        if ($expectedMeta !== null && ! $gateway->amountsMatch($paid, $expectedMeta)) {
             throw ValidationException::withMessages([
                 'reference' => 'Payment amount could not be verified.',
             ]);
         }
 
         $orderAmount = app(CheckoutPaymentVerifier::class)->marketplaceAmountGhs($checkout);
-        $quote = $this->flutterwave->rechargeQuote($orderAmount);
-        if (! $this->flutterwave->amountsMatch($paid, $quote['charge'])) {
+        $quote = $gateway->rechargeQuote($orderAmount);
+        if (! $gateway->amountsMatch($paid, $quote['charge'])) {
             // Allow paid >= expected charge (customer overpay is rare but ok if close).
             if ($paid + 0.01 < $quote['charge']) {
                 throw ValidationException::withMessages([

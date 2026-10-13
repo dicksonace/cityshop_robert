@@ -8,15 +8,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\FlutterwaveService;
 use App\Services\KycService;
 use App\Services\PaymentPinService;
 use App\Services\PaystackService;
-use App\Services\FlutterwaveService;
 use App\Services\PlatformSettings;
 use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
+use App\Support\HostedGateways;
 use App\Support\WithdrawalPresentation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -118,6 +119,7 @@ class WalletController extends Controller
                 'tiers' => [],
             ]),
             'flutterwaveConfigured' => $this->safeWalletFlag(fn () => $this->flutterwave->isAvailable()),
+            'korapayConfigured' => app(\App\Services\KorapayService::class)->isAvailable(),
             'manualTopUpEnabled' => $manualOn,
             'manualFundingAccounts' => $manualOn ? $accounts : [],
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
@@ -270,6 +272,8 @@ class WalletController extends Controller
 
     public function addFundsFlutterwave(Request $request): RedirectResponse|JsonResponse
     {
+        $gateway = HostedGateways::fromRequest($request);
+
         abort_unless($request->user()->isBuyer(), 403);
 
         if (! $request->boolean('gsm')) {
@@ -287,8 +291,8 @@ class WalletController extends Controller
             'method' => ['required', 'in:momo,card'],
         ]);
 
-        if (! $this->flutterwave->isAvailable()) {
-            $message = $this->flutterwave->unavailableMessage();
+        if (! $gateway->isAvailable()) {
+            $message = $gateway->unavailableMessage();
 
             return $request->expectsJson()
                 ? response()->json(['message' => $message], 503)
@@ -296,11 +300,11 @@ class WalletController extends Controller
         }
 
         try {
-            $data = $this->flutterwave->initializeWalletTopUp(
+            $data = $gateway->initializeWalletTopUp(
                 $request->user(),
                 (float) $validated['amount'],
                 $validated['method'],
-                route('wallet.flutterwave.callback'),
+                route('wallet.'.$gateway->name().'.callback'),
             );
 
             if ($request->expectsJson()) {
@@ -311,7 +315,7 @@ class WalletController extends Controller
                     'amount' => $data['credit'],
                     'fee' => $data['fee'],
                     'charge' => $data['charge'],
-                    'gateway' => 'flutterwave',
+                    'gateway' => $gateway->name(),
                 ]);
             }
 
@@ -330,6 +334,8 @@ class WalletController extends Controller
 
     public function flutterwaveCallback(Request $request): RedirectResponse
     {
+        $gateway = HostedGateways::fromRequest($request);
+
         abort_unless($request->user()?->isBuyer(), 403);
 
         $reference = (string) ($request->query('tx_ref') ?: $request->query('reference') ?: '');
@@ -339,13 +345,13 @@ class WalletController extends Controller
         }
 
         try {
-            $data = $this->flutterwave->verifyByReference($reference);
+            $data = $gateway->verifyByReference($reference);
 
-            if (! $this->flutterwave->isSuccessful($data)) {
+            if (! $gateway->isSuccessful($data)) {
                 return redirect()->route('wallet.index')->with('error', 'Payment was not successful.');
             }
 
-            $metadata = $this->flutterwave->normalizeMeta($data);
+            $metadata = $gateway->normalizeMeta($data);
             if (($metadata['type'] ?? '') !== 'wallet_topup') {
                 return redirect()->route('wallet.index')->with('error', 'Invalid wallet top-up.');
             }
@@ -354,12 +360,12 @@ class WalletController extends Controller
                 return redirect()->route('wallet.index')->with('error', 'Payment does not belong to your account.');
             }
 
-            $paid = $this->flutterwave->paidAmountGhs($data);
+            $paid = $gateway->paidAmountGhs($data);
             $method = (string) ($metadata['method'] ?? 'momo');
             $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
-            $credit = $this->flutterwave->topUpCreditFromMetadata($metadata, $paid);
+            $credit = $gateway->topUpCreditFromMetadata($metadata, $paid);
 
-            if ($expected !== null && ! $this->flutterwave->amountsMatch($paid, $expected)) {
+            if ($expected !== null && ! $gateway->amountsMatch($paid, $expected)) {
                 Log::warning('Flutterwave wallet top-up amount mismatch', [
                     'reference' => $reference,
                     'paid' => $paid,

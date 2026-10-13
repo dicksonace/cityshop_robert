@@ -18,11 +18,13 @@ interface RechargeModalProps {
     onClose: () => void;
     paystackConfigured: boolean;
     flutterwaveConfigured?: boolean;
+    korapayConfigured?: boolean;
     manualTopUpEnabled: boolean;
     manualFundingAccounts?: FundingAccount[];
     manualHref: string;
     paystackRoute: string;
     flutterwaveRoute?: string;
+    korapayRoute?: string;
     chooseHint?: string;
     amountInputId?: string;
     paystackFee?: PaystackFeeSettings | null;
@@ -30,7 +32,7 @@ interface RechargeModalProps {
     gsm?: boolean;
 }
 
-type RechargeStep = 'choose' | 'paystack' | 'flutterwave' | 'manual';
+type RechargeStep = 'choose' | 'paystack' | 'flutterwave' | 'korapay' | 'manual';
 
 /**
  * Recharge flow: Auto Paystack / Flutterwave vs Manual. Manual shows the compact MoMo picker
@@ -41,11 +43,13 @@ export default function RechargeModal({
     onClose,
     paystackConfigured,
     flutterwaveConfigured = false,
+    korapayConfigured = false,
     manualTopUpEnabled,
     manualFundingAccounts = [],
     manualHref,
     paystackRoute,
     flutterwaveRoute,
+    korapayRoute,
     chooseHint = 'Choose how you want to add funds.',
     amountInputId = 'recharge-amount',
     paystackFee,
@@ -60,8 +64,10 @@ export default function RechargeModal({
         method: 'momo' as 'momo' | 'card',
     });
 
-    const onlineConfigured = paystackConfigured || flutterwaveConfigured;
-    const multiOnline = paystackConfigured && flutterwaveConfigured;
+    const korapayOn = korapayConfigured && Boolean(korapayRoute);
+    const onlineCount = [paystackConfigured, flutterwaveConfigured, korapayOn].filter(Boolean).length;
+    const onlineConfigured = onlineCount > 0;
+    const multiOnline = onlineCount > 1;
 
     const momoAccountsByNetwork = useMemo(() => {
         const map: Record<string, FundingAccount> = {};
@@ -93,6 +99,8 @@ export default function RechargeModal({
                 setStep('choose');
             } else if (paystackConfigured) {
                 setStep('paystack');
+            } else if (korapayOn) {
+                setStep('korapay');
             } else {
                 setStep('flutterwave');
             }
@@ -104,7 +112,7 @@ export default function RechargeModal({
         }
         setStep('choose');
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-init when opened
-    }, [open, paystackConfigured, flutterwaveConfigured, manualTopUpEnabled]);
+    }, [open, paystackConfigured, flutterwaveConfigured, korapayOn, manualTopUpEnabled]);
 
     useEffect(() => {
         if (!open || step !== 'manual') return;
@@ -180,21 +188,27 @@ export default function RechargeModal({
         await submitOnline(flutterwaveRoute);
     };
 
-    const showChooser =
-        step === 'choose' &&
-        ((onlineConfigured && manualTopUpEnabled) || multiOnline || (paystackConfigured && flutterwaveConfigured && manualTopUpEnabled));
+    const submitKorapay: FormEventHandler = async (e) => {
+        e.preventDefault();
+        if (!korapayRoute) {
+            setSubmitError('Korapay is not available.');
+            return;
+        }
+        await submitOnline(korapayRoute);
+    };
+
+    const showChooser = step === 'choose' && ((onlineConfigured && manualTopUpEnabled) || multiOnline);
     const showManual = manualTopUpEnabled && step === 'manual';
-    const showPaystack = step === 'paystack';
     const showFlutterwave = step === 'flutterwave';
+    const showKorapay = step === 'korapay';
+    const gatewayLabel = showFlutterwave ? 'Flutterwave' : showKorapay ? 'Korapay' : 'Paystack';
     const quote = paystackRechargeQuote(Number(form.data.amount) || 0, paystackFee);
 
     const title = showChooser
         ? 'Recharge'
         : showManual
           ? 'Manual deposit'
-          : showFlutterwave
-            ? 'Flutterwave recharge'
-            : 'Paystack recharge';
+          : `${gatewayLabel} recharge`;
 
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 pt-14 sm:items-start sm:pt-20">
@@ -250,6 +264,22 @@ export default function RechargeModal({
                                 </span>
                                 <span className="min-w-0">
                                     <span className="block text-sm font-semibold text-gray-900">Paystack</span>
+                                    <span className="block text-xs text-gray-500">Mobile Money and card</span>
+                                </span>
+                            </button>
+                        ) : null}
+
+                        {korapayOn ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep('korapay')}
+                                className="flex w-full items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3.5 py-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50"
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                                    <Smartphone className="h-5 w-5" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-gray-900">Korapay</span>
                                     <span className="block text-xs text-gray-500">Mobile Money and card</span>
                                 </span>
                             </button>
@@ -329,7 +359,7 @@ export default function RechargeModal({
                     </div>
                 ) : (
                     <form
-                        onSubmit={showFlutterwave ? submitFlutterwave : submitPaystack}
+                        onSubmit={showFlutterwave ? submitFlutterwave : showKorapay ? submitKorapay : submitPaystack}
                         className="mt-4 space-y-3"
                     >
                         <div>
@@ -348,7 +378,7 @@ export default function RechargeModal({
                             <InputError message={form.errors.amount} />
                         </div>
                         <p className="text-sm text-gray-500">
-                            {showFlutterwave ? 'Flutterwave' : 'Paystack'} takes Mobile Money and card on the next page.
+                            {gatewayLabel} takes Mobile Money and card on the next page.
                         </p>
                         {submitError && (
                             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">

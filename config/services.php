@@ -52,6 +52,11 @@ return [
         'webhook_hash' => env('FLW_SECRET_HASH', env('FLUTTERWAVE_SECRET_HASH', env('FLW_WEBHOOK_HASH'))),
     ],
 
+    'korapay' => [
+        'public_key' => env('KORAPAY_PUBLIC_KEY'),
+        'secret_key' => env('KORAPAY_SECRET_KEY'),
+    ],
+
     'analytics' => [
         'ga4_measurement_id' => env('GA4_MEASUREMENT_ID'),
         'meta_pixel_id' => env('META_PIXEL_ID'),

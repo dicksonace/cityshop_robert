@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Contracts\HostedPaymentGateway;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\FlutterwaveService;
@@ -9,6 +10,7 @@ use App\Services\PaymentPinService;
 use App\Services\PaystackService;
 use App\Services\QrPaymentService;
 use App\Services\WalletService;
+use App\Support\HostedGateways;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -92,7 +94,7 @@ class QrPaymentController extends Controller
             'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
             'note' => ['nullable', 'string', 'max:120'],
             'method' => ['required', 'in:momo,card'],
-            'gateway' => ['required', 'in:paystack,flutterwave'],
+            'gateway' => ['required', 'in:paystack,flutterwave,korapay'],
         ]);
 
         $payer = $request->user();
@@ -106,7 +108,7 @@ class QrPaymentController extends Controller
         }
 
         $gateway = $validated['gateway'];
-        $callbackUrl = $gateway === 'flutterwave'
+        $callbackUrl = $gateway !== 'paystack'
             ? url('/api/v1/flutterwave/mobile-return')
             : url('/api/v1/paystack/mobile-return');
 
@@ -117,8 +119,8 @@ class QrPaymentController extends Controller
         ];
 
         try {
-            $data = $gateway === 'flutterwave'
-                ? $flutterwave->initializeWalletTopUp($payer, $amount, $validated['method'], $callbackUrl, null, $extra)
+            $data = $gateway !== 'paystack'
+                ? HostedGateways::named($gateway)->initializeWalletTopUp($payer, $amount, $validated['method'], $callbackUrl, null, $extra)
                 : $paystack->initializeWalletTopUp($payer, $amount, $validated['method'], $callbackUrl, null, $extra);
         } catch (\Throwable $e) {
             Log::error('QR direct pay init failed', ['error' => $e->getMessage()]);
@@ -146,12 +148,12 @@ class QrPaymentController extends Controller
     {
         $validated = $request->validate([
             'reference' => ['required', 'string', 'max:100'],
-            'gateway' => ['required', 'in:paystack,flutterwave'],
+            'gateway' => ['required', 'in:paystack,flutterwave,korapay'],
         ]);
 
         try {
-            $result = $validated['gateway'] === 'flutterwave'
-                ? self::settleFlutterwave($request->user(), $validated['reference'], $flutterwave)
+            $result = $validated['gateway'] !== 'paystack'
+                ? self::settleFlutterwave($request->user(), $validated['reference'], HostedGateways::named($validated['gateway']))
                 : self::settlePaystack($request->user(), $validated['reference'], $paystack);
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
@@ -231,7 +233,7 @@ class QrPaymentController extends Controller
     /**
      * @return array<string, mixed>
      */
-    public static function settleFlutterwave(User $payer, string $reference, FlutterwaveService $flutterwave): array
+    public static function settleFlutterwave(User $payer, string $reference, HostedPaymentGateway $flutterwave): array
     {
         $data = $flutterwave->verifyByReference($reference);
         if (! $flutterwave->isSuccessful($data)) {

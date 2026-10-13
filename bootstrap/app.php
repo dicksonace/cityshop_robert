@@ -36,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'webhooks/paystack',
             'webhooks/flutterwave',
+            'webhooks/korapay',
             'webhooks/formula-dc',
         ]);
 

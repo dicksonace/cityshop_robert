@@ -26,6 +26,12 @@ class PlatformSettings
     /** Admin-entered Flutterwave public key, secret, and webhook hash. */
     public const FLUTTERWAVE_KEYS_KEY = 'flutterwave_keys';
 
+    /** When locked, buyers cannot start Korapay checkout or wallet top-up. */
+    public const KORAPAY_PAYMENTS_KEY = 'korapay_payments';
+
+    /** Admin-entered Korapay public and secret key. */
+    public const KORAPAY_KEYS_KEY = 'korapay_keys';
+
     /** When false, no buyer or seller can use China / RMB, even if their own switch is on. */
     public const CHINA_RMB_ACCESS_KEY = 'china_rmb_access';
 
@@ -742,6 +748,162 @@ class PlatformSettings
         }
 
         return substr($key, 0, 8).str_repeat('•', max(4, $len - 12)).substr($key, -4);
+    }
+
+    public static function korapayPaymentsLocked(): bool
+    {
+        $raw = static::get(self::KORAPAY_PAYMENTS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        return is_array($decoded) && (bool) ($decoded['locked'] ?? false);
+    }
+
+    public static function saveKorapayPaymentsSettings(array $data): void
+    {
+        static::set(self::KORAPAY_PAYMENTS_KEY, [
+            'locked' => (bool) ($data['locked'] ?? false),
+        ]);
+    }
+
+    /**
+     * @return array{public_key: string, secret_key: string}
+     */
+    public static function storedKorapayKeys(): array
+    {
+        $raw = static::get(self::KORAPAY_KEYS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return ['public_key' => '', 'secret_key' => ''];
+        }
+
+        return [
+            'public_key' => static::asString($decoded['public_key'] ?? ''),
+            'secret_key' => static::unsealSecret($decoded['secret_key'] ?? ''),
+        ];
+    }
+
+    public static function envKorapayPublicKey(): string
+    {
+        return trim((string) config('services.korapay.public_key', ''), " \t\n\r\0\x0B\"'");
+    }
+
+    public static function envKorapaySecretKey(): string
+    {
+        return trim((string) config('services.korapay.secret_key', ''), " \t\n\r\0\x0B\"'");
+    }
+
+    public static function resolvedKorapayPublicKey(): string
+    {
+        $admin = static::storedKorapayKeys()['public_key'];
+
+        return $admin !== '' ? $admin : static::envKorapayPublicKey();
+    }
+
+    public static function resolvedKorapaySecretKey(): string
+    {
+        $admin = static::storedKorapayKeys()['secret_key'];
+
+        return $admin !== '' ? $admin : static::envKorapaySecretKey();
+    }
+
+    /**
+     * Status for admin UI (never includes full secrets).
+     *
+     * @return array<string, mixed>
+     */
+    public static function korapayKeysStatus(): array
+    {
+        $stored = static::storedKorapayKeys();
+        $public = static::resolvedKorapayPublicKey();
+        $secret = static::resolvedKorapaySecretKey();
+        $adminReady = $stored['public_key'] !== '' && $stored['secret_key'] !== '';
+        $envReady = static::envKorapayPublicKey() !== '' && static::envKorapaySecretKey() !== '';
+
+        $source = 'none';
+        if ($adminReady) {
+            $source = 'admin';
+        } elseif ($stored['public_key'] !== '' || $stored['secret_key'] !== '') {
+            $source = 'mixed';
+        } elseif ($envReady) {
+            $source = 'env';
+        }
+
+        return [
+            'source' => $source,
+            'configured' => $public !== '' && $secret !== '',
+            'available' => $public !== '' && $secret !== '' && ! static::korapayPaymentsLocked(),
+            'locked' => static::korapayPaymentsLocked(),
+            'is_test' => static::isKorapayTestKey($public) || static::isKorapayTestKey($secret),
+            'admin_public_set' => $stored['public_key'] !== '',
+            'admin_secret_set' => $stored['secret_key'] !== '',
+            'public_key_masked' => static::maskFlutterwaveKey($public),
+            'secret_key_masked' => static::maskFlutterwaveKey($secret),
+            'webhook_url' => url('/webhooks/korapay'),
+        ];
+    }
+
+    /**
+     * @param  array{public_key?: string, secret_key?: string}  $data
+     */
+    public static function saveKorapayApiKeys(array $data): void
+    {
+        $current = static::storedKorapayKeys();
+
+        $public = static::normalizeKorapayKey((string) ($data['public_key'] ?? ''), 'pk_', 'public_key');
+        if ($public === '') {
+            $public = $current['public_key'];
+        }
+
+        $secret = static::normalizeKorapayKey((string) ($data['secret_key'] ?? ''), 'sk_', 'secret_key');
+        if ($secret === '') {
+            $secret = $current['secret_key'];
+        }
+
+        if ($public !== '' && $secret !== '' && static::isKorapayTestKey($public) !== static::isKorapayTestKey($secret)) {
+            throw ValidationException::withMessages([
+                'secret_key' => 'Public and secret keys must both be live or both be test keys.',
+            ]);
+        }
+
+        static::set(self::KORAPAY_KEYS_KEY, [
+            'public_key' => $public,
+            'secret_key' => $secret !== '' ? static::sealSecret($secret) : '',
+        ]);
+    }
+
+    public static function clearKorapayApiKeys(): void
+    {
+        static::set(self::KORAPAY_KEYS_KEY, [
+            'public_key' => '',
+            'secret_key' => '',
+        ]);
+    }
+
+    public static function normalizeKorapayKey(string $key, string $prefix, string $field): string
+    {
+        $key = trim($key, " \t\n\r\0\x0B\"'");
+        if ($key === '') {
+            return '';
+        }
+
+        if (! str_starts_with(strtolower($key), $prefix)) {
+            $label = $prefix === 'pk_' ? 'public' : 'secret';
+            throw ValidationException::withMessages([
+                $field => "Use a Korapay {$label} key (starts with {$prefix}live_ or {$prefix}test_).",
+            ]);
+        }
+
+        return $key;
+    }
+
+    public static function isKorapayTestKey(string $key): bool
+    {
+        return str_contains(strtolower($key), '_test_');
     }
 
     private static function sealSecret(string $value): string

@@ -9,15 +9,16 @@ use App\Models\SellerPayoutMethod;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\FlutterwaveService;
+use App\Services\KycService;
 use App\Services\PaymentPinService;
 use App\Services\PaystackService;
-use App\Services\FlutterwaveService;
 use App\Services\PlatformSettings;
-use App\Services\KycService;
 use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
 use App\Support\GhanaBanks;
+use App\Support\HostedGateways;
 use App\Support\WithdrawalPresentation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -85,6 +86,7 @@ class WalletController extends Controller
             'paystackConfigured' => $this->paystack->isRechargeOffered(),
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
+            'korapayConfigured' => app(\App\Services\KorapayService::class)->isAvailable(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($user),
             'canUseRmbWallet' => $user->canUseRmbWallet(),
@@ -419,6 +421,8 @@ class WalletController extends Controller
 
     public function addFundsFlutterwave(Request $request): RedirectResponse|JsonResponse
     {
+        $gateway = HostedGateways::fromRequest($request);
+
         if ($denied = KycService::denyStoreFundsResponse($request->user())) {
             return $request->expectsJson()
                 ? $denied
@@ -430,8 +434,8 @@ class WalletController extends Controller
             'method' => ['required', 'in:momo,card'],
         ]);
 
-        if (! $this->flutterwave->isAvailable()) {
-            $message = $this->flutterwave->unavailableMessage();
+        if (! $gateway->isAvailable()) {
+            $message = $gateway->unavailableMessage();
 
             return $request->expectsJson()
                 ? response()->json(['message' => $message], 503)
@@ -439,11 +443,11 @@ class WalletController extends Controller
         }
 
         try {
-            $data = $this->flutterwave->initializeWalletTopUp(
+            $data = $gateway->initializeWalletTopUp(
                 $request->user(),
                 (float) $validated['amount'],
                 $validated['method'],
-                route('seller.wallet.flutterwave.callback'),
+                route('seller.wallet.'.$gateway->name().'.callback'),
                 null,
                 ['role' => 'seller'],
             );
@@ -456,7 +460,7 @@ class WalletController extends Controller
                     'amount' => $data['credit'],
                     'fee' => $data['fee'],
                     'charge' => $data['charge'],
-                    'gateway' => 'flutterwave',
+                    'gateway' => $gateway->name(),
                 ]);
             }
 
@@ -475,6 +479,8 @@ class WalletController extends Controller
 
     public function flutterwaveCallback(Request $request): RedirectResponse
     {
+        $gateway = HostedGateways::fromRequest($request);
+
         $reference = (string) ($request->query('tx_ref') ?: $request->query('reference') ?: '');
 
         if ($reference === '') {
@@ -482,13 +488,13 @@ class WalletController extends Controller
         }
 
         try {
-            $data = $this->flutterwave->verifyByReference($reference);
+            $data = $gateway->verifyByReference($reference);
 
-            if (! $this->flutterwave->isSuccessful($data)) {
+            if (! $gateway->isSuccessful($data)) {
                 return redirect()->route('seller.wallet')->with('error', 'Payment was not successful.');
             }
 
-            $metadata = $this->flutterwave->normalizeMeta($data);
+            $metadata = $gateway->normalizeMeta($data);
             if (($metadata['type'] ?? '') !== 'wallet_topup') {
                 return redirect()->route('seller.wallet')->with('error', 'Invalid wallet top-up.');
             }
@@ -497,12 +503,12 @@ class WalletController extends Controller
                 return redirect()->route('seller.wallet')->with('error', 'Payment does not belong to your account.');
             }
 
-            $paid = $this->flutterwave->paidAmountGhs($data);
+            $paid = $gateway->paidAmountGhs($data);
             $method = (string) ($metadata['method'] ?? 'momo');
             $expected = isset($metadata['expected_amount']) ? (float) $metadata['expected_amount'] : null;
-            $credit = $this->flutterwave->topUpCreditFromMetadata($metadata, $paid);
+            $credit = $gateway->topUpCreditFromMetadata($metadata, $paid);
 
-            if ($expected !== null && ! $this->flutterwave->amountsMatch($paid, $expected)) {
+            if ($expected !== null && ! $gateway->amountsMatch($paid, $expected)) {
                 Log::warning('Seller Flutterwave wallet top-up amount mismatch', [
                     'reference' => $reference,
                     'paid' => $paid,

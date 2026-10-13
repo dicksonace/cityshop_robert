@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\HostedPaymentGateway;
 use App\Models\User;
 use App\Support\PaymentReference;
 use Illuminate\Support\Facades\Http;
@@ -11,9 +12,14 @@ use Illuminate\Support\Facades\Log;
  * Flutterwave collections (checkout + wallet top-up). Ghana GHS hosted checkout.
  * Withdrawals stay on Paystack.
  */
-class FlutterwaveService
+class FlutterwaveService implements HostedPaymentGateway
 {
     private string $baseUrl = 'https://api.flutterwave.com/v3';
+
+    public function name(): string
+    {
+        return 'flutterwave';
+    }
 
     public function isConfigured(): bool
     {
