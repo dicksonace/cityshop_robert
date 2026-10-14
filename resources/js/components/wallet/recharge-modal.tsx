@@ -19,12 +19,14 @@ interface RechargeModalProps {
     paystackConfigured: boolean;
     flutterwaveConfigured?: boolean;
     korapayConfigured?: boolean;
+    junipayConfigured?: boolean;
     manualTopUpEnabled: boolean;
     manualFundingAccounts?: FundingAccount[];
     manualHref: string;
     paystackRoute: string;
     flutterwaveRoute?: string;
     korapayRoute?: string;
+    junipayRoute?: string;
     chooseHint?: string;
     amountInputId?: string;
     paystackFee?: PaystackFeeSettings | null;
@@ -32,7 +34,7 @@ interface RechargeModalProps {
     gsm?: boolean;
 }
 
-type RechargeStep = 'choose' | 'paystack' | 'flutterwave' | 'korapay' | 'manual';
+type RechargeStep = 'choose' | 'paystack' | 'flutterwave' | 'korapay' | 'junipay' | 'manual';
 
 /**
  * Recharge flow: Auto Paystack / Flutterwave vs Manual. Manual shows the compact MoMo picker
@@ -44,12 +46,14 @@ export default function RechargeModal({
     paystackConfigured,
     flutterwaveConfigured = false,
     korapayConfigured = false,
+    junipayConfigured = false,
     manualTopUpEnabled,
     manualFundingAccounts = [],
     manualHref,
     paystackRoute,
     flutterwaveRoute,
     korapayRoute,
+    junipayRoute,
     chooseHint = 'Choose how you want to add funds.',
     amountInputId = 'recharge-amount',
     paystackFee,
@@ -65,7 +69,8 @@ export default function RechargeModal({
     });
 
     const korapayOn = korapayConfigured && Boolean(korapayRoute);
-    const onlineCount = [paystackConfigured, flutterwaveConfigured, korapayOn].filter(Boolean).length;
+    const junipayOn = junipayConfigured && Boolean(junipayRoute);
+    const onlineCount = [paystackConfigured, flutterwaveConfigured, korapayOn, junipayOn].filter(Boolean).length;
     const onlineConfigured = onlineCount > 0;
     const multiOnline = onlineCount > 1;
 
@@ -101,6 +106,8 @@ export default function RechargeModal({
                 setStep('paystack');
             } else if (korapayOn) {
                 setStep('korapay');
+            } else if (junipayOn) {
+                setStep('junipay');
             } else {
                 setStep('flutterwave');
             }
@@ -112,7 +119,7 @@ export default function RechargeModal({
         }
         setStep('choose');
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-init when opened
-    }, [open, paystackConfigured, flutterwaveConfigured, korapayOn, manualTopUpEnabled]);
+    }, [open, paystackConfigured, flutterwaveConfigured, korapayOn, junipayOn, manualTopUpEnabled]);
 
     useEffect(() => {
         if (!open || step !== 'manual') return;
@@ -197,11 +204,21 @@ export default function RechargeModal({
         await submitOnline(korapayRoute);
     };
 
+    const submitJunipay: FormEventHandler = async (e) => {
+        e.preventDefault();
+        if (!junipayRoute) {
+            setSubmitError('Junipay is not available.');
+            return;
+        }
+        await submitOnline(junipayRoute);
+    };
+
     const showChooser = step === 'choose' && ((onlineConfigured && manualTopUpEnabled) || multiOnline);
     const showManual = manualTopUpEnabled && step === 'manual';
     const showFlutterwave = step === 'flutterwave';
     const showKorapay = step === 'korapay';
-    const gatewayLabel = showFlutterwave ? 'Flutterwave' : showKorapay ? 'Korapay' : 'Paystack';
+    const showJunipay = step === 'junipay';
+    const gatewayLabel = showFlutterwave ? 'Flutterwave' : showKorapay ? 'Korapay' : showJunipay ? 'Junipay' : 'Paystack';
     const quote = paystackRechargeQuote(Number(form.data.amount) || 0, paystackFee);
 
     const title = showChooser
@@ -285,6 +302,22 @@ export default function RechargeModal({
                             </button>
                         ) : null}
 
+                        {junipayOn ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep('junipay')}
+                                className="flex w-full items-center gap-3 rounded-xl border border-red-200 bg-red-50/60 px-3.5 py-3 text-left transition hover:border-red-300 hover:bg-red-50"
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white">
+                                    <Smartphone className="h-5 w-5" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-gray-900">Junipay</span>
+                                    <span className="block text-xs text-gray-500">Mobile Money prompt on your phone</span>
+                                </span>
+                            </button>
+                        ) : null}
+
                         {manualTopUpEnabled ? (
                             <button
                                 type="button"
@@ -359,7 +392,7 @@ export default function RechargeModal({
                     </div>
                 ) : (
                     <form
-                        onSubmit={showFlutterwave ? submitFlutterwave : showKorapay ? submitKorapay : submitPaystack}
+                        onSubmit={showFlutterwave ? submitFlutterwave : showKorapay ? submitKorapay : showJunipay ? submitJunipay : submitPaystack}
                         className="mt-4 space-y-3"
                     >
                         <div>
@@ -378,7 +411,9 @@ export default function RechargeModal({
                             <InputError message={form.errors.amount} />
                         </div>
                         <p className="text-sm text-gray-500">
-                            {gatewayLabel} takes Mobile Money and card on the next page.
+                            {showJunipay
+                                ? 'Next, enter your MoMo number and approve the prompt on your phone.'
+                                : `${gatewayLabel} takes Mobile Money and card on the next page.`}
                         </p>
                         {submitError && (
                             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">

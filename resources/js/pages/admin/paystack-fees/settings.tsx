@@ -2,6 +2,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { LoaderCircle, Plus, Trash2 } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
+import JunipaySettings, { JunipayStatus } from '@/components/admin/junipay-settings';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,7 @@ interface Props {
     flutterwaveLocked?: boolean;
     flutterwaveKeys?: FlutterwaveKeys;
     korapayKeys?: KorapayKeys;
+    junipay?: JunipayStatus;
 }
 
 interface KorapayKeys {
@@ -214,6 +216,7 @@ export default function PaystackFeeSettings({
     flutterwaveLocked = false,
     flutterwaveKeys,
     korapayKeys,
+    junipay,
 }: Props) {
     const { flash } = usePage<SharedData>().props;
     const payments = paystackPayments ?? {
@@ -598,6 +601,8 @@ export default function PaystackFeeSettings({
                 </div>
 
                 <KorapaySettings keys={korapayKeys} />
+
+                <JunipaySettings status={junipay} />
 
                 <form onSubmit={submit} className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
                     <label className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">

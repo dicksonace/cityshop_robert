@@ -67,6 +67,7 @@ interface DashboardProps {
     paystackConfigured?: boolean;
     flutterwaveConfigured?: boolean;
     korapayConfigured?: boolean;
+    junipayConfigured?: boolean;
     manualTopUpEnabled?: boolean;
     paystackFee?: PaystackFeeSettings | null;
     isLive?: boolean;
@@ -85,6 +86,7 @@ export default function SellerDashboard({
     paystackConfigured = false,
     flutterwaveConfigured = false,
     korapayConfigured = false,
+    junipayConfigured = false,
     manualTopUpEnabled = false,
     paystackFee,
     isLive = false,
@@ -193,6 +195,7 @@ export default function SellerDashboard({
                     paystackConfigured={paystackConfigured}
                     flutterwaveConfigured={flutterwaveConfigured}
                     korapayConfigured={korapayConfigured}
+                    junipayConfigured={junipayConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
                     paystackFee={paystackFee}
                 />

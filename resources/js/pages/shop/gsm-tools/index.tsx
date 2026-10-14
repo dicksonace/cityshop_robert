@@ -88,6 +88,7 @@ interface Props {
     paystackConfigured?: boolean;
     flutterwaveConfigured?: boolean;
     korapayConfigured?: boolean;
+    junipayConfigured?: boolean;
     paystackFee?: PaystackFeeSettings | null;
     manualTopUpEnabled?: boolean;
     manualFundingAccounts?: FundingAccount[];
@@ -102,6 +103,7 @@ export default function GsmToolsIndex({
     paystackConfigured = false,
     flutterwaveConfigured = false,
     korapayConfigured = false,
+    junipayConfigured = false,
     paystackFee = null,
     manualTopUpEnabled = false,
     manualFundingAccounts = [],
@@ -193,12 +195,14 @@ export default function GsmToolsIndex({
                     paystackConfigured={paystackConfigured}
                     flutterwaveConfigured={flutterwaveConfigured}
                     korapayConfigured={korapayConfigured}
+                    junipayConfigured={junipayConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
                     manualFundingAccounts={manualFundingAccounts}
                     manualHref={`${route('wallet.manual-top-up')}?gsm=1`}
                     paystackRoute={route('wallet.add-funds')}
                     flutterwaveRoute={route('wallet.add-funds.flutterwave')}
                     korapayRoute={route('wallet.add-funds.korapay')}
+                    junipayRoute={route('wallet.add-funds.junipay')}
                     amountInputId="gsm-recharge-amount"
                     paystackFee={paystackFee}
                     gsm

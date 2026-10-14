@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Check, Download, Play, Store, X } from 'lucide-react';
+import { Check, Download, Play, Send, Store, X } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,8 @@ interface AdminWithdrawalRow {
     network: string;
     status: string;
     payout_channel?: string | null;
+    junipay_status?: string | null;
+    junipay_sent?: boolean;
     rejection_reason?: string | null;
     failure_reason?: string | null;
     proof_path?: string | null;
@@ -47,6 +49,7 @@ interface AdminWithdrawalRow {
 }
 
 function isBankPayout(w: AdminWithdrawalRow): boolean {
+    if (w.payout_channel === 'junipay') return !['mtn', 'telecel', 'airteltigo'].includes(w.network);
     return w.payout_channel === 'bank';
 }
 
@@ -59,6 +62,7 @@ interface WithdrawalsIndexProps {
     status: string;
     role: string;
     counts: { pending_sellers: number; pending_buyers: number; processing: number };
+    junipayPayouts?: boolean;
 }
 
 function formatDateTime(value?: string | null): string {
@@ -73,7 +77,7 @@ function formatDateTime(value?: string | null): string {
     });
 }
 
-export default function WithdrawalsIndex({ withdrawals, status, role, counts }: WithdrawalsIndexProps) {
+export default function WithdrawalsIndex({ withdrawals, status, role, counts, junipayPayouts = false }: WithdrawalsIndexProps) {
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
     const [rejectId, setRejectId] = useState<number | null>(null);
     const [reason, setReason] = useState('');
@@ -142,6 +146,17 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
         setBusyId(id);
         router.post(route('admin.withdrawals.start', id), {}, { onFinish: () => setBusyId(null) });
     };
+
+    const sendViaJunipay = (w: AdminWithdrawalRow) => {
+        if (!window.confirm(`Send ${formatPrice(w.amount)} to ${w.account_name} (${w.momo_number}) through Junipay now?`)) return;
+        setBusyId(w.id);
+        router.post(route('admin.withdrawals.junipay', w.id), {}, { preserveScroll: true, onFinish: () => setBusyId(null) });
+    };
+
+    const canSendViaJunipay = (w: AdminWithdrawalRow) =>
+        junipayPayouts &&
+        !w.junipay_sent &&
+        (w.status === 'pending' || (w.status === 'processing' && w.payout_channel !== 'paystack'));
 
     const submitComplete = (e: FormEvent) => {
         e.preventDefault();
@@ -328,6 +343,20 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts }: 
                                         <Button size="sm" variant="outline" onClick={() => setDetailId(w.id)}>
                                             Full details
                                         </Button>
+                                        {canSendViaJunipay(w) && (
+                                            <Button
+                                                size="sm"
+                                                className="bg-red-600 hover:bg-red-700"
+                                                disabled={busyId === w.id}
+                                                onClick={() => sendViaJunipay(w)}
+                                            >
+                                                <Send className="mr-1 h-4 w-4" />
+                                                Send via Junipay
+                                            </Button>
+                                        )}
+                                        {w.payout_channel === 'junipay' && w.status === 'processing' && (
+                                            <span className="self-center text-xs font-semibold text-gray-500">Sent to Junipay · waiting for confirmation</span>
+                                        )}
                                         {w.status === 'pending' && (
                                             <>
                                                 <Button

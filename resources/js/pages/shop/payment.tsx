@@ -35,6 +35,7 @@ interface PaymentProps {
     paystackConfigured: boolean;
     flutterwaveConfigured?: boolean;
     korapayConfigured?: boolean;
+    junipayConfigured?: boolean;
 }
 
 declare global {
@@ -54,19 +55,21 @@ export default function Payment({
     paystackConfigured,
     flutterwaveConfigured = false,
     korapayConfigured = false,
+    junipayConfigured = false,
 }: PaymentProps) {
     const totalDue = paystackCharge && paystackCharge > 0 ? paystackCharge : marketplaceTotal;
     const gatewayOptions = (
         [
             { id: 'flutterwave', label: 'Flutterwave', on: flutterwaveConfigured },
             { id: 'korapay', label: 'Korapay', on: korapayConfigured },
+            { id: 'junipay', label: 'Junipay', on: junipayConfigured },
             { id: 'paystack', label: 'Paystack', on: paystackConfigured },
         ] as const
     ).filter((option) => option.on);
     const onlineAvailable = gatewayOptions.length > 0;
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [gateway, setGateway] = useState<'paystack' | 'flutterwave' | 'korapay'>(gatewayOptions[0]?.id ?? 'paystack');
+    const [gateway, setGateway] = useState<'paystack' | 'flutterwave' | 'korapay' | 'junipay'>(gatewayOptions[0]?.id ?? 'paystack');
 
     useEffect(() => {
         if (!paystackConfigured) return;
@@ -82,8 +85,9 @@ export default function Payment({
     useEffect(() => {
         if (flutterwaveConfigured) setGateway('flutterwave');
         else if (korapayConfigured) setGateway('korapay');
+        else if (junipayConfigured) setGateway('junipay');
         else if (paystackConfigured) setGateway('paystack');
-    }, [paystackConfigured, flutterwaveConfigured, korapayConfigured]);
+    }, [paystackConfigured, flutterwaveConfigured, korapayConfigured, junipayConfigured]);
 
     const payWithPaystack = useCallback(async () => {
         if (!paystackConfigured) {
@@ -120,9 +124,10 @@ export default function Payment({
         }
     }, [checkout.id, paystackConfigured, paystackPublicKey]);
 
-    const payHosted = useCallback(async (name: 'flutterwave' | 'korapay') => {
-        if (!(name === 'korapay' ? korapayConfigured : flutterwaveConfigured)) {
-            setError(`${name === 'korapay' ? 'Korapay' : 'Flutterwave'} payment is temporarily disabled.`);
+    const payHosted = useCallback(async (name: 'flutterwave' | 'korapay' | 'junipay') => {
+        const enabled = { flutterwave: flutterwaveConfigured, korapay: korapayConfigured, junipay: junipayConfigured };
+        if (!enabled[name]) {
+            setError(`${name.charAt(0).toUpperCase()}${name.slice(1)} payment is temporarily disabled.`);
             return;
         }
 
@@ -143,7 +148,7 @@ export default function Payment({
             setError(e instanceof Error ? e.message : 'Payment failed');
             setLoading(false);
         }
-    }, [checkout.id, flutterwaveConfigured, korapayConfigured]);
+    }, [checkout.id, flutterwaveConfigured, korapayConfigured, junipayConfigured]);
 
     const pay = () => {
         if (gateway !== 'paystack') return payHosted(gateway);
@@ -172,7 +177,7 @@ export default function Payment({
                             {onlineAvailable ? (
                                 <>
                                     {gatewayOptions.length > 1 && (
-                                        <div className={`mt-3 grid gap-2 ${gatewayOptions.length > 2 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                                        <div className={`mt-3 grid gap-2 ${gatewayOptions.length > 3 ? 'grid-cols-2 sm:grid-cols-4' : gatewayOptions.length > 2 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                                             {gatewayOptions.map((option) => (
                                                 <button
                                                     key={option.id}

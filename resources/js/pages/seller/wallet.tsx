@@ -48,6 +48,7 @@ interface WalletProps {
     paystackConfigured?: boolean;
     flutterwaveConfigured?: boolean;
     korapayConfigured?: boolean;
+    junipayConfigured?: boolean;
     manualTopUpEnabled?: boolean;
     manualFundingAccounts?: FundingAccount[];
     paystackFee?: PaystackFeeSettings | null;
@@ -81,6 +82,7 @@ export default function SellerWallet({
     paystackConfigured = false,
     flutterwaveConfigured = false,
     korapayConfigured = false,
+    junipayConfigured = false,
     manualTopUpEnabled = false,
     manualFundingAccounts = [],
     paystackFee,
@@ -280,6 +282,7 @@ export default function SellerWallet({
                     paystackConfigured={paystackConfigured}
                     flutterwaveConfigured={flutterwaveConfigured}
                     korapayConfigured={korapayConfigured}
+                    junipayConfigured={junipayConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
                     manualFundingAccounts={manualFundingAccounts}
                     paystackFee={paystackFee}
