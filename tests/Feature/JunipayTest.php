@@ -139,6 +139,38 @@ class JunipayTest extends TestCase
         $this->assertSame(1, WalletTransaction::where('reference', $reference)->count());
     }
 
+    public function test_prompt_reads_nested_transaction_id_and_shows_junipay_errors(): void
+    {
+        $buyer = $this->verifiedBuyer();
+
+        Http::fake([
+            self::API.'/payment' => Http::sequence()
+                ->push(['code' => 401, 'status' => 'failed', 'message' => 'Phone number is not registered to this network'], 200)
+                ->push(['code' => 200, 'info' => ['status' => 'pending', 'transID' => 'NEST77']], 200),
+            self::API.'/checktranstatus' => Http::response(['code' => 200, 'info' => ['status' => 'PENDING']], 200),
+        ]);
+
+        $reference = (string) $this->actingAs($buyer)
+            ->postJson(route('wallet.add-funds.junipay'), ['amount' => 20, 'method' => 'momo'])
+            ->assertOk()
+            ->json('reference');
+
+        $startUrl = \URL::temporarySignedRoute('junipay.pay.start', now()->addHour(), ['reference' => $reference]);
+        $this->postJson($startUrl, ['phone' => '0248620718', 'network' => 'mtn'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Phone number is not registered to this network');
+
+        $this->postJson($startUrl, ['phone' => '0248620718', 'network' => 'mtn'])
+            ->assertOk()
+            ->assertJsonPath('status', 'pending');
+        $this->assertSame('NEST77', JunipayPayment::where('reference', $reference)->value('trans_id'));
+
+        $statusUrl = \URL::temporarySignedRoute('junipay.pay.status', now()->addHour(), ['reference' => $reference]);
+        $this->getJson($statusUrl)->assertOk()->assertJsonPath('status', 'pending');
+
+        Http::assertSent(fn ($request) => $request->url() === self::API.'/checktranstatus' && $request['transID'] === 'NEST77');
+    }
+
     public function test_callback_with_unknown_transaction_id_is_ignored(): void
     {
         $buyer = $this->verifiedBuyer();

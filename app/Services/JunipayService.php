@@ -288,8 +288,9 @@ class JunipayService implements HostedPaymentGateway
             'callbackUrl' => url('/webhooks/junipay'),
         ]);
 
-        $status = strtolower((string) $response->json('status', ''));
-        if (! $response->successful() || $status === 'failed' || $status === 'error' || ! filled($response->json('transID'))) {
+        $status = $this->bodyStatus($response);
+        $transId = $this->transIdFrom($response);
+        if (! $this->accepted($response) || in_array($status, ['failed', 'error'], true) || $transId === '') {
             Log::warning('Junipay collection failed to start', [
                 'reference' => $payment->reference,
                 'http' => $response->status(),
@@ -303,8 +304,8 @@ class JunipayService implements HostedPaymentGateway
             'meta' => $meta,
             'phone' => $phone,
             'provider' => $provider,
-            'trans_id' => (string) $response->json('transID'),
-            'status' => $status === 'success' ? 'success' : 'pending',
+            'trans_id' => $transId,
+            'status' => in_array($status, ['success', 'successful', 'completed'], true) ? 'success' : 'pending',
             'message' => null,
         ]);
 
@@ -318,12 +319,12 @@ class JunipayService implements HostedPaymentGateway
      */
     public function transactionStatus(string $transId): string
     {
-        $response = $this->client()->post('/checktranstatus', ['trans_id' => $transId]);
-        if (! $response->successful()) {
+        $response = $this->client()->post('/checktranstatus', ['transID' => $transId]);
+        if (! $this->accepted($response)) {
             throw new \RuntimeException($this->errorMessage($response) ?: 'Junipay status check failed.');
         }
 
-        $status = strtolower((string) ($response->json('info.status') ?? $response->json('status') ?? ''));
+        $status = $this->bodyStatus($response);
 
         return match (true) {
             in_array($status, ['success', 'successful', 'completed'], true) => 'success',
@@ -463,10 +464,10 @@ class JunipayService implements HostedPaymentGateway
         }
 
         $response = $this->client()->post('/transfer', $payload);
-        $status = strtolower((string) $response->json('status', ''));
-        $transId = (string) ($response->json('transID') ?? '');
+        $status = $this->bodyStatus($response);
+        $transId = $this->transIdFrom($response);
 
-        if (! $response->successful() || $transId === '' || in_array($status, ['failed', 'error'], true)) {
+        if (! $this->accepted($response) || $transId === '' || in_array($status, ['failed', 'error'], true)) {
             Log::warning('Junipay transfer failed to start', [
                 'reference' => $reference,
                 'http' => $response->status(),
@@ -477,9 +478,9 @@ class JunipayService implements HostedPaymentGateway
         }
 
         return [
-            'status' => $status === 'success' ? 'success' : 'pending',
+            'status' => in_array($status, ['success', 'successful', 'completed'], true) ? 'success' : 'pending',
             'trans_id' => $transId,
-            'message' => (string) $response->json('message', ''),
+            'message' => $this->errorMessage($response),
         ];
     }
 
@@ -506,14 +507,55 @@ class JunipayService implements HostedPaymentGateway
         };
     }
 
-    private function errorMessage(Response $response): string
+    /** Junipay answers HTTP 200 for most errors and puts the real code in the body. */
+    private function accepted(Response $response): bool
     {
-        $message = trim((string) ($response->json('message') ?? ''));
-        if ($message !== '') {
-            return $message;
+        if (! $response->successful()) {
+            return false;
+        }
+        $code = $response->json('code');
+
+        return $code === null || ! is_numeric($code) || ((int) $code >= 200 && (int) $code < 300);
+    }
+
+    private function bodyStatus(Response $response): string
+    {
+        foreach (['status', 'info.status', 'data.status', 'transaction.status'] as $path) {
+            $value = $response->json($path);
+            if (is_string($value) && trim($value) !== '') {
+                return strtolower(trim($value));
+            }
         }
 
-        return match ($response->status()) {
+        return '';
+    }
+
+    private function transIdFrom(Response $response): string
+    {
+        foreach (['transID', 'trans_id', 'transId', 'info.transID', 'info.trans_id', 'data.transID', 'data.trans_id', 'transaction.transID'] as $path) {
+            $value = $response->json($path);
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return '';
+    }
+
+    private function errorMessage(Response $response): string
+    {
+        foreach (['message', 'info.message', 'data.message', 'error'] as $path) {
+            $value = $response->json($path);
+            if (is_array($value)) {
+                $value = implode(' ', array_filter(array_map(fn ($v) => is_scalar($v) ? (string) $v : '', $value)));
+            }
+            $value = is_scalar($value) ? trim((string) $value) : '';
+            if ($value !== '' && ! in_array(strtolower($value), ['success', 'successful'], true)) {
+                return $value;
+            }
+        }
+
+        return match ((int) ($response->json('code') ?? $response->status())) {
             401 => 'Junipay rejected the Client ID or private key.',
             403 => 'Junipay has not approved Direct API access for this account yet.',
             default => '',
