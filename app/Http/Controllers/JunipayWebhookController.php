@@ -39,8 +39,11 @@ class JunipayWebhookController extends FlutterwaveWebhookController
         }
 
         try {
-            $payment = JunipayPayment::query()->where('reference', $reference)->first();
+            $payment = JunipayPayment::query()
+                ->where('reference', JunipayService::referenceFromForeignId($reference))
+                ->first();
             if ($payment) {
+                $reference = $payment->reference;
                 if (filled($payment->trans_id) && $transId !== '' && ! $this->junipay->ownsTransaction($payment, $transId)) {
                     Log::warning('Junipay callback ignored: transaction ID does not match', ['reference' => $reference]);
                 } else {

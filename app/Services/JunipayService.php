@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\URL;
 class JunipayService implements HostedPaymentGateway
 {
     /** Junipay bank codes, keyed by {@see GhanaBanks} slug. */
+    private const FOREIGN_PREFIX = 'CSJ';
+
     public const BANK_CODES = [
         'access' => '2001',
         'absa' => '2002',
@@ -284,7 +286,7 @@ class JunipayService implements HostedPaymentGateway
             'amount' => (float) $payment->amount,
             'tot_amnt' => (float) $payment->amount,
             'description' => mb_substr((string) ($meta['title'] ?? 'CityShop payment'), 0, 60),
-            'foreignID' => $payment->reference,
+            'foreignID' => self::foreignId($payment->reference),
             'callbackUrl' => url('/webhooks/junipay'),
         ]);
 
@@ -482,6 +484,19 @@ class JunipayService implements HostedPaymentGateway
             'trans_id' => $transId,
             'message' => $this->errorMessage($response),
         ];
+    }
+
+    /** Junipay requires foreignID to be at least 13 characters; our references are 12. */
+    public static function foreignId(string $reference): string
+    {
+        return self::FOREIGN_PREFIX.$reference;
+    }
+
+    public static function referenceFromForeignId(string $foreignId): string
+    {
+        return str_starts_with($foreignId, self::FOREIGN_PREFIX)
+            ? substr($foreignId, strlen(self::FOREIGN_PREFIX))
+            : $foreignId;
     }
 
     /** Junipay wants the local 10-digit format, e.g. 0244444444. */

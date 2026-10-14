@@ -122,7 +122,8 @@ class JunipayTest extends TestCase
                 && str_starts_with((string) $request->header('Authorization')[0], 'Bearer ey')
                 && $request['phoneNumber'] === '0248620718'
                 && $request['provider'] === 'vodafone'
-                && $request['foreignID'] === $reference
+                && $request['foreignID'] === 'CSJ'.$reference
+                && strlen($request['foreignID']) >= 13
                 && str_ends_with((string) $request['callbackUrl'], '/webhooks/junipay');
         });
 
@@ -133,7 +134,7 @@ class JunipayTest extends TestCase
             ->json('redirect');
         $this->assertStringContainsString('/wallet/junipay/callback', $redirect);
 
-        $this->postJson('/webhooks/junipay', ['status' => 'success', 'trans_id' => 'COL100001', 'foreignID' => $reference])
+        $this->postJson('/webhooks/junipay', ['status' => 'success', 'trans_id' => 'COL100001', 'foreignID' => 'CSJ'.$reference])
             ->assertOk();
 
         $this->assertSame(1, WalletTransaction::where('reference', $reference)->count());
