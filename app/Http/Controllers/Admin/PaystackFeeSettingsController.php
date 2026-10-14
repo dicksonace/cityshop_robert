@@ -22,6 +22,7 @@ class PaystackFeeSettingsController extends Controller
             'flutterwaveLocked' => PlatformSettings::flutterwavePaymentsLocked(),
             'flutterwaveKeys' => PlatformSettings::flutterwaveKeysStatus(),
             'korapayKeys' => PlatformSettings::korapayKeysStatus(),
+            'junipay' => PlatformSettings::junipayStatus(),
         ]);
     }
 

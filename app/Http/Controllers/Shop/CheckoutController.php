@@ -371,6 +371,7 @@ class CheckoutController extends Controller
             'paystackConfigured' => $this->paystack->isCheckoutOffered(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
             'korapayConfigured' => app(\App\Services\KorapayService::class)->isAvailable(),
+            'junipayConfigured' => app(\App\Services\JunipayService::class)->isAvailable(),
         ]);
     }
 
@@ -479,6 +480,7 @@ class CheckoutController extends Controller
             'paystackConfigured' => $this->paystack->isCheckoutOffered(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
             'korapayConfigured' => app(\App\Services\KorapayService::class)->isAvailable(),
+            'junipayConfigured' => app(\App\Services\JunipayService::class)->isAvailable(),
         ]);
     }
 

@@ -104,6 +104,12 @@ Route::get('/terms', [LegalController::class, 'terms'])->name('terms');
 Route::post('/webhooks/paystack', [PaystackWebhookController::class, 'handle']);
 Route::post('/webhooks/flutterwave', [FlutterwaveWebhookController::class, 'handle']);
 Route::post('/webhooks/korapay', [KorapayWebhookController::class, 'handle']);
+Route::post('/webhooks/junipay', [\App\Http\Controllers\JunipayWebhookController::class, 'handle']);
+Route::middleware('signed')->group(function () {
+    Route::get('/pay/junipay/{reference}', [\App\Http\Controllers\JunipayPayController::class, 'show'])->name('junipay.pay');
+    Route::post('/pay/junipay/{reference}/start', [\App\Http\Controllers\JunipayPayController::class, 'start'])->middleware('throttle:10,1')->name('junipay.pay.start');
+    Route::get('/pay/junipay/{reference}/status', [\App\Http\Controllers\JunipayPayController::class, 'status'])->middleware('throttle:60,1')->name('junipay.pay.status');
+});
 Route::post('/webhooks/formula-dc', [FormulaDcWebhookController::class, 'handle']);
 
 Route::middleware(['auth'])->group(function () {
@@ -123,13 +129,16 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/checkout/pay/initialize', [CheckoutController::class, 'initializeDraftPayment'])->middleware('buyer.shop')->name('checkout.paystack-draft.initialize');
     Route::post('/checkout/pay/flutterwave/initialize', [CheckoutController::class, 'initializeDraftFlutterwave'])->middleware('buyer.shop')->name('checkout.flutterwave-draft.initialize');
     Route::post('/checkout/pay/korapay/initialize', [CheckoutController::class, 'initializeDraftFlutterwave'])->middleware('buyer.shop')->name('checkout.korapay-draft.initialize')->defaults('gateway', 'korapay');
+    Route::post('/checkout/pay/junipay/initialize', [CheckoutController::class, 'initializeDraftFlutterwave'])->middleware('buyer.shop')->name('checkout.junipay-draft.initialize')->defaults('gateway', 'junipay');
     Route::get('/checkout/payment/{checkout}', [CheckoutController::class, 'payment'])->middleware('buyer.shop')->name('checkout.payment');
     Route::get('/checkout/callback', [CheckoutController::class, 'callback'])->middleware('buyer.shop')->name('checkout.callback');
     Route::get('/checkout/flutterwave/callback', [CheckoutController::class, 'flutterwaveCallback'])->middleware('buyer.shop')->name('checkout.flutterwave.callback');
     Route::get('/checkout/korapay/callback', [CheckoutController::class, 'flutterwaveCallback'])->middleware('buyer.shop')->name('checkout.korapay.callback')->defaults('gateway', 'korapay');
+    Route::get('/checkout/junipay/callback', [CheckoutController::class, 'flutterwaveCallback'])->middleware('buyer.shop')->name('checkout.junipay.callback')->defaults('gateway', 'junipay');
     Route::post('/checkout/payment/{checkout}/initialize', [CheckoutController::class, 'initializePayment'])->middleware('buyer.shop')->name('checkout.initialize');
     Route::post('/checkout/payment/{checkout}/flutterwave/initialize', [CheckoutController::class, 'initializeFlutterwavePayment'])->middleware('buyer.shop')->name('checkout.flutterwave.initialize');
     Route::post('/checkout/payment/{checkout}/korapay/initialize', [CheckoutController::class, 'initializeFlutterwavePayment'])->middleware('buyer.shop')->name('checkout.korapay.initialize')->defaults('gateway', 'korapay');
+    Route::post('/checkout/payment/{checkout}/junipay/initialize', [CheckoutController::class, 'initializeFlutterwavePayment'])->middleware('buyer.shop')->name('checkout.junipay.initialize')->defaults('gateway', 'junipay');
     Route::get('/checkouts/{checkout}', [CheckoutSessionController::class, 'show'])->name('checkouts.show');
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::get('/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
@@ -175,9 +184,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/wallet/add-funds', [BuyerWalletController::class, 'addFunds'])->name('wallet.add-funds');
     Route::post('/wallet/add-funds/flutterwave', [BuyerWalletController::class, 'addFundsFlutterwave'])->name('wallet.add-funds.flutterwave');
     Route::post('/wallet/add-funds/korapay', [BuyerWalletController::class, 'addFundsFlutterwave'])->name('wallet.add-funds.korapay')->defaults('gateway', 'korapay');
+    Route::post('/wallet/add-funds/junipay', [BuyerWalletController::class, 'addFundsFlutterwave'])->name('wallet.add-funds.junipay')->defaults('gateway', 'junipay');
     Route::get('/wallet/callback', [BuyerWalletController::class, 'callback'])->name('wallet.callback');
     Route::get('/wallet/flutterwave/callback', [BuyerWalletController::class, 'flutterwaveCallback'])->name('wallet.flutterwave.callback');
     Route::get('/wallet/korapay/callback', [BuyerWalletController::class, 'flutterwaveCallback'])->name('wallet.korapay.callback')->defaults('gateway', 'korapay');
+    Route::get('/wallet/junipay/callback', [BuyerWalletController::class, 'flutterwaveCallback'])->name('wallet.junipay.callback')->defaults('gateway', 'junipay');
     Route::get('/wallet/withdraw', [BuyerWalletController::class, 'createWithdraw'])->name('wallet.withdraw.create');
     Route::post('/wallet/withdraw', [BuyerWalletController::class, 'withdraw'])->name('wallet.withdraw');
     Route::get('/wallet/withdrawals/{withdrawal}', [BuyerWalletController::class, 'showWithdrawal'])->name('wallet.withdrawals.show');
@@ -315,9 +326,11 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
             Route::post('/wallet/add-funds', [SellerWalletController::class, 'addFunds'])->name('wallet.add-funds');
             Route::post('/wallet/add-funds/flutterwave', [SellerWalletController::class, 'addFundsFlutterwave'])->name('wallet.add-funds.flutterwave');
             Route::post('/wallet/add-funds/korapay', [SellerWalletController::class, 'addFundsFlutterwave'])->name('wallet.add-funds.korapay')->defaults('gateway', 'korapay');
+            Route::post('/wallet/add-funds/junipay', [SellerWalletController::class, 'addFundsFlutterwave'])->name('wallet.add-funds.junipay')->defaults('gateway', 'junipay');
             Route::get('/wallet/callback', [SellerWalletController::class, 'callback'])->name('wallet.callback');
             Route::get('/wallet/flutterwave/callback', [SellerWalletController::class, 'flutterwaveCallback'])->name('wallet.flutterwave.callback');
             Route::get('/wallet/korapay/callback', [SellerWalletController::class, 'flutterwaveCallback'])->name('wallet.korapay.callback')->defaults('gateway', 'korapay');
+            Route::get('/wallet/junipay/callback', [SellerWalletController::class, 'flutterwaveCallback'])->name('wallet.junipay.callback')->defaults('gateway', 'junipay');
             Route::post('/wallet/payout-methods', [SellerWalletController::class, 'storePayoutMethod'])->name('wallet.payout-methods.store');
             Route::delete('/wallet/payout-methods/{payoutMethod}', [SellerWalletController::class, 'destroyPayoutMethod'])->name('wallet.payout-methods.destroy');
             Route::get('/wallet/manual-top-up', [WalletManualTopUpController::class, 'show'])->name('wallet.manual-top-up');
@@ -380,6 +393,7 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
 
     Route::get('/withdrawals', [AdminWithdrawalController::class, 'index'])->name('withdrawals.index');
     Route::post('/withdrawals/{withdrawal}/start', [AdminWithdrawalController::class, 'start'])->name('withdrawals.start');
+    Route::post('/withdrawals/{withdrawal}/junipay', [AdminWithdrawalController::class, 'junipay'])->name('withdrawals.junipay');
     Route::post('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve'])->name('withdrawals.approve');
     Route::post('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject'])->name('withdrawals.reject');
 
@@ -405,6 +419,10 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/korapay/keys/verify', [PaystackFeeSettingsController::class, 'verifyKorapayKeys'])->name('korapay.keys.verify');
     Route::post('/flutterwave/keys/clear', [PaystackFeeSettingsController::class, 'clearFlutterwaveKeys'])->name('flutterwave.keys.clear');
     Route::post('/korapay/keys/clear', [PaystackFeeSettingsController::class, 'clearKorapayKeys'])->name('korapay.keys.clear');
+    Route::post('/junipay/settings', [\App\Http\Controllers\Admin\JunipaySettingsController::class, 'update'])->name('junipay.settings.update');
+    Route::post('/junipay/keys', [\App\Http\Controllers\Admin\JunipaySettingsController::class, 'updateKeys'])->name('junipay.keys.update');
+    Route::post('/junipay/keys/verify', [\App\Http\Controllers\Admin\JunipaySettingsController::class, 'verifyKeys'])->name('junipay.keys.verify');
+    Route::post('/junipay/keys/clear', [\App\Http\Controllers\Admin\JunipaySettingsController::class, 'clearKeys'])->name('junipay.keys.clear');
     Route::get('/china-transfers', [AdminChinaTransferController::class, 'index'])->name('china-transfers.index');
     Route::get('/china-transfers/{chinaTransfer}', [AdminChinaTransferController::class, 'show'])->name('china-transfers.show');
     Route::post('/china-transfers/{chinaTransfer}/verify', [AdminChinaTransferController::class, 'verify'])->name('china-transfers.verify');

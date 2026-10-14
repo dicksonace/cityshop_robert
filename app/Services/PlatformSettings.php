@@ -32,6 +32,12 @@ class PlatformSettings
     /** Admin-entered Korapay public and secret key. */
     public const KORAPAY_KEYS_KEY = 'korapay_keys';
 
+    /** Junipay collections / payouts on-off, automatic withdrawal payouts, and sandbox mode. */
+    public const JUNIPAY_SETTINGS_KEY = 'junipay_settings';
+
+    /** Admin-entered Junipay client ID and RSA private key. */
+    public const JUNIPAY_KEYS_KEY = 'junipay_keys';
+
     /** When false, no buyer or seller can use China / RMB, even if their own switch is on. */
     public const CHINA_RMB_ACCESS_KEY = 'china_rmb_access';
 
@@ -904,6 +910,152 @@ class PlatformSettings
     public static function isKorapayTestKey(string $key): bool
     {
         return str_contains(strtolower($key), '_test_');
+    }
+
+    /**
+     * @return array{collections_enabled: bool, payouts_enabled: bool, auto_payout: bool, sandbox: bool}
+     */
+    public static function junipaySettings(): array
+    {
+        $raw = static::get(self::JUNIPAY_SETTINGS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+        $decoded = is_array($decoded) ? $decoded : [];
+
+        return [
+            'collections_enabled' => (bool) ($decoded['collections_enabled'] ?? true),
+            'payouts_enabled' => (bool) ($decoded['payouts_enabled'] ?? true),
+            'auto_payout' => (bool) ($decoded['auto_payout'] ?? false),
+            'sandbox' => (bool) ($decoded['sandbox'] ?? config('services.junipay.sandbox', false)),
+        ];
+    }
+
+    /**
+     * @param  array{collections_enabled?: bool, payouts_enabled?: bool, auto_payout?: bool, sandbox?: bool}  $data
+     */
+    public static function saveJunipaySettings(array $data): void
+    {
+        $current = static::junipaySettings();
+
+        static::set(self::JUNIPAY_SETTINGS_KEY, [
+            'collections_enabled' => (bool) ($data['collections_enabled'] ?? $current['collections_enabled']),
+            'payouts_enabled' => (bool) ($data['payouts_enabled'] ?? $current['payouts_enabled']),
+            'auto_payout' => (bool) ($data['auto_payout'] ?? $current['auto_payout']),
+            'sandbox' => (bool) ($data['sandbox'] ?? $current['sandbox']),
+        ]);
+    }
+
+    /**
+     * @return array{client_id: string, private_key: string}
+     */
+    public static function storedJunipayKeys(): array
+    {
+        $raw = static::get(self::JUNIPAY_KEYS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return ['client_id' => '', 'private_key' => ''];
+        }
+
+        return [
+            'client_id' => static::asString($decoded['client_id'] ?? ''),
+            'private_key' => static::unsealSecret($decoded['private_key'] ?? ''),
+        ];
+    }
+
+    public static function resolvedJunipayClientId(): string
+    {
+        $admin = static::storedJunipayKeys()['client_id'];
+
+        return $admin !== '' ? $admin : trim((string) config('services.junipay.client_id', ''), " \t\n\r\0\x0B\"'");
+    }
+
+    public static function resolvedJunipayPrivateKey(): string
+    {
+        $admin = static::storedJunipayKeys()['private_key'];
+
+        return $admin !== '' ? $admin : static::normalizeJunipayPrivateKey((string) config('services.junipay.private_key', ''), false);
+    }
+
+    /**
+     * Status for admin UI (never includes the private key).
+     *
+     * @return array<string, mixed>
+     */
+    public static function junipayStatus(): array
+    {
+        $stored = static::storedJunipayKeys();
+        $clientId = static::resolvedJunipayClientId();
+        $configured = $clientId !== '' && static::resolvedJunipayPrivateKey() !== '';
+        $settings = static::junipaySettings();
+
+        return [
+            'source' => $stored['client_id'] !== '' || $stored['private_key'] !== '' ? 'admin' : ($configured ? 'env' : 'none'),
+            'configured' => $configured,
+            'collections_enabled' => $settings['collections_enabled'],
+            'payouts_enabled' => $settings['payouts_enabled'],
+            'auto_payout' => $settings['auto_payout'],
+            'sandbox' => $settings['sandbox'],
+            'collections_available' => $configured && $settings['collections_enabled'],
+            'payouts_available' => $configured && $settings['payouts_enabled'],
+            'client_id' => $clientId,
+            'admin_private_key_set' => $stored['private_key'] !== '',
+            'callback_url' => url('/webhooks/junipay'),
+        ];
+    }
+
+    /**
+     * @param  array{client_id?: string, private_key?: string}  $data
+     */
+    public static function saveJunipayKeys(array $data): void
+    {
+        $current = static::storedJunipayKeys();
+
+        $clientId = trim((string) ($data['client_id'] ?? ''), " \t\n\r\0\x0B\"'");
+        if ($clientId === '') {
+            $clientId = $current['client_id'];
+        }
+
+        $privateKey = static::normalizeJunipayPrivateKey((string) ($data['private_key'] ?? ''));
+        if ($privateKey === '') {
+            $privateKey = $current['private_key'];
+        }
+
+        static::set(self::JUNIPAY_KEYS_KEY, [
+            'client_id' => $clientId,
+            'private_key' => $privateKey !== '' ? static::sealSecret($privateKey) : '',
+        ]);
+    }
+
+    public static function clearJunipayKeys(): void
+    {
+        static::set(self::JUNIPAY_KEYS_KEY, ['client_id' => '', 'private_key' => '']);
+    }
+
+    /**
+     * Accepts a pasted PEM private key (also with literal "\n" from .env) and checks OpenSSL can read it.
+     */
+    public static function normalizeJunipayPrivateKey(string $key, bool $strict = true): string
+    {
+        $key = trim(str_replace(['\\n', "\r\n"], "\n", trim($key, " \t\n\r\0\x0B\"'")));
+        if ($key === '') {
+            return '';
+        }
+
+        if (! str_contains($key, 'PRIVATE KEY-----') || openssl_pkey_get_private($key) === false) {
+            if (! $strict) {
+                return '';
+            }
+
+            throw ValidationException::withMessages([
+                'private_key' => 'Paste the full Junipay RSA private key, including the -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY----- lines.',
+            ]);
+        }
+
+        return $key."\n";
     }
 
     private static function sealSecret(string $value): string

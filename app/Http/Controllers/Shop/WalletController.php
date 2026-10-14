@@ -120,6 +120,7 @@ class WalletController extends Controller
             ]),
             'flutterwaveConfigured' => $this->safeWalletFlag(fn () => $this->flutterwave->isAvailable()),
             'korapayConfigured' => app(\App\Services\KorapayService::class)->isAvailable(),
+            'junipayConfigured' => app(\App\Services\JunipayService::class)->isAvailable(),
             'manualTopUpEnabled' => $manualOn,
             'manualFundingAccounts' => $manualOn ? $accounts : [],
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),

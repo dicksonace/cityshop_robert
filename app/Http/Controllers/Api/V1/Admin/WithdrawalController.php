@@ -80,6 +80,21 @@ class WithdrawalController extends Controller
         ]);
     }
 
+    public function junipay(Request $request, Withdrawal $withdrawal): JsonResponse
+    {
+        try {
+            $payout = $this->payouts->processJunipay($withdrawal, $request->user());
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => $payout['message'],
+            'otp_required' => false,
+            'data' => $this->serialize($withdrawal->fresh(['user.wallet', 'user.sellerProfile'])),
+        ]);
+    }
+
     public function approve(Request $request, Withdrawal $withdrawal): JsonResponse
     {
         if (! in_array($withdrawal->status, [WithdrawalStatus::Pending, WithdrawalStatus::Processing], true)) {
@@ -163,6 +178,10 @@ class WithdrawalController extends Controller
             'paystack_reference' => $withdrawal->paystack_reference,
             'paystack_status' => $withdrawal->paystack_status,
             'paystack_payout_available' => app(\App\Services\PaystackService::class)->isWithdrawalOffered(),
+            'junipay_reference' => $withdrawal->junipay_reference,
+            'junipay_trans_id' => $withdrawal->junipay_trans_id,
+            'junipay_status' => $withdrawal->junipay_status,
+            'junipay_payout_available' => app(\App\Services\JunipayService::class)->payoutsAvailable(),
             'status' => $withdrawal->status?->value ?? (string) $withdrawal->status,
             'admin_notes' => $withdrawal->admin_notes,
             'rejection_reason' => $withdrawal->rejection_reason,

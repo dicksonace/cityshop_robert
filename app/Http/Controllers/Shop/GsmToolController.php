@@ -66,6 +66,7 @@ class GsmToolController extends Controller
             'paystackConfigured' => $user && $this->safeFlag(fn () => app(PaystackService::class)->isRechargeOffered()),
             'flutterwaveConfigured' => $user && $this->safeFlag(fn () => app(FlutterwaveService::class)->isAvailable()),
             'korapayConfigured' => $user && app(\App\Services\KorapayService::class)->isAvailable(),
+            'junipayConfigured' => $user && app(\App\Services\JunipayService::class)->isAvailable(),
             'paystackFee' => $user ? $this->safeValue(fn () => app(PaystackService::class)->rechargeFeePayload(), null) : null,
             'manualTopUpEnabled' => $manualOn,
             'manualFundingAccounts' => $manualOn ? $accounts : [],

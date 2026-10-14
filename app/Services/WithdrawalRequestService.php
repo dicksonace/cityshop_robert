@@ -35,8 +35,10 @@ class WithdrawalRequestService
         $payoutType = ($data['payout_type'] ?? '') === 'bank' ? 'bank' : 'momo';
         $fee = PlatformSettings::feeForWithdrawal($amount, $payoutType);
         $totalDebit = round($amount + $fee, 2);
-        $auto = PlatformSettings::autoPaystackWithdrawEnabled()
-            && app(PaystackService::class)->isWithdrawalOffered();
+        $autoJunipay = PlatformSettings::junipaySettings()['auto_payout']
+            && app(JunipayService::class)->payoutsAvailable();
+        $auto = $autoJunipay || (PlatformSettings::autoPaystackWithdrawEnabled()
+            && app(PaystackService::class)->isWithdrawalOffered());
 
         $result = DB::transaction(function () use ($user, $data, $amount, $fee, $totalDebit, $payoutType) {
             $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first()
@@ -73,7 +75,7 @@ class WithdrawalRequestService
         });
 
         $message = $auto
-            ? 'Withdrawal submitted. Paystack is sending your payout automatically.'
+            ? 'Withdrawal submitted. Your payout is being sent automatically.'
             : 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.';
 
         try {
@@ -95,18 +97,21 @@ class WithdrawalRequestService
 
         if ($auto) {
             try {
-                $payout = $this->payouts->processAuto($result['withdrawal']);
+                $payout = $autoJunipay
+                    ? $this->payouts->processJunipay($result['withdrawal'], null)
+                    : $this->payouts->processAuto($result['withdrawal']);
                 $message = $payout['message'] ?: $message;
                 $result['withdrawal'] = $result['withdrawal']->fresh();
             } catch (\Throwable $e) {
-                Log::warning('Auto Paystack withdrawal deferred to admin', [
+                Log::warning('Auto withdrawal payout deferred to admin', [
+                    'gateway' => $autoJunipay ? 'junipay' : 'paystack',
                     'withdrawal_id' => $result['withdrawal']->id,
                     'network' => $result['withdrawal']->network,
                     'momo_number' => $result['withdrawal']->momo_number,
                     'error' => $e->getMessage(),
                 ]);
                 $result['withdrawal']->update([
-                    'failure_reason' => 'Paystack auto payout failed: '.$e->getMessage(),
+                    'failure_reason' => ($autoJunipay ? 'Junipay' : 'Paystack').' auto payout failed: '.$e->getMessage(),
                 ]);
                 $result['withdrawal'] = $result['withdrawal']->fresh();
                 $message = 'Withdrawal submitted. Payout will be completed shortly.';

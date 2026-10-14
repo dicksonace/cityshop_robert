@@ -87,6 +87,7 @@ class WalletController extends Controller
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'flutterwaveConfigured' => $this->flutterwave->isAvailable(),
             'korapayConfigured' => app(\App\Services\KorapayService::class)->isAvailable(),
+            'junipayConfigured' => app(\App\Services\JunipayService::class)->isAvailable(),
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($user),
             'canUseRmbWallet' => $user->canUseRmbWallet(),

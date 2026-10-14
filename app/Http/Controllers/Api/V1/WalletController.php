@@ -79,10 +79,12 @@ class WalletController extends Controller
                 'paystack_fee' => $paystackFee,
                 'flutterwave_configured' => $flutterwaveOn,
                 'korapay_configured' => app(\App\Services\KorapayService::class)->isAvailable(),
+                'junipay_configured' => app(\App\Services\JunipayService::class)->isAvailable(),
                 'online_gateways' => [
                     'paystack' => $paystackOn,
                     'flutterwave' => $flutterwaveOn,
                     'korapay' => app(\App\Services\KorapayService::class)->isAvailable(),
+                    'junipay' => app(\App\Services\JunipayService::class)->isAvailable(),
                 ],
                 'manual_top_up_enabled' => ($funding['enabled'] ?? false) && count($accounts) > 0,
                 'kyc' => $kyc,
@@ -419,6 +421,7 @@ class WalletController extends Controller
             'paystack_configured' => $this->paystack->isRechargeOffered(),
             'flutterwave_configured' => $this->flutterwave->isAvailable(),
             'korapay_configured' => app(\App\Services\KorapayService::class)->isAvailable(),
+            'junipay_configured' => app(\App\Services\JunipayService::class)->isAvailable(),
             'requests' => WalletTopUpRequest::where('user_id', $request->user()->id)
                 ->latest()
                 ->limit(20)
@@ -564,6 +567,7 @@ class WalletController extends Controller
                     'paystack_fee' => $this->paystack->rechargeFeePayload(),
                     'flutterwave_configured' => $this->flutterwave->isAvailable(),
                     'korapay_configured' => app(\App\Services\KorapayService::class)->isAvailable(),
+                    'junipay_configured' => app(\App\Services\JunipayService::class)->isAvailable(),
                     'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,
                 ],
             ]);
@@ -687,6 +691,7 @@ class WalletController extends Controller
                     'paystack_fee' => $this->paystack->rechargeFeePayload(),
                     'flutterwave_configured' => $this->flutterwave->isAvailable(),
                     'korapay_configured' => app(\App\Services\KorapayService::class)->isAvailable(),
+                    'junipay_configured' => app(\App\Services\JunipayService::class)->isAvailable(),
                     'manual_top_up_enabled' => PlatformSettings::manualFundingAccounts()['enabled'] ?? false,
                 ],
             ]);

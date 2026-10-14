@@ -45,6 +45,8 @@ class WithdrawalController extends Controller
                     'network' => $withdrawal->network,
                     'status' => $withdrawal->status->value,
                     'payout_channel' => $withdrawal->payout_channel,
+                    'junipay_status' => $withdrawal->junipay_status,
+                    'junipay_sent' => filled($withdrawal->junipay_trans_id),
                     'rejection_reason' => $withdrawal->rejection_reason,
                     'failure_reason' => $withdrawal->failure_reason,
                     'proof_path' => $withdrawal->proof_path,
@@ -88,6 +90,7 @@ class WithdrawalController extends Controller
             'status' => $status,
             'role' => $role,
             'counts' => $counts,
+            'junipayPayouts' => app(\App\Services\JunipayService::class)->payoutsAvailable(),
         ]);
     }
 
@@ -104,6 +107,17 @@ class WithdrawalController extends Controller
         }
 
         return back()->with('success', 'Withdrawal marked as processing. Send MoMo, then mark Complete.');
+    }
+
+    public function junipay(Request $request, Withdrawal $withdrawal): RedirectResponse
+    {
+        try {
+            $payout = $this->payouts->processJunipay($withdrawal, $request->user());
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', $payout['message']);
     }
 
     /**

@@ -52,6 +52,12 @@ return [
         'webhook_hash' => env('FLW_SECRET_HASH', env('FLUTTERWAVE_SECRET_HASH', env('FLW_WEBHOOK_HASH'))),
     ],
 
+    'junipay' => [
+        'client_id' => env('JUNIPAY_CLIENT_ID'),
+        'private_key' => env('JUNIPAY_PRIVATE_KEY'),
+        'sandbox' => (bool) env('JUNIPAY_SANDBOX', false),
+    ],
+
     'korapay' => [
         'public_key' => env('KORAPAY_PUBLIC_KEY'),
         'secret_key' => env('KORAPAY_SECRET_KEY'),

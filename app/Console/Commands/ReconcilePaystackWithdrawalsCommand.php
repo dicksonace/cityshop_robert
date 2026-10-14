@@ -19,6 +19,11 @@ class ReconcilePaystackWithdrawalsCommand extends Command
 
         $this->info("Checked {$stats['checked']} · paid {$stats['paid']} · failed {$stats['failed']} · still pending {$stats['skipped']}");
 
+        $junipay = $payouts->reconcilePendingJunipayTransfers($limit);
+        if ($junipay['checked'] > 0) {
+            $this->info("Junipay: checked {$junipay['checked']} · paid {$junipay['paid']} · failed {$junipay['failed']} · still pending {$junipay['skipped']}");
+        }
+
         return self::SUCCESS;
     }
 }

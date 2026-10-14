@@ -37,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhooks/paystack',
             'webhooks/flutterwave',
             'webhooks/korapay',
+            'webhooks/junipay',
             'webhooks/formula-dc',
         ]);
 

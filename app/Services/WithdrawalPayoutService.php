@@ -15,7 +15,155 @@ use Illuminate\Support\Facades\Log;
 
 class WithdrawalPayoutService
 {
-    public function __construct(private PaystackService $paystack) {}
+    public function __construct(
+        private PaystackService $paystack,
+        private JunipayService $junipay,
+    ) {}
+
+    /**
+     * Send a pending withdrawal through Junipay. The reference is saved before the call,
+     * so a retry after a timeout reuses it and Junipay can refuse the duplicate.
+     *
+     * @return array{otp_required: bool, transfer_code: string|null, message: string}
+     */
+    public function processJunipay(Withdrawal $withdrawal, ?User $admin): array
+    {
+        if (! $this->junipay->payoutsAvailable()) {
+            throw new \RuntimeException('Junipay payouts are not set up or are turned off.');
+        }
+
+        $withdrawal = DB::transaction(function () use ($withdrawal) {
+            $withdrawal = Withdrawal::whereKey($withdrawal->id)->lockForUpdate()->firstOrFail();
+
+            if (! in_array($withdrawal->status, [WithdrawalStatus::Pending, WithdrawalStatus::Processing], true)) {
+                throw new \RuntimeException('This withdrawal can no longer be paid out.');
+            }
+            if ($withdrawal->status === WithdrawalStatus::Processing && filled($withdrawal->paystack_reference)) {
+                throw new \RuntimeException('This withdrawal was already sent to Paystack.');
+            }
+            if (filled($withdrawal->junipay_trans_id)) {
+                throw new \RuntimeException('This withdrawal was already sent to Junipay. Wait for confirmation.');
+            }
+
+            if (! filled($withdrawal->junipay_reference)) {
+                $withdrawal->update(['junipay_reference' => 'JP'.PaymentReference::withdrawal((int) $withdrawal->id)]);
+            }
+
+            return $withdrawal;
+        });
+
+        $withdrawal->loadMissing('user');
+        $transfer = $this->junipay->transfer(
+            (string) $withdrawal->junipay_reference,
+            (float) $withdrawal->amount,
+            (string) $withdrawal->network,
+            (string) $withdrawal->momo_number,
+            trim((string) ($withdrawal->account_name ?: $withdrawal->user?->name)),
+            'CityShop withdrawal #'.$withdrawal->id,
+            (string) $withdrawal->user?->mobile,
+        );
+
+        $withdrawal->update([
+            'status' => WithdrawalStatus::Processing,
+            'junipay_trans_id' => $transfer['trans_id'],
+            'junipay_status' => $transfer['status'],
+            'payout_channel' => 'junipay',
+            'failure_reason' => null,
+            'processed_by' => $admin?->id ?? $withdrawal->processed_by,
+        ]);
+
+        if ($transfer['status'] === 'success') {
+            $this->markAsPaid($withdrawal->fresh(), 'junipay');
+
+            return ['otp_required' => false, 'transfer_code' => $transfer['trans_id'], 'message' => 'Payout sent successfully via Junipay.'];
+        }
+
+        return [
+            'otp_required' => false,
+            'transfer_code' => $transfer['trans_id'],
+            'message' => 'Payout sent to Junipay. It completes when Junipay confirms the transfer.',
+        ];
+    }
+
+    /**
+     * Junipay callback for a payout. The transaction ID must be the one Junipay gave us,
+     * and a failure is only applied after Junipay confirms it, because failing refunds the wallet.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function handleJunipayCallback(Withdrawal $withdrawal, array $data): void
+    {
+        if ($withdrawal->status !== WithdrawalStatus::Processing || $withdrawal->payout_channel !== 'junipay') {
+            return;
+        }
+
+        $transId = (string) ($data['trans_id'] ?? $data['transID'] ?? '');
+        if (! filled($withdrawal->junipay_trans_id) || ! hash_equals((string) $withdrawal->junipay_trans_id, $transId)) {
+            Log::warning('Junipay payout callback ignored: transaction ID does not match', [
+                'withdrawal_id' => $withdrawal->id,
+            ]);
+
+            return;
+        }
+
+        $claimed = strtolower((string) ($data['status'] ?? ''));
+        try {
+            $status = $this->junipay->transactionStatus($transId);
+        } catch (\Throwable $e) {
+            Log::warning('Junipay payout status check failed', ['withdrawal_id' => $withdrawal->id, 'error' => $e->getMessage()]);
+            $status = $claimed === 'success' ? 'success' : 'pending';
+        }
+
+        $this->applyJunipayStatus($withdrawal, $status, (string) ($data['message'] ?? ''));
+    }
+
+    /**
+     * @return array{checked: int, paid: int, failed: int, skipped: int}
+     */
+    public function reconcilePendingJunipayTransfers(int $limit = 50): array
+    {
+        $stats = ['checked' => 0, 'paid' => 0, 'failed' => 0, 'skipped' => 0];
+        if (! $this->junipay->isConfigured()) {
+            return $stats;
+        }
+
+        $withdrawals = Withdrawal::query()
+            ->where('status', WithdrawalStatus::Processing)
+            ->where('payout_channel', 'junipay')
+            ->whereNotNull('junipay_trans_id')
+            ->orderBy('id')
+            ->limit($limit)
+            ->get();
+
+        foreach ($withdrawals as $withdrawal) {
+            $stats['checked']++;
+            try {
+                $status = $this->junipay->transactionStatus((string) $withdrawal->junipay_trans_id);
+                $this->applyJunipayStatus($withdrawal, $status, '');
+                $stats[match ($status) {
+                    'success' => 'paid',
+                    'failed' => 'failed',
+                    default => 'skipped',
+                }]++;
+            } catch (\Throwable $e) {
+                $stats['skipped']++;
+                Log::warning('Junipay transfer reconcile failed', ['withdrawal_id' => $withdrawal->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        return $stats;
+    }
+
+    private function applyJunipayStatus(Withdrawal $withdrawal, string $status, string $message): void
+    {
+        if ($status === 'success') {
+            $withdrawal->update(['junipay_status' => 'success']);
+            $this->markAsPaid($withdrawal->fresh() ?? $withdrawal, 'junipay');
+        } elseif ($status === 'failed') {
+            $withdrawal->update(['junipay_status' => 'failed']);
+            $this->markAsFailed($withdrawal->fresh() ?? $withdrawal, $message !== '' ? 'Junipay: '.$message : 'Junipay payout failed.');
+        }
+    }
 
     /**
      * Auto path — no admin user. Leaves request pending if Paystack is not ready.

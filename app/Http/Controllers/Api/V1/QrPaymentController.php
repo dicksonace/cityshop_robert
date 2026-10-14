@@ -94,7 +94,7 @@ class QrPaymentController extends Controller
             'amount' => ['required', 'numeric', 'min:5', 'max:50000'],
             'note' => ['nullable', 'string', 'max:120'],
             'method' => ['required', 'in:momo,card'],
-            'gateway' => ['required', 'in:paystack,flutterwave,korapay'],
+            'gateway' => ['required', 'in:paystack,flutterwave,korapay,junipay'],
         ]);
 
         $payer = $request->user();
@@ -148,7 +148,7 @@ class QrPaymentController extends Controller
     {
         $validated = $request->validate([
             'reference' => ['required', 'string', 'max:100'],
-            'gateway' => ['required', 'in:paystack,flutterwave,korapay'],
+            'gateway' => ['required', 'in:paystack,flutterwave,korapay,junipay'],
         ]);
 
         try {
