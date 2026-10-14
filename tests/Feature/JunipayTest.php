@@ -35,6 +35,30 @@ class JunipayTest extends TestCase
         ]);
     }
 
+    public function test_set_keys_command_saves_encrypted_key_from_file(): void
+    {
+        Http::fake([self::API.'/accountbalance' => Http::response(['available_balance' => 12.5])]);
+
+        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+        openssl_pkey_export($key, $pem);
+        $file = tempnam(sys_get_temp_dir(), 'jp');
+        file_put_contents($file, $pem);
+
+        $this->artisan('cityshop:set-junipay-keys', ['--client-id' => 'CLI123', '--key-file' => $file])
+            ->expectsOutputToContain('Junipay accepted these keys')
+            ->assertSuccessful();
+
+        $stored = \App\Services\PlatformSettings::storedJunipayKeys();
+        $this->assertSame('CLI123', $stored['client_id']);
+        $this->assertSame(trim($pem), trim($stored['private_key']));
+        $this->assertStringNotContainsString('PRIVATE KEY', json_encode(\App\Models\PlatformSetting::query()->pluck('value')));
+
+        $this->artisan('cityshop:set-junipay-keys', ['--client-id' => 'CLI123', '--key-file' => '/nope/missing.key'])
+            ->assertFailed();
+
+        @unlink($file);
+    }
+
     private function verifiedBuyer(): User
     {
         $buyer = User::factory()->create([
