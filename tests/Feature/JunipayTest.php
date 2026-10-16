@@ -244,6 +244,38 @@ class JunipayTest extends TestCase
         $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
     }
 
+    public function test_bank_withdrawal_is_sent_with_junipay_bank_code(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $buyer = $this->verifiedBuyer();
+        WalletService::ensure($buyer);
+        $withdrawal = Withdrawal::create([
+            'user_id' => $buyer->id,
+            'amount' => 40,
+            'momo_number' => '1234567890123',
+            'account_name' => 'Kofi Amoah',
+            'network' => 'gcb',
+            'payout_channel' => 'bank',
+            'status' => WithdrawalStatus::Pending,
+        ]);
+
+        Http::fake([
+            self::API.'/transfer' => Http::response(['status' => 'pending', 'transID' => 'DISBANK1'], 200),
+        ]);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/v1/admin/withdrawals/{$withdrawal->id}/junipay")
+            ->assertOk()
+            ->assertJsonPath('data.junipay_trans_id', 'DISBANK1');
+
+        Http::assertSent(fn ($request) => $request->url() === self::API.'/transfer'
+            && $request['channel'] === 'bank'
+            && $request['bank_code'] === '2013'
+            && $request['account_number'] === '1234567890123'
+            && $request['receiver'] === 'Kofi Amoah'
+            && ! array_key_exists('provider', $request->data()));
+    }
+
     public function test_payout_callback_matches_junipay_transfer_id_when_foreign_id_is_theirs(): void
     {
         $buyer = $this->verifiedBuyer();
