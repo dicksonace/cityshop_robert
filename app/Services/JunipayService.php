@@ -514,24 +514,24 @@ class JunipayService implements HostedPaymentGateway
     }
 
     /**
-     * Bank payouts reject any foreignID that is not letters only, matching /^[A-Z]+$/.
+     * Junipay bank payouts only accept foreignID matching /^[A-H]+$/.
      */
     public static function payoutReference(int $id): string
     {
-        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $alphabet = 'ABCDEFGH';
         $n = max(1, $id);
         $body = '';
         do {
-            $body = $alphabet[$n % 26].$body;
-            $n = intdiv($n, 26);
+            $body = $alphabet[$n % 8].$body;
+            $n = intdiv($n, 8);
         } while ($n > 0);
 
         $suffix = '';
-        for ($i = 0; $i < 12; $i++) {
-            $suffix .= $alphabet[random_int(0, 25)];
+        for ($i = 0; $i < 15; $i++) {
+            $suffix .= $alphabet[random_int(0, 7)];
         }
 
-        return 'JP'.$body.$suffix;
+        return $body.$suffix;
     }
 
     /** Junipay requires foreignID to be at least 13 characters; our references are 12. */

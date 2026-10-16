@@ -55,7 +55,7 @@ class WithdrawalPayoutService
             }
 
             $reference = (string) $withdrawal->junipay_reference;
-            if ($reference === '' || ! preg_match('/^[A-Z]+$/', $reference)) {
+            if ($reference === '' || ! preg_match('/^[A-H]+$/', $reference)) {
                 $withdrawal->update(['junipay_reference' => JunipayService::payoutReference((int) $withdrawal->id)]);
             }
 
@@ -204,7 +204,8 @@ class WithdrawalPayoutService
             ->whereNull('paystack_reference')
             ->where(function ($query) {
                 $query->whereNull('failure_reason')
-                    ->orWhere('failure_reason', 'not like', 'Junipay%');
+                    ->orWhere('failure_reason', 'not like', 'Junipay%')
+                    ->orWhere('failure_reason', 'like', '%foreignID%');
             })
             ->orderBy('id')
             ->limit($limit)
