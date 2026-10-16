@@ -54,8 +54,9 @@ class WithdrawalPayoutService
                 ]);
             }
 
-            if (! filled($withdrawal->junipay_reference)) {
-                $withdrawal->update(['junipay_reference' => 'JP'.PaymentReference::withdrawal((int) $withdrawal->id)]);
+            $reference = (string) $withdrawal->junipay_reference;
+            if ($reference === '' || ! preg_match('/^[A-Z]+$/', $reference)) {
+                $withdrawal->update(['junipay_reference' => JunipayService::payoutReference((int) $withdrawal->id)]);
             }
 
             return $withdrawal;

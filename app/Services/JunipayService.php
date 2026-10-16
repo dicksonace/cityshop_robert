@@ -513,6 +513,27 @@ class JunipayService implements HostedPaymentGateway
         return mb_substr($clean !== '' ? $clean : 'CityShop withdrawal', 0, 40);
     }
 
+    /**
+     * Bank payouts reject any foreignID that is not letters only, matching /^[A-Z]+$/.
+     */
+    public static function payoutReference(int $id): string
+    {
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $n = max(1, $id);
+        $body = '';
+        do {
+            $body = $alphabet[$n % 26].$body;
+            $n = intdiv($n, 26);
+        } while ($n > 0);
+
+        $suffix = '';
+        for ($i = 0; $i < 12; $i++) {
+            $suffix .= $alphabet[random_int(0, 25)];
+        }
+
+        return 'JP'.$body.$suffix;
+    }
+
     /** Junipay requires foreignID to be at least 13 characters; our references are 12. */
     public static function foreignId(string $reference): string
     {
