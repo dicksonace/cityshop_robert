@@ -939,11 +939,30 @@ class PlatformSettings
         $current = static::junipaySettings();
 
         static::set(self::JUNIPAY_SETTINGS_KEY, [
-            'collections_enabled' => (bool) ($data['collections_enabled'] ?? $current['collections_enabled']),
-            'payouts_enabled' => (bool) ($data['payouts_enabled'] ?? $current['payouts_enabled']),
-            'auto_payout' => (bool) ($data['auto_payout'] ?? $current['auto_payout']),
-            'sandbox' => (bool) ($data['sandbox'] ?? $current['sandbox']),
+            'collections_enabled' => self::junipayFlag($data, 'collections_enabled', $current['collections_enabled']),
+            'payouts_enabled' => self::junipayFlag($data, 'payouts_enabled', $current['payouts_enabled']),
+            'auto_payout' => self::junipayFlag($data, 'auto_payout', $current['auto_payout']),
+            'sandbox' => self::junipayFlag($data, 'sandbox', $current['sandbox']),
         ]);
+    }
+
+    /**
+     * A posted false must stay off. The null coalesce operator treats false as missing.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private static function junipayFlag(array $data, string $key, bool $current): bool
+    {
+        if (! array_key_exists($key, $data)) {
+            return $current;
+        }
+
+        $value = $data[$key];
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**

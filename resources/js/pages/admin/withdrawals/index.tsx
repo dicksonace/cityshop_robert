@@ -77,7 +77,7 @@ function formatDateTime(value?: string | null): string {
     });
 }
 
-export default function WithdrawalsIndex({ withdrawals, status, role, counts, junipayPayouts = false }: WithdrawalsIndexProps) {
+export default function WithdrawalsIndex({ withdrawals, status, role, counts }: WithdrawalsIndexProps) {
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
     const [rejectId, setRejectId] = useState<number | null>(null);
     const [reason, setReason] = useState('');
@@ -154,7 +154,6 @@ export default function WithdrawalsIndex({ withdrawals, status, role, counts, ju
     };
 
     const canSendViaJunipay = (w: AdminWithdrawalRow) =>
-        junipayPayouts &&
         !w.junipay_sent &&
         (w.status === 'pending' || (w.status === 'processing' && w.payout_channel !== 'paystack'));
 

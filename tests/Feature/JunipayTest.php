@@ -244,6 +244,23 @@ class JunipayTest extends TestCase
         $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
     }
 
+    public function test_turning_junipay_auto_payout_off_stays_off(): void
+    {
+        PlatformSettings::saveJunipaySettings([
+            'collections_enabled' => true,
+            'payouts_enabled' => true,
+            'auto_payout' => true,
+            'sandbox' => false,
+        ]);
+
+        PlatformSettings::saveJunipaySettings(['auto_payout' => false]);
+
+        $settings = PlatformSettings::junipaySettings();
+        $this->assertFalse($settings['auto_payout']);
+        $this->assertTrue($settings['payouts_enabled']);
+        $this->assertTrue($settings['collections_enabled']);
+    }
+
     public function test_bank_withdrawal_is_sent_with_junipay_bank_code(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Enums\WithdrawalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Withdrawal;
+use App\Support\GhanaBanks;
 use App\Services\WithdrawalPayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -157,11 +158,12 @@ class WithdrawalController extends Controller
         $wallet = $user?->wallet;
         $network = (string) ($withdrawal->network ?? '');
 
+        $isBank = $withdrawal->payout_channel === 'bank' || GhanaBanks::isBank($network);
         $networkLabel = match ($network) {
             'mtn' => 'MTN Mobile Money',
             'telecel', 'vodafone' => 'Telecel Cash',
             'airteltigo' => 'AirtelTigo Money',
-            default => $network === '' ? '—' : str_replace('_', ' ', $network),
+            default => $network === '' ? '—' : ($isBank ? GhanaBanks::label($network) : str_replace('_', ' ', $network)),
         };
 
         return [
@@ -173,7 +175,7 @@ class WithdrawalController extends Controller
             'account_name' => $withdrawal->account_name,
             'network' => $withdrawal->network,
             'network_label' => $networkLabel,
-            'pay_to_label' => $withdrawal->payout_channel === 'bank' ? 'Bank transfer' : 'Mobile money',
+            'pay_to_label' => $isBank ? 'Bank transfer' : 'Mobile money',
             'payout_channel' => $withdrawal->payout_channel,
             'paystack_reference' => $withdrawal->paystack_reference,
             'paystack_status' => $withdrawal->paystack_status,
