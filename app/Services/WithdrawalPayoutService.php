@@ -55,7 +55,7 @@ class WithdrawalPayoutService
             }
 
             $reference = (string) $withdrawal->junipay_reference;
-            if ($reference === '' || ! preg_match('/^[A-H]+$/', $reference)) {
+            if ($reference === '' || ! preg_match('/^\d{13,}$/', $reference)) {
                 $withdrawal->update(['junipay_reference' => JunipayService::payoutReference((int) $withdrawal->id)]);
             }
 

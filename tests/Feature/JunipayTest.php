@@ -232,7 +232,7 @@ class JunipayTest extends TestCase
             && $request['phoneNumber'] === '0539790093'
             && (float) $request['amount'] === 30.0
             && $request['foreignID'] === $withdrawal->junipay_reference
-            && preg_match('/^[A-H]{13,}$/', (string) $request['foreignID']) === 1
+            && preg_match('/^\d{13,}$/', (string) $request['foreignID']) === 1
             && $request['narration'] === 'CityShop withdrawal '.$withdrawal->id);
 
         $this->postJson("/api/v1/admin/withdrawals/{$withdrawal->id}/junipay")->assertStatus(422);
