@@ -102,12 +102,12 @@ export default function RechargeModal({
         if (onlineConfigured && !manualTopUpEnabled) {
             if (multiOnline) {
                 setStep('choose');
+            } else if (junipayOn) {
+                setStep('junipay');
             } else if (paystackConfigured) {
                 setStep('paystack');
             } else if (korapayOn) {
                 setStep('korapay');
-            } else if (junipayOn) {
-                setStep('junipay');
             } else {
                 setStep('flutterwave');
             }
@@ -254,6 +254,22 @@ export default function RechargeModal({
 
                 {showChooser ? (
                     <div className="mt-4 space-y-2.5">
+                        {junipayOn ? (
+                            <button
+                                type="button"
+                                onClick={() => setStep('junipay')}
+                                className="flex w-full items-center gap-3 rounded-xl border border-red-200 bg-red-50/60 px-3.5 py-3 text-left transition hover:border-red-300 hover:bg-red-50"
+                            >
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white">
+                                    <Smartphone className="h-5 w-5" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-semibold text-gray-900">Junipay</span>
+                                    <span className="block text-xs text-gray-500">Mobile Money prompt on your phone</span>
+                                </span>
+                            </button>
+                        ) : null}
+
                         {flutterwaveConfigured && flutterwaveRoute ? (
                             <button
                                 type="button"
@@ -298,22 +314,6 @@ export default function RechargeModal({
                                 <span className="min-w-0">
                                     <span className="block text-sm font-semibold text-gray-900">Korapay</span>
                                     <span className="block text-xs text-gray-500">Mobile Money and card</span>
-                                </span>
-                            </button>
-                        ) : null}
-
-                        {junipayOn ? (
-                            <button
-                                type="button"
-                                onClick={() => setStep('junipay')}
-                                className="flex w-full items-center gap-3 rounded-xl border border-red-200 bg-red-50/60 px-3.5 py-3 text-left transition hover:border-red-300 hover:bg-red-50"
-                            >
-                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white">
-                                    <Smartphone className="h-5 w-5" />
-                                </span>
-                                <span className="min-w-0">
-                                    <span className="block text-sm font-semibold text-gray-900">Junipay</span>
-                                    <span className="block text-xs text-gray-500">Mobile Money prompt on your phone</span>
                                 </span>
                             </button>
                         ) : null}

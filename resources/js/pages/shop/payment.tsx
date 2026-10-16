@@ -60,9 +60,9 @@ export default function Payment({
     const totalDue = paystackCharge && paystackCharge > 0 ? paystackCharge : marketplaceTotal;
     const gatewayOptions = (
         [
+            { id: 'junipay', label: 'Junipay', on: junipayConfigured },
             { id: 'flutterwave', label: 'Flutterwave', on: flutterwaveConfigured },
             { id: 'korapay', label: 'Korapay', on: korapayConfigured },
-            { id: 'junipay', label: 'Junipay', on: junipayConfigured },
             { id: 'paystack', label: 'Paystack', on: paystackConfigured },
         ] as const
     ).filter((option) => option.on);
@@ -83,9 +83,9 @@ export default function Payment({
     }, [paystackConfigured]);
 
     useEffect(() => {
-        if (flutterwaveConfigured) setGateway('flutterwave');
+        if (junipayConfigured) setGateway('junipay');
+        else if (flutterwaveConfigured) setGateway('flutterwave');
         else if (korapayConfigured) setGateway('korapay');
-        else if (junipayConfigured) setGateway('junipay');
         else if (paystackConfigured) setGateway('paystack');
     }, [paystackConfigured, flutterwaveConfigured, korapayConfigured, junipayConfigured]);
 
