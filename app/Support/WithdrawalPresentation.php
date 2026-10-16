@@ -41,7 +41,7 @@ class WithdrawalPresentation
                 'kind' => $isBank ? 'Bank' : 'MoMo',
             ],
             'rejection_reason' => $withdrawal->rejection_reason,
-            'failure_reason' => $withdrawal->failure_reason,
+            'failure_reason' => self::userFailureReason($withdrawal),
             'admin_notes' => $withdrawal->admin_notes,
             'proof_url' => $withdrawal->proof_path
                 ? Storage::disk('public')->url($withdrawal->proof_path)
@@ -49,5 +49,18 @@ class WithdrawalPresentation
             'created_at' => $withdrawal->created_at?->toIso8601String(),
             'processed_at' => $withdrawal->processed_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Gateway errors stay on the admin screen. Buyers only see a rejection written for them.
+     */
+    private static function userFailureReason(Withdrawal $withdrawal): ?string
+    {
+        $reason = trim((string) $withdrawal->failure_reason);
+        if ($reason === '' || preg_match('/^(Junipay|Paystack)\b/i', $reason) === 1) {
+            return null;
+        }
+
+        return $reason;
     }
 }

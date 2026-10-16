@@ -13,6 +13,7 @@ use App\Models\Withdrawal;
 use App\Notifications\WithdrawalPaidNotification;
 use App\Notifications\WithdrawalRequestedNotification;
 use App\Services\PlatformSettings;
+use App\Support\WithdrawalPresentation;
 use App\Services\WalletService;
 use App\Services\WithdrawalPayoutService;
 use App\Services\WithdrawalRequestService;
@@ -243,6 +244,27 @@ class JunipayTest extends TestCase
         ])->assertOk();
 
         $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
+    }
+
+    public function test_user_does_not_see_junipay_payout_errors(): void
+    {
+        $buyer = $this->verifiedBuyer();
+        $withdrawal = Withdrawal::create([
+            'user_id' => $buyer->id,
+            'amount' => 11,
+            'fee' => 10,
+            'momo_number' => '1402001003035',
+            'account_name' => 'Robert Asare',
+            'network' => 'gtbank',
+            'payout_channel' => 'bank',
+            'status' => WithdrawalStatus::Processing,
+            'failure_reason' => 'Junipay auto payout failed: foreignID pattern',
+        ]);
+
+        $payload = WithdrawalPresentation::forUser($withdrawal);
+
+        $this->assertNull($payload['failure_reason']);
+        $this->assertSame('Junipay auto payout failed: foreignID pattern', $withdrawal->fresh()->failure_reason);
     }
 
     public function test_turning_junipay_auto_payout_off_stays_off(): void
