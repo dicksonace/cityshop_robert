@@ -11,7 +11,9 @@ use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
 use App\Channels\SmsChannel;
 use App\Notifications\AdminWithdrawalRequestedNotification;
+use App\Notifications\WithdrawalPaidNotification;
 use App\Notifications\WithdrawalRequestedNotification;
+use App\Services\WithdrawalPayoutService;
 use App\Services\PaymentPinService;
 use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,13 +89,34 @@ class ApiWithdrawalTest extends TestCase
         $this->assertSame(-120.0, (float) $entry->amount);
         $this->assertSame("WITHDRAWAL-{$withdrawal->id}", $entry->reference);
 
-        Notification::assertSentTo($buyer, WithdrawalRequestedNotification::class);
+        Notification::assertNotSentTo($buyer, WithdrawalRequestedNotification::class);
         Notification::assertSentTo($adminA, AdminWithdrawalRequestedNotification::class);
         Notification::assertSentTo($adminB, AdminWithdrawalRequestedNotification::class);
         Notification::assertSentTo($adminA, AdminWithdrawalRequestedNotification::class, function ($notification, $channels) {
             return in_array('mail', $channels, true)
                 && in_array(SmsChannel::class, $channels, true);
         });
+    }
+
+    public function test_manual_withdrawal_sends_the_debit_message_only_when_confirmed(): void
+    {
+        Notification::fake();
+        $buyer = $this->buyerWithBalance(100);
+
+        Sanctum::actingAs($buyer);
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
+            'amount' => 20,
+        ]))->assertCreated();
+
+        $withdrawal = Withdrawal::where('user_id', $buyer->id)->sole();
+        Notification::assertNotSentTo($buyer, WithdrawalRequestedNotification::class);
+        Notification::assertNotSentTo($buyer, WithdrawalPaidNotification::class);
+
+        app(WithdrawalPayoutService::class)->markAsPaid($withdrawal->fresh(), 'manual');
+
+        Notification::assertSentToTimes($buyer, WithdrawalRequestedNotification::class, 1);
+        Notification::assertNotSentTo($buyer, WithdrawalPaidNotification::class);
+        $this->assertNotNull($withdrawal->fresh()->debit_notified_at);
     }
 
     public function test_bank_withdrawal_is_accepted(): void

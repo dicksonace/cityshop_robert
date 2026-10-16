@@ -6,8 +6,8 @@ use App\Enums\WithdrawalStatus;
 use App\Models\SellerPayoutMethod;
 use App\Models\User;
 use App\Models\Withdrawal;
-use App\Notifications\WithdrawalPaidNotification;
 use App\Notifications\WithdrawalRejectedNotification;
+use App\Notifications\WithdrawalRequestedNotification;
 use App\Support\GhanaBanks;
 use App\Support\PaymentReference;
 use Illuminate\Support\Facades\DB;
@@ -415,9 +415,31 @@ class WithdrawalPayoutService
         // Keep a single wallet receipt (the original debit). Status becomes Completed
         // on that same row via WalletTransactionService::displayTypeLabel().
 
+        $this->notifyDebit($withdrawal->fresh() ?? $withdrawal);
+    }
+
+    /**
+     * The wallet-debit text. Auto payouts send it when the request is created.
+     * Manual payouts send it only when the withdrawal is confirmed, and never twice.
+     */
+    public function notifyDebit(Withdrawal $withdrawal): void
+    {
+        if ($withdrawal->debit_notified_at !== null) {
+            return;
+        }
+
         try {
-            $withdrawal->loadMissing('user');
-            $withdrawal->user?->notify(new WithdrawalPaidNotification($withdrawal));
+            $withdrawal->loadMissing('user.wallet');
+            $user = $withdrawal->user;
+            if (! $user) {
+                return;
+            }
+
+            $user->notify(new WithdrawalRequestedNotification(
+                $withdrawal,
+                (float) ($user->wallet?->available_balance ?? 0),
+            ));
+            $withdrawal->update(['debit_notified_at' => now()]);
         } catch (\Throwable $e) {
             report($e);
         }

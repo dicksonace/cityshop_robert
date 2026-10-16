@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Notifications\AdminWithdrawalRequestedNotification;
-use App\Notifications\WithdrawalRequestedNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -78,13 +77,8 @@ class WithdrawalRequestService
             ? 'Withdrawal submitted. It is sent automatically and completes when the payment is confirmed. If it does not go through, it stays pending for review.'
             : 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.';
 
-        try {
-            $user->notify(new WithdrawalRequestedNotification(
-                $result['withdrawal'],
-                (float) $result['wallet']->available_balance,
-            ));
-        } catch (\Throwable $e) {
-            report($e);
+        if ($auto) {
+            $this->payouts->notifyDebit($result['withdrawal']);
         }
 
         try {

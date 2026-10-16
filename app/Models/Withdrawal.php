@@ -31,6 +31,7 @@ class Withdrawal extends Model
         'admin_notes',
         'processed_by',
         'processed_at',
+        'debit_notified_at',
     ];
 
     protected function casts(): array
@@ -40,6 +41,7 @@ class Withdrawal extends Model
             'fee' => 'decimal:2',
             'status' => WithdrawalStatus::class,
             'processed_at' => 'datetime',
+            'debit_notified_at' => 'datetime',
         ];
     }
 

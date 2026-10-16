@@ -10,12 +10,15 @@ use App\Models\KycVerification;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Notifications\WithdrawalPaidNotification;
+use App\Notifications\WithdrawalRequestedNotification;
 use App\Services\PlatformSettings;
 use App\Services\WalletService;
 use App\Services\WithdrawalPayoutService;
 use App\Services\WithdrawalRequestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -285,6 +288,47 @@ class JunipayTest extends TestCase
 
         $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
         $this->assertSame('success', $withdrawal->fresh()->junipay_status);
+    }
+
+    public function test_auto_withdrawal_sends_the_debit_message_immediately_and_not_again_when_paid(): void
+    {
+        Notification::fake();
+        PlatformSettings::saveJunipaySettings([
+            'collections_enabled' => true,
+            'payouts_enabled' => true,
+            'auto_payout' => true,
+            'sandbox' => false,
+        ]);
+        Http::fake([
+            self::API.'/transfer' => Http::response(['code' => 200, 'info' => ['transID' => 'DIS540', 'status' => 'pending']], 200),
+            self::API.'/checktranstatus' => Http::response(['code' => 200, 'status' => 'success', 'info' => ['status' => 'success']], 200),
+        ]);
+
+        $buyer = $this->verifiedBuyer();
+        $wallet = WalletService::ensure($buyer);
+        $wallet->update(['available_balance' => 50]);
+
+        $sent = app(WithdrawalRequestService::class)->submit($buyer, [
+            'amount' => 11,
+            'payout_type' => 'momo',
+            'momo_number' => '0539790093',
+            'account_name' => 'Robert Asare',
+            'network' => 'mtn',
+        ]);
+
+        Notification::assertSentToTimes($buyer, WithdrawalRequestedNotification::class, 1);
+        Notification::assertNotSentTo($buyer, WithdrawalPaidNotification::class);
+        $this->assertNotNull($sent['withdrawal']->debit_notified_at);
+
+        $this->postJson('/webhooks/junipay', [
+            'status' => 'success',
+            'foreignID' => 'DIS540',
+            'partnerTransID' => $sent['withdrawal']->junipay_reference,
+        ])->assertOk();
+
+        Notification::assertSentToTimes($buyer, WithdrawalRequestedNotification::class, 1);
+        Notification::assertNotSentTo($buyer, WithdrawalPaidNotification::class);
+        $this->assertSame(WithdrawalStatus::Paid, $sent['withdrawal']->fresh()->status);
     }
 
     public function test_auto_payout_sends_new_withdrawals_and_the_waiting_queue(): void
