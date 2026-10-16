@@ -326,7 +326,15 @@ class JunipayService implements HostedPaymentGateway
             throw new \RuntimeException($this->errorMessage($response) ?: 'Junipay status check failed.');
         }
 
+        $info = $response->json('info');
+        if (is_string($info) && str_contains(strtolower($info), 'not found')) {
+            throw new \RuntimeException('Junipay has no record of this transaction.');
+        }
+
         $status = $this->bodyStatus($response);
+        if ($status === '') {
+            throw new \RuntimeException($this->errorMessage($response) ?: 'Junipay status check failed.');
+        }
 
         return match (true) {
             in_array($status, ['success', 'successful', 'completed'], true) => 'success',
@@ -344,12 +352,20 @@ class JunipayService implements HostedPaymentGateway
             return $payment;
         }
 
-        $status = $this->transactionStatus((string) $payment->trans_id);
+        try {
+            $status = $this->transactionStatus((string) $payment->trans_id);
+        } catch (\Throwable) {
+            $status = 'pending';
+        }
         if ($status !== 'success') {
             foreach ($payment->meta['previous_trans_ids'] ?? [] as $earlier) {
-                if ($this->transactionStatus((string) $earlier) === 'success') {
-                    $status = 'success';
-                    break;
+                try {
+                    if ($this->transactionStatus((string) $earlier) === 'success') {
+                        $status = 'success';
+                        break;
+                    }
+                } catch (\Throwable) {
+                    continue;
                 }
             }
         }

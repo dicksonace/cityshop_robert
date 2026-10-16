@@ -10,7 +10,10 @@ use App\Models\KycVerification;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Services\PlatformSettings;
 use App\Services\WalletService;
+use App\Services\WithdrawalPayoutService;
+use App\Services\WithdrawalRequestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -235,6 +238,71 @@ class JunipayTest extends TestCase
         ])->assertOk();
 
         $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
+    }
+
+    public function test_auto_payout_sends_new_withdrawals_and_the_waiting_queue(): void
+    {
+        PlatformSettings::saveJunipaySettings([
+            'collections_enabled' => true,
+            'payouts_enabled' => true,
+            'auto_payout' => true,
+            'sandbox' => false,
+        ]);
+
+        Http::fake([
+            self::API.'/transfer' => Http::sequence()
+                ->push(['code' => 200, 'info' => ['transID' => 'DIS900', 'status' => 'pending', 'message' => 'TRANSACTION PENDING']], 200)
+                ->push(['code' => 200, 'info' => ['transID' => 'DIS901', 'status' => 'pending']], 200),
+            self::API.'/checktranstatus' => function ($request) {
+                if ($request['transID'] === 'JPALREADY') {
+                    return Http::response(['code' => 200, 'status' => 'pending', 'info' => ['status' => 'pending', 'partnerTransID' => 'JPALREADY']], 200);
+                }
+
+                return Http::response(['code' => 200, 'info' => 'Transaction not found'], 200);
+            },
+        ]);
+
+        $buyer = $this->verifiedBuyer();
+        $wallet = WalletService::ensure($buyer);
+        $wallet->update(['available_balance' => 200]);
+
+        $sent = app(WithdrawalRequestService::class)->submit($buyer, [
+            'amount' => 20,
+            'payout_type' => 'momo',
+            'momo_number' => '0248620718',
+            'account_name' => 'Ama Mensah',
+            'network' => 'mtn',
+        ]);
+        $this->assertSame(WithdrawalStatus::Processing, $sent['withdrawal']->status);
+        $this->assertSame('DIS900', $sent['withdrawal']->junipay_trans_id);
+        $this->assertSame('junipay', $sent['withdrawal']->payout_channel);
+
+        $waiting = Withdrawal::create([
+            'user_id' => $buyer->id,
+            'amount' => 15,
+            'momo_number' => '0248620718',
+            'account_name' => 'Ama Mensah',
+            'network' => 'mtn',
+            'status' => WithdrawalStatus::Pending,
+        ]);
+        $alreadySent = Withdrawal::create([
+            'user_id' => $buyer->id,
+            'amount' => 10,
+            'momo_number' => '0248620718',
+            'account_name' => 'Ama Mensah',
+            'network' => 'mtn',
+            'status' => WithdrawalStatus::Pending,
+            'junipay_reference' => 'JPALREADY',
+        ]);
+
+        $stats = app(WithdrawalPayoutService::class)->dispatchAutoJunipayPayouts();
+        $this->assertSame(2, $stats['sent']);
+        $this->assertSame(0, $stats['failed']);
+        $this->assertSame('DIS901', $waiting->fresh()->junipay_trans_id);
+        $this->assertSame('JPALREADY', $alreadySent->fresh()->junipay_trans_id);
+        $this->assertSame(WithdrawalStatus::Processing, $alreadySent->fresh()->status);
+
+        Http::assertSentCount(3);
     }
 
     public function test_failed_junipay_payout_refunds_only_after_junipay_confirms(): void

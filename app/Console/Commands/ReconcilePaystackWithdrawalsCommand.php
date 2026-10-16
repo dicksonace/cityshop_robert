@@ -24,6 +24,11 @@ class ReconcilePaystackWithdrawalsCommand extends Command
             $this->info("Junipay: checked {$junipay['checked']} · paid {$junipay['paid']} · failed {$junipay['failed']} · still pending {$junipay['skipped']}");
         }
 
+        $queued = $payouts->dispatchAutoJunipayPayouts($limit);
+        if ($queued['sent'] > 0 || $queued['failed'] > 0) {
+            $this->info("Junipay auto: sent {$queued['sent']} · failed {$queued['failed']}");
+        }
+
         return self::SUCCESS;
     }
 }

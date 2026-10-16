@@ -98,7 +98,14 @@ class WithdrawalPayoutService
         }
 
         $transId = (string) ($data['trans_id'] ?? $data['transID'] ?? '');
-        if (! filled($withdrawal->junipay_trans_id) || ! hash_equals((string) $withdrawal->junipay_trans_id, $transId)) {
+        $foreignId = (string) ($data['foreignID'] ?? '');
+        $partnerId = (string) ($data['partnerTransID'] ?? '');
+        $reference = (string) $withdrawal->junipay_reference;
+        $known = array_filter([(string) $withdrawal->junipay_trans_id, $reference]);
+        $matches = ($transId !== '' && in_array($transId, $known, true))
+            || ($foreignId !== '' && $foreignId === $reference)
+            || ($partnerId !== '' && $partnerId === $reference);
+        if (! $matches) {
             Log::warning('Junipay payout callback ignored: transaction ID does not match', [
                 'withdrawal_id' => $withdrawal->id,
             ]);
@@ -106,9 +113,12 @@ class WithdrawalPayoutService
             return;
         }
 
+        $lookup = filled($withdrawal->junipay_trans_id)
+            ? (string) $withdrawal->junipay_trans_id
+            : (string) $withdrawal->junipay_reference;
         $claimed = strtolower((string) ($data['status'] ?? ''));
         try {
-            $status = $this->junipay->transactionStatus($transId);
+            $status = $this->junipay->transactionStatus($lookup);
         } catch (\Throwable $e) {
             Log::warning('Junipay payout status check failed', ['withdrawal_id' => $withdrawal->id, 'error' => $e->getMessage()]);
             $status = $claimed === 'success' ? 'success' : 'pending';
@@ -152,6 +162,79 @@ class WithdrawalPayoutService
         }
 
         return $stats;
+    }
+
+    /**
+     * Send withdrawals that are still waiting. Turning auto payout on does not
+     * touch requests already in the queue, and a failed send used to stay there.
+     *
+     * @return array{sent: int, failed: int, skipped: int}
+     */
+    public function dispatchAutoJunipayPayouts(int $limit = 20): array
+    {
+        $stats = ['sent' => 0, 'failed' => 0, 'skipped' => 0];
+        if (! PlatformSettings::junipaySettings()['auto_payout'] || ! $this->junipay->payoutsAvailable()) {
+            return $stats;
+        }
+
+        $withdrawals = Withdrawal::query()
+            ->where('status', WithdrawalStatus::Pending)
+            ->whereNull('junipay_trans_id')
+            ->whereNull('paystack_reference')
+            ->orderBy('id')
+            ->limit($limit)
+            ->get();
+
+        foreach ($withdrawals as $withdrawal) {
+            try {
+                if ($this->attachExistingJunipayTransfer($withdrawal)) {
+                    $stats['sent']++;
+
+                    continue;
+                }
+                $this->processJunipay($withdrawal, null);
+                $stats['sent']++;
+            } catch (\Throwable $e) {
+                $stats['failed']++;
+                $withdrawal->update([
+                    'failure_reason' => 'Junipay auto payout failed: '.$e->getMessage(),
+                ]);
+                Log::warning('Junipay auto payout failed', [
+                    'withdrawal_id' => $withdrawal->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * A previous send may have reached Junipay without us storing its id.
+     * Junipay finds that transfer when we ask with our own reference.
+     */
+    private function attachExistingJunipayTransfer(Withdrawal $withdrawal): bool
+    {
+        if (! filled($withdrawal->junipay_reference)) {
+            return false;
+        }
+
+        try {
+            $status = $this->junipay->transactionStatus((string) $withdrawal->junipay_reference);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        $withdrawal->update([
+            'status' => WithdrawalStatus::Processing,
+            'junipay_trans_id' => $withdrawal->junipay_reference,
+            'junipay_status' => $status,
+            'payout_channel' => 'junipay',
+            'failure_reason' => null,
+        ]);
+        $this->applyJunipayStatus($withdrawal->fresh() ?? $withdrawal, $status, '');
+
+        return true;
     }
 
     private function applyJunipayStatus(Withdrawal $withdrawal, string $status, string $message): void
