@@ -449,7 +449,7 @@ class JunipayService implements HostedPaymentGateway
             'foreignID' => $reference,
             'sender' => 'CITY UNLOCK VENTURES',
             'receiver' => $receiverName !== '' ? $receiverName : 'CityShop customer',
-            'narration' => $narration,
+            'narration' => self::narration($narration),
             'callbackUrl' => url('/webhooks/junipay'),
         ];
 
@@ -500,6 +500,15 @@ class JunipayService implements HostedPaymentGateway
             'trans_id' => $transId,
             'message' => $this->errorMessage($response),
         ];
+    }
+
+    /** Junipay rejects narration that contains anything except letters, numbers and spaces. */
+    public static function narration(string $narration): string
+    {
+        $clean = trim((string) preg_replace('/[^A-Za-z0-9 ]+/', ' ', $narration));
+        $clean = trim((string) preg_replace('/\s+/', ' ', $clean));
+
+        return mb_substr($clean !== '' ? $clean : 'CityShop withdrawal', 0, 40);
     }
 
     /** Junipay requires foreignID to be at least 13 characters; our references are 12. */

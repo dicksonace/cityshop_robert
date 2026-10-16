@@ -227,7 +227,8 @@ class JunipayTest extends TestCase
             && $request['provider'] === 'vodafone'
             && $request['phoneNumber'] === '0539790093'
             && (float) $request['amount'] === 30.0
-            && $request['foreignID'] === $withdrawal->junipay_reference);
+            && $request['foreignID'] === $withdrawal->junipay_reference
+            && $request['narration'] === 'CityShop withdrawal '.$withdrawal->id);
 
         $this->postJson("/api/v1/admin/withdrawals/{$withdrawal->id}/junipay")->assertStatus(422);
 
