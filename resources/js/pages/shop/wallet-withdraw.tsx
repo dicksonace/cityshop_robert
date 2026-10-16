@@ -354,7 +354,13 @@ export default function BuyerWithdraw({
                                             </p>
                                         </div>
                                     )}
-                                    <p className="mt-1 text-xs text-gray-500">Usually processed within 15 minutes and sometimes instant.</p>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {withdrawalFee?.auto_junipay
+                                            ? 'Junipay sends this payout automatically. It completes when Junipay confirms it. If it does not go through, it stays pending for review.'
+                                            : withdrawalFee?.auto_paystack
+                                              ? 'Paystack sends this payout automatically.'
+                                              : 'Usually processed within 15 minutes and sometimes instant.'}
+                                    </p>
                                 </div>
                                 {!hasPaymentPin ? (
                                     <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

@@ -306,7 +306,7 @@ class JunipayTest extends TestCase
         Http::assertSentCount(3);
     }
 
-    public function test_failed_junipay_payout_refunds_only_after_junipay_confirms(): void
+    public function test_failed_junipay_payout_stays_pending_for_admin(): void
     {
         $buyer = $this->verifiedBuyer();
         $wallet = WalletService::ensure($buyer);
@@ -333,7 +333,9 @@ class JunipayTest extends TestCase
         $this->assertSame(WithdrawalStatus::Processing, $withdrawal->fresh()->status);
 
         $this->postJson('/webhooks/junipay', $payload)->assertOk();
-        $this->assertSame(WithdrawalStatus::Rejected, $withdrawal->fresh()->status);
-        $this->assertEqualsWithDelta(30.0, (float) $wallet->fresh()->available_balance, 0.001);
+        $this->assertSame(WithdrawalStatus::Pending, $withdrawal->fresh()->status);
+        $this->assertSame('failed', $withdrawal->fresh()->junipay_status);
+        $this->assertEqualsWithDelta(0.0, (float) $wallet->fresh()->available_balance, 0.001);
+        $this->assertStringContainsString('Wallet not found', (string) $withdrawal->fresh()->failure_reason);
     }
 }

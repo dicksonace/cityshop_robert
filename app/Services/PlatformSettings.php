@@ -1114,12 +1114,18 @@ class PlatformSettings
             if ($auto['fee_mode'] === 'percent' && $auto['fee_percent'] > 0) {
                 return max(0, round($amount * ($auto['fee_percent'] / 100), 2));
             }
-            if ($auto['fee_mode'] === 'flat') {
+            if ($auto['fee_mode'] === 'flat' && (float) $auto['fee_flat'] > 0) {
                 return max(0, round((float) $auto['fee_flat'], 2));
             }
         }
 
         return static::feeForPayoutType($payoutType, $amount);
+    }
+
+    public static function junipayAutoPayout(): bool
+    {
+        return static::junipaySettings()['auto_payout']
+            && app(\App\Services\JunipayService::class)->payoutsAvailable();
     }
 
     /**
@@ -1134,6 +1140,7 @@ class PlatformSettings
      *   fee_flat: float,
      *   applies_to: string,
      *   auto_paystack: bool,
+     *   auto_junipay: bool,
      *   bank_tiers: list<array{min: float, max: float|null, fee: float}>
      * }
      */
@@ -1150,11 +1157,12 @@ class PlatformSettings
                 'fee_flat' => 0.0,
                 'applies_to' => 'all',
                 'auto_paystack' => true,
+                'auto_junipay' => static::junipayAutoPayout(),
                 'bank_tiers' => [],
             ];
         }
 
-        if ($auto['enabled'] && $auto['fee_mode'] === 'flat') {
+        if ($auto['enabled'] && $auto['fee_mode'] === 'flat' && (float) $auto['fee_flat'] > 0) {
             $flat = max(0, round((float) $auto['fee_flat'], 2));
 
             return [
@@ -1166,6 +1174,7 @@ class PlatformSettings
                 'fee_flat' => $flat,
                 'applies_to' => 'all',
                 'auto_paystack' => true,
+                'auto_junipay' => static::junipayAutoPayout(),
                 'bank_tiers' => [],
             ];
         }
@@ -1181,6 +1190,7 @@ class PlatformSettings
             'fee_flat' => 0.0,
             'applies_to' => $flat['applies_to'],
             'auto_paystack' => (bool) $auto['enabled'],
+            'auto_junipay' => static::junipayAutoPayout(),
             'bank_tiers' => $flat['bank_tiers'],
         ];
     }

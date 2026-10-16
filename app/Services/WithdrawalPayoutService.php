@@ -41,8 +41,17 @@ class WithdrawalPayoutService
             if ($withdrawal->status === WithdrawalStatus::Processing && filled($withdrawal->paystack_reference)) {
                 throw new \RuntimeException('This withdrawal was already sent to Paystack.');
             }
-            if (filled($withdrawal->junipay_trans_id)) {
+            if (filled($withdrawal->junipay_trans_id) && $withdrawal->junipay_status !== 'failed') {
                 throw new \RuntimeException('This withdrawal was already sent to Junipay. Wait for confirmation.');
+            }
+
+            if ($withdrawal->junipay_status === 'failed') {
+                $withdrawal->update([
+                    'junipay_reference' => null,
+                    'junipay_trans_id' => null,
+                    'junipay_status' => null,
+                    'failure_reason' => null,
+                ]);
             }
 
             if (! filled($withdrawal->junipay_reference)) {
@@ -181,6 +190,10 @@ class WithdrawalPayoutService
             ->where('status', WithdrawalStatus::Pending)
             ->whereNull('junipay_trans_id')
             ->whereNull('paystack_reference')
+            ->where(function ($query) {
+                $query->whereNull('failure_reason')
+                    ->orWhere('failure_reason', 'not like', 'Junipay%');
+            })
             ->orderBy('id')
             ->limit($limit)
             ->get();
@@ -243,8 +256,12 @@ class WithdrawalPayoutService
             $withdrawal->update(['junipay_status' => 'success']);
             $this->markAsPaid($withdrawal->fresh() ?? $withdrawal, 'junipay');
         } elseif ($status === 'failed') {
-            $withdrawal->update(['junipay_status' => 'failed']);
-            $this->markAsFailed($withdrawal->fresh() ?? $withdrawal, $message !== '' ? 'Junipay: '.$message : 'Junipay payout failed.');
+            $withdrawal->update([
+                'status' => WithdrawalStatus::Pending,
+                'junipay_status' => 'failed',
+                'payout_channel' => 'junipay',
+                'failure_reason' => $message !== '' ? 'Junipay: '.$message : 'Junipay payout did not go through.',
+            ]);
         }
     }
 

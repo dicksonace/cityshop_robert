@@ -75,7 +75,7 @@ class WithdrawalRequestService
         });
 
         $message = $auto
-            ? 'Withdrawal submitted. Your payout is being sent automatically.'
+            ? 'Withdrawal submitted. It is sent automatically and completes when the payment is confirmed. If it does not go through, it stays pending for review.'
             : 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.';
 
         try {

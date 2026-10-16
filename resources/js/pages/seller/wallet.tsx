@@ -605,7 +605,13 @@ export default function SellerWallet({
                                         </p>
                                     </div>
                                 )}
-                                <p className="text-xs text-gray-500">Usually processed within 15 minutes and sometimes instant.</p>
+                                <p className="text-xs text-gray-500">
+                                    {withdrawalFee?.auto_junipay
+                                        ? 'Junipay sends this payout automatically. It completes when Junipay confirms it. If it does not go through, it stays pending for review.'
+                                        : withdrawalFee?.auto_paystack
+                                          ? 'Paystack sends this payout automatically.'
+                                          : 'Usually processed within 15 minutes and sometimes instant.'}
+                                </p>
                             </div>
                             <div>
                                 <label className="mb-1 block text-sm font-medium text-gray-700">Payment PIN</label>

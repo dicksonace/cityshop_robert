@@ -8,6 +8,7 @@ export type WithdrawalFeeSettings = {
     mode?: 'flat' | 'percent';
     applies_to: 'bank' | 'momo' | 'all' | 'none';
     auto_paystack?: boolean;
+    auto_junipay?: boolean;
     bank_tiers?: { min: number; max: number | null; fee: number }[];
 };
 
