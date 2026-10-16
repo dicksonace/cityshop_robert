@@ -241,6 +241,52 @@ class JunipayTest extends TestCase
         $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
     }
 
+    public function test_payout_callback_matches_junipay_transfer_id_when_foreign_id_is_theirs(): void
+    {
+        $buyer = $this->verifiedBuyer();
+        WalletService::ensure($buyer);
+        $withdrawal = Withdrawal::create([
+            'user_id' => $buyer->id,
+            'amount' => 11,
+            'fee' => 0.22,
+            'momo_number' => '0539790093',
+            'account_name' => 'Robert Asare',
+            'network' => 'mtn',
+            'status' => WithdrawalStatus::Processing,
+            'payout_channel' => 'junipay',
+            'junipay_reference' => 'JPREF54',
+            'junipay_trans_id' => 'DIS10054',
+        ]);
+
+        Http::fake([
+            self::API.'/checktranstatus' => Http::response([
+                'code' => 200,
+                'status' => 'success',
+                'info' => [
+                    'status' => 'success',
+                    'foreignID' => 'DIS10054',
+                    'transID' => '100004253525',
+                    'partnerTransID' => 'JPREF54',
+                ],
+            ], 200),
+        ]);
+
+        $this->postJson('/webhooks/junipay', [
+            'code' => 200,
+            'status' => 'success',
+            'info' => [
+                'status' => 'success',
+                'foreignID' => 'DIS10054',
+                'transID' => '100004253525',
+                'partnerTransID' => 'JPREF54',
+                'description' => 'Transaction successful',
+            ],
+        ])->assertOk();
+
+        $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
+        $this->assertSame('success', $withdrawal->fresh()->junipay_status);
+    }
+
     public function test_auto_payout_sends_new_withdrawals_and_the_waiting_queue(): void
     {
         PlatformSettings::saveJunipaySettings([

@@ -337,7 +337,7 @@ class JunipayService implements HostedPaymentGateway
         }
 
         return match (true) {
-            in_array($status, ['success', 'successful', 'completed'], true) => 'success',
+            in_array($status, ['success', 'successful', 'completed', 'complete', 'paid', 'approved'], true) => 'success',
             in_array($status, ['failed', 'failure', 'declined', 'cancelled', 'reversed'], true) => 'failed',
             default => 'pending',
         };

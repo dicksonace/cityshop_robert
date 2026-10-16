@@ -106,15 +106,22 @@ class WithdrawalPayoutService
             return;
         }
 
-        $transId = (string) ($data['trans_id'] ?? $data['transID'] ?? '');
-        $foreignId = (string) ($data['foreignID'] ?? '');
-        $partnerId = (string) ($data['partnerTransID'] ?? '');
-        $reference = (string) $withdrawal->junipay_reference;
-        $known = array_filter([(string) $withdrawal->junipay_trans_id, $reference]);
-        $matches = ($transId !== '' && in_array($transId, $known, true))
-            || ($foreignId !== '' && $foreignId === $reference)
-            || ($partnerId !== '' && $partnerId === $reference);
-        if (! $matches) {
+        $info = is_array($data['info'] ?? null) ? $data['info'] : [];
+        $known = array_values(array_filter([(string) $withdrawal->junipay_trans_id, (string) $withdrawal->junipay_reference]));
+        $candidates = array_values(array_unique(array_filter(array_map(
+            fn ($value) => trim((string) $value),
+            [
+                $data['trans_id'] ?? '',
+                $data['transID'] ?? '',
+                $data['foreignID'] ?? '',
+                $data['partnerTransID'] ?? '',
+                $info['trans_id'] ?? '',
+                $info['transID'] ?? '',
+                $info['foreignID'] ?? '',
+                $info['partnerTransID'] ?? '',
+            ],
+        ), fn (string $value) => $value !== '')));
+        if ($known === [] || array_intersect($candidates, $known) === []) {
             Log::warning('Junipay payout callback ignored: transaction ID does not match', [
                 'withdrawal_id' => $withdrawal->id,
             ]);
@@ -125,15 +132,19 @@ class WithdrawalPayoutService
         $lookup = filled($withdrawal->junipay_trans_id)
             ? (string) $withdrawal->junipay_trans_id
             : (string) $withdrawal->junipay_reference;
-        $claimed = strtolower((string) ($data['status'] ?? ''));
+        $claimed = strtolower(trim((string) ($data['status'] ?? $info['status'] ?? '')));
         try {
             $status = $this->junipay->transactionStatus($lookup);
         } catch (\Throwable $e) {
             Log::warning('Junipay payout status check failed', ['withdrawal_id' => $withdrawal->id, 'error' => $e->getMessage()]);
-            $status = $claimed === 'success' ? 'success' : 'pending';
+            $status = in_array($claimed, ['success', 'successful', 'completed', 'paid'], true) ? 'success' : 'pending';
         }
 
-        $this->applyJunipayStatus($withdrawal, $status, (string) ($data['message'] ?? ''));
+        $message = $data['message'] ?? $info['message'] ?? $info['description'] ?? '';
+        if (is_array($message)) {
+            $message = implode(' ', array_filter(array_map(fn ($value) => is_scalar($value) ? trim((string) $value) : '', $message)));
+        }
+        $this->applyJunipayStatus($withdrawal, $status, is_scalar($message) ? trim((string) $message) : '');
     }
 
     /**
