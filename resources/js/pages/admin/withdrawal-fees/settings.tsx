@@ -133,8 +133,8 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                                 <option value="percent">Percent of amount</option>
                             </select>
                             <p className="mt-1 text-xs text-gray-500">
-                                Separate from Paystack recharge fees. This is what CityShop charges the user on
-                                withdrawal.
+                                This does not change what the customer pays. Bank withdrawals use the flat bands below.
+                                MoMo uses the MoMo fee.
                             </p>
                             <InputError message={form.errors.auto_paystack_fee_mode} />
                         </div>
@@ -252,7 +252,7 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                         <div>
                             <p className="text-sm font-semibold text-gray-900">Bank fee bands</p>
                             <p className="mt-0.5 text-xs text-gray-600">
-                                Example: below GH₵1,000 → fee GH₵10 · from GH₵1,000 → fee GH₵20.
+                                These flat fees are what the customer pays. Example: below GH₵1,000 → GH₵10 · from GH₵1,000 → GH₵25. Set the second fee to 25, then save.
                             </p>
                         </div>
 

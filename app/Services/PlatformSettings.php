@@ -1136,19 +1136,12 @@ class PlatformSettings
         return (float) $settings['amount'] > 0 ? (float) $settings['amount'] : 0.0;
     }
 
-    /** Fee for a withdrawal amount — auto Paystack flat/percent when on, else bank/MoMo channel fee. */
+    /**
+     * Fee the customer pays. Bank uses the flat bands (GH₵10 / GH₵25).
+     * MoMo uses the MoMo fee. The Paystack auto-payout switch does not replace these.
+     */
     public static function feeForWithdrawal(float $amount, ?string $payoutType): float
     {
-        $auto = static::autoPaystackWithdrawSettings();
-        if ($auto['enabled']) {
-            if ($auto['fee_mode'] === 'percent' && $auto['fee_percent'] > 0) {
-                return max(0, round($amount * ($auto['fee_percent'] / 100), 2));
-            }
-            if ($auto['fee_mode'] === 'flat' && (float) $auto['fee_flat'] > 0) {
-                return max(0, round((float) $auto['fee_flat'], 2));
-            }
-        }
-
         return static::feeForPayoutType($payoutType, $amount);
     }
 
@@ -1177,38 +1170,6 @@ class PlatformSettings
     public static function withdrawalFeePayload(): array
     {
         $auto = static::autoPaystackWithdrawSettings();
-        if ($auto['enabled'] && $auto['fee_mode'] === 'percent' && $auto['fee_percent'] > 0) {
-            return [
-                'mode' => 'percent',
-                'enabled' => true,
-                'amount' => 0.0,
-                'momo_amount' => 0.0,
-                'percent' => $auto['fee_percent'],
-                'fee_flat' => 0.0,
-                'applies_to' => 'all',
-                'auto_paystack' => true,
-                'auto_junipay' => static::junipayAutoPayout(),
-                'bank_tiers' => [],
-            ];
-        }
-
-        if ($auto['enabled'] && $auto['fee_mode'] === 'flat' && (float) $auto['fee_flat'] > 0) {
-            $flat = max(0, round((float) $auto['fee_flat'], 2));
-
-            return [
-                'mode' => 'flat',
-                'enabled' => true,
-                'amount' => $flat,
-                'momo_amount' => $flat,
-                'percent' => 0.0,
-                'fee_flat' => $flat,
-                'applies_to' => 'all',
-                'auto_paystack' => true,
-                'auto_junipay' => static::junipayAutoPayout(),
-                'bank_tiers' => [],
-            ];
-        }
-
         $flat = static::withdrawalFeeSettings();
 
         return [

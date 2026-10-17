@@ -154,10 +154,38 @@ class BankWithdrawalFeeTest extends TestCase
         $payload = PlatformSettings::withdrawalFeePayload();
         $this->assertSame('flat', $payload['mode']);
         $this->assertTrue($payload['auto_paystack']);
-        $this->assertSame(1.0, (float) $payload['momo_amount']);
-        $this->assertSame(1.0, (float) $payload['fee_flat']);
-        $this->assertSame(1.0, PlatformSettings::feeForWithdrawal(252, 'momo'));
-        $this->assertSame(1.0, PlatformSettings::feeForWithdrawal(5000, 'momo'));
+        $this->assertSame(0.0, (float) $payload['momo_amount']);
+        $this->assertSame(0.0, PlatformSettings::feeForWithdrawal(252, 'momo'));
+        $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(80, 'bank'));
+        $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(100, 'bank'));
+    }
+
+    public function test_paystack_percent_does_not_replace_flat_bank_bands(): void
+    {
+        PlatformSettings::saveWithdrawalFeeSettings([
+            'enabled' => true,
+            'amount' => 10,
+            'momo_amount' => 0,
+            'applies_to' => 'bank',
+            'bank_tiers' => [
+                ['min' => 10, 'max' => 999.99, 'fee' => 10],
+                ['min' => 1000, 'max' => 25000, 'fee' => 25],
+            ],
+        ]);
+        PlatformSettings::saveAutoPaystackWithdrawSettings([
+            'enabled' => true,
+            'fee_mode' => 'percent',
+            'fee_percent' => 1.9,
+            'fee_flat' => 0,
+        ]);
+
+        $payload = PlatformSettings::withdrawalFeePayload();
+        $this->assertSame('flat', $payload['mode']);
+        $this->assertSame(0.0, (float) $payload['percent']);
+        $this->assertNotEmpty($payload['bank_tiers']);
+        $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(80, 'bank'));
+        $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(100, 'bank'));
+        $this->assertSame(25.0, PlatformSettings::feeForWithdrawal(1000, 'bank'));
     }
 
     public function test_old_single_ten_cedi_band_upgrades_from_one_thousand(): void
