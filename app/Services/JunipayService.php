@@ -321,6 +321,18 @@ class JunipayService implements HostedPaymentGateway
      *
      * @return string success, failed or pending
      */
+    /**
+     * Raw /checktranstatus reply, for support commands only.
+     *
+     * @return array{http: int, body: mixed}
+     */
+    public function rawStatus(string $transId): array
+    {
+        $response = $this->client()->post('/checktranstatus', ['transID' => $transId]);
+
+        return ['http' => $response->status(), 'body' => $response->json() ?? $response->body()];
+    }
+
     public function transactionStatus(string $transId): string
     {
         return $this->statusReport($transId)['status'];
