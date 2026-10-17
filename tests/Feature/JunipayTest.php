@@ -284,6 +284,49 @@ class JunipayTest extends TestCase
         $this->assertTrue($settings['collections_enabled']);
     }
 
+    public function test_bank_auto_payout_off_keeps_bank_manual_and_momo_automatic(): void
+    {
+        PlatformSettings::saveJunipaySettings([
+            'payouts_enabled' => true,
+            'auto_payout' => true,
+            'auto_payout_bank' => false,
+            'sandbox' => false,
+        ]);
+        Notification::fake();
+        Http::fake([
+            self::API.'/transfer' => Http::response(['code' => 200, 'info' => ['transID' => 'DIS700', 'status' => 'pending']], 200),
+            self::API.'/checktranstatus' => Http::response(['code' => 200, 'info' => 'Transaction not found'], 200),
+        ]);
+
+        $buyer = $this->verifiedBuyer();
+        WalletService::ensure($buyer)->update(['available_balance' => 500]);
+
+        $bank = app(WithdrawalRequestService::class)->submit($buyer, [
+            'amount' => 50,
+            'payout_type' => 'bank',
+            'momo_number' => '1402001003035',
+            'account_name' => 'Robert Asare',
+            'network' => 'gtbank',
+        ])['withdrawal'];
+        $this->assertSame(WithdrawalStatus::Pending, $bank->status);
+        $this->assertNull($bank->junipay_trans_id);
+        Notification::assertNotSentTo($buyer, WithdrawalRequestedNotification::class);
+
+        app(WithdrawalPayoutService::class)->dispatchAutoJunipayPayouts();
+        $this->assertNull($bank->fresh()->junipay_trans_id);
+        Http::assertNothingSent();
+
+        $momo = app(WithdrawalRequestService::class)->submit($buyer, [
+            'amount' => 20,
+            'payout_type' => 'momo',
+            'momo_number' => '0248620718',
+            'account_name' => 'Robert Asare',
+            'network' => 'mtn',
+        ])['withdrawal'];
+        $this->assertSame(WithdrawalStatus::Processing, $momo->status);
+        $this->assertSame('DIS700', $momo->junipay_trans_id);
+    }
+
     public function test_bank_withdrawal_is_sent_with_junipay_bank_code(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

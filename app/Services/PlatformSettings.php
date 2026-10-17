@@ -913,7 +913,7 @@ class PlatformSettings
     }
 
     /**
-     * @return array{collections_enabled: bool, payouts_enabled: bool, auto_payout: bool, sandbox: bool}
+     * @return array{collections_enabled: bool, payouts_enabled: bool, auto_payout: bool, auto_payout_bank: bool, sandbox: bool}
      */
     public static function junipaySettings(): array
     {
@@ -927,12 +927,21 @@ class PlatformSettings
             'collections_enabled' => (bool) ($decoded['collections_enabled'] ?? true),
             'payouts_enabled' => (bool) ($decoded['payouts_enabled'] ?? true),
             'auto_payout' => (bool) ($decoded['auto_payout'] ?? false),
+            'auto_payout_bank' => (bool) ($decoded['auto_payout_bank'] ?? true),
             'sandbox' => (bool) ($decoded['sandbox'] ?? config('services.junipay.sandbox', false)),
         ];
     }
 
     /**
-     * @param  array{collections_enabled?: bool, payouts_enabled?: bool, auto_payout?: bool, sandbox?: bool}  $data
+     * Bank withdrawals can be kept manual while MoMo withdrawals still go out automatically.
+     */
+    public static function autoPayoutAllowedFor(bool $isBank): bool
+    {
+        return ! $isBank || static::junipaySettings()['auto_payout_bank'];
+    }
+
+    /**
+     * @param  array{collections_enabled?: bool, payouts_enabled?: bool, auto_payout?: bool, auto_payout_bank?: bool, sandbox?: bool}  $data
      */
     public static function saveJunipaySettings(array $data): void
     {
@@ -942,6 +951,7 @@ class PlatformSettings
             'collections_enabled' => self::junipayFlag($data, 'collections_enabled', $current['collections_enabled']),
             'payouts_enabled' => self::junipayFlag($data, 'payouts_enabled', $current['payouts_enabled']),
             'auto_payout' => self::junipayFlag($data, 'auto_payout', $current['auto_payout']),
+            'auto_payout_bank' => self::junipayFlag($data, 'auto_payout_bank', $current['auto_payout_bank']),
             'sandbox' => self::junipayFlag($data, 'sandbox', $current['sandbox']),
         ]);
     }
@@ -1017,6 +1027,7 @@ class PlatformSettings
             'collections_enabled' => $settings['collections_enabled'],
             'payouts_enabled' => $settings['payouts_enabled'],
             'auto_payout' => $settings['auto_payout'],
+            'auto_payout_bank' => $settings['auto_payout_bank'],
             'sandbox' => $settings['sandbox'],
             'collections_available' => $configured && $settings['collections_enabled'],
             'payouts_available' => $configured && $settings['payouts_enabled'],

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\Withdrawal;
 use App\Notifications\AdminWithdrawalRequestedNotification;
+use App\Support\GhanaBanks;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -34,9 +35,14 @@ class WithdrawalRequestService
         $payoutType = ($data['payout_type'] ?? '') === 'bank' ? 'bank' : 'momo';
         $fee = PlatformSettings::feeForWithdrawal($amount, $payoutType);
         $totalDebit = round($amount + $fee, 2);
-        $autoJunipay = PlatformSettings::junipaySettings()['auto_payout']
+        $autoAllowed = PlatformSettings::autoPayoutAllowedFor(
+            $payoutType === 'bank' || GhanaBanks::isBank((string) ($data['network'] ?? '')),
+        );
+        $autoJunipay = $autoAllowed
+            && PlatformSettings::junipaySettings()['auto_payout']
             && app(JunipayService::class)->payoutsAvailable();
-        $auto = $autoJunipay || (PlatformSettings::autoPaystackWithdrawEnabled()
+        $auto = $autoJunipay || ($autoAllowed
+            && PlatformSettings::autoPaystackWithdrawEnabled()
             && app(PaystackService::class)->isWithdrawalOffered());
 
         $result = DB::transaction(function () use ($user, $data, $amount, $fee, $totalDebit, $payoutType) {

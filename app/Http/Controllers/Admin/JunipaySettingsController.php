@@ -39,7 +39,7 @@ class JunipaySettingsController extends Controller
     }
 
     /**
-     * @return array{collections_enabled?: bool, payouts_enabled?: bool, auto_payout?: bool, sandbox?: bool}
+     * @return array{collections_enabled?: bool, payouts_enabled?: bool, auto_payout?: bool, auto_payout_bank?: bool, sandbox?: bool}
      */
     public static function validatedSettings(Request $request): array
     {
@@ -47,6 +47,7 @@ class JunipaySettingsController extends Controller
             'collections_enabled' => ['sometimes', 'boolean'],
             'payouts_enabled' => ['sometimes', 'boolean'],
             'auto_payout' => ['sometimes', 'boolean'],
+            'auto_payout_bank' => ['sometimes', 'boolean'],
             'sandbox' => ['sometimes', 'boolean'],
         ]);
     }
