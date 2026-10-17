@@ -20,6 +20,7 @@ use App\Services\PlatformSettings;
 use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
+use App\Services\WithdrawalPayoutService;
 use App\Support\GhanaBanks;
 use App\Support\HostedGateways;
 use App\Support\PaymentReference;
@@ -293,7 +294,8 @@ class WalletController extends Controller
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->limit(20)
-            ->get();
+            ->get()
+            ->map(fn (Withdrawal $item) => app(WithdrawalPayoutService::class)->refreshJunipay($item));
 
         return response()->json([
             'data' => $withdrawals->map(fn (Withdrawal $item) => $this->withdrawalPayload($item))->values(),
@@ -323,6 +325,7 @@ class WalletController extends Controller
     public function showWithdrawal(Request $request, Withdrawal $withdrawal): JsonResponse
     {
         abort_unless($withdrawal->user_id === $request->user()->id, 403);
+        $withdrawal = app(WithdrawalPayoutService::class)->refreshJunipay($withdrawal);
 
         return response()->json([
             'data' => $this->withdrawalPayload($withdrawal),

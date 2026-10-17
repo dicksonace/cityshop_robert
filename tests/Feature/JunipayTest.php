@@ -246,6 +246,36 @@ class JunipayTest extends TestCase
         $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
     }
 
+    public function test_opening_a_processing_momo_payout_completes_it_when_junipay_paid_it(): void
+    {
+        Notification::fake();
+        Http::fake([
+            self::API.'/checktranstatus' => Http::response(['code' => 200, 'status' => 'success', 'info' => ['status' => 'success', 'transID' => 'DIS64']], 200),
+        ]);
+        $buyer = $this->verifiedBuyer();
+        WalletService::ensure($buyer);
+        $withdrawal = Withdrawal::create([
+            'user_id' => $buyer->id,
+            'amount' => 15,
+            'fee' => 0.29,
+            'momo_number' => '0539790093',
+            'account_name' => 'Robert Asare',
+            'network' => 'mtn',
+            'payout_channel' => 'junipay',
+            'status' => WithdrawalStatus::Processing,
+            'junipay_reference' => '9000000641234567',
+            'junipay_trans_id' => 'DIS64',
+            'junipay_status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($buyer);
+        $this->getJson("/api/v1/wallet/withdrawals/{$withdrawal->id}")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'paid');
+
+        $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
+    }
+
     public function test_user_does_not_see_junipay_payout_errors(): void
     {
         $buyer = $this->verifiedBuyer();

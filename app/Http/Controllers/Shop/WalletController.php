@@ -16,6 +16,7 @@ use App\Services\PlatformSettings;
 use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
+use App\Services\WithdrawalPayoutService;
 use App\Support\GhanaBanks;
 use App\Support\HostedGateways;
 use App\Support\WithdrawalPresentation;
@@ -433,7 +434,7 @@ class WalletController extends Controller
     {
         abort_unless($withdrawal->user_id === $request->user()->id, 403);
 
-        $view = WithdrawalPresentation::forUser($withdrawal);
+        $view = WithdrawalPresentation::forUser(app(WithdrawalPayoutService::class)->refreshJunipay($withdrawal));
 
         if ($request->boolean('json') || $request->wantsJson()) {
             return response()->json(['data' => $view]);

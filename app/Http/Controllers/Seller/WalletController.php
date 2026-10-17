@@ -17,6 +17,7 @@ use App\Services\PlatformSettings;
 use App\Services\SellerPaymentMethodSecurityService;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
+use App\Services\WithdrawalPayoutService;
 use App\Support\GhanaBanks;
 use App\Support\HostedGateways;
 use App\Support\WithdrawalPresentation;
@@ -167,6 +168,7 @@ class WalletController extends Controller
     public function showWithdrawal(Request $request, Withdrawal $withdrawal): Response|JsonResponse
     {
         abort_unless($withdrawal->user_id === $request->user()->id, 403);
+        $withdrawal = app(WithdrawalPayoutService::class)->refreshJunipay($withdrawal);
 
         $ledger = WalletTransaction::where('withdrawal_id', $withdrawal->id)
             ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)

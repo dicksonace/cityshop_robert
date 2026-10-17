@@ -29,7 +29,7 @@ class WithdrawalController extends Controller
             ->paginate(min(max((int) $request->integer('per_page', 20), 1), 50));
 
         return response()->json([
-            'data' => $withdrawals->getCollection()->map(fn (Withdrawal $w) => $this->serialize($w))->values(),
+            'data' => $withdrawals->getCollection()->map(fn (Withdrawal $w) => $this->serialize($this->payouts->refreshJunipay($w)))->values(),
             'meta' => [
                 'current_page' => $withdrawals->currentPage(),
                 'last_page' => $withdrawals->lastPage(),

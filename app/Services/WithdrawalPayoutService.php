@@ -10,6 +10,7 @@ use App\Notifications\WithdrawalRejectedNotification;
 use App\Notifications\WithdrawalRequestedNotification;
 use App\Support\GhanaBanks;
 use App\Support\PaymentReference;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -146,6 +147,28 @@ class WithdrawalPayoutService
             $message = implode(' ', array_filter(array_map(fn ($value) => is_scalar($value) ? trim((string) $value) : '', $message)));
         }
         $this->applyJunipayStatus($withdrawal, $status, is_scalar($message) ? trim((string) $message) : '');
+    }
+
+    /**
+     * Ask Junipay about a payout that is still processing, at most once every 30 seconds per withdrawal.
+     * MoMo payouts start as pending, so this completes them when someone looks instead of waiting for the callback.
+     */
+    public function refreshJunipay(Withdrawal $withdrawal): Withdrawal
+    {
+        if ($withdrawal->status !== WithdrawalStatus::Processing
+            || $withdrawal->payout_channel !== 'junipay'
+            || ! filled($withdrawal->junipay_trans_id)
+            || ! Cache::add('junipay-payout-check:'.$withdrawal->id, true, 30)) {
+            return $withdrawal;
+        }
+
+        try {
+            $this->applyJunipayStatus($withdrawal, $this->junipay->transactionStatus((string) $withdrawal->junipay_trans_id), '');
+        } catch (\Throwable $e) {
+            Log::warning('Junipay payout refresh failed', ['withdrawal_id' => $withdrawal->id, 'error' => $e->getMessage()]);
+        }
+
+        return $withdrawal->refresh();
     }
 
     /**
