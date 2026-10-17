@@ -56,6 +56,7 @@ return [
         'client_id' => env('JUNIPAY_CLIENT_ID'),
         'private_key' => env('JUNIPAY_PRIVATE_KEY'),
         'sandbox' => (bool) env('JUNIPAY_SANDBOX', false),
+        'momo_settle_minutes' => (int) env('JUNIPAY_MOMO_SETTLE_MINUTES', 10),
     ],
 
     'korapay' => [

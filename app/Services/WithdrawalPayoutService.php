@@ -170,6 +170,8 @@ class WithdrawalPayoutService
 
     /**
      * A MoMo payout can finish under a different Junipay id than the one returned when it was sent.
+     * Junipay leaves MoMo payouts routed through GhIPSS on "pending" even after the money lands,
+     * so a routed MoMo payout still pending after services.junipay.momo_settle_minutes counts as paid.
      */
     private function junipayOutcome(Withdrawal $withdrawal): string
     {
@@ -179,6 +181,7 @@ class WithdrawalPayoutService
         ]));
         $seen = [];
         $found = false;
+        $routed = false;
 
         while ($queue !== []) {
             $id = array_shift($queue);
@@ -194,6 +197,7 @@ class WithdrawalPayoutService
             }
 
             $found = true;
+            $routed = $routed || ($report['routed'] ?? false);
             if ($report['trans_id'] !== '' && ! isset($seen[$report['trans_id']])) {
                 $queue[] = $report['trans_id'];
             }
@@ -204,6 +208,14 @@ class WithdrawalPayoutService
 
         if (! $found) {
             throw new \RuntimeException('Junipay has no record of this transaction.');
+        }
+
+        $settleMinutes = (int) config('services.junipay.momo_settle_minutes', 10);
+        if ($routed
+            && $settleMinutes > 0
+            && ! GhanaBanks::isBank((string) $withdrawal->network)
+            && $withdrawal->updated_at?->lte(now()->subMinutes($settleMinutes))) {
+            return 'success';
         }
 
         return 'pending';

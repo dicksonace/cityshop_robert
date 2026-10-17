@@ -318,6 +318,50 @@ class JunipayTest extends TestCase
             ->assertJsonPath('data.status', 'paid');
     }
 
+    public function test_routed_momo_payout_left_pending_by_junipay_completes_after_settle_window(): void
+    {
+        Notification::fake();
+        Http::fake([
+            self::API.'/checktranstatus' => Http::response([
+                'code' => 200,
+                'status' => 'pending',
+                'info' => [
+                    'status' => 'pending',
+                    'foreignID' => 'DIS66',
+                    'transID' => '100004257739',
+                    'partnerTransID' => '9000000664586954',
+                    'gateway' => 'ghipss',
+                    'recipient' => 'Robert Asare',
+                    'description' => 'Transaction pending',
+                ],
+            ], 200),
+        ]);
+        $buyer = $this->verifiedBuyer();
+        WalletService::ensure($buyer);
+        $make = fn (string $ref) => Withdrawal::create([
+            'user_id' => $buyer->id,
+            'amount' => 10,
+            'fee' => 0.19,
+            'momo_number' => '0248620718',
+            'account_name' => 'Robert Asare',
+            'network' => 'mtn',
+            'payout_channel' => 'junipay',
+            'status' => WithdrawalStatus::Processing,
+            'junipay_reference' => $ref,
+            'junipay_trans_id' => 'DIS66',
+            'junipay_status' => 'pending',
+        ]);
+
+        $fresh = $make('9000000661111111');
+        $old = $make('9000000662222222');
+        Withdrawal::whereKey($old->id)->update(['updated_at' => now()->subMinutes(15)]);
+
+        app(WithdrawalPayoutService::class)->reconcilePendingJunipayTransfers();
+
+        $this->assertSame(WithdrawalStatus::Processing, $fresh->fresh()->status);
+        $this->assertSame(WithdrawalStatus::Paid, $old->fresh()->status);
+    }
+
     public function test_user_does_not_see_junipay_payout_errors(): void
     {
         $buyer = $this->verifiedBuyer();

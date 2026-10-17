@@ -342,7 +342,9 @@ class JunipayService implements HostedPaymentGateway
      * Status plus any later transaction id Junipay nested in the reply.
      * A finished MoMo payout can say SUCCESS under info while the outer status is still pending.
      *
-     * @return array{status: string, trans_id: string}
+     * "routed" means Junipay handed the payout to a gateway for a named recipient.
+     *
+     * @return array{status: string, trans_id: string, routed: bool}
      */
     public function statusReport(string $transId): array
     {
@@ -371,7 +373,15 @@ class JunipayService implements HostedPaymentGateway
             }
         }
 
-        return ['status' => $status, 'trans_id' => $later];
+        $routed = true;
+        foreach (['info.gateway', 'info.recipient', 'info.transID'] as $path) {
+            $value = $response->json($path);
+            if (! is_scalar($value) || trim((string) $value) === '') {
+                $routed = false;
+            }
+        }
+
+        return ['status' => $status, 'trans_id' => $later, 'routed' => $routed];
     }
 
     private function classifyStatus(Response $response): string
