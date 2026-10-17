@@ -646,6 +646,7 @@ class JunipayTest extends TestCase
 
         Http::fake([self::API.'/checktranstatus' => Http::sequence()
             ->push(['status' => 'PENDING', 'info' => ['status' => 'PENDING']], 200)
+            ->push(['status' => 'PENDING', 'info' => ['status' => 'PENDING']], 200)
             ->push(['status' => 'FAILED', 'info' => ['status' => 'FAILED']], 200)]);
 
         $payload = ['status' => 'failed', 'message' => 'Wallet not found', 'trans_id' => 'DIS200', 'foreignID' => 'JPREF1'];
