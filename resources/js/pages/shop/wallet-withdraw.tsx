@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import GhanaBankPicker from '@/components/wallet/ghana-bank-picker';
 import MomoNetworkPicker from '@/components/wallet/momo-network-picker';
 import WithdrawalBalanceAlert, { withdrawalBalanceMessage } from '@/components/wallet/withdrawal-balance-alert';
-import WithdrawalFeeNotice, { type WithdrawalFeeSettings } from '@/components/wallet/withdrawal-fee-notice';
+import { type WithdrawalFeeSettings } from '@/components/wallet/withdrawal-fee-notice';
 import ShopLayout from '@/layouts/shop-layout';
 import { GHANA_BANKS, payoutNetworkLabel } from '@/lib/ghana-banks';
 import { feeForPayoutType, maxWithdrawableAmount } from '@/lib/withdrawal-fees';
@@ -323,14 +323,6 @@ export default function BuyerWithdraw({
                                     <p className="mt-2 text-xs text-gray-500">
                                         Minimum GH₵10 · Available {formatPrice(availableBalance)}
                                     </p>
-                                    <div className="mt-3">
-                                        <WithdrawalFeeNotice
-                                            payoutType={form.data.payout_type}
-                                            fee={activeFee}
-                                            amount={amount}
-                                            settings={withdrawalFee}
-                                        />
-                                    </div>
                                 </div>
                             </div>
                         )}
