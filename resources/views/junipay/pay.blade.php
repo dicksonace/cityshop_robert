@@ -7,33 +7,37 @@
     <title>Pay with Mobile Money · CityShop</title>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f4f6; color: #111827; }
-        .wrap { max-width: 420px; margin: 0 auto; padding: 24px 16px; }
-        .card { background: #fff; border-radius: 20px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-        .muted { color: #6b7280; font-size: 14px; }
-        .amount { font-size: 32px; font-weight: 900; margin: 6px 0 2px; }
-        label { display: block; font-size: 13px; font-weight: 700; margin: 18px 0 6px; }
-        input { width: 100%; padding: 13px 14px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 12px; }
-        .nets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .net { padding: 12px 4px; border: 1px solid #d1d5db; border-radius: 12px; background: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(160deg, #fb923c 0%, #ea580c 45%, #9a3412 100%); color: #111827; }
+        .wrap { width: 100%; max-width: 340px; padding: 16px; }
+        .card { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 12px 32px rgba(124,45,18,.35); }
+        .head { text-align: center; padding-bottom: 12px; border-bottom: 1px dashed #fed7aa; }
+        .muted { color: #6b7280; font-size: 12px; }
+        .amount { font-size: 24px; font-weight: 900; margin: 2px 0; color: #c2410c; }
+        label { display: block; font-size: 12px; font-weight: 700; margin: 12px 0 5px; }
+        input { width: 100%; padding: 10px 12px; font-size: 15px; border: 1px solid #d1d5db; border-radius: 10px; }
+        input:focus { outline: none; border-color: #ea580c; box-shadow: 0 0 0 3px #ffedd5; }
+        .nets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .net { padding: 8px 2px; border: 1px solid #d1d5db; border-radius: 10px; background: #fff; font-weight: 700; font-size: 12px; cursor: pointer; }
         .net.on { border-color: #ea580c; background: #fff7ed; color: #c2410c; }
-        .btn { width: 100%; margin-top: 20px; padding: 14px; font-size: 16px; font-weight: 800; color: #fff; background: #ea580c; border: 0; border-radius: 12px; cursor: pointer; }
+        .btn { width: 100%; margin-top: 14px; padding: 11px; font-size: 15px; font-weight: 800; color: #fff; background: #ea580c; border: 0; border-radius: 10px; cursor: pointer; }
         .btn:disabled { opacity: .6; }
-        .link { display: block; text-align: center; margin-top: 14px; color: #6b7280; font-size: 14px; }
-        .error { color: #b91c1c; font-size: 14px; margin-top: 12px; }
-        .wait { text-align: center; padding: 12px 0; }
-        .spin { width: 40px; height: 40px; margin: 8px auto 16px; border: 4px solid #fed7aa; border-top-color: #ea580c; border-radius: 50%; animation: s 1s linear infinite; }
+        .link { display: block; text-align: center; margin-top: 10px; color: #6b7280; font-size: 13px; }
+        .error { color: #b91c1c; font-size: 13px; margin-top: 10px; }
+        .wait { text-align: center; padding: 10px 0 0; }
+        .spin { width: 32px; height: 32px; margin: 6px auto 12px; border: 4px solid #fed7aa; border-top-color: #ea580c; border-radius: 50%; animation: s 1s linear infinite; }
         @keyframes s { to { transform: rotate(360deg); } }
         .hidden { display: none; }
-        .brand { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 16px; }
+        .brand { text-align: center; font-size: 11px; color: #ffedd5; margin-top: 12px; }
     </style>
 </head>
 <body>
 <div class="wrap">
     <div class="card">
-        <div class="muted">{{ $title }}</div>
-        <div class="amount">GH₵{{ number_format((float) $payment->amount, 2) }}</div>
-        <div class="muted">Pay with Mobile Money</div>
+        <div class="head">
+            <div class="muted">{{ $title }}</div>
+            <div class="amount">GH₵{{ number_format((float) $payment->amount, 2) }}</div>
+            <div class="muted">Pay with Mobile Money</div>
+        </div>
 
         @if ($payment->status === 'success')
             <p class="wait">This payment is already complete.</p>
