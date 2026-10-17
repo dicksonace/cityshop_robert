@@ -75,7 +75,7 @@ class AppLinkController extends Controller
     {
         $fingerprints = array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('ANDROID_APP_SHA256', '0E:35:E3:DB:D3:D7:09:40:8A:DD:0B:1B:0F:E3:04:92:FD:7F:81:AC:DD:D5:EC:0E:2E:BB:F7:3E:19:88:D8:95')),
+            explode(',', (string) env('ANDROID_APP_SHA256', '0E:35:E3:DB:D3:D7:09:40:8A:DD:0B:1B:0F:E3:04:92:FD:7F:81:AC:DD:D5:EC:0E:2E:BB:F7:3E:19:88:D8:95,A6:C0:A2:65:27:FC:69:E8:08:48:94:64:BF:34:CC:48:4B:19:86:FA:C8:6D:16:F2:1E:1D:1D:F3:B1:6D:37:A2')),
         )));
 
         $body = [[

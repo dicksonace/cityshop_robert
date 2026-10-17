@@ -133,7 +133,10 @@ class SharePreview
         }
 
         $imagePath = self::productImagePath($product);
-        $image = self::absoluteMediaUrl($imagePath) ?? $defaults['image'];
+        $preview = self::shareJpeg($imagePath, $slug !== '' ? 'product-'.$slug : 'product');
+        $image = is_array($preview)
+            ? $preview['url']
+            : (self::absoluteMediaUrl($imagePath) ?? $defaults['image']);
 
         return [
             'title' => $name.' · '.$site,
@@ -142,9 +145,9 @@ class SharePreview
             'url' => $slug !== '' ? $appUrl.'/products/'.$slug : $defaults['url'],
             'type' => 'product',
             'image_alt' => $name,
-            'image_width' => $defaults['image_width'],
-            'image_height' => $defaults['image_height'],
-            'image_type' => $defaults['image_type'],
+            'image_width' => (string) ($preview['width'] ?? $defaults['image_width']),
+            'image_height' => (string) ($preview['height'] ?? $defaults['image_height']),
+            'image_type' => $preview !== null ? 'image/jpeg' : $defaults['image_type'],
         ];
     }
 
@@ -276,6 +279,7 @@ class SharePreview
         if ($src === false) {
             return null;
         }
+        $src = self::uprightPhoto($src, $source);
 
         $width = imagesx($src);
         $height = imagesy($src);
@@ -312,6 +316,33 @@ class SharePreview
         }
 
         return ['bytes' => $jpeg, 'width' => $newWidth, 'height' => $newHeight];
+    }
+
+    /**
+     * Phone photos are often stored sideways with an EXIF rotation flag that GD ignores.
+     */
+    private static function uprightPhoto(\GdImage $image, string $source): \GdImage
+    {
+        if (! function_exists('exif_read_data')) {
+            return $image;
+        }
+        $exif = @exif_read_data($source);
+        $angle = match ((int) ($exif['Orientation'] ?? 1)) {
+            3 => 180,
+            6 => -90,
+            8 => 90,
+            default => 0,
+        };
+        if ($angle === 0) {
+            return $image;
+        }
+        $rotated = imagerotate($image, $angle, 0);
+        if ($rotated === false) {
+            return $image;
+        }
+        imagedestroy($image);
+
+        return $rotated;
     }
 
     public static function absoluteMediaUrl(?string $path): ?string
