@@ -323,6 +323,17 @@ class JunipayService implements HostedPaymentGateway
      */
     public function transactionStatus(string $transId): string
     {
+        return $this->statusReport($transId)['status'];
+    }
+
+    /**
+     * Status plus any later transaction id Junipay nested in the reply.
+     * A finished MoMo payout can say SUCCESS under info while the outer status is still pending.
+     *
+     * @return array{status: string, trans_id: string}
+     */
+    public function statusReport(string $transId): array
+    {
         $response = $this->client()->post('/checktranstatus', ['transID' => $transId]);
         if (! $this->accepted($response)) {
             throw new \RuntimeException($this->errorMessage($response) ?: 'Junipay status check failed.');
@@ -333,16 +344,65 @@ class JunipayService implements HostedPaymentGateway
             throw new \RuntimeException('Junipay has no record of this transaction.');
         }
 
-        $status = $this->bodyStatus($response);
+        $status = $this->classifyStatus($response);
         if ($status === '') {
             throw new \RuntimeException($this->errorMessage($response) ?: 'Junipay status check failed.');
         }
 
-        return match (true) {
-            in_array($status, ['success', 'successful', 'completed', 'complete', 'paid', 'approved'], true) => 'success',
-            in_array($status, ['failed', 'failure', 'declined', 'cancelled', 'reversed'], true) => 'failed',
-            default => 'pending',
-        };
+        $later = '';
+        foreach (['info.transID', 'info.trans_id', 'transID', 'trans_id'] as $path) {
+            $value = $response->json($path);
+            $value = is_scalar($value) ? trim((string) $value) : '';
+            if ($value !== '' && $value !== $transId) {
+                $later = $value;
+                break;
+            }
+        }
+
+        return ['status' => $status, 'trans_id' => $later];
+    }
+
+    private function classifyStatus(Response $response): string
+    {
+        $values = [];
+        foreach (['status', 'info.status', 'info.message', 'info.description', 'message', 'description', 'data.status'] as $path) {
+            $value = $response->json($path);
+            if (is_string($value) && trim($value) !== '') {
+                $values[] = strtolower(trim($value));
+            }
+        }
+
+        foreach ($values as $value) {
+            if ($this->isFailedStatus($value)) {
+                return 'failed';
+            }
+        }
+        foreach ($values as $value) {
+            if ($this->isSuccessStatus($value)) {
+                return 'success';
+            }
+        }
+
+        return $values === [] ? '' : 'pending';
+    }
+
+    private function isFailedStatus(string $value): bool
+    {
+        return in_array($value, ['failed', 'failure', 'declined', 'cancelled', 'canceled', 'reversed', 'transaction failed'], true)
+            || str_contains($value, 'fail')
+            || str_contains($value, 'declin');
+    }
+
+    private function isSuccessStatus(string $value): bool
+    {
+        if (str_contains($value, 'fail') || str_contains($value, 'pending') || str_contains($value, 'unsuccess')) {
+            return false;
+        }
+
+        return in_array($value, [
+            'success', 'successful', 'completed', 'complete', 'paid', 'approved',
+            'transaction successful', 'transfer successful', 'payment successful',
+        ], true) || str_contains($value, 'success');
     }
 
     /**

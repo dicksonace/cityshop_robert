@@ -68,6 +68,10 @@ Schedule::command('orders:auto-confirm-deliveries')->hourly();
 Schedule::command('withdrawals:reconcile-paystack')->everyFiveMinutes();
 
 Schedule::call(function () {
+    app(\App\Services\WithdrawalPayoutService::class)->reconcilePendingJunipayTransfers();
+})->everyMinute()->name('junipay-payout-status')->withoutOverlapping();
+
+Schedule::call(function () {
     \App\Services\StatusService::pruneExpired();
 })->hourly();
 

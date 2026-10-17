@@ -131,12 +131,9 @@ class WithdrawalPayoutService
             return;
         }
 
-        $lookup = filled($withdrawal->junipay_trans_id)
-            ? (string) $withdrawal->junipay_trans_id
-            : (string) $withdrawal->junipay_reference;
-        $claimed = strtolower(trim((string) ($data['status'] ?? $info['status'] ?? '')));
+        $claimed = strtolower(trim((string) ($data['status'] ?? $info['status'] ?? $info['message'] ?? '')));
         try {
-            $status = $this->junipay->transactionStatus($lookup);
+            $status = $this->junipayOutcome($withdrawal);
         } catch (\Throwable $e) {
             Log::warning('Junipay payout status check failed', ['withdrawal_id' => $withdrawal->id, 'error' => $e->getMessage()]);
             $status = in_array($claimed, ['success', 'successful', 'completed', 'paid'], true) ? 'success' : 'pending';
@@ -158,17 +155,58 @@ class WithdrawalPayoutService
         if ($withdrawal->status !== WithdrawalStatus::Processing
             || $withdrawal->payout_channel !== 'junipay'
             || ! filled($withdrawal->junipay_trans_id)
-            || ! Cache::add('junipay-payout-check:'.$withdrawal->id, true, 30)) {
+            || ! Cache::add('junipay-payout-check:'.$withdrawal->id, true, 5)) {
             return $withdrawal;
         }
 
         try {
-            $this->applyJunipayStatus($withdrawal, $this->junipay->transactionStatus((string) $withdrawal->junipay_trans_id), '');
+            $this->applyJunipayStatus($withdrawal, $this->junipayOutcome($withdrawal), '');
         } catch (\Throwable $e) {
             Log::warning('Junipay payout refresh failed', ['withdrawal_id' => $withdrawal->id, 'error' => $e->getMessage()]);
         }
 
         return $withdrawal->refresh();
+    }
+
+    /**
+     * A MoMo payout can finish under a different Junipay id than the one returned when it was sent.
+     */
+    private function junipayOutcome(Withdrawal $withdrawal): string
+    {
+        $queue = array_values(array_filter([
+            (string) $withdrawal->junipay_trans_id,
+            (string) $withdrawal->junipay_reference,
+        ]));
+        $seen = [];
+        $found = false;
+
+        while ($queue !== []) {
+            $id = array_shift($queue);
+            if ($id === '' || isset($seen[$id]) || count($seen) >= 4) {
+                continue;
+            }
+            $seen[$id] = true;
+
+            try {
+                $report = $this->junipay->statusReport($id);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            $found = true;
+            if ($report['trans_id'] !== '' && ! isset($seen[$report['trans_id']])) {
+                $queue[] = $report['trans_id'];
+            }
+            if (in_array($report['status'], ['success', 'failed'], true)) {
+                return $report['status'];
+            }
+        }
+
+        if (! $found) {
+            throw new \RuntimeException('Junipay has no record of this transaction.');
+        }
+
+        return 'pending';
     }
 
     /**
@@ -192,7 +230,7 @@ class WithdrawalPayoutService
         foreach ($withdrawals as $withdrawal) {
             $stats['checked']++;
             try {
-                $status = $this->junipay->transactionStatus((string) $withdrawal->junipay_trans_id);
+                $status = $this->junipayOutcome($withdrawal);
                 $this->applyJunipayStatus($withdrawal, $status, '');
                 $stats[match ($status) {
                     'success' => 'paid',
