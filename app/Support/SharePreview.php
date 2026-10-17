@@ -244,7 +244,7 @@ class SharePreview
         $source = $disk->path($relative);
         $stamp = @filemtime($source) ?: 0;
         $safe = trim((string) preg_replace('/[^a-z0-9\-]+/i', '-', $name), '-');
-        $target = 'og/'.$safe.'-'.$stamp.'.jpg';
+        $target = 'og/'.$safe.'-'.$stamp.'-card.jpg';
 
         if (! $disk->exists($target)) {
             $made = self::makeShareJpeg($source);
@@ -289,11 +289,12 @@ class SharePreview
             return null;
         }
 
-        $max = 640;
-        $scale = min($max / $width, $max / $height, 1);
+        $canvasWidth = 1200;
+        $canvasHeight = 630;
+        $scale = min($canvasWidth / $width, $canvasHeight / $height);
         $newWidth = max(1, (int) round($width * $scale));
         $newHeight = max(1, (int) round($height * $scale));
-        $canvas = imagecreatetruecolor($newWidth, $newHeight);
+        $canvas = imagecreatetruecolor($canvasWidth, $canvasHeight);
         if ($canvas === false) {
             imagedestroy($src);
 
@@ -303,7 +304,20 @@ class SharePreview
         $white = imagecolorallocate($canvas, 255, 255, 255);
         imagefill($canvas, 0, 0, $white);
         imagealphablending($canvas, true);
-        imagecopyresampled($canvas, $src, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+        imagecopyresampled(
+            $canvas,
+            $src,
+            (int) (($canvasWidth - $newWidth) / 2),
+            (int) (($canvasHeight - $newHeight) / 2),
+            0,
+            0,
+            $newWidth,
+            $newHeight,
+            $width,
+            $height,
+        );
+        $newWidth = $canvasWidth;
+        $newHeight = $canvasHeight;
 
         ob_start();
         imagejpeg($canvas, null, 82);
