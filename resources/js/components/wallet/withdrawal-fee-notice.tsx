@@ -4,6 +4,7 @@ export type WithdrawalFeeSettings = {
     enabled: boolean;
     amount: number;
     momo_amount?: number;
+    momo_percent?: number;
     percent?: number;
     mode?: 'flat' | 'percent';
     applies_to: 'bank' | 'momo' | 'all' | 'none';

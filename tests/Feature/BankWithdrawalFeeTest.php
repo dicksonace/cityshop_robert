@@ -182,10 +182,12 @@ class BankWithdrawalFeeTest extends TestCase
         $payload = PlatformSettings::withdrawalFeePayload();
         $this->assertSame('flat', $payload['mode']);
         $this->assertSame(0.0, (float) $payload['percent']);
+        $this->assertSame(1.9, (float) $payload['momo_percent']);
         $this->assertNotEmpty($payload['bank_tiers']);
         $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(80, 'bank'));
         $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(100, 'bank'));
         $this->assertSame(25.0, PlatformSettings::feeForWithdrawal(1000, 'bank'));
+        $this->assertSame(0.19, PlatformSettings::feeForWithdrawal(10, 'momo'));
     }
 
     public function test_old_single_ten_cedi_band_upgrades_from_one_thousand(): void

@@ -1121,6 +1121,11 @@ class PlatformSettings
 
         $type = $payoutType === 'bank' ? 'bank' : 'momo';
         if ($type === 'momo') {
+            $percent = static::momoWithdrawalPercent();
+            if ($percent > 0) {
+                return max(0, round($amount * ($percent / 100), 2));
+            }
+
             return (float) $settings['momo_amount'] > 0 ? (float) $settings['momo_amount'] : 0.0;
         }
 
@@ -1137,8 +1142,22 @@ class PlatformSettings
     }
 
     /**
-     * Fee the customer pays. Bank uses the flat bands (GH₵10 / GH₵25).
-     * MoMo uses the MoMo fee. The Paystack auto-payout switch does not replace these.
+     * Percent charged on MoMo withdrawals when that fee type is turned on.
+     * Bank withdrawals stay on the flat bands.
+     */
+    public static function momoWithdrawalPercent(): float
+    {
+        $auto = static::autoPaystackWithdrawSettings();
+        if (! $auto['enabled'] || $auto['fee_mode'] !== 'percent') {
+            return 0.0;
+        }
+
+        return max(0, (float) $auto['fee_percent']);
+    }
+
+    /**
+     * Fee the customer pays. Bank uses the flat bands.
+     * MoMo uses the percent fee when that is turned on, otherwise the flat MoMo amount.
      */
     public static function feeForWithdrawal(float $amount, ?string $payoutType): float
     {
@@ -1160,6 +1179,7 @@ class PlatformSettings
      *   amount: float,
      *   momo_amount: float,
      *   percent: float,
+     *   momo_percent: float,
      *   fee_flat: float,
      *   applies_to: string,
      *   auto_paystack: bool,
@@ -1178,6 +1198,7 @@ class PlatformSettings
             'amount' => $flat['amount'],
             'momo_amount' => $flat['momo_amount'],
             'percent' => 0.0,
+            'momo_percent' => static::momoWithdrawalPercent(),
             'fee_flat' => 0.0,
             'applies_to' => $flat['applies_to'],
             'auto_paystack' => (bool) $auto['enabled'],

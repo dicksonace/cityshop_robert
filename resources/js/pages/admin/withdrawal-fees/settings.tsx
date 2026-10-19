@@ -133,8 +133,7 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                                 <option value="percent">Percent of amount</option>
                             </select>
                             <p className="mt-1 text-xs text-gray-500">
-                                This does not change what the customer pays. Bank withdrawals use the flat bands below.
-                                MoMo uses the MoMo fee.
+                                Percent is the MoMo withdrawal fee. Bank withdrawals keep the flat bands below.
                             </p>
                             <InputError message={form.errors.auto_paystack_fee_mode} />
                         </div>
@@ -159,7 +158,7 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                             </div>
                         ) : (
                             <div>
-                                <Label>Auto withdrawal fee (%)</Label>
+                                <Label>MoMo withdrawal fee (%)</Label>
                                 <Input
                                     type="number"
                                     min="0"
@@ -171,7 +170,7 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                                     required
                                 />
                                 <p className="mt-1 text-xs text-gray-500">
-                                    Charged as a percent of the withdrawal amount when auto Paystack is on.
+                                    Charged on MoMo withdrawals. A GH₵10 cash-out at 1.9% is a GH₵0.19 fee. Bank cash-out is not affected.
                                 </p>
                                 <InputError message={form.errors.auto_paystack_fee_percent} />
                             </div>

@@ -47,6 +47,10 @@ export function feeForPayoutType(
     if (!settings.enabled && settings.mode !== 'percent') return 0;
     if (settings.applies_to === 'none') return 0;
     if (payoutType === 'momo') {
+        const momoPercent = Number(settings.momo_percent) || 0;
+        if (momoPercent > 0) {
+            return Math.round(amt * (momoPercent / 100) * 100) / 100;
+        }
         const momo = momoFeeAmount(settings);
         return momo > 0 ? momo : 0;
     }
