@@ -913,7 +913,7 @@ class PlatformSettings
     }
 
     /**
-     * @return array{collections_enabled: bool, payouts_enabled: bool, auto_payout: bool, auto_payout_bank: bool, sandbox: bool}
+     * @return array{collections_enabled: bool, payouts_enabled: bool, auto_payout: bool, auto_payout_bank: bool, auto_payout_other_momo: bool, sandbox: bool}
      */
     public static function junipaySettings(): array
     {
@@ -928,20 +928,38 @@ class PlatformSettings
             'payouts_enabled' => (bool) ($decoded['payouts_enabled'] ?? true),
             'auto_payout' => (bool) ($decoded['auto_payout'] ?? false),
             'auto_payout_bank' => (bool) ($decoded['auto_payout_bank'] ?? true),
+            'auto_payout_other_momo' => (bool) ($decoded['auto_payout_other_momo'] ?? true),
             'sandbox' => (bool) ($decoded['sandbox'] ?? config('services.junipay.sandbox', false)),
         ];
     }
 
     /**
-     * Bank withdrawals can be kept manual while MoMo withdrawals still go out automatically.
+     * Vodafone is stored as telecel. These stay manual together when that switch is off.
+     *
+     * @return list<string>
      */
-    public static function autoPayoutAllowedFor(bool $isBank): bool
+    public static function otherMomoNetworks(): array
     {
-        return ! $isBank || static::junipaySettings()['auto_payout_bank'];
+        return ['telecel', 'vodafone', 'airteltigo', 'at', 'airtel', 'tigo'];
     }
 
     /**
-     * @param  array{collections_enabled?: bool, payouts_enabled?: bool, auto_payout?: bool, auto_payout_bank?: bool, sandbox?: bool}  $data
+     * Bank, Vodafone and AirtelTigo can each be kept manual. MTN stays automatic.
+     */
+    public static function autoPayoutAllowedFor(bool $isBank, ?string $network = null): bool
+    {
+        $settings = static::junipaySettings();
+        if ($isBank) {
+            return $settings['auto_payout_bank'];
+        }
+
+        $network = strtolower(trim((string) $network));
+
+        return $settings['auto_payout_other_momo'] || ! in_array($network, static::otherMomoNetworks(), true);
+    }
+
+    /**
+     * @param  array{collections_enabled?: bool, payouts_enabled?: bool, auto_payout?: bool, auto_payout_bank?: bool, auto_payout_other_momo?: bool, sandbox?: bool}  $data
      */
     public static function saveJunipaySettings(array $data): void
     {
@@ -952,6 +970,7 @@ class PlatformSettings
             'payouts_enabled' => self::junipayFlag($data, 'payouts_enabled', $current['payouts_enabled']),
             'auto_payout' => self::junipayFlag($data, 'auto_payout', $current['auto_payout']),
             'auto_payout_bank' => self::junipayFlag($data, 'auto_payout_bank', $current['auto_payout_bank']),
+            'auto_payout_other_momo' => self::junipayFlag($data, 'auto_payout_other_momo', $current['auto_payout_other_momo']),
             'sandbox' => self::junipayFlag($data, 'sandbox', $current['sandbox']),
         ]);
     }
@@ -1028,6 +1047,7 @@ class PlatformSettings
             'payouts_enabled' => $settings['payouts_enabled'],
             'auto_payout' => $settings['auto_payout'],
             'auto_payout_bank' => $settings['auto_payout_bank'],
+            'auto_payout_other_momo' => $settings['auto_payout_other_momo'],
             'sandbox' => $settings['sandbox'],
             'collections_available' => $configured && $settings['collections_enabled'],
             'payouts_available' => $configured && $settings['payouts_enabled'],

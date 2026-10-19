@@ -278,6 +278,8 @@ class WithdrawalPayoutService
             ->when(! PlatformSettings::autoPayoutAllowedFor(true), fn ($query) => $query
                 ->whereNotIn('network', array_keys(GhanaBanks::OPTIONS))
                 ->where(fn ($inner) => $inner->whereNull('payout_channel')->orWhere('payout_channel', '!=', 'bank')))
+            ->when(! PlatformSettings::junipaySettings()['auto_payout_other_momo'], fn ($query) => $query
+                ->whereNotIn('network', PlatformSettings::otherMomoNetworks()))
             ->where(function ($query) {
                 $query->whereNull('failure_reason')
                     ->orWhere('failure_reason', 'not like', 'Junipay%')

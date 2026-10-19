@@ -13,6 +13,7 @@ export interface JunipayStatus {
     payouts_enabled: boolean;
     auto_payout: boolean;
     auto_payout_bank: boolean;
+    auto_payout_other_momo: boolean;
     sandbox: boolean;
     collections_available: boolean;
     payouts_available: boolean;
@@ -21,13 +22,14 @@ export interface JunipayStatus {
     callback_url: string;
 }
 
-type Flag = 'collections_enabled' | 'payouts_enabled' | 'auto_payout' | 'auto_payout_bank' | 'sandbox';
+type Flag = 'collections_enabled' | 'payouts_enabled' | 'auto_payout' | 'auto_payout_bank' | 'auto_payout_other_momo' | 'sandbox';
 
 const flags: { key: Flag; label: string; hint: string }[] = [
     { key: 'collections_enabled', label: 'Collections', hint: 'Buyers can pay by Mobile Money prompt (checkout, wallet and GSM recharge, scan to pay).' },
     { key: 'payouts_enabled', label: 'Payouts', hint: 'Show “Send via Junipay” on withdrawals.' },
     { key: 'auto_payout', label: 'Pay withdrawals automatically', hint: 'New withdrawals are sent through Junipay straight away, instead of Paystack.' },
     { key: 'auto_payout_bank', label: 'Pay bank withdrawals automatically', hint: 'Turn off to pay bank withdrawals manually. MoMo withdrawals are not affected.' },
+    { key: 'auto_payout_other_momo', label: 'Pay Vodafone and AirtelTigo automatically', hint: 'Turn off to pay Vodafone (Telecel) and AirtelTigo manually. MTN stays automatic.' },
     { key: 'sandbox', label: 'Sandbox mode', hint: 'Use sandbox.junipayments.com for testing. Turn off for real money.' },
 ];
 

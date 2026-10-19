@@ -443,6 +443,46 @@ class JunipayTest extends TestCase
         $this->assertSame('DIS700', $momo->junipay_trans_id);
     }
 
+    public function test_vodafone_and_airteltigo_can_stay_manual_while_mtn_stays_automatic(): void
+    {
+        PlatformSettings::saveJunipaySettings([
+            'payouts_enabled' => true,
+            'auto_payout' => true,
+            'auto_payout_other_momo' => false,
+            'sandbox' => false,
+        ]);
+        Notification::fake();
+        Http::fake([
+            self::API.'/transfer' => Http::response(['code' => 200, 'info' => ['transID' => 'DIS701', 'status' => 'pending']], 200),
+            self::API.'/checktranstatus' => Http::response(['code' => 200, 'info' => 'Transaction not found'], 200),
+        ]);
+
+        $buyer = $this->verifiedBuyer();
+        WalletService::ensure($buyer)->update(['available_balance' => 500]);
+        $submit = fn (string $network) => app(WithdrawalRequestService::class)->submit($buyer, [
+            'amount' => 15,
+            'payout_type' => 'momo',
+            'momo_number' => '0248620718',
+            'account_name' => 'Robert Asare',
+            'network' => $network,
+        ])['withdrawal'];
+
+        $vodafone = $submit('telecel');
+        $airteltigo = $submit('airteltigo');
+        $this->assertSame(WithdrawalStatus::Pending, $vodafone->status);
+        $this->assertSame(WithdrawalStatus::Pending, $airteltigo->status);
+        $this->assertNull($vodafone->junipay_trans_id);
+        $this->assertNull($airteltigo->junipay_trans_id);
+
+        app(WithdrawalPayoutService::class)->dispatchAutoJunipayPayouts();
+        $this->assertNull($vodafone->fresh()->junipay_trans_id);
+        $this->assertNull($airteltigo->fresh()->junipay_trans_id);
+
+        $mtn = $submit('mtn');
+        $this->assertSame(WithdrawalStatus::Processing, $mtn->status);
+        $this->assertSame('DIS701', $mtn->junipay_trans_id);
+    }
+
     public function test_bank_withdrawal_is_sent_with_junipay_bank_code(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

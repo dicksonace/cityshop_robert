@@ -35,8 +35,10 @@ class WithdrawalRequestService
         $payoutType = ($data['payout_type'] ?? '') === 'bank' ? 'bank' : 'momo';
         $fee = PlatformSettings::feeForWithdrawal($amount, $payoutType);
         $totalDebit = round($amount + $fee, 2);
+        $network = (string) ($data['network'] ?? '');
         $autoAllowed = PlatformSettings::autoPayoutAllowedFor(
-            $payoutType === 'bank' || GhanaBanks::isBank((string) ($data['network'] ?? '')),
+            $payoutType === 'bank' || GhanaBanks::isBank($network),
+            $network,
         );
         $autoJunipay = $autoAllowed
             && PlatformSettings::junipaySettings()['auto_payout']
