@@ -190,6 +190,22 @@ class BankWithdrawalFeeTest extends TestCase
         $this->assertSame(0.19, PlatformSettings::feeForWithdrawal(10, 'momo'));
     }
 
+    public function test_momo_percent_applies_when_paystack_auto_send_is_off(): void
+    {
+        PlatformSettings::saveAutoPaystackWithdrawSettings([
+            'enabled' => false,
+            'fee_mode' => 'percent',
+            'fee_percent' => 1.9,
+            'fee_flat' => 0,
+        ]);
+
+        $payload = PlatformSettings::withdrawalFeePayload();
+        $this->assertFalse($payload['auto_paystack']);
+        $this->assertSame(1.9, (float) $payload['momo_percent']);
+        $this->assertSame(0.19, PlatformSettings::feeForWithdrawal(10, 'momo'));
+        $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(80, 'bank'));
+    }
+
     public function test_old_single_ten_cedi_band_upgrades_from_one_thousand(): void
     {
         $this->putRawBankFeeTiers([

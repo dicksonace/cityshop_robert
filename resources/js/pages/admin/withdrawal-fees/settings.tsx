@@ -133,7 +133,8 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                                 <option value="percent">Percent of amount</option>
                             </select>
                             <p className="mt-1 text-xs text-gray-500">
-                                Percent is the MoMo withdrawal fee. Bank withdrawals keep the flat bands below.
+                                Percent is the MoMo withdrawal fee. It is charged even when Paystack auto-send is off.
+                                Bank withdrawals keep the flat bands below.
                             </p>
                             <InputError message={form.errors.auto_paystack_fee_mode} />
                         </div>

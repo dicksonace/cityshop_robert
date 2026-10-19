@@ -1135,18 +1135,22 @@ class PlatformSettings
     public static function feeForPayoutType(?string $payoutType, float $amount = 0): float
     {
         $settings = static::withdrawalFeeSettings();
-        if (! $settings['enabled'] || $settings['applies_to'] === 'none') {
-            return 0.0;
-        }
-
         $type = $payoutType === 'bank' ? 'bank' : 'momo';
-        if ($type === 'momo') {
+        if ($type === 'momo' && $settings['applies_to'] !== 'none') {
             $percent = static::momoWithdrawalPercent();
             if ($percent > 0) {
                 return max(0, round($amount * ($percent / 100), 2));
             }
 
+            if (! $settings['enabled']) {
+                return 0.0;
+            }
+
             return (float) $settings['momo_amount'] > 0 ? (float) $settings['momo_amount'] : 0.0;
+        }
+
+        if (! $settings['enabled'] || $settings['applies_to'] === 'none') {
+            return 0.0;
         }
 
         $applies = $settings['applies_to'];
@@ -1168,7 +1172,9 @@ class PlatformSettings
     public static function momoWithdrawalPercent(): float
     {
         $auto = static::autoPaystackWithdrawSettings();
-        if (! $auto['enabled'] || $auto['fee_mode'] !== 'percent') {
+        // The percent is the customer MoMo fee. Paystack auto-send can stay off
+        // while Junipay pays the withdrawal.
+        if ($auto['fee_mode'] !== 'percent') {
             return 0.0;
         }
 
