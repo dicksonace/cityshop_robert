@@ -57,8 +57,12 @@ class WalletController extends Controller
         }
     }
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        if ($request->user()->isSeller()) {
+            return redirect()->route('seller.wallet');
+        }
+
         abort_unless($request->user()->isBuyer(), 403);
 
         $userId = $request->user()->id;

@@ -68,6 +68,21 @@ class ChinaRmbAccessTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_a_seller_wallet_link_opens_seller_finance_instead_of_403(): void
+    {
+        $seller = User::factory()->create(['role' => UserRole::Seller, 'china_rmb_enabled' => true]);
+        SellerProfile::create([
+            'user_id' => $seller->id,
+            'store_name' => 'RMB Seller',
+            'status' => SellerStatus::Approved,
+            'approved_at' => now(),
+        ]);
+
+        $this->actingAs($seller)
+            ->get(route('wallet.index'))
+            ->assertRedirect(route('seller.wallet'));
+    }
+
     public function test_master_switch_off_blocks_enabled_buyers_and_sellers(): void
     {
         $buyer = User::factory()->create(['role' => UserRole::Buyer, 'china_rmb_enabled' => true]);

@@ -126,7 +126,7 @@ export default function ShopLayout({
                                             <Link href={route('orders.index')}>My Orders</Link>
                                         </li>
                                         <li>
-                                            <Link href={route('wallet.index')}>Wallet</Link>
+                                            <Link href={auth.user?.role === 'seller' ? route('seller.wallet') : route('wallet.index')}>Wallet</Link>
                                         </li>
                                         <li>
                                             <Link href={route('wishlist.index')}>Wishlist</Link>

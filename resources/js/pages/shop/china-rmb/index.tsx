@@ -87,7 +87,8 @@ function sellGhsPerRmb(rate: SellRate): number | null {
 
 /** China / RMB entry: Buy RMB (pay GHS → Alipay) or Sell RMB. No convert / no hold. */
 export default function ChinaRmbHub({ buy, sell, kyc }: Props) {
-    const { flash } = usePage<SharedData>().props;
+    const { auth, flash } = usePage<SharedData>().props;
+    const walletHref = auth.user?.role === 'seller' ? route('seller.wallet') : route('wallet.index');
     const buyRate = buy.config.rate;
     const sellRateValue = sellGhsPerRmb(sell.config.rate);
     const buyHours = buy.config.transfer_hours;
@@ -128,7 +129,7 @@ export default function ChinaRmbHub({ buy, sell, kyc }: Props) {
                 </div>
             )}
             <div className="mx-auto max-w-lg px-4 py-6">
-                <Link href={route('wallet.index')} className="text-sm font-semibold text-orange-600">
+                <Link href={walletHref} className="text-sm font-semibold text-orange-600">
                     ← Wallet
                 </Link>
                 <h1 className="mt-3 text-2xl font-black text-gray-900">China / RMB</h1>
