@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { ChevronLeft, LoaderCircle } from 'lucide-react';
+import { ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -78,13 +78,14 @@ export default function BuyerWithdraw({
     withdrawalRestrictionNote = null,
 }: BuyerWithdrawProps) {
     const { auth, flash } = usePage<SharedData>().props;
+    const firstAccount = preferredAccount(withdrawalAccounts, 'momo');
     const [step, setStep] = useState<'form' | 'review'>('form');
     const [stepError, setStepError] = useState<string | null>(null);
     const [savingAccount, setSavingAccount] = useState(false);
-    const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+    const [selectedAccountId, setSelectedAccountId] = useState<number | null>(firstAccount?.id ?? null);
+    const [addingAccount, setAddingAccount] = useState(false);
 
     const availableBalance = Number(wallet.available_balance) || 0;
-    const firstAccount = preferredAccount(withdrawalAccounts, 'momo');
 
     const form = useForm({
         amount: '',
@@ -107,27 +108,47 @@ export default function BuyerWithdraw({
         }
     }, [form.errors.payment_pin, form.errors.amount]);
 
+    const accountsForType = withdrawalAccounts.filter((account) => account.type === form.data.payout_type);
+    const showAccountFields = addingAccount || accountsForType.length === 0;
+
     const applyAccount = (account: SavedWithdrawalAccount) => {
+        if (account.type !== form.data.payout_type) return;
         setStepError(null);
+        setAddingAccount(false);
         setSelectedAccountId(account.id);
         form.setData({
             ...form.data,
-            payout_type: account.type,
             network: account.network,
             momo_number: account.account_number,
             account_name: account.account_name,
         });
     };
 
+    const startAddAccount = () => {
+        setStepError(null);
+        setAddingAccount(true);
+        setSelectedAccountId(null);
+        form.setData({
+            ...form.data,
+            momo_number: '',
+            account_name: '',
+        });
+    };
+
+    const removeAccount = (account: SavedWithdrawalAccount) => {
+        router.delete(route('wallet.withdrawal-accounts.destroy', account.id), { preserveScroll: true });
+    };
+
     const setPayoutType = (type: 'momo' | 'bank') => {
         setStepError(null);
         const saved = preferredAccount(withdrawalAccounts, type);
         setSelectedAccountId(saved?.id ?? null);
+        setAddingAccount(!saved);
         form.setData({
             ...form.data,
             payout_type: type,
             network: saved?.network ?? (type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn'),
-            momo_number: saved?.account_number ?? (type === 'momo' ? (auth.user?.mobile ?? '') : ''),
+            momo_number: saved?.account_number ?? '',
             account_name: saved?.account_name ?? '',
         });
     };
@@ -339,80 +360,88 @@ export default function BuyerWithdraw({
                                 )}
 
                                 <div className="space-y-3">
-                                    <p className="text-[15px] font-extrabold text-gray-900">2. Where should the money go?</p>
-                                    {withdrawalAccounts.length > 0 && (
-                                        <div>
-                                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                                Saved withdrawal accounts
-                                            </p>
-                                            <div className="flex gap-3 overflow-x-auto pb-1">
-                                                {withdrawalAccounts.map((account) => {
-                                                    const selected =
-                                                        selectedAccountId === account.id ||
-                                                        (selectedAccountId === null &&
-                                                            account.account_number === form.data.momo_number &&
-                                                            account.account_name === form.data.account_name);
-                                                    return (
-                                                        <button
-                                                            key={account.id}
-                                                            type="button"
-                                                            onClick={() => applyAccount(account)}
-                                                            className={cn(
-                                                                'w-44 shrink-0 rounded-2xl px-4 py-4 text-left text-white transition',
-                                                                selected ? 'bg-sky-700 ring-2 ring-orange-400' : 'bg-sky-600 hover:bg-sky-700',
-                                                            )}
-                                                        >
-                                                            <p className="truncate text-base font-bold">{account.account_name}</p>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-[15px] font-extrabold text-gray-900">2. Where should the money go?</p>
+                                        <button
+                                            type="button"
+                                            onClick={startAddAccount}
+                                            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 text-white"
+                                            aria-label="Add withdrawal account"
+                                        >
+                                            <Plus className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                    {accountsForType.length > 0 && (
+                                        <div className="flex gap-3 overflow-x-auto pb-1">
+                                            {accountsForType.map((account) => {
+                                                const selected = selectedAccountId === account.id && !addingAccount;
+                                                return (
+                                                    <div
+                                                        key={account.id}
+                                                        className={cn(
+                                                            'relative w-44 shrink-0 rounded-2xl px-4 py-4 text-left text-white',
+                                                            selected ? 'bg-sky-700 ring-2 ring-orange-400' : 'bg-sky-600',
+                                                        )}
+                                                    >
+                                                        <button type="button" onClick={() => applyAccount(account)} className="block w-full text-left">
+                                                            <p className="truncate pr-5 text-base font-bold">{account.account_name}</p>
                                                             <p className="mt-1 text-sm text-sky-100">{account.account_number}</p>
                                                             <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-sky-200">
                                                                 {account.network_label}
                                                             </p>
                                                         </button>
-                                                    );
-                                                })}
-                                            </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeAccount(account)}
+                                                            className="absolute right-2 top-2 rounded-full p-1 text-sky-100 hover:bg-sky-800"
+                                                            aria-label="Delete withdrawal account"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
-                                    <div>
-                                        <label className="mb-1 block text-sm text-gray-500">
-                                            {form.data.payout_type === 'bank' ? 'Account number' : 'MoMo number'}
-                                        </label>
-                                        <Input
-                                            value={form.data.momo_number}
-                                            onChange={(e) => form.setData('momo_number', e.target.value)}
-                                            required
-                                            placeholder={form.data.payout_type === 'bank' ? 'Bank account number' : '0XX XXX XXXX'}
-                                            inputMode={form.data.payout_type === 'bank' ? 'numeric' : 'tel'}
-                                        />
-                                        <InputError message={form.errors.momo_number} />
-                                    </div>
-                                    <div>
-                                        <label className="mb-1 block text-sm text-gray-500">Account name</label>
-                                        <Input
-                                            value={form.data.account_name}
-                                            onChange={(e) => form.setData('account_name', e.target.value)}
-                                            required
-                                            placeholder={
-                                                form.data.payout_type === 'bank'
-                                                    ? 'Name registered on the bank account'
-                                                    : 'Name registered on the MoMo number'
-                                            }
-                                        />
-                                        <InputError message={form.errors.account_name} />
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="w-full"
-                                        disabled={savingAccount}
-                                        onClick={saveAccount}
-                                    >
-                                        {savingAccount && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-                                        Add withdrawal account
-                                    </Button>
-                                    <p className="text-xs text-gray-500">
-                                        Saves this number and account name for the next withdrawal.
-                                    </p>
+                                    {showAccountFields && (
+                                        <>
+                                            <div>
+                                                <label className="mb-1 block text-sm text-gray-500">
+                                                    {form.data.payout_type === 'bank' ? 'Account number' : 'MoMo number'}
+                                                </label>
+                                                <Input
+                                                    value={form.data.momo_number}
+                                                    onChange={(e) => form.setData('momo_number', e.target.value)}
+                                                    placeholder={form.data.payout_type === 'bank' ? 'Bank account number' : '0XX XXX XXXX'}
+                                                    inputMode={form.data.payout_type === 'bank' ? 'numeric' : 'tel'}
+                                                />
+                                                <InputError message={form.errors.momo_number} />
+                                            </div>
+                                            <div>
+                                                <label className="mb-1 block text-sm text-gray-500">Account name</label>
+                                                <Input
+                                                    value={form.data.account_name}
+                                                    onChange={(e) => form.setData('account_name', e.target.value)}
+                                                    placeholder={
+                                                        form.data.payout_type === 'bank'
+                                                            ? 'Name registered on the bank account'
+                                                            : 'Name registered on the MoMo number'
+                                                    }
+                                                />
+                                                <InputError message={form.errors.account_name} />
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="w-full"
+                                                disabled={savingAccount}
+                                                onClick={saveAccount}
+                                            >
+                                                {savingAccount && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                                Save account
+                                            </Button>
+                                        </>
+                                    )}
                                 </div>
 
                                 <div>

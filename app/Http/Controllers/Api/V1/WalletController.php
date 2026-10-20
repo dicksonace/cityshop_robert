@@ -374,6 +374,16 @@ class WalletController extends Controller
         ], 201);
     }
 
+    public function destroyWithdrawalAccount(Request $request, \App\Models\SellerPayoutMethod $withdrawalAccount): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+        abort_unless($withdrawalAccount->user_id === $user->id, 403);
+        WithdrawalAccountService::forget($user, $withdrawalAccount->id);
+
+        return response()->json(['message' => 'Withdrawal account removed.']);
+    }
+
     public function showWithdrawal(Request $request, Withdrawal $withdrawal): JsonResponse
     {
         abort_unless($withdrawal->user_id === $request->user()->id, 403);

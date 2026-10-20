@@ -67,4 +67,27 @@ class WithdrawalAccountService
             'is_default' => $isFirst,
         ]);
     }
+
+    public static function forget(User $user, int $id): void
+    {
+        $method = SellerPayoutMethod::query()
+            ->where('user_id', $user->id)
+            ->whereKey($id)
+            ->first();
+
+        if (! $method) {
+            return;
+        }
+
+        $wasDefault = (bool) $method->is_default;
+        $method->delete();
+
+        if ($wasDefault) {
+            SellerPayoutMethod::query()
+                ->where('user_id', $user->id)
+                ->latest('id')
+                ->first()
+                ?->update(['is_default' => true]);
+        }
+    }
 }

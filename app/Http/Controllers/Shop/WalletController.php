@@ -194,6 +194,15 @@ class WalletController extends Controller
         return back()->with('success', 'Withdrawal account saved. It will be here next time.');
     }
 
+    public function destroyWithdrawalAccount(Request $request, \App\Models\SellerPayoutMethod $withdrawalAccount): RedirectResponse
+    {
+        abort_unless($request->user()->isBuyer(), 403);
+        abort_unless($withdrawalAccount->user_id === $request->user()->id, 403);
+        WithdrawalAccountService::forget($request->user(), $withdrawalAccount->id);
+
+        return back()->with('success', 'Withdrawal account removed.');
+    }
+
     public function addFunds(Request $request): RedirectResponse|JsonResponse
     {
         abort_unless($request->user()->isBuyer(), 403);

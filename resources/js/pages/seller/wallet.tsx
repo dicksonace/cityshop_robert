@@ -156,27 +156,33 @@ export default function SellerWallet({
         }
     }, [withdrawForm.errors.payment_pin, withdrawForm.errors.amount]);
 
+    const methodIsBank = (method: PayoutMethod) => method.type === 'bank' || isGhanaBank(method.network);
+
     const setPayoutType = (type: 'momo' | 'bank' | 'china') => {
+        const saved = payoutMethods.find((method) => (type === 'bank' ? methodIsBank(method) : !methodIsBank(method)));
         withdrawForm.setData({
             ...withdrawForm.data,
             payout_type: type,
-            network: type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn',
-            momo_number: type === 'momo' ? (auth.user?.mobile ?? '') : '',
-            account_name: '',
-            payout_method_id: '',
+            network: saved?.network ?? (type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn'),
+            momo_number: saved?.account_number ?? '',
+            account_name: usablePayoutAccountName(saved?.account_name),
+            payout_method_id: saved ? String(saved.id) : '',
         });
+        setShowAddMethod(!saved);
+        setWithdrawStep('details');
     };
 
     const applySavedMethod = (method: PayoutMethod) => {
-        const isBank = method.type === 'bank' || isGhanaBank(method.network);
+        const isBank = methodIsBank(method);
+        if ((isBank ? 'bank' : 'momo') !== withdrawForm.data.payout_type) return;
         withdrawForm.setData({
             ...withdrawForm.data,
-            payout_type: isBank ? 'bank' : 'momo',
             network: method.network,
             momo_number: method.account_number,
             account_name: usablePayoutAccountName(method.account_name),
             payout_method_id: String(method.id),
         });
+        setShowAddMethod(false);
         setWithdrawStep('details');
     };
 
@@ -218,10 +224,22 @@ export default function SellerWallet({
                 return;
             }
             if (!withdrawForm.data.network || !withdrawForm.data.momo_number.trim() || !withdrawForm.data.account_name.trim()) {
-                setStepError('Enter network, account number, and the name on the account to continue.');
+                setStepError('Choose a saved account, or add the number and the name on the account.');
                 return;
             }
-            setWithdrawStep('amount');
+            if (!withdrawForm.data.amount || withdrawAmount < 10) {
+                setStepError('Enter an amount of at least GH₵10.');
+                return;
+            }
+            if (withdrawalBalanceMessage(withdrawAmount, activeFee, availableBalance)) {
+                setStepError(
+                    activeFee > 0
+                        ? `Not enough balance for amount + ${formatPrice(activeFee)} fee. Try Withdraw all (${formatPrice(maxWithdraw)}).`
+                        : `Not enough available balance. You can withdraw up to ${formatPrice(maxWithdraw)}.`,
+                );
+                return;
+            }
+            setWithdrawStep('review');
             return;
         }
         if (withdrawStep === 'amount') {
@@ -377,27 +395,35 @@ export default function SellerWallet({
                     </p>
                 ) : null}
 
-                {payoutMethods.length > 0 && withdrawStep === 'details' && (
+                {withdrawStep === 'details' && payoutMethods.some((method) => methodIsBank(method) === (withdrawForm.data.payout_type === 'bank')) && (
                     <div className="mb-4 space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Quick fill from saved</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Saved accounts</p>
                         <div className="flex flex-wrap gap-2">
-                            {payoutMethods.map((method) => {
-                                const isBank = method.type === 'bank' || isGhanaBank(method.network);
+                            {payoutMethods
+                                .filter((method) => methodIsBank(method) === (withdrawForm.data.payout_type === 'bank'))
+                                .map((method) => {
                                 const selected = withdrawForm.data.payout_method_id === String(method.id);
                                 return (
-                                    <button
+                                    <span
                                         key={method.id}
-                                        type="button"
-                                        onClick={() => applySavedMethod(method)}
                                         className={cn(
-                                            'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                                            'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold',
                                             selected
                                                 ? 'border-orange-500 bg-orange-50 text-orange-800'
-                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                                                : 'border-gray-200 bg-white text-gray-700',
                                         )}
                                     >
-                                        {method.account_name || (isBank ? 'Bank' : 'MoMo')} · {method.account_number}
-                                    </button>
+                                        <button type="button" onClick={() => applySavedMethod(method)}>
+                                            {method.account_name || 'Account'} · {method.account_number}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Delete account"
+                                            onClick={() => router.delete(route('seller.wallet.payout-methods.destroy', method.id), { preserveScroll: true })}
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    </span>
                                 );
                             })}
                         </div>
@@ -492,7 +518,26 @@ export default function SellerWallet({
                             )}
                             {!isChinaTransfer && (
                             <div>
-                                <Label className="text-base font-semibold">2. Where should the money go?</Label>
+                                <div className="flex items-center justify-between gap-3">
+                                    <Label className="text-base font-semibold">2. Where should the money go?</Label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowAddMethod(true);
+                                            withdrawForm.setData({
+                                                ...withdrawForm.data,
+                                                momo_number: '',
+                                                account_name: '',
+                                                payout_method_id: '',
+                                            });
+                                        }}
+                                        className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 text-white"
+                                        aria-label="Add withdrawal account"
+                                    >
+                                        <Plus className="h-5 w-5" />
+                                    </button>
+                                </div>
+                                {(showAddMethod || !withdrawForm.data.payout_method_id) && (
                                 <div className="mt-2 space-y-3">
                                     <div>
                                         <Label>{withdrawForm.data.payout_type === 'bank' ? 'Account number' : 'MoMo number'}</Label>
@@ -533,6 +578,24 @@ export default function SellerWallet({
                                         />
                                         <InputError message={withdrawForm.errors.account_name} />
                                     </div>
+                                </div>
+                                )}
+                                <div className="mt-4">
+                                    <Label className="text-base font-semibold">3. How much?</Label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="10"
+                                        inputMode="decimal"
+                                        value={withdrawForm.data.amount}
+                                        onChange={(e) => {
+                                            setStepError(null);
+                                            withdrawForm.setData('amount', e.target.value);
+                                        }}
+                                        className="mt-2 text-lg"
+                                        placeholder="Amount (GH₵)"
+                                    />
+                                    <InputError message={withdrawForm.errors.amount} />
                                 </div>
                             </div>
                             )}
@@ -682,10 +745,8 @@ export default function SellerWallet({
                                 <>
                                     <Check className="mr-2 h-4 w-4" /> Submit withdrawal
                                 </>
-                            ) : withdrawStep === 'amount' ? (
-                                'Review withdrawal'
                             ) : (
-                                'Continue'
+                                'Review withdrawal'
                             )}
                         </Button>
                     </div>
