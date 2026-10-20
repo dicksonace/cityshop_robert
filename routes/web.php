@@ -191,6 +191,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/wallet/junipay/callback', [BuyerWalletController::class, 'flutterwaveCallback'])->name('wallet.junipay.callback')->defaults('gateway', 'junipay');
     Route::get('/wallet/withdraw', [BuyerWalletController::class, 'createWithdraw'])->name('wallet.withdraw.create');
     Route::post('/wallet/withdraw', [BuyerWalletController::class, 'withdraw'])->name('wallet.withdraw');
+    Route::post('/wallet/withdrawal-accounts', [BuyerWalletController::class, 'storeWithdrawalAccount'])->name('wallet.withdrawal-accounts.store');
     Route::get('/wallet/withdrawals/{withdrawal}', [BuyerWalletController::class, 'showWithdrawal'])->name('wallet.withdrawals.show');
     Route::get('/wallet/manual-top-up', [WalletManualTopUpController::class, 'show'])->name('wallet.manual-top-up');
     Route::post('/wallet/manual-top-up', [WalletManualTopUpController::class, 'store'])->name('wallet.manual-top-up.store');

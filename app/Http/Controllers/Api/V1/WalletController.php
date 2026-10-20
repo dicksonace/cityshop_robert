@@ -20,6 +20,7 @@ use App\Services\PlatformSettings;
 use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
+use App\Services\WithdrawalAccountService;
 use App\Services\WithdrawalPayoutService;
 use App\Support\GhanaBanks;
 use App\Support\HostedGateways;
@@ -318,8 +319,57 @@ class WalletController extends Controller
                     ->values()
                     ->all(),
                 'withdrawal_fee' => PlatformSettings::withdrawalFeePayload(),
+                'withdrawal_accounts' => WithdrawalAccountService::listFor($user),
             ],
         ]);
+    }
+
+    public function storeWithdrawalAccount(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, [UserRole::Buyer, UserRole::Seller], true), 403);
+
+        $payoutType = $request->input('payout_type');
+        if (! in_array($payoutType, ['momo', 'bank'], true)) {
+            $payoutType = GhanaBanks::isBank($request->input('network')) ? 'bank' : 'momo';
+            $request->merge(['payout_type' => $payoutType]);
+        }
+
+        $validated = $request->validate([
+            'payout_type' => ['required', 'in:momo,bank'],
+            'network' => [
+                'required',
+                'string',
+                $payoutType === 'bank'
+                    ? GhanaBanks::validationRule()
+                    : 'in:mtn,telecel,airteltigo',
+            ],
+            'account_number' => ['required', 'string', 'max:30'],
+            'account_name' => ['required', 'string', 'max:255', 'not_regex:/^\d+([.,]\d+)?$/'],
+        ], [
+            'account_name.not_regex' => 'Enter the name registered on the account, not a number.',
+        ]);
+
+        $account = WithdrawalAccountService::remember(
+            $user,
+            $validated['payout_type'],
+            $validated['network'],
+            $validated['account_number'],
+            $validated['account_name'],
+        );
+
+        return response()->json([
+            'message' => 'Withdrawal account saved.',
+            'data' => [
+                'id' => $account->id,
+                'type' => $account->type,
+                'network' => $account->network,
+                'network_label' => $account->networkLabel(),
+                'account_number' => $account->account_number,
+                'account_name' => $account->account_name,
+                'is_default' => (bool) $account->is_default,
+            ],
+        ], 201);
     }
 
     public function showWithdrawal(Request $request, Withdrawal $withdrawal): JsonResponse

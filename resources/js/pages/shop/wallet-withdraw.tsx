@@ -1,4 +1,4 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ChevronLeft, LoaderCircle } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
@@ -16,12 +16,27 @@ import { cn } from '@/lib/utils';
 import { SharedData } from '@/types';
 import { formatPrice, Paginated, Wallet, Withdrawal } from '@/types/marketplace';
 
+interface SavedWithdrawalAccount {
+    id: number;
+    type: 'momo' | 'bank';
+    network: string;
+    network_label: string;
+    account_number: string;
+    account_name: string;
+    is_default: boolean;
+}
+
 interface BuyerWithdrawProps {
     wallet: Wallet;
     withdrawals: Paginated<Withdrawal>;
     hasPendingWithdrawal: boolean;
     withdrawalFee?: WithdrawalFeeSettings;
     hasPaymentPin?: boolean;
+    withdrawalAccounts?: SavedWithdrawalAccount[];
+}
+
+function preferredAccount(accounts: SavedWithdrawalAccount[], type: 'momo' | 'bank'): SavedWithdrawalAccount | undefined {
+    return accounts.find((account) => account.type === type && account.is_default) ?? accounts.find((account) => account.type === type);
 }
 
 function formatDate(value?: string): string {
@@ -56,19 +71,23 @@ export default function BuyerWithdraw({
     hasPendingWithdrawal,
     withdrawalFee,
     hasPaymentPin = false,
+    withdrawalAccounts = [],
 }: BuyerWithdrawProps) {
     const { auth, flash } = usePage<SharedData>().props;
     const [step, setStep] = useState<'form' | 'review'>('form');
     const [stepError, setStepError] = useState<string | null>(null);
+    const [savingAccount, setSavingAccount] = useState(false);
+    const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
 
     const availableBalance = Number(wallet.available_balance) || 0;
+    const firstAccount = preferredAccount(withdrawalAccounts, 'momo');
 
     const form = useForm({
         amount: '',
-        payout_type: 'momo' as 'momo' | 'bank',
-        momo_number: auth.user?.mobile ?? '',
-        account_name: '',
-        network: 'mtn',
+        payout_type: (firstAccount?.type ?? 'momo') as 'momo' | 'bank',
+        momo_number: firstAccount?.account_number ?? auth.user?.mobile ?? '',
+        account_name: firstAccount?.account_name ?? '',
+        network: firstAccount?.network ?? 'mtn',
         payment_pin: '',
     });
 
@@ -84,15 +103,51 @@ export default function BuyerWithdraw({
         }
     }, [form.errors.payment_pin, form.errors.amount]);
 
+    const applyAccount = (account: SavedWithdrawalAccount) => {
+        setStepError(null);
+        setSelectedAccountId(account.id);
+        form.setData({
+            ...form.data,
+            payout_type: account.type,
+            network: account.network,
+            momo_number: account.account_number,
+            account_name: account.account_name,
+        });
+    };
+
     const setPayoutType = (type: 'momo' | 'bank') => {
         setStepError(null);
+        const saved = preferredAccount(withdrawalAccounts, type);
+        setSelectedAccountId(saved?.id ?? null);
         form.setData({
             ...form.data,
             payout_type: type,
-            network: type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn',
-            momo_number: type === 'momo' ? (auth.user?.mobile ?? '') : '',
-            account_name: '',
+            network: saved?.network ?? (type === 'bank' ? GHANA_BANKS[0]?.id ?? 'gcb' : 'mtn'),
+            momo_number: saved?.account_number ?? (type === 'momo' ? (auth.user?.mobile ?? '') : ''),
+            account_name: saved?.account_name ?? '',
         });
+    };
+
+    const saveAccount = () => {
+        if (!form.data.momo_number.trim() || !form.data.account_name.trim()) {
+            setStepError('Enter the number and the name on the account to save it.');
+            return;
+        }
+        setStepError(null);
+        router.post(
+            route('wallet.withdrawal-accounts.store'),
+            {
+                payout_type: form.data.payout_type,
+                network: form.data.network,
+                account_number: form.data.momo_number,
+                account_name: form.data.account_name,
+            },
+            {
+                preserveScroll: true,
+                onStart: () => setSavingAccount(true),
+                onFinish: () => setSavingAccount(false),
+            },
+        );
     };
 
     const submit: FormEventHandler = (e) => {
@@ -268,6 +323,39 @@ export default function BuyerWithdraw({
 
                                 <div className="space-y-3">
                                     <p className="text-[15px] font-extrabold text-gray-900">2. Where should the money go?</p>
+                                    {withdrawalAccounts.length > 0 && (
+                                        <div>
+                                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                                Saved withdrawal accounts
+                                            </p>
+                                            <div className="flex gap-3 overflow-x-auto pb-1">
+                                                {withdrawalAccounts.map((account) => {
+                                                    const selected =
+                                                        selectedAccountId === account.id ||
+                                                        (selectedAccountId === null &&
+                                                            account.account_number === form.data.momo_number &&
+                                                            account.account_name === form.data.account_name);
+                                                    return (
+                                                        <button
+                                                            key={account.id}
+                                                            type="button"
+                                                            onClick={() => applyAccount(account)}
+                                                            className={cn(
+                                                                'w-44 shrink-0 rounded-2xl px-4 py-4 text-left text-white transition',
+                                                                selected ? 'bg-sky-700 ring-2 ring-orange-400' : 'bg-sky-600 hover:bg-sky-700',
+                                                            )}
+                                                        >
+                                                            <p className="truncate text-base font-bold">{account.account_name}</p>
+                                                            <p className="mt-1 text-sm text-sky-100">{account.account_number}</p>
+                                                            <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-sky-200">
+                                                                {account.network_label}
+                                                            </p>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
                                     <div>
                                         <label className="mb-1 block text-sm text-gray-500">
                                             {form.data.payout_type === 'bank' ? 'Account number' : 'MoMo number'}
@@ -295,6 +383,19 @@ export default function BuyerWithdraw({
                                         />
                                         <InputError message={form.errors.account_name} />
                                     </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full"
+                                        disabled={savingAccount}
+                                        onClick={saveAccount}
+                                    >
+                                        {savingAccount && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                                        Add withdrawal account
+                                    </Button>
+                                    <p className="text-xs text-gray-500">
+                                        Saves this number and account name for the next withdrawal.
+                                    </p>
                                 </div>
 
                                 <div>

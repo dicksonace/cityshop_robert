@@ -16,6 +16,7 @@ use App\Services\PlatformSettings;
 use App\Services\RmbWalletGuard;
 use App\Services\WalletService;
 use App\Services\WalletTransactionService;
+use App\Services\WithdrawalAccountService;
 use App\Services\WithdrawalPayoutService;
 use App\Support\GhanaBanks;
 use App\Support\HostedGateways;
@@ -157,7 +158,38 @@ class WalletController extends Controller
             'hasPendingWithdrawal' => $hasPendingWithdrawal,
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
+            'withdrawalAccounts' => WithdrawalAccountService::listFor($request->user()),
         ]);
+    }
+
+    public function storeWithdrawalAccount(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isBuyer(), 403);
+
+        $validated = $request->validate([
+            'payout_type' => ['required', 'in:momo,bank'],
+            'network' => [
+                'required',
+                'string',
+                $request->input('payout_type') === 'bank'
+                    ? GhanaBanks::validationRule()
+                    : 'in:mtn,telecel,airteltigo',
+            ],
+            'account_number' => ['required', 'string', 'max:30'],
+            'account_name' => ['required', 'string', 'max:255', 'not_regex:/^\d+([.,]\d+)?$/'],
+        ], [
+            'account_name.not_regex' => 'Enter the name registered on the account, not a number.',
+        ]);
+
+        WithdrawalAccountService::remember(
+            $request->user(),
+            $validated['payout_type'],
+            $validated['network'],
+            $validated['account_number'],
+            $validated['account_name'],
+        );
+
+        return back()->with('success', 'Withdrawal account saved. It will be here next time.');
     }
 
     public function addFunds(Request $request): RedirectResponse|JsonResponse

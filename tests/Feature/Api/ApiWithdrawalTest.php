@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Enums\UserRole;
 use App\Enums\WalletTransactionType;
 use App\Enums\WithdrawalStatus;
+use App\Models\SellerPayoutMethod;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
@@ -55,6 +56,43 @@ class ApiWithdrawalTest extends TestCase
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.max', 25000)
             ->assertJsonPath('summary.withdrawal_fee.bank_tiers.1.fee', 20)
             ->assertJsonCount(0, 'data');
+    }
+
+    public function test_a_withdrawal_account_is_saved_with_the_name_and_listed_next_time(): void
+    {
+        $buyer = $this->buyerWithBalance(200);
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson('/api/v1/wallet/withdrawal-accounts', [
+            'payout_type' => 'momo',
+            'network' => 'mtn',
+            'account_number' => '0539790093',
+            'account_name' => 'Robert Asare',
+        ])->assertCreated()
+            ->assertJsonPath('data.account_name', 'Robert Asare')
+            ->assertJsonPath('data.account_number', '0539790093')
+            ->assertJsonPath('data.network', 'mtn');
+
+        $this->getJson('/api/v1/wallet/withdrawals')
+            ->assertOk()
+            ->assertJsonPath('summary.withdrawal_accounts.0.account_name', 'Robert Asare')
+            ->assertJsonPath('summary.withdrawal_accounts.0.account_number', '0539790093');
+
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload([
+            'amount' => 20,
+            'momo_number' => '0591456140',
+            'account_name' => 'Frpgh',
+            'network' => 'mtn',
+        ]))->assertCreated();
+
+        $this->assertDatabaseHas('seller_payout_methods', [
+            'user_id' => $buyer->id,
+            'account_number' => '0591456140',
+            'account_name' => 'Frpgh',
+        ]);
+
+        $this->assertSame(2, SellerPayoutMethod::where('user_id', $buyer->id)->count());
     }
 
     public function test_a_request_debits_the_available_balance_and_writes_the_ledger(): void

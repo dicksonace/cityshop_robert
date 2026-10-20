@@ -60,9 +60,17 @@ class WithdrawalRequestService
                 throw new \InvalidArgumentException($message);
             }
 
+            $savedAccount = WithdrawalAccountService::remember(
+                $user,
+                $payoutType,
+                (string) $data['network'],
+                (string) $data['momo_number'],
+                (string) $data['account_name'],
+            );
+
             $withdrawal = Withdrawal::create([
                 'user_id' => $user->id,
-                'payout_method_id' => $data['payout_method_id'] ?? null,
+                'payout_method_id' => $data['payout_method_id'] ?? $savedAccount->id,
                 'amount' => $amount,
                 'fee' => $fee,
                 'momo_number' => $data['momo_number'],

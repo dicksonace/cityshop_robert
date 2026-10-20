@@ -379,7 +379,7 @@ export default function SellerWallet({
                                                 : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
                                         )}
                                     >
-                                        {isBank ? 'Bank' : 'MoMo'} · {payoutNetworkLabel(method.network)} · {method.account_number}
+                                        {method.account_name || (isBank ? 'Bank' : 'MoMo')} · {method.account_number}
                                     </button>
                                 );
                             })}

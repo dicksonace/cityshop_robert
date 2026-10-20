@@ -516,6 +516,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/wallet/withdrawals', [WalletController::class, 'withdrawals']);
         Route::get('/wallet/withdrawals/{withdrawal}', [WalletController::class, 'showWithdrawal']);
         Route::post('/wallet/withdraw', [WalletController::class, 'withdraw']);
+        Route::post('/wallet/withdrawal-accounts', [WalletController::class, 'storeWithdrawalAccount']);
         Route::get('/wallet/manual-funding', [WalletController::class, 'manualFunding']);
         Route::post('/wallet/manual-top-up', [WalletController::class, 'manualTopUp']);
         Route::get('/wallet/manual-top-up/{topUp}', [WalletController::class, 'showManualTopUp']);
