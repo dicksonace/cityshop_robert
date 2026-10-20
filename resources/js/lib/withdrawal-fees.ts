@@ -56,25 +56,26 @@ export function feeForPayoutType(
     if (settings.mode === 'percent' && percent > 0) {
         return Math.round(amt * (percent / 100) * 100) / 100;
     }
-    if (payoutType === 'momo' && settings.applies_to !== 'none') {
-        const tiers = settings.momo_tiers ?? [];
-        if (tiers.length > 0) {
+    if (settings.applies_to === 'none') return 0;
+    if (payoutType === 'momo') {
+        const tiers = settings.momo_tiers;
+        if (tiers && tiers.length > 0) {
             return feeFromTiers(amt, tiers, 0);
         }
         const momoPercent = Number(settings.momo_percent) || 0;
         if (momoPercent > 0) {
             return Math.round(amt * (momoPercent / 100) * 100) / 100;
         }
-    }
-    if (!settings.enabled && settings.mode !== 'percent') return 0;
-    if (settings.applies_to === 'none') return 0;
-    if (payoutType === 'momo') {
-        const tiers = settings.momo_tiers ?? [];
-        if (tiers.length > 0) {
-            return feeFromTiers(amt, tiers, 0);
-        }
         const momo = momoFeeAmount(settings);
-        return momo > 0 ? momo : 0;
+        if (momo > 0) return momo;
+        if (tiers == null) {
+            return feeFromTiers(amt, [
+                { min: 1, max: 49.99, fee: 0.5, mode: 'flat' },
+                { min: 50, max: 1999.99, fee: 1, mode: 'percent' },
+                { min: 2000, max: null, fee: 20, mode: 'flat' },
+            ], 0);
+        }
+        return 0;
     }
     if (!(settings.applies_to === 'all' || settings.applies_to === 'bank')) return 0;
     const defaultTiers: FeeTier[] = [

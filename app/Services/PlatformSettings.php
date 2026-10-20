@@ -1273,7 +1273,7 @@ class PlatformSettings
             return (float) $settings['momo_amount'] > 0 ? (float) $settings['momo_amount'] : 0.0;
         }
 
-        if (! $settings['enabled'] || $settings['applies_to'] === 'none') {
+        if ($settings['applies_to'] === 'none') {
             return 0.0;
         }
 
