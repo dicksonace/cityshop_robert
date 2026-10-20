@@ -54,7 +54,6 @@ class DashboardController extends Controller
             'paystackFee' => $this->paystack->rechargeFeePayload(),
             'manualTopUpEnabled' => $funding['enabled'] && count($funding['accounts']) > 0,
             'isLive' => LiveStreamService::currentForSeller($seller) !== null,
-            'canUseRmbWallet' => (bool) $seller->canUseRmbWallet(),
         ]);
     }
 

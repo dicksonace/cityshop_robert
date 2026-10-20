@@ -286,7 +286,6 @@ export default function SellerWallet({
                     manualTopUpEnabled={manualTopUpEnabled}
                     manualFundingAccounts={manualFundingAccounts}
                     paystackFee={paystackFee}
-                    chinaRmbHref={canUseRmbWallet ? route('wallet.china-rmb.index') : undefined}
                 />
             </div>
 
@@ -427,18 +426,14 @@ export default function SellerWallet({
                                         </button>
                                     ))}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setPayoutType('china')}
-                                    className={cn(
-                                        'mt-2 w-full rounded-xl border-2 px-3 py-3 text-sm font-semibold transition',
-                                        isChinaTransfer
-                                            ? 'border-orange-500 bg-orange-50 text-orange-800'
-                                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
-                                    )}
-                                >
-                                    Transfer to China
-                                </button>
+                                {canUseRmbWallet && (
+                                    <Link
+                                        href={route('wallet.china-rmb.index')}
+                                        className="mt-2 flex w-full items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-300"
+                                    >
+                                        China / RMB
+                                    </Link>
+                                )}
                                 <InputError message={withdrawForm.errors.payout_type} />
                             </div>
                             {!isChinaTransfer && (

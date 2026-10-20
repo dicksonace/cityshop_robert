@@ -71,7 +71,6 @@ interface DashboardProps {
     manualTopUpEnabled?: boolean;
     paystackFee?: PaystackFeeSettings | null;
     isLive?: boolean;
-    canUseRmbWallet?: boolean;
 }
 
 export default function SellerDashboard({
@@ -91,7 +90,6 @@ export default function SellerDashboard({
     manualTopUpEnabled = false,
     paystackFee,
     isLive = false,
-    canUseRmbWallet = false,
 }: DashboardProps) {
     const livestreamEnabled = usePage<SharedData>().props.livestreamEnabled === true;
     const chat = useChatOptional();
@@ -200,7 +198,6 @@ export default function SellerDashboard({
                     junipayConfigured={junipayConfigured}
                     manualTopUpEnabled={manualTopUpEnabled}
                     paystackFee={paystackFee}
-                    chinaRmbHref={canUseRmbWallet ? route('wallet.china-rmb.index') : undefined}
                 />
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:col-span-3 lg:grid-cols-2">
