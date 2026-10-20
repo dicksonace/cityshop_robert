@@ -81,6 +81,8 @@ class BuyerController extends Controller
                 'orders_count' => (int) $buyer->orders_count,
                 'is_blocked' => $buyer->isBlocked(),
                 'china_rmb_enabled' => (bool) $buyer->china_rmb_enabled,
+                'withdrawal_restricted' => (bool) $buyer->withdrawal_restricted,
+                'withdrawal_restriction_note' => $buyer->withdrawal_restriction_note,
                 'block_reason' => $buyer->block_reason,
                 'blocked_at' => $buyer->blocked_at?->toIso8601String(),
             ],
@@ -143,6 +145,25 @@ class BuyerController extends Controller
             $buyer->china_rmb_enabled
                 ? 'China / RMB enabled for this buyer.'
                 : 'China / RMB disabled for this buyer.',
+        );
+    }
+
+    public function setWithdrawalRestriction(Request $request, User $buyer): RedirectResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'restricted' => ['required', 'boolean'],
+            'note' => ['nullable', 'string', 'max:1000', 'required_if:restricted,true'],
+        ], [
+            'note.required_if' => 'Write the message this person will see.',
+        ]);
+        $buyer->setWithdrawalRestriction((bool) $validated['restricted'], $validated['note'] ?? null);
+
+        return back()->with(
+            'success',
+            $buyer->withdrawal_restricted
+                ? 'Withdrawals are restricted for this buyer.'
+                : 'Withdrawal restriction removed for this buyer.',
         );
     }
 

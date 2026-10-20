@@ -33,6 +33,8 @@ interface BuyerWithdrawProps {
     withdrawalFee?: WithdrawalFeeSettings;
     hasPaymentPin?: boolean;
     withdrawalAccounts?: SavedWithdrawalAccount[];
+    withdrawalRestricted?: boolean;
+    withdrawalRestrictionNote?: string | null;
 }
 
 function preferredAccount(accounts: SavedWithdrawalAccount[], type: 'momo' | 'bank'): SavedWithdrawalAccount | undefined {
@@ -72,6 +74,8 @@ export default function BuyerWithdraw({
     withdrawalFee,
     hasPaymentPin = false,
     withdrawalAccounts = [],
+    withdrawalRestricted = false,
+    withdrawalRestrictionNote = null,
 }: BuyerWithdrawProps) {
     const { auth, flash } = usePage<SharedData>().props;
     const [step, setStep] = useState<'form' | 'review'>('form');
@@ -152,6 +156,10 @@ export default function BuyerWithdraw({
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+        if (withdrawalRestricted) {
+            setStepError(withdrawalRestrictionNote || 'Withdrawals are restricted on this account.');
+            return;
+        }
         setStepError(null);
 
         if (step === 'form') {
@@ -242,6 +250,15 @@ export default function BuyerWithdraw({
                         </button>
                     )}
                 </div>
+
+                {withdrawalRestricted && (
+                    <div className="mt-4 rounded-[14px] border border-red-200 bg-red-50 p-3.5 text-red-900">
+                        <p className="font-extrabold">Restricted 🚫</p>
+                        <p className="mt-1 text-[13px] leading-snug">
+                            {withdrawalRestrictionNote || 'Withdrawals are restricted on this account. Contact CityShop support.'}
+                        </p>
+                    </div>
+                )}
 
                 {hasPendingWithdrawal && (
                     <div className="mt-4 rounded-[14px] border border-amber-200 bg-amber-50 p-3.5 text-amber-900">
@@ -500,7 +517,7 @@ export default function BuyerWithdraw({
                             )}
                             <Button
                                 type="submit"
-                                disabled={form.processing || (step === 'form' && balanceOverLimit) || (step === 'review' && !hasPaymentPin)}
+                                disabled={form.processing || withdrawalRestricted || (step === 'form' && balanceOverLimit) || (step === 'review' && !hasPaymentPin)}
                                 className="h-[52px] flex-1 bg-orange-500 text-[15px] font-extrabold hover:bg-orange-600"
                             >
                                 {form.processing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}

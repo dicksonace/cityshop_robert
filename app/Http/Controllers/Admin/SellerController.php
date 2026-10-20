@@ -244,6 +244,26 @@ class SellerController extends Controller
         );
     }
 
+    public function setWithdrawalRestriction(Request $request, SellerProfile $seller): RedirectResponse
+    {
+        $seller->loadMissing('user');
+        abort_unless($seller->user, 404);
+        $validated = $request->validate([
+            'restricted' => ['required', 'boolean'],
+            'note' => ['nullable', 'string', 'max:1000', 'required_if:restricted,true'],
+        ], [
+            'note.required_if' => 'Write the message this person will see.',
+        ]);
+        $seller->user->setWithdrawalRestriction((bool) $validated['restricted'], $validated['note'] ?? null);
+
+        return back()->with(
+            'success',
+            $seller->user->withdrawal_restricted
+                ? 'Withdrawals are restricted for this seller.'
+                : 'Withdrawal restriction removed for this seller.',
+        );
+    }
+
     public function destroy(Request $request, SellerProfile $seller, SellerAccountService $accounts): RedirectResponse
     {
         $validated = $request->validate([

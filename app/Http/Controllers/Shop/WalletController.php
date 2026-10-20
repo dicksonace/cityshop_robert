@@ -159,6 +159,8 @@ class WalletController extends Controller
             'withdrawalFee' => PlatformSettings::withdrawalFeePayload(),
             'hasPaymentPin' => PaymentPinService::hasPin($request->user()),
             'withdrawalAccounts' => WithdrawalAccountService::listFor($request->user()),
+            'withdrawalRestricted' => (bool) $request->user()->withdrawal_restricted,
+            'withdrawalRestrictionNote' => $request->user()->withdrawalRestrictionMessage(),
         ]);
     }
 

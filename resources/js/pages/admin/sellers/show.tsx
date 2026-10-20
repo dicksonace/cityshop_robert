@@ -5,6 +5,7 @@ import { useState } from 'react';
 import SellerAccountActions from '@/components/admin/seller-account-actions';
 import SellerInformationForm from '@/components/admin/seller-information-form';
 import ChinaRmbAccessToggle from '@/components/admin/china-rmb-access-toggle';
+import WithdrawalRestrictionForm from '@/components/admin/withdrawal-restriction-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AdminLayout from '@/layouts/admin-layout';
@@ -50,6 +51,8 @@ interface SellerShowProps {
             residential_address?: string;
             ghana_card_number?: string;
             china_rmb_enabled?: boolean;
+            withdrawal_restricted?: boolean;
+            withdrawal_restriction_note?: string | null;
         };
         shop_photo?: string;
         id_card_front?: string;
@@ -211,6 +214,14 @@ export default function SellerShow({
                     enabled={seller.user.china_rmb_enabled === true}
                     action={route('admin.sellers.china-rmb', seller.id)}
                 />
+                <div className="mt-3">
+                    <WithdrawalRestrictionForm
+                        key={`${seller.user.withdrawal_restricted}-${seller.user.withdrawal_restriction_note ?? ''}`}
+                        restricted={seller.user.withdrawal_restricted === true}
+                        note={seller.user.withdrawal_restriction_note}
+                        action={route('admin.sellers.withdrawal-restriction', seller.id)}
+                    />
+                </div>
             </div>
 
             <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">

@@ -199,6 +199,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/sellers/{seller}/block', [AdminSellerController::class, 'block']);
             Route::post('/sellers/{seller}/unblock', [AdminSellerController::class, 'unblock']);
             Route::post('/sellers/{seller}/china-rmb', [AdminSellerController::class, 'setChinaRmb']);
+            Route::post('/sellers/{seller}/withdrawal-restriction', [AdminSellerController::class, 'setWithdrawalRestriction']);
             Route::post('/sellers/{seller}/activation/prompt', [AdminSellerController::class, 'promptActivation']);
             Route::post('/sellers/{seller}/activation/waive', [AdminSellerController::class, 'waiveActivation']);
             Route::post('/sellers/{seller}/activation/end', [AdminSellerController::class, 'endActivation']);
@@ -257,6 +258,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/buyers/{buyer}/block', [AdminBuyerController::class, 'block']);
             Route::post('/buyers/{buyer}/unblock', [AdminBuyerController::class, 'unblock']);
             Route::post('/buyers/{buyer}/china-rmb', [AdminBuyerController::class, 'setChinaRmb']);
+            Route::post('/buyers/{buyer}/withdrawal-restriction', [AdminBuyerController::class, 'setWithdrawalRestriction']);
             Route::delete('/buyers/{buyer}', [AdminBuyerController::class, 'destroy']);
 
             Route::get('/kyc', [AdminKycController::class, 'index']);

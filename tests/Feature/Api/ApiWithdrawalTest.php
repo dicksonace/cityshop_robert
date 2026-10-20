@@ -95,6 +95,23 @@ class ApiWithdrawalTest extends TestCase
         $this->assertSame(2, SellerPayoutMethod::where('user_id', $buyer->id)->count());
     }
 
+    public function test_a_restricted_account_cannot_withdraw_and_sees_the_admin_note(): void
+    {
+        $buyer = $this->buyerWithBalance(200);
+        $buyer->setWithdrawalRestriction(true, 'Call support before your next cash out.');
+
+        Sanctum::actingAs($buyer);
+
+        $this->getJson('/api/v1/wallet/withdrawals')
+            ->assertOk()
+            ->assertJsonPath('summary.withdrawal_restricted', true)
+            ->assertJsonPath('summary.withdrawal_restriction_note', 'Call support before your next cash out.');
+
+        $this->postJson('/api/v1/wallet/withdraw', $this->withdrawPayload())
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Call support before your next cash out.');
+    }
+
     public function test_a_request_debits_the_available_balance_and_writes_the_ledger(): void
     {
         Notification::fake();

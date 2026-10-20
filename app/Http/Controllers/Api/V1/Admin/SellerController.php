@@ -142,6 +142,26 @@ class SellerController extends Controller
         ]);
     }
 
+    public function setWithdrawalRestriction(Request $request, SellerProfile $seller): JsonResponse
+    {
+        $seller->loadMissing('user');
+        abort_unless($seller->user, 404);
+        $validated = $request->validate([
+            'restricted' => ['required', 'boolean'],
+            'note' => ['nullable', 'string', 'max:1000', 'required_if:restricted,true'],
+        ], [
+            'note.required_if' => 'Write the message this person will see.',
+        ]);
+        $seller->user->setWithdrawalRestriction((bool) $validated['restricted'], $validated['note'] ?? null);
+
+        return response()->json([
+            'message' => $seller->user->withdrawal_restricted
+                ? 'Withdrawals are restricted for this seller.'
+                : 'Withdrawal restriction removed for this seller.',
+            'data' => $this->serialize($seller->fresh('user'), detailed: true),
+        ]);
+    }
+
     public function promptActivation(Request $request, SellerProfile $seller, SellerActivationService $activation): JsonResponse
     {
         $validated = $request->validate([
@@ -319,6 +339,8 @@ class SellerController extends Controller
                 'email' => $seller->user->email,
                 'mobile' => $seller->user->mobile,
                 'china_rmb_enabled' => (bool) $seller->user->china_rmb_enabled,
+                'withdrawal_restricted' => (bool) $seller->user->withdrawal_restricted,
+                'withdrawal_restriction_note' => $seller->user->withdrawal_restriction_note,
             ] : null,
         ];
 
@@ -348,6 +370,8 @@ class SellerController extends Controller
                 'city' => $seller->user->city,
                 'residential_address' => $seller->user->residential_address,
                 'china_rmb_enabled' => (bool) $seller->user->china_rmb_enabled,
+                'withdrawal_restricted' => (bool) $seller->user->withdrawal_restricted,
+                'withdrawal_restriction_note' => $seller->user->withdrawal_restriction_note,
             ] : null;
             $payload['payment_methods'] = $seller->paymentMethods()
                 ->withTrashed()

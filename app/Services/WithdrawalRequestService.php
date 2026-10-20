@@ -31,6 +31,10 @@ class WithdrawalRequestService
      */
     public function submit(User $user, array $data): array
     {
+        if ($message = $user->withdrawalRestrictionMessage()) {
+            throw new \InvalidArgumentException($message);
+        }
+
         $amount = round((float) $data['amount'], 2);
         $payoutType = ($data['payout_type'] ?? '') === 'bank' ? 'bank' : 'momo';
         $fee = PlatformSettings::feeForWithdrawal($amount, $payoutType);

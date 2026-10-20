@@ -55,6 +55,8 @@ interface WalletProps {
     withdrawalFee?: WithdrawalFeeSettings;
     hasPaymentPin?: boolean;
     canUseRmbWallet?: boolean;
+    withdrawalRestricted?: boolean;
+    withdrawalRestrictionNote?: string | null;
     kyc?: { can_store_funds?: boolean };
 }
 
@@ -89,6 +91,8 @@ export default function SellerWallet({
     withdrawalFee,
     hasPaymentPin = false,
     canUseRmbWallet = false,
+    withdrawalRestricted = false,
+    withdrawalRestrictionNote = null,
     kyc,
 }: WalletProps) {
     const { auth } = usePage<SharedData>().props;
@@ -203,6 +207,10 @@ export default function SellerWallet({
 
     const submitWithdraw: FormEventHandler = (e) => {
         e.preventDefault();
+        if (withdrawalRestricted) {
+            setStepError(withdrawalRestrictionNote || 'Withdrawals are restricted on this account.');
+            return;
+        }
         setStepError(null);
         if (withdrawStep === 'details') {
             if (isChinaTransfer) {
@@ -353,6 +361,15 @@ export default function SellerWallet({
                         Withdraw all
                     </Button>
                 </div>
+
+                {withdrawalRestricted ? (
+                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                        <p className="font-extrabold">Restricted 🚫</p>
+                        <p className="mt-1">
+                            {withdrawalRestrictionNote || 'Withdrawals are restricted on this account. Contact CityShop support.'}
+                        </p>
+                    </div>
+                ) : null}
 
                 {hasPendingWithdrawal ? (
                     <p className="mb-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
@@ -653,6 +670,7 @@ export default function SellerWallet({
                             type="submit"
                             disabled={
                                 withdrawForm.processing ||
+                                withdrawalRestricted ||
                                 availableBalance < 10 ||
                                 (withdrawStep === 'amount' && balanceOverLimit) ||
                                 (withdrawStep === 'review' && !hasPaymentPin)

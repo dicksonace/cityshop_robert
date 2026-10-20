@@ -155,6 +155,25 @@ class BuyerController extends Controller
         ]);
     }
 
+    public function setWithdrawalRestriction(Request $request, User $buyer): JsonResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'restricted' => ['required', 'boolean'],
+            'note' => ['nullable', 'string', 'max:1000', 'required_if:restricted,true'],
+        ], [
+            'note.required_if' => 'Write the message this person will see.',
+        ]);
+        $buyer->setWithdrawalRestriction((bool) $validated['restricted'], $validated['note'] ?? null);
+
+        return response()->json([
+            'message' => $buyer->withdrawal_restricted
+                ? 'Withdrawals are restricted for this buyer.'
+                : 'Withdrawal restriction removed for this buyer.',
+            'data' => $this->serialize($buyer->fresh(['wallet', 'latestKyc']), detailed: true),
+        ]);
+    }
+
     public function destroy(Request $request, User $buyer, BuyerAccountService $accounts): JsonResponse
     {
         abort_unless($buyer->isBuyer(), 404);
@@ -200,6 +219,8 @@ class BuyerController extends Controller
             'available_balance' => (float) ($wallet?->available_balance ?? 0),
             'is_blocked' => $buyer->isBlocked(),
             'china_rmb_enabled' => (bool) $buyer->china_rmb_enabled,
+            'withdrawal_restricted' => (bool) $buyer->withdrawal_restricted,
+            'withdrawal_restriction_note' => $buyer->withdrawal_restriction_note,
         ];
 
         if ($detailed) {

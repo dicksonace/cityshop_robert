@@ -39,6 +39,8 @@ class User extends Authenticatable
         'blocked_at',
         'block_reason',
         'china_rmb_enabled',
+        'withdrawal_restricted',
+        'withdrawal_restriction_note',
     ];
 
     protected $hidden = [
@@ -58,6 +60,7 @@ class User extends Authenticatable
             'last_seen_at' => 'datetime',
             'blocked_at' => 'datetime',
             'china_rmb_enabled' => 'boolean',
+            'withdrawal_restricted' => 'boolean',
             'password' => 'hashed',
             'role' => UserRole::class,
         ];
@@ -173,6 +176,29 @@ class User extends Authenticatable
     public function setChinaRmbEnabled(bool $enabled): void
     {
         $this->forceFill(['china_rmb_enabled' => $enabled])->save();
+    }
+
+    public function setWithdrawalRestriction(bool $restricted, ?string $note): void
+    {
+        $note = trim((string) $note);
+        $this->forceFill([
+            'withdrawal_restricted' => $restricted,
+            'withdrawal_restriction_note' => $note !== '' ? $note : null,
+        ])->save();
+    }
+
+    /**
+     * Message shown on the withdraw screen when this account cannot cash out.
+     */
+    public function withdrawalRestrictionMessage(): ?string
+    {
+        if (! $this->withdrawal_restricted) {
+            return null;
+        }
+
+        $note = trim((string) $this->withdrawal_restriction_note);
+
+        return $note !== '' ? $note : 'Withdrawals are restricted on this account. Contact CityShop support.';
     }
 
     public function isBlocked(): bool

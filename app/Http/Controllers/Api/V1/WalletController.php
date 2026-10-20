@@ -320,6 +320,8 @@ class WalletController extends Controller
                     ->all(),
                 'withdrawal_fee' => PlatformSettings::withdrawalFeePayload(),
                 'withdrawal_accounts' => WithdrawalAccountService::listFor($user),
+                'withdrawal_restricted' => (bool) $user->withdrawal_restricted,
+                'withdrawal_restriction_note' => $user->withdrawalRestrictionMessage(),
             ],
         ]);
     }
