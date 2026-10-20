@@ -276,6 +276,11 @@ class PlatformSettings
      */
     public static function resolvedMomoFeeTiers(array $settings): array
     {
+        // "Disable all flat fees" turns off the GH₵ bands. The MoMo percent is separate.
+        if (($settings['applies_to'] ?? '') === 'none') {
+            return [];
+        }
+
         if (is_array($settings['momo_tiers'] ?? null)) {
             return $settings['momo_tiers'];
         }
@@ -1259,10 +1264,16 @@ class PlatformSettings
     {
         $settings = static::withdrawalFeeSettings();
         $type = $payoutType === 'bank' ? 'bank' : 'momo';
-        if ($type === 'momo' && $settings['applies_to'] !== 'none') {
-            $tiers = static::resolvedMomoFeeTiers($settings);
-            if ($tiers !== []) {
-                return static::feeFromMomoTiers($amount, $tiers);
+        if ($type === 'momo') {
+            if ($settings['applies_to'] !== 'none') {
+                $tiers = static::resolvedMomoFeeTiers($settings);
+                if ($tiers !== []) {
+                    return static::feeFromMomoTiers($amount, $tiers);
+                }
+
+                if ((float) $settings['momo_amount'] > 0) {
+                    return (float) $settings['momo_amount'];
+                }
             }
 
             $percent = static::momoWithdrawalPercent();
@@ -1270,10 +1281,10 @@ class PlatformSettings
                 return max(0, round($amount * ($percent / 100), 2));
             }
 
-            return (float) $settings['momo_amount'] > 0 ? (float) $settings['momo_amount'] : 0.0;
+            return 0.0;
         }
 
-        if ($settings['applies_to'] === 'none') {
+        if (! $settings['enabled'] || $settings['applies_to'] === 'none') {
             return 0.0;
         }
 

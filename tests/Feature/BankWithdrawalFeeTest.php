@@ -209,6 +209,29 @@ class BankWithdrawalFeeTest extends TestCase
         $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(80, 'bank'));
     }
 
+    public function test_disabling_flat_fees_still_charges_the_momo_percent(): void
+    {
+        PlatformSettings::saveWithdrawalFeeSettings([
+            'enabled' => false,
+            'amount' => 10,
+            'momo_amount' => 0,
+            'applies_to' => 'none',
+            'bank_tiers' => PlatformSettings::defaultBankFeeTiers(),
+        ]);
+        PlatformSettings::saveAutoPaystackWithdrawSettings([
+            'enabled' => true,
+            'fee_mode' => 'percent',
+            'fee_percent' => 1.9,
+            'fee_flat' => 0,
+        ]);
+
+        $payload = PlatformSettings::withdrawalFeePayload();
+        $this->assertSame([], $payload['momo_tiers']);
+        $this->assertSame(1.9, (float) $payload['momo_percent']);
+        $this->assertSame(0.19, PlatformSettings::feeForWithdrawal(10, 'momo'));
+        $this->assertSame(0.0, PlatformSettings::feeForWithdrawal(500, 'bank'));
+    }
+
     public function test_saved_momo_bands_are_the_fee_on_the_review(): void
     {
         PlatformSettings::saveWithdrawalFeeSettings([

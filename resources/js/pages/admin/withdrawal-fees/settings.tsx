@@ -346,11 +346,11 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                         >
                             <option value="bank">Charge bank fee bands</option>
                             <option value="momo">Do not charge bank fees</option>
-                            <option value="none">Turn off bank and MoMo fees</option>
+                            <option value="none">Disable all flat fees</option>
                         </select>
                         <p className="mt-1 text-xs text-gray-500">
-                            Bank bands apply only to bank withdrawals. MoMo uses the bands above. “Turn off bank and
-                            MoMo fees” charges nothing on either.
+                            This turns off the flat GH₵ bank bands and the flat MoMo amount. The MoMo percent above
+                            still charges.
                         </p>
                         <InputError message={form.errors.applies_to} />
                     </div>
