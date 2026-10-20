@@ -315,23 +315,13 @@ export default function SellerWallet({
                 />
             </div>
 
-            {canUseRmbWallet && (
-                <div className="mb-6 grid grid-cols-2 gap-2">
-                    <Link
-                        href={route('wallet.china-rmb.index')}
-                        className="flex items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-3 text-center text-xs font-bold text-indigo-800 hover:bg-indigo-100"
-                    >
-                        China / RMB
-                    </Link>
-                    {!kyc?.can_store_funds && (
-                        <Link
-                            href={route('kyc.index')}
-                            className="flex items-center justify-center rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-900 hover:bg-amber-100"
-                        >
-                            Verify Ghana Card
-                        </Link>
-                    )}
-                </div>
+            {canUseRmbWallet && !kyc?.can_store_funds && (
+                <Link
+                    href={route('kyc.index')}
+                    className="mb-6 flex items-center justify-center rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-center text-xs font-bold text-amber-900 hover:bg-amber-100"
+                >
+                    Verify Ghana Card
+                </Link>
             )}
 
             <div className="mb-6 grid gap-4 sm:grid-cols-3">
@@ -469,14 +459,6 @@ export default function SellerWallet({
                                         </button>
                                     ))}
                                 </div>
-                                {canUseRmbWallet && (
-                                    <Link
-                                        href={route('wallet.china-rmb.index')}
-                                        className="mt-2 flex w-full items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-300"
-                                    >
-                                        China / RMB
-                                    </Link>
-                                )}
                                 <InputError message={withdrawForm.errors.payout_type} />
                             </div>
                             {!isChinaTransfer && (
