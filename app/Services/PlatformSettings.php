@@ -86,7 +86,8 @@ class PlatformSettings
      *   amount: float,
      *   momo_amount: float,
      *   applies_to: string,
-     *   bank_tiers: list<array{min: float, max: float|null, fee: float}>
+     *   bank_tiers: list<array{min: float, max: float|null, fee: float}>,
+     *   momo_tiers: list<array{min: float, max: float|null, fee: float, mode: string}>|null
      * }
      */
     public static function withdrawalFeeSettings(): array
@@ -103,6 +104,7 @@ class PlatformSettings
                 'momo_amount' => 0.0,
                 'applies_to' => 'bank',
                 'bank_tiers' => static::defaultBankFeeTiers(),
+                'momo_tiers' => null,
             ];
         }
 
@@ -127,6 +129,10 @@ class PlatformSettings
             'momo_amount' => static::resolveMomoFeeAmount($decoded, $appliesTo, $amount),
             'applies_to' => $appliesTo,
             'bank_tiers' => $bankTiers,
+            // null means admin has not saved MoMo bands yet. The standard schedule applies.
+            'momo_tiers' => array_key_exists('momo_tiers', $decoded)
+                ? static::normalizeMomoFeeTiers($decoded['momo_tiers'])
+                : null,
         ];
     }
 
@@ -174,6 +180,111 @@ class PlatformSettings
             ['min' => 10.0, 'max' => 999.99, 'fee' => 10.0],
             ['min' => 1000.0, 'max' => 25000.0, 'fee' => 20.0],
         ];
+    }
+
+    /**
+     * Ghana MoMo cash-out schedule used when admin has not saved bands.
+     * GH₵10 is GH₵0.50. GH₵100 is GH₵1. GH₵2,000 is GH₵20.
+     *
+     * @return list<array{min: float, max: float|null, fee: float, mode: string}>
+     */
+    public static function defaultMomoFeeTiers(): array
+    {
+        return [
+            ['min' => 1.0, 'max' => 49.99, 'fee' => 0.5, 'mode' => 'flat'],
+            ['min' => 50.0, 'max' => 1999.99, 'fee' => 1.0, 'mode' => 'percent'],
+            ['min' => 2000.0, 'max' => null, 'fee' => 20.0, 'mode' => 'flat'],
+        ];
+    }
+
+    /**
+     * @return list<array{min: float, max: float|null, fee: float, mode: string}>
+     */
+    public static function normalizeMomoFeeTiers(mixed $raw): array
+    {
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $tiers = [];
+        foreach ($raw as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $min = max(0, round((float) ($row['min'] ?? 0), 2));
+            $fee = max(0, round((float) ($row['fee'] ?? 0), 2));
+            $maxRaw = $row['max'] ?? null;
+            $max = $maxRaw === null || $maxRaw === '' ? null : max($min, round((float) $maxRaw, 2));
+            $mode = ($row['mode'] ?? '') === 'percent' ? 'percent' : 'flat';
+            $tiers[] = ['min' => $min, 'max' => $max, 'fee' => $fee, 'mode' => $mode];
+        }
+
+        usort($tiers, fn ($a, $b) => $a['min'] <=> $b['min']);
+
+        return array_values($tiers);
+    }
+
+    /**
+     * @param  list<array{min: float, max: float|null, fee: float, mode?: string}>  $tiers
+     */
+    public static function feeFromMomoTiers(float $amount, array $tiers): float
+    {
+        if ($amount <= 0 || $tiers === []) {
+            return 0.0;
+        }
+
+        $tier = null;
+        foreach ($tiers as $row) {
+            $min = (float) $row['min'];
+            $max = $row['max'];
+            if ($amount + 0.0001 >= $min && ($max === null || $amount <= ((float) $max) + 0.0001)) {
+                $tier = $row;
+                break;
+            }
+        }
+
+        if ($tier === null && $amount < (float) $tiers[0]['min']) {
+            $tier = $tiers[0];
+        }
+
+        if ($tier === null) {
+            for ($i = 0; $i < count($tiers) - 1; $i++) {
+                $currMax = $tiers[$i]['max'];
+                $nextMin = (float) $tiers[$i + 1]['min'];
+                if ($currMax !== null && $amount > (float) $currMax && $amount < $nextMin) {
+                    $tier = $tiers[$i + 1];
+                    break;
+                }
+            }
+        }
+
+        $tier ??= $tiers[array_key_last($tiers)];
+        $fee = (float) $tier['fee'];
+        if (($tier['mode'] ?? 'flat') === 'percent') {
+            return max(0, round($amount * ($fee / 100), 2));
+        }
+
+        return max(0, round($fee, 2));
+    }
+
+    /**
+     * Bands the customer is actually charged. Saved bands win. A saved percent
+     * or flat MoMo amount wins over the standard schedule.
+     *
+     * @param  array{momo_tiers: list<array{min: float, max: float|null, fee: float, mode: string}>|null, momo_amount: float}  $settings
+     * @return list<array{min: float, max: float|null, fee: float, mode: string}>
+     */
+    public static function resolvedMomoFeeTiers(array $settings): array
+    {
+        if (is_array($settings['momo_tiers'] ?? null)) {
+            return $settings['momo_tiers'];
+        }
+
+        if (static::momoWithdrawalPercent() > 0 || (float) ($settings['momo_amount'] ?? 0) > 0) {
+            return [];
+        }
+
+        return static::defaultMomoFeeTiers();
     }
 
     /**
@@ -289,7 +400,8 @@ class PlatformSettings
      *   amount?: float|int|string,
      *   momo_amount?: float|int|string,
      *   applies_to?: string,
-     *   bank_tiers?: list<array{min?: float|int|string, max?: float|int|string|null, fee?: float|int|string}>
+     *   bank_tiers?: list<array{min?: float|int|string, max?: float|int|string|null, fee?: float|int|string}>,
+     *   momo_tiers?: list<array{min?: float|int|string, max?: float|int|string|null, fee?: float|int|string, mode?: string}>
      * }  $data
      */
     public static function saveWithdrawalFeeSettings(array $data): void
@@ -309,13 +421,24 @@ class PlatformSettings
             $enabled = false;
         }
 
-        static::set(self::WITHDRAWAL_FEE_KEY, [
+        $stored = [
             'enabled' => $enabled,
             'amount' => max(0, round((float) ($data['amount'] ?? 0), 2)),
             'momo_amount' => max(0, round((float) ($data['momo_amount'] ?? 0), 2)),
             'applies_to' => $appliesTo,
             'bank_tiers' => $bankTiers,
-        ]);
+        ];
+        if (array_key_exists('momo_tiers', $data)) {
+            $stored['momo_tiers'] = static::normalizeMomoFeeTiers($data['momo_tiers']);
+        } else {
+            $previous = static::get(self::WITHDRAWAL_FEE_KEY);
+            $previous = is_array($previous) ? $previous : (is_string($previous) ? json_decode($previous, true) : null);
+            if (is_array($previous) && array_key_exists('momo_tiers', $previous)) {
+                $stored['momo_tiers'] = static::normalizeMomoFeeTiers($previous['momo_tiers']);
+            }
+        }
+
+        static::set(self::WITHDRAWAL_FEE_KEY, $stored);
     }
 
     /**
@@ -1137,13 +1260,14 @@ class PlatformSettings
         $settings = static::withdrawalFeeSettings();
         $type = $payoutType === 'bank' ? 'bank' : 'momo';
         if ($type === 'momo' && $settings['applies_to'] !== 'none') {
+            $tiers = static::resolvedMomoFeeTiers($settings);
+            if ($tiers !== []) {
+                return static::feeFromMomoTiers($amount, $tiers);
+            }
+
             $percent = static::momoWithdrawalPercent();
             if ($percent > 0) {
                 return max(0, round($amount * ($percent / 100), 2));
-            }
-
-            if (! $settings['enabled']) {
-                return 0.0;
             }
 
             return (float) $settings['momo_amount'] > 0 ? (float) $settings['momo_amount'] : 0.0;
@@ -1210,7 +1334,8 @@ class PlatformSettings
      *   applies_to: string,
      *   auto_paystack: bool,
      *   auto_junipay: bool,
-     *   bank_tiers: list<array{min: float, max: float|null, fee: float}>
+     *   bank_tiers: list<array{min: float, max: float|null, fee: float}>,
+     *   momo_tiers: list<array{min: float, max: float|null, fee: float, mode: string}>
      * }
      */
     public static function withdrawalFeePayload(): array
@@ -1230,6 +1355,7 @@ class PlatformSettings
             'auto_paystack' => (bool) $auto['enabled'],
             'auto_junipay' => static::junipayAutoPayout(),
             'bank_tiers' => $flat['bank_tiers'],
+            'momo_tiers' => static::resolvedMomoFeeTiers($flat),
         ];
     }
 

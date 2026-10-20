@@ -1,23 +1,35 @@
 import type { WithdrawalFeeSettings } from '@/components/wallet/withdrawal-fee-notice';
 
-type BankFeeTiers = NonNullable<WithdrawalFeeSettings['bank_tiers']>;
+type FeeTier = { min: number; max: number | null; fee: number; mode?: 'flat' | 'percent' };
 
-function feeFromBankTiers(amount: number, tiers: BankFeeTiers, fallback = 0): number {
+function feeFromTiers(amount: number, tiers: FeeTier[], fallback = 0): number {
     if (amount <= 0 || tiers.length === 0) return Math.max(0, fallback);
-    for (const tier of tiers) {
-        if (amount + 0.0001 >= tier.min && (tier.max == null || amount <= tier.max + 0.0001)) {
-            return Number(tier.fee) || 0;
+    let tier: FeeTier | undefined;
+    for (const row of tiers) {
+        if (amount + 0.0001 >= row.min && (row.max == null || amount <= row.max + 0.0001)) {
+            tier = row;
+            break;
         }
     }
-    if (amount < tiers[0].min) return Number(tiers[0].fee) || 0;
-    for (let i = 0; i < tiers.length - 1; i++) {
-        const currMax = tiers[i].max;
-        const nextMin = tiers[i + 1].min;
-        if (currMax != null && amount > currMax && amount < nextMin) {
-            return Number(tiers[i + 1].fee) || 0;
+    if (!tier) {
+        if (amount < tiers[0].min) tier = tiers[0];
+        else {
+            for (let i = 0; i < tiers.length - 1; i++) {
+                const currMax = tiers[i].max;
+                const nextMin = tiers[i + 1].min;
+                if (currMax != null && amount > currMax && amount < nextMin) {
+                    tier = tiers[i + 1];
+                    break;
+                }
+            }
+            tier = tier ?? tiers[tiers.length - 1];
         }
     }
-    return Number(tiers[tiers.length - 1].fee) || 0;
+    const fee = Number(tier.fee) || 0;
+    if (tier.mode === 'percent') {
+        return Math.round(amount * (fee / 100) * 100) / 100;
+    }
+    return fee;
 }
 
 function momoFeeAmount(settings: WithdrawalFeeSettings): number {
@@ -45,6 +57,10 @@ export function feeForPayoutType(
         return Math.round(amt * (percent / 100) * 100) / 100;
     }
     if (payoutType === 'momo' && settings.applies_to !== 'none') {
+        const tiers = settings.momo_tiers ?? [];
+        if (tiers.length > 0) {
+            return feeFromTiers(amt, tiers, 0);
+        }
         const momoPercent = Number(settings.momo_percent) || 0;
         if (momoPercent > 0) {
             return Math.round(amt * (momoPercent / 100) * 100) / 100;
@@ -53,16 +69,20 @@ export function feeForPayoutType(
     if (!settings.enabled && settings.mode !== 'percent') return 0;
     if (settings.applies_to === 'none') return 0;
     if (payoutType === 'momo') {
+        const tiers = settings.momo_tiers ?? [];
+        if (tiers.length > 0) {
+            return feeFromTiers(amt, tiers, 0);
+        }
         const momo = momoFeeAmount(settings);
         return momo > 0 ? momo : 0;
     }
     if (!(settings.applies_to === 'all' || settings.applies_to === 'bank')) return 0;
-    const defaultTiers: BankFeeTiers = [
+    const defaultTiers: FeeTier[] = [
         { min: 10, max: 999.99, fee: 10 },
         { min: 1000, max: 25000, fee: 20 },
     ];
     const tiers = (settings.bank_tiers?.length ?? 0) > 0 ? settings.bank_tiers! : defaultTiers;
-    return feeFromBankTiers(amt, tiers, Number(settings.amount) || 0);
+    return feeFromTiers(amt, tiers, Number(settings.amount) || 0);
 }
 
 export function maxWithdrawableAmount(

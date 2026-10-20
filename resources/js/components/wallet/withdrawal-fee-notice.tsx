@@ -11,6 +11,7 @@ export type WithdrawalFeeSettings = {
     auto_paystack?: boolean;
     auto_junipay?: boolean;
     bank_tiers?: { min: number; max: number | null; fee: number }[];
+    momo_tiers?: { min: number; max: number | null; fee: number; mode?: 'flat' | 'percent' }[];
 };
 
 function formatGhc(value: number): string {

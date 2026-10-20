@@ -10,6 +10,7 @@ import AdminLayout from '@/layouts/admin-layout';
 import { SharedData } from '@/types';
 
 type BankTier = { min: string; max: string; fee: string };
+type MomoTier = { min: string; max: string; fee: string; mode: 'flat' | 'percent' };
 
 interface Props {
     settings: {
@@ -18,6 +19,7 @@ interface Props {
         momo_amount?: number;
         applies_to: 'bank' | 'momo' | 'all' | 'none';
         bank_tiers?: { min: number; max: number | null; fee: number }[];
+        momo_tiers?: { min: number; max: number | null; fee: number; mode?: 'flat' | 'percent' }[] | null;
     };
     autoPaystack: {
         enabled: boolean;
@@ -41,14 +43,31 @@ function tiersFromSettings(settings: Props['settings']): BankTier[] {
     }));
 }
 
+function momoTiersFromSettings(settings: Props['settings']): MomoTier[] {
+    const rows = settings.momo_tiers == null
+        ? [
+              { min: 1, max: 49.99, mode: 'flat' as const, fee: 0.5 },
+              { min: 50, max: 1999.99, mode: 'percent' as const, fee: 1 },
+              { min: 2000, max: null, mode: 'flat' as const, fee: 20 },
+          ]
+        : settings.momo_tiers;
+    return rows.map((t) => ({
+        min: String(t.min ?? 0),
+        max: t.max == null ? '' : String(t.max),
+        fee: String(t.fee ?? 0),
+        mode: t.mode === 'percent' ? 'percent' : 'flat',
+    }));
+}
+
 export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props) {
     const { flash } = usePage<SharedData>().props;
     const form = useForm({
         enabled: settings.enabled,
         amount: String(settings.amount ?? 10),
-        momo_amount: String(settings.momo_amount ?? 0),
+        momo_amount: '0',
         applies_to: settings.applies_to === 'all' ? 'bank' : (settings.applies_to ?? 'bank'),
         bank_tiers: tiersFromSettings(settings),
+        momo_tiers: momoTiersFromSettings(settings),
         auto_paystack_enabled: autoPaystack?.enabled ?? false,
         auto_paystack_fee_mode: (autoPaystack?.fee_mode === 'percent' ? 'percent' : 'flat') as 'flat' | 'percent',
         auto_paystack_fee_flat: String(autoPaystack?.fee_flat ?? 1),
@@ -64,8 +83,19 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                 max: t.max.trim() === '' ? null : Number(t.max),
                 fee: Number(t.fee) || 0,
             })),
+            momo_tiers: data.momo_tiers.map((t) => ({
+                min: Number(t.min) || 0,
+                max: t.max.trim() === '' ? null : Number(t.max),
+                fee: Number(t.fee) || 0,
+                mode: t.mode === 'percent' ? 'percent' : 'flat',
+            })),
         }));
         form.post(route('admin.withdrawal-fees.settings.update'), { preserveScroll: true });
+    };
+
+    const updateMomoTier = (index: number, key: keyof MomoTier, value: string) => {
+        const next = form.data.momo_tiers.map((row, i) => (i === index ? { ...row, [key]: value } : row));
+        form.setData('momo_tiers', next);
     };
 
     const updateTier = (index: number, key: keyof BankTier, value: string) => {
@@ -81,8 +111,8 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                 <div>
                     <h1 className="text-xl font-bold text-gray-900">Withdrawal settings</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Control Paystack auto-payouts, bank fee bands, and MoMo withdrawal fees. MoMo is free unless you
-                        add a fee here.
+                        Control Paystack auto-payouts, bank fee bands, and MoMo withdrawal fees. MoMo uses the Ghana
+                        cash-out schedule (amount bands). Paystack’s own transfer cost is separate.
                     </p>
                 </div>
 
@@ -205,23 +235,99 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                         </div>
                     )}
 
-                    <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50/50 p-4">
+                    <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-4">
                         <div>
-                            <p className="text-sm font-semibold text-gray-900">MoMo withdrawal fee (GH₵)</p>
+                            <p className="text-sm font-semibold text-gray-900">MoMo withdrawal fees</p>
                             <p className="mt-0.5 text-xs text-gray-600">
-                                Default is GH₵0 (free). Enter an amount only if you want to charge MoMo withdrawals.
+                                Same shape as MTN, Telecel and AT Money cash-out: GH₵0.50 from GH₵1 to GH₵49.99, 1% from
+                                GH₵50 to GH₵1,999.99, then GH₵20 from GH₵2,000. A GH₵10 withdrawal is GH₵0.50. A GH₵100
+                                withdrawal is GH₵1. Paystack charges CityShop GH₵1 per MoMo transfer and GH₵8 per bank
+                                transfer from the Paystack balance. That cost is not this customer fee.
                             </p>
                         </div>
-                        <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={form.data.momo_amount}
-                            onChange={(e) => form.setData('momo_amount', e.target.value)}
-                            className="mt-1 bg-white"
-                            required
-                        />
-                        <InputError message={form.errors.momo_amount} />
+
+                        {form.data.momo_tiers.map((tier, index) => (
+                            <div key={index} className="grid gap-2 rounded-lg border border-sky-100 bg-white p-3 sm:grid-cols-[1fr_1fr_auto_1fr_auto]">
+                                <div>
+                                    <Label className="text-xs">From (GH₵)</Label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={tier.min}
+                                        onChange={(e) => updateMomoTier(index, 'min', e.target.value)}
+                                        className="mt-1"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <Label className="text-xs">To (GH₵)</Label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={tier.max}
+                                        onChange={(e) => updateMomoTier(index, 'max', e.target.value)}
+                                        className="mt-1"
+                                        placeholder="No max"
+                                    />
+                                </div>
+                                <div>
+                                    <Label className="text-xs">Type</Label>
+                                    <select
+                                        value={tier.mode}
+                                        onChange={(e) => updateMomoTier(index, 'mode', e.target.value)}
+                                        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                                    >
+                                        <option value="flat">Flat GH₵</option>
+                                        <option value="percent">Percent</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label className="text-xs">{tier.mode === 'percent' ? 'Fee (%)' : 'Fee (GH₵)'}</Label>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={tier.fee}
+                                        onChange={(e) => updateMomoTier(index, 'fee', e.target.value)}
+                                        className="mt-1"
+                                        required
+                                    />
+                                </div>
+                                <div className="flex items-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full text-red-600"
+                                        disabled={form.data.momo_tiers.length <= 1}
+                                        onClick={() =>
+                                            form.setData(
+                                                'momo_tiers',
+                                                form.data.momo_tiers.filter((_, i) => i !== index),
+                                            )
+                                        }
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                form.setData('momo_tiers', [
+                                    ...form.data.momo_tiers,
+                                    { min: '', max: '', fee: '', mode: 'flat' },
+                                ])
+                            }
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add MoMo band
+                        </Button>
+                        <InputError message={form.errors.momo_tiers} />
                     </div>
 
                     <div>
@@ -240,10 +346,11 @@ export default function WithdrawalFeeSettings({ settings, autoPaystack }: Props)
                         >
                             <option value="bank">Charge bank fee bands</option>
                             <option value="momo">Do not charge bank fees</option>
-                            <option value="none">Disable all flat fees (bank and MoMo)</option>
+                            <option value="none">Turn off bank and MoMo fees</option>
                         </select>
                         <p className="mt-1 text-xs text-gray-500">
-                            Choosing “Charge bank fee bands” turns charging on when you save. MoMo uses the MoMo fee field.
+                            Bank bands apply only to bank withdrawals. MoMo uses the bands above. “Turn off bank and
+                            MoMo fees” charges nothing on either.
                         </p>
                         <InputError message={form.errors.applies_to} />
                     </div>

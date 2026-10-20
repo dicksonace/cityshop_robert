@@ -26,13 +26,16 @@ class BankWithdrawalFeeTest extends TestCase
         $this->assertSame(20.0, PlatformSettings::feeForPayoutType('bank', 1000));
         $this->assertSame(20.0, PlatformSettings::feeForPayoutType('bank', 1500));
         $this->assertSame(20.0, PlatformSettings::feeForPayoutType('bank', 5000));
-        $this->assertSame(0.0, PlatformSettings::feeForPayoutType('momo', 1500));
+        $this->assertSame(15.0, PlatformSettings::feeForPayoutType('momo', 1500));
     }
 
-    public function test_momo_fee_defaults_to_zero_until_admin_sets_it(): void
+    public function test_momo_fee_uses_the_standard_schedule_until_admin_sets_one(): void
     {
         $this->assertSame(0.0, PlatformSettings::withdrawalFeeSettings()['momo_amount']);
-        $this->assertSame(0.0, PlatformSettings::feeForPayoutType('momo', 200));
+        $this->assertSame(0.5, PlatformSettings::feeForPayoutType('momo', 10));
+        $this->assertSame(1.0, PlatformSettings::feeForPayoutType('momo', 100));
+        $this->assertSame(2.0, PlatformSettings::feeForPayoutType('momo', 200));
+        $this->assertSame(20.0, PlatformSettings::feeForPayoutType('momo', 2000));
 
         PlatformSettings::saveWithdrawalFeeSettings([
             'enabled' => true,
@@ -155,7 +158,7 @@ class BankWithdrawalFeeTest extends TestCase
         $this->assertSame('flat', $payload['mode']);
         $this->assertTrue($payload['auto_paystack']);
         $this->assertSame(0.0, (float) $payload['momo_amount']);
-        $this->assertSame(0.0, PlatformSettings::feeForWithdrawal(252, 'momo'));
+        $this->assertSame(2.52, PlatformSettings::feeForWithdrawal(252, 'momo'));
         $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(80, 'bank'));
         $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(100, 'bank'));
     }
@@ -204,6 +207,30 @@ class BankWithdrawalFeeTest extends TestCase
         $this->assertSame(1.9, (float) $payload['momo_percent']);
         $this->assertSame(0.19, PlatformSettings::feeForWithdrawal(10, 'momo'));
         $this->assertSame(10.0, PlatformSettings::feeForWithdrawal(80, 'bank'));
+    }
+
+    public function test_saved_momo_bands_are_the_fee_on_the_review(): void
+    {
+        PlatformSettings::saveWithdrawalFeeSettings([
+            'enabled' => true,
+            'amount' => 10,
+            'momo_amount' => 0,
+            'applies_to' => 'bank',
+            'bank_tiers' => PlatformSettings::defaultBankFeeTiers(),
+            'momo_tiers' => PlatformSettings::defaultMomoFeeTiers(),
+        ]);
+        PlatformSettings::saveAutoPaystackWithdrawSettings([
+            'enabled' => false,
+            'fee_mode' => 'flat',
+            'fee_percent' => 1.9,
+            'fee_flat' => 1,
+        ]);
+
+        $payload = PlatformSettings::withdrawalFeePayload();
+        $this->assertCount(3, $payload['momo_tiers']);
+        $this->assertSame(0.5, PlatformSettings::feeForWithdrawal(10, 'momo'));
+        $this->assertSame(1.0, PlatformSettings::feeForWithdrawal(100, 'momo'));
+        $this->assertSame(20.0, PlatformSettings::feeForWithdrawal(2500, 'momo'));
     }
 
     public function test_old_single_ten_cedi_band_upgrades_from_one_thousand(): void
