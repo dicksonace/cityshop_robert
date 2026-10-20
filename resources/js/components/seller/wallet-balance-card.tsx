@@ -24,6 +24,7 @@ interface WalletBalanceCardProps {
     manualTopUpEnabled?: boolean;
     manualFundingAccounts?: FundingAccount[];
     paystackFee?: PaystackFeeSettings | null;
+    chinaRmbHref?: string;
 }
 
 export default function WalletBalanceCard({
@@ -42,6 +43,7 @@ export default function WalletBalanceCard({
     manualTopUpEnabled = false,
     manualFundingAccounts = [],
     paystackFee,
+    chinaRmbHref,
 }: WalletBalanceCardProps) {
     const canRecharge = paystackConfigured || flutterwaveConfigured || korapayConfigured || junipayConfigured || manualTopUpEnabled;
     const [rechargeOpen, setRechargeOpen] = useState(false);
@@ -64,17 +66,28 @@ export default function WalletBalanceCard({
                             <p className="mt-0.5 text-xs text-orange-100/80">Auto refresh in {countdownSec}s</p>
                         )}
                     </div>
-                    {onRefresh && (
-                        <button
-                            type="button"
-                            onClick={onRefresh}
-                            disabled={refreshing}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur transition hover:bg-white/25 disabled:opacity-60"
-                        >
-                            <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
-                            Refresh
-                        </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {chinaRmbHref && (
+                            <Link
+                                href={chinaRmbHref}
+                                className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white backdrop-blur-sm hover:bg-white/30"
+                            >
+                                China / RMB
+                            </Link>
+                        )}
+                        {onRefresh && (
+                            <button
+                                type="button"
+                                onClick={onRefresh}
+                                disabled={refreshing}
+                                aria-label="Refresh"
+                                className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur transition hover:bg-white/25 disabled:opacity-60"
+                            >
+                                <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+                                {!chinaRmbHref && 'Refresh'}
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <p className="relative mt-3 text-3xl font-black tracking-tight sm:text-4xl">

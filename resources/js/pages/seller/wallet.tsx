@@ -286,6 +286,7 @@ export default function SellerWallet({
                     manualTopUpEnabled={manualTopUpEnabled}
                     manualFundingAccounts={manualFundingAccounts}
                     paystackFee={paystackFee}
+                    chinaRmbHref={canUseRmbWallet ? route('wallet.china-rmb.index') : undefined}
                 />
             </div>
 
