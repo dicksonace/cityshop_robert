@@ -493,6 +493,7 @@ class JunipayService implements HostedPaymentGateway
             'reference' => $payment->reference,
             'tx_ref' => $payment->reference,
             'trans_id' => $payment->trans_id,
+            'provider' => $payment->provider,
             'meta' => $payment->meta ?? [],
         ];
     }

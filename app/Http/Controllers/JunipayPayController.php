@@ -26,9 +26,9 @@ class JunipayPayController extends Controller
         return view('junipay.pay', [
             'payment' => $payment,
             'title' => (string) ($payment->meta['title'] ?? 'CityShop payment'),
-            'network' => match ($payment->provider) {
-                'vodafone' => 'telecel',
-                'airteltigo' => 'airteltigo',
+            'network' => match (strtolower((string) ((is_array($payment->meta) ? ($payment->meta['momo_network'] ?? null) : null) ?: $payment->provider))) {
+                'vodafone', 'telecel' => 'telecel',
+                'airteltigo', 'airtel', 'tigo' => 'airteltigo',
                 default => 'mtn',
             },
             'startUrl' => URL::temporarySignedRoute('junipay.pay.start', $expires, ['reference' => $reference]),

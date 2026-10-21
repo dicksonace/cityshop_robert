@@ -95,6 +95,7 @@ class QrPaymentController extends Controller
             'note' => ['nullable', 'string', 'max:120'],
             'method' => ['required', 'in:momo,card'],
             'gateway' => ['required', 'in:paystack,flutterwave,korapay,junipay'],
+            'network' => ['nullable', 'in:mtn,telecel,airteltigo'],
         ]);
 
         $payer = $request->user();
@@ -116,6 +117,7 @@ class QrPaymentController extends Controller
             'type' => 'qr_direct_pay',
             'recipient_id' => (int) $resolved['user']['id'],
             'transfer_note' => $validated['note'] ?? ($resolved['reason'] ?? null),
+            'momo_network' => $validated['network'] ?? null,
         ];
 
         try {
@@ -181,7 +183,7 @@ class QrPaymentController extends Controller
             throw new \RuntimeException('Payment does not belong to your account.');
         }
 
-        if ($credit < 5) {
+        if ($credit < 1) {
             throw new \RuntimeException('Invalid payment amount.');
         }
 
@@ -220,7 +222,7 @@ class QrPaymentController extends Controller
 
         $credit = $paystack->topUpCreditFromMetadata($metadata, $paid);
 
-        return self::settleFromMetadata(
+        $result = self::settleFromMetadata(
             $payer,
             $metadata,
             $paid,
@@ -228,6 +230,9 @@ class QrPaymentController extends Controller
             $reference,
             (string) ($metadata['method'] ?? 'momo'),
         );
+        $result['payment_method'] = self::paymentMethodLabel($metadata, $data);
+
+        return $result;
     }
 
     /**
@@ -253,7 +258,7 @@ class QrPaymentController extends Controller
 
         $credit = $flutterwave->topUpCreditFromMetadata($metadata, $paid);
 
-        return self::settleFromMetadata(
+        $result = self::settleFromMetadata(
             $payer,
             $metadata,
             $paid,
@@ -261,5 +266,45 @@ class QrPaymentController extends Controller
             $reference,
             (string) ($metadata['method'] ?? 'momo'),
         );
+        $result['payment_method'] = self::paymentMethodLabel($metadata, $data);
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @param  array<string, mixed>  $gatewayData
+     */
+    public static function paymentMethodLabel(array $metadata, array $gatewayData = []): string
+    {
+        $authorization = is_array($gatewayData['authorization'] ?? null) ? $gatewayData['authorization'] : [];
+        $candidates = [
+            $gatewayData['provider'] ?? null,
+            $authorization['bank'] ?? null,
+            $authorization['brand'] ?? null,
+            $gatewayData['network'] ?? null,
+            $metadata['momo_network'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            $label = self::momoNetworkLabel(is_string($candidate) ? $candidate : null);
+            if ($label !== null) {
+                return $label;
+            }
+        }
+
+        return ($metadata['method'] ?? '') === 'card' ? 'Card' : 'Mobile Money';
+    }
+
+    public static function momoNetworkLabel(?string $network): ?string
+    {
+        $compact = strtolower((string) preg_replace('/[\s_-]+/', '', (string) $network));
+
+        return match (true) {
+            str_contains($compact, 'mtn') => 'MTN Mobile Money',
+            str_contains($compact, 'telecel'), str_contains($compact, 'vodafone') => 'Telecel Cash',
+            str_contains($compact, 'airtel'), str_contains($compact, 'tigo') => 'AirtelTigo Cash',
+            default => null,
+        };
     }
 }
