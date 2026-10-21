@@ -69,7 +69,7 @@ class ManualFundingSettingsTest extends TestCase
         $response->assertSessionHasErrors('accounts.0.network');
     }
 
-    public function test_missing_telecel_and_airteltigo_are_filled_in(): void
+    public function test_deleted_telecel_and_airteltigo_stay_deleted(): void
     {
         PlatformSettings::saveManualFundingAccounts([
             'enabled' => true,
@@ -89,13 +89,8 @@ class ManualFundingSettingsTest extends TestCase
         $settings = PlatformSettings::manualFundingAccounts();
         $networks = collect($settings['accounts'])->pluck('network')->filter()->values()->all();
 
-        $this->assertContains('mtn', $networks);
-        $this->assertContains('telecel', $networks);
-        $this->assertContains('airteltigo', $networks);
-
-        $telecel = collect($settings['accounts'])->firstWhere('network', 'telecel');
-        $this->assertSame('513014', $telecel['account_number']);
-        $this->assertSame('City Unlock Ventures / Robert Asare', $telecel['account_name']);
+        $this->assertSame(['mtn'], $networks);
+        $this->assertCount(1, $settings['accounts']);
     }
 
     public function test_normalize_momo_network_accepts_legacy_labels(): void

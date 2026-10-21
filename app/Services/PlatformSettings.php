@@ -1437,7 +1437,6 @@ class PlatformSettings
 
         $accounts = array_values(array_filter($accounts));
         $hadCustomAccounts = count($accounts) > 0;
-        $accounts = static::ensureCityShopMomoAccounts($accounts);
 
         // Prefer explicit admin flag; if never set, default on. Empty+disabled = not configured yet.
         $explicitEnabled = array_key_exists('enabled', $decoded);
