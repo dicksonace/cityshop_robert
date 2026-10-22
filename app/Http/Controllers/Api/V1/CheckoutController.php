@@ -690,31 +690,8 @@ class CheckoutController extends Controller
     public function paystackMobileReturn(Request $request): Response
     {
         $reference = (string) ($request->query('reference') ?: $request->query('trxref') ?: '');
-        $safe = e($reference);
 
-        $html = <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>cityshop-paystack-done</title>
-  <style>
-    body { font-family: system-ui, sans-serif; display:flex; align-items:center; justify-content:center;
-           min-height:100vh; margin:0; background:#fff7ed; color:#1c1917; text-align:center; padding:24px; }
-    p { font-size:16px; line-height:1.5; }
-  </style>
-</head>
-<body data-reference="{$safe}">
-  <div>
-    <p><strong>Payment received</strong></p>
-    <p>Return to CityShop to finish confirming your order.</p>
-  </div>
-</body>
-</html>
-HTML;
-
-        return response($html, 200)->header('Content-Type', 'text/html; charset=UTF-8');
+        return $this->mobileReturnPage($reference, (string) $request->query('status', ''), 'cityshop-paystack-done');
     }
 
     public function initializeDraftFlutterwave(Request $request): JsonResponse
@@ -968,7 +945,19 @@ HTML;
     public function flutterwaveMobileReturn(Request $request): Response
     {
         $reference = (string) ($request->query('tx_ref') ?: $request->query('reference') ?: '');
+
+        return $this->mobileReturnPage($reference, (string) $request->query('status', ''), 'cityshop-flutterwave-done');
+    }
+
+    private function mobileReturnPage(string $reference, string $status, string $title): Response
+    {
         $safe = e($reference);
+        $safeStatus = e(strtolower($status));
+        $failed = in_array(strtolower($status), ['cancelled', 'canceled', 'failed', 'failure', 'error'], true);
+        $heading = $failed ? 'Payment was not successful' : 'Payment received';
+        $detail = $failed
+            ? 'Return to CityShop to continue.'
+            : 'Return to CityShop to finish confirming your order.';
 
         $html = <<<HTML
 <!DOCTYPE html>
@@ -976,17 +965,17 @@ HTML;
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>cityshop-flutterwave-done</title>
+  <title>{$title}</title>
   <style>
     body { font-family: system-ui, sans-serif; display:flex; align-items:center; justify-content:center;
            min-height:100vh; margin:0; background:#fff7ed; color:#1c1917; text-align:center; padding:24px; }
     p { font-size:16px; line-height:1.5; }
   </style>
 </head>
-<body data-reference="{$safe}">
+<body data-reference="{$safe}" data-status="{$safeStatus}">
   <div>
-    <p><strong>Payment received</strong></p>
-    <p>Return to CityShop to finish confirming your order.</p>
+    <p><strong>{$heading}</strong></p>
+    <p>{$detail}</p>
   </div>
 </body>
 </html>
