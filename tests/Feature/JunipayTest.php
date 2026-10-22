@@ -117,6 +117,8 @@ class JunipayTest extends TestCase
         $reference = (string) $response->json('reference');
         $record = JunipayPayment::where('reference', $reference)->firstOrFail();
         $this->assertSame('wallet_topup', $record->meta['type']);
+        $this->assertEqualsWithDelta(20.0, (float) $record->amount, 0.001);
+        $this->assertEqualsWithDelta(0.0, (float) ($record->meta['gateway_fee'] ?? -1), 0.001);
 
         $startUrl = \URL::temporarySignedRoute('junipay.pay.start', now()->addHour(), ['reference' => $reference]);
         $this->postJson($startUrl, ['phone' => '024 862 0718', 'network' => 'telecel'])

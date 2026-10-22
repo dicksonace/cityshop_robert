@@ -162,7 +162,17 @@ class JunipayService implements HostedPaymentGateway
 
     public function rechargeQuote(float $creditGhs, string $method = 'momo'): array
     {
-        return app(PaystackService::class)->rechargeQuote($creditGhs, $method);
+        // Junipay charges its own fee. Do not add the Paystack or Flutterwave fee on top.
+        $credit = round(max(0, $creditGhs), 2);
+
+        return [
+            'credit' => $credit,
+            'fee' => 0.0,
+            'charge' => $credit,
+            'percent' => 0.0,
+            'flat' => 0.0,
+            'mode' => 'none',
+        ];
     }
 
     public function topUpCreditFromMetadata(array $metadata, float $paidGhs): float

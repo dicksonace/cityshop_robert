@@ -219,7 +219,10 @@ export default function RechargeModal({
     const showKorapay = step === 'korapay';
     const showJunipay = step === 'junipay';
     const gatewayLabel = showFlutterwave ? 'Flutterwave' : showKorapay ? 'Korapay' : showJunipay ? 'Junipay' : 'Paystack';
-    const quote = paystackRechargeQuote(Number(form.data.amount) || 0, paystackFee);
+    const paystackQuote = paystackRechargeQuote(Number(form.data.amount) || 0, paystackFee);
+    const quote = showJunipay
+        ? { ...paystackQuote, fee: 0, charge: paystackQuote.credit }
+        : paystackQuote;
 
     const title = showChooser
         ? 'Recharge'
