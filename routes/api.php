@@ -91,6 +91,7 @@ Route::prefix('v1')->group(function () {
 
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/locations/ghana', [LocationController::class, 'ghana']);
+    Route::get('/search', [\App\Http\Controllers\Api\V1\SearchController::class, 'index']);
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/matches-for-recent-views', [ProductController::class, 'matchesForRecentViews']);
     Route::get('/products/{slug}', [ProductController::class, 'show']);
