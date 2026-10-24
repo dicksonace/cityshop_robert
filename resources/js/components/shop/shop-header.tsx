@@ -253,10 +253,6 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                 </div>
             </div>
 
-            <div className="border-b border-gray-100 bg-gray-50/80 py-1 text-center text-[11px] font-bold tracking-wide text-gray-800 md:hidden">
-                CITY UNLOCK VENTURES
-            </div>
-
             {/* Main bar — brand, search, actions */}
             <div className="mx-auto max-w-7xl px-3 py-2.5 sm:px-4 sm:py-3">
                 <div className="flex items-center gap-3 sm:gap-5">
