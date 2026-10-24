@@ -244,6 +244,23 @@ class SellerController extends Controller
         );
     }
 
+    public function setGsmTools(Request $request, SellerProfile $seller): RedirectResponse
+    {
+        $seller->loadMissing('user');
+        abort_unless($seller->user, 404);
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        $seller->user->setGsmToolsEnabled((bool) $validated['enabled']);
+
+        return back()->with(
+            'success',
+            $seller->user->gsm_tools_enabled
+                ? 'GSM Tools enabled for this seller.'
+                : 'GSM Tools disabled for this seller.',
+        );
+    }
+
     public function setWithdrawalRestriction(Request $request, SellerProfile $seller): RedirectResponse
     {
         $seller->loadMissing('user');

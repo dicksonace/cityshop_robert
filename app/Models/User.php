@@ -39,6 +39,7 @@ class User extends Authenticatable
         'blocked_at',
         'block_reason',
         'china_rmb_enabled',
+        'gsm_tools_enabled',
         'withdrawal_restricted',
         'withdrawal_restriction_note',
     ];
@@ -60,6 +61,7 @@ class User extends Authenticatable
             'last_seen_at' => 'datetime',
             'blocked_at' => 'datetime',
             'china_rmb_enabled' => 'boolean',
+            'gsm_tools_enabled' => 'boolean',
             'withdrawal_restricted' => 'boolean',
             'password' => 'hashed',
             'role' => UserRole::class,
@@ -176,6 +178,38 @@ class User extends Authenticatable
     public function setChinaRmbEnabled(bool $enabled): void
     {
         $this->forceFill(['china_rmb_enabled' => $enabled])->save();
+    }
+
+    /**
+     * Buyers and approved sellers see GSM Tools only when the master switch
+     * is on and admin has enabled it for this account.
+     */
+    public function canUseGsmTools(): bool
+    {
+        if (! \App\Services\PlatformSettings::gsmToolsGloballyEnabled()) {
+            return false;
+        }
+
+        if (! $this->gsm_tools_enabled) {
+            return false;
+        }
+
+        if ($this->isBuyer()) {
+            return true;
+        }
+
+        if ($this->isSeller()) {
+            $this->loadMissing('sellerProfile');
+
+            return $this->sellerProfile?->isApproved() ?? false;
+        }
+
+        return false;
+    }
+
+    public function setGsmToolsEnabled(bool $enabled): void
+    {
+        $this->forceFill(['gsm_tools_enabled' => $enabled])->save();
     }
 
     public function setWithdrawalRestriction(bool $restricted, ?string $note): void

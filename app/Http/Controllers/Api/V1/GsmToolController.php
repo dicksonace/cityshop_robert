@@ -18,8 +18,14 @@ class GsmToolController extends Controller
 {
     public function __construct(private GsmToolService $gsm) {}
 
+    private function ensureEngineer(Request $request): void
+    {
+        abort_unless($request->user()?->canUseGsmTools(), 403);
+    }
+
     public function index(Request $request): JsonResponse
     {
+        $this->ensureEngineer($request);
         $user = $request->user();
 
         return response()->json([
@@ -46,6 +52,7 @@ class GsmToolController extends Controller
 
     public function indexOrders(Request $request): JsonResponse
     {
+        $this->ensureEngineer($request);
         $page = $this->gsm->paginatedBuyerOrders($request->user(), $request);
 
         return response()->json([
@@ -56,6 +63,7 @@ class GsmToolController extends Controller
 
     public function showService(Request $request, GsmService $gsmService): JsonResponse
     {
+        $this->ensureEngineer($request);
         abort_unless($gsmService->active, 404);
 
         return response()->json([
@@ -69,6 +77,7 @@ class GsmToolController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->ensureEngineer($request);
         $user = $request->user();
 
         $request->validate([
@@ -88,6 +97,7 @@ class GsmToolController extends Controller
 
     public function showOrder(Request $request, GsmOrder $gsmOrder): JsonResponse
     {
+        $this->ensureEngineer($request);
         abort_unless((int) $gsmOrder->user_id === (int) $request->user()->id, 403);
 
         return response()->json([
@@ -97,6 +107,7 @@ class GsmToolController extends Controller
 
     public function cancel(Request $request, GsmOrder $gsmOrder): JsonResponse
     {
+        $this->ensureEngineer($request);
         abort(403, 'Only an admin can cancel this GSM order.');
     }
 }

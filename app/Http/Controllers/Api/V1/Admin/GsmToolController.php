@@ -10,6 +10,7 @@ use App\Models\GsmService;
 use App\Models\GsmServiceField;
 use App\Models\GsmServiceGroup;
 use App\Services\GsmToolService;
+use App\Services\PlatformSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -36,6 +37,7 @@ class GsmToolController extends Controller
         $orders = $query->paginate(min(max((int) $request->integer('per_page', 20), 1), 50));
 
         return response()->json([
+            'gsm_tools_globally_enabled' => PlatformSettings::gsmToolsGloballyEnabled(),
             'data' => $orders->getCollection()->map(fn (GsmOrder $o) => $this->gsm->orderPayload($o))->values(),
             'meta' => [
                 'current_page' => $orders->currentPage(),
@@ -44,6 +46,21 @@ class GsmToolController extends Controller
                 'total' => $orders->total(),
             ],
             'pending_count' => $this->gsm->pendingAdminCount(),
+        ]);
+    }
+
+    public function setAccess(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        PlatformSettings::setGsmToolsGloballyEnabled((bool) $validated['enabled']);
+
+        return response()->json([
+            'message' => $validated['enabled']
+                ? 'GSM Tools is on. Only enabled GSM engineers can see it.'
+                : 'GSM Tools is off for everyone.',
+            'gsm_tools_globally_enabled' => PlatformSettings::gsmToolsGloballyEnabled(),
         ]);
     }
 

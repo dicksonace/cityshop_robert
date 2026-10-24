@@ -58,7 +58,7 @@ function IconWithCount({ icon: Icon, count }: { icon: ComponentType<{ className?
 
 export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolean }) {
     const page = usePage<SharedData & { cartCount: number; wishlistCount: number; unreadMessages?: number }>();
-    const { auth, cartCount, wishlistCount } = page.props;
+    const { auth, cartCount, wishlistCount, canUseGsmTools } = page.props;
     const chat = useChatOptional();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const params = new URLSearchParams(page.url.split('?')[1] ?? '');
@@ -259,14 +259,16 @@ export default function ShopHeader({ hideSearch = false }: { hideSearch?: boolea
                     <CityShopBrand size="sm" className="shrink-0" />
 
                     <div className="flex min-w-0 flex-1 items-center justify-center md:justify-start md:gap-3">
-                        <Link
-                            href={auth.user ? route('gsm-tools.index') : route('login')}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1.5 text-xs font-extrabold text-violet-700 transition-colors hover:bg-violet-200 sm:px-3 sm:text-sm"
-                            title="GSM Tools"
-                        >
-                            <Smartphone className="h-4 w-4" />
-                            <span>GSM Tools</span>
-                        </Link>
+                        {canUseGsmTools && (
+                            <Link
+                                href={route('gsm-tools.index')}
+                                className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2.5 py-1.5 text-xs font-extrabold text-violet-700 transition-colors hover:bg-violet-200 sm:px-3 sm:text-sm"
+                                title="GSM Tools"
+                            >
+                                <Smartphone className="h-4 w-4" />
+                                <span>GSM Tools</span>
+                            </Link>
+                        )}
                         <div className={cn('hidden min-w-0 flex-1 md:flex', hideSearch && 'md:hidden')}>
                             <SearchBox
                                 initialQuery={initialSearch}

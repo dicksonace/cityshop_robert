@@ -155,6 +155,22 @@ class BuyerController extends Controller
         ]);
     }
 
+    public function setGsmTools(Request $request, User $buyer): JsonResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        $buyer->setGsmToolsEnabled((bool) $validated['enabled']);
+
+        return response()->json([
+            'message' => $buyer->gsm_tools_enabled
+                ? 'GSM Tools enabled for this buyer.'
+                : 'GSM Tools disabled for this buyer.',
+            'data' => $this->serialize($buyer->fresh(['wallet', 'latestKyc']), detailed: true),
+        ]);
+    }
+
     public function setWithdrawalRestriction(Request $request, User $buyer): JsonResponse
     {
         abort_unless($buyer->isBuyer(), 404);
@@ -219,6 +235,7 @@ class BuyerController extends Controller
             'available_balance' => (float) ($wallet?->available_balance ?? 0),
             'is_blocked' => $buyer->isBlocked(),
             'china_rmb_enabled' => (bool) $buyer->china_rmb_enabled,
+            'gsm_tools_enabled' => (bool) $buyer->gsm_tools_enabled,
             'withdrawal_restricted' => (bool) $buyer->withdrawal_restricted,
             'withdrawal_restriction_note' => $buyer->withdrawal_restriction_note,
         ];

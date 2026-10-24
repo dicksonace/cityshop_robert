@@ -5,6 +5,7 @@ import { useState } from 'react';
 import SellerAccountActions from '@/components/admin/seller-account-actions';
 import SellerInformationForm from '@/components/admin/seller-information-form';
 import ChinaRmbAccessToggle from '@/components/admin/china-rmb-access-toggle';
+import GsmToolsAccessToggle from '@/components/admin/gsm-tools-access-toggle';
 import WithdrawalRestrictionForm from '@/components/admin/withdrawal-restriction-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,7 @@ interface SellerShowProps {
             residential_address?: string;
             ghana_card_number?: string;
             china_rmb_enabled?: boolean;
+            gsm_tools_enabled?: boolean;
             withdrawal_restricted?: boolean;
             withdrawal_restriction_note?: string | null;
         };
@@ -214,6 +216,12 @@ export default function SellerShow({
                     enabled={seller.user.china_rmb_enabled === true}
                     action={route('admin.sellers.china-rmb', seller.id)}
                 />
+                <div className="mt-3">
+                    <GsmToolsAccessToggle
+                        enabled={seller.user.gsm_tools_enabled === true}
+                        action={route('admin.sellers.gsm-tools', seller.id)}
+                    />
+                </div>
                 <div className="mt-3">
                     <WithdrawalRestrictionForm
                         key={`${seller.user.withdrawal_restricted}-${seller.user.withdrawal_restriction_note ?? ''}`}

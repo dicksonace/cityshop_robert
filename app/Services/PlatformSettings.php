@@ -41,6 +41,9 @@ class PlatformSettings
     /** When false, no buyer or seller can use China / RMB, even if their own switch is on. */
     public const CHINA_RMB_ACCESS_KEY = 'china_rmb_access';
 
+    /** Master switch for GSM Tools. On until an admin turns it off. */
+    public const GSM_TOOLS_ACCESS_KEY = 'gsm_tools_access';
+
     public const SMS_KEY = 'sms_provider';
 
     public static function get(string $key, mixed $default = null): mixed
@@ -659,6 +662,30 @@ class PlatformSettings
     public static function setChinaRmbGloballyEnabled(bool $enabled): void
     {
         static::set(self::CHINA_RMB_ACCESS_KEY, [
+            'enabled' => $enabled,
+        ]);
+    }
+
+    /**
+     * Master switch for GSM Tools. Stays on when the setting has never been saved.
+     */
+    public static function gsmToolsGloballyEnabled(): bool
+    {
+        $raw = static::get(self::GSM_TOOLS_ACCESS_KEY);
+        $decoded = is_array($raw)
+            ? $raw
+            : (is_string($raw) ? json_decode($raw, true) : null);
+
+        if (! is_array($decoded)) {
+            return true;
+        }
+
+        return (bool) ($decoded['enabled'] ?? true);
+    }
+
+    public static function setGsmToolsGloballyEnabled(bool $enabled): void
+    {
+        static::set(self::GSM_TOOLS_ACCESS_KEY, [
             'enabled' => $enabled,
         ]);
     }

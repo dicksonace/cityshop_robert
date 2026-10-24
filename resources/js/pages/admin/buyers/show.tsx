@@ -4,6 +4,7 @@ import { ArrowLeft, MessageSquare } from 'lucide-react';
 import AccountProfileForm from '@/components/admin/account-profile-form';
 import BuyerAccountActions from '@/components/admin/buyer-account-actions';
 import ChinaRmbAccessToggle from '@/components/admin/china-rmb-access-toggle';
+import GsmToolsAccessToggle from '@/components/admin/gsm-tools-access-toggle';
 import WithdrawalRestrictionForm from '@/components/admin/withdrawal-restriction-form';
 import AdminLayout from '@/layouts/admin-layout';
 import { SharedData } from '@/types';
@@ -22,6 +23,7 @@ interface BuyerShowProps {
         orders_count: number;
         is_blocked?: boolean;
         china_rmb_enabled?: boolean;
+        gsm_tools_enabled?: boolean;
         withdrawal_restricted?: boolean;
         withdrawal_restriction_note?: string | null;
         block_reason?: string | null;
@@ -101,6 +103,12 @@ export default function AdminBuyerShow({ buyer, orders, conversations, wallet, t
                             enabled={buyer.china_rmb_enabled === true}
                             action={route('admin.buyers.china-rmb', buyer.id)}
                         />
+                        <div className="mt-3">
+                            <GsmToolsAccessToggle
+                                enabled={buyer.gsm_tools_enabled === true}
+                                action={route('admin.buyers.gsm-tools', buyer.id)}
+                            />
+                        </div>
                         <div className="mt-3">
                             <WithdrawalRestrictionForm
                                 key={`${buyer.withdrawal_restricted}-${buyer.withdrawal_restriction_note ?? ''}`}

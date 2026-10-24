@@ -38,6 +38,7 @@ interface Props {
     filters: { status: string; type?: string };
     serviceTypes: { value: string; label: string }[];
     pendingCount: number;
+    gsmToolsGloballyEnabled?: boolean;
 }
 
 const statuses = [
@@ -49,7 +50,7 @@ const statuses = [
     { id: 'cancelled', label: 'Cancelled' },
 ];
 
-export default function AdminGsmToolsIndex({ orders, filters, serviceTypes = [], pendingCount }: Props) {
+export default function AdminGsmToolsIndex({ orders, filters, serviceTypes = [], pendingCount, gsmToolsGloballyEnabled = true }: Props) {
     const { flash } = usePage<SharedData>().props;
 
     return (
@@ -69,6 +70,24 @@ export default function AdminGsmToolsIndex({ orders, filters, serviceTypes = [],
                             Manage services
                         </Link>
                     </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-100 bg-violet-50 px-4 py-3">
+                    <div>
+                        <p className="text-sm font-bold text-violet-900">GSM Tools for everyone</p>
+                        <p className="text-xs text-violet-700">
+                            {gsmToolsGloballyEnabled
+                                ? 'On. Only accounts you enable as GSM engineers can see it.'
+                                : 'Off. Nobody can see GSM Tools.'}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${gsmToolsGloballyEnabled ? 'bg-violet-600 text-white' : 'bg-white text-violet-700'}`}
+                        onClick={() => router.post(route('admin.gsm-tools.access'), { enabled: !gsmToolsGloballyEnabled }, { preserveScroll: true })}
+                    >
+                        {gsmToolsGloballyEnabled ? 'Enabled' : 'Disabled'}
+                    </button>
                 </div>
 
                 {(flash?.success || flash?.error) && (

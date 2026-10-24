@@ -142,6 +142,23 @@ class SellerController extends Controller
         ]);
     }
 
+    public function setGsmTools(Request $request, SellerProfile $seller): JsonResponse
+    {
+        $seller->loadMissing('user');
+        abort_unless($seller->user, 404);
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        $seller->user->setGsmToolsEnabled((bool) $validated['enabled']);
+
+        return response()->json([
+            'message' => $seller->user->gsm_tools_enabled
+                ? 'GSM Tools enabled for this seller.'
+                : 'GSM Tools disabled for this seller.',
+            'data' => $this->serialize($seller->fresh('user'), detailed: true),
+        ]);
+    }
+
     public function setWithdrawalRestriction(Request $request, SellerProfile $seller): JsonResponse
     {
         $seller->loadMissing('user');
@@ -339,6 +356,7 @@ class SellerController extends Controller
                 'email' => $seller->user->email,
                 'mobile' => $seller->user->mobile,
                 'china_rmb_enabled' => (bool) $seller->user->china_rmb_enabled,
+                'gsm_tools_enabled' => (bool) $seller->user->gsm_tools_enabled,
                 'withdrawal_restricted' => (bool) $seller->user->withdrawal_restricted,
                 'withdrawal_restriction_note' => $seller->user->withdrawal_restriction_note,
             ] : null,
@@ -370,6 +388,7 @@ class SellerController extends Controller
                 'city' => $seller->user->city,
                 'residential_address' => $seller->user->residential_address,
                 'china_rmb_enabled' => (bool) $seller->user->china_rmb_enabled,
+                'gsm_tools_enabled' => (bool) $seller->user->gsm_tools_enabled,
                 'withdrawal_restricted' => (bool) $seller->user->withdrawal_restricted,
                 'withdrawal_restriction_note' => $seller->user->withdrawal_restriction_note,
             ] : null;

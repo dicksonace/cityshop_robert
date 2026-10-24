@@ -45,8 +45,14 @@ class GsmToolController extends Controller
         }
     }
 
+    private function ensureEngineer(Request $request): void
+    {
+        abort_unless($request->user()?->canUseGsmTools(), 403);
+    }
+
     public function index(Request $request): Response
     {
+        $this->ensureEngineer($request);
         $user = $request->user();
 
         $funding = ['enabled' => false, 'accounts' => []];
@@ -95,6 +101,7 @@ class GsmToolController extends Controller
 
     public function history(Request $request): Response|RedirectResponse
     {
+        $this->ensureEngineer($request);
         $user = $request->user();
         if (! $user) {
             return redirect()->route('login');
@@ -109,6 +116,7 @@ class GsmToolController extends Controller
 
     public function showService(Request $request, GsmService $gsmService): Response|RedirectResponse
     {
+        $this->ensureEngineer($request);
         abort_unless($gsmService->active, 404);
 
         $user = $request->user();
@@ -127,6 +135,7 @@ class GsmToolController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->ensureEngineer($request);
         $user = $request->user();
         abort_unless($user, 403);
 
@@ -145,6 +154,7 @@ class GsmToolController extends Controller
 
     public function showOrder(Request $request, GsmOrder $gsmOrder): Response
     {
+        $this->ensureEngineer($request);
         abort_unless($request->user() && (int) $gsmOrder->user_id === (int) $request->user()->id, 403);
 
         return Inertia::render('shop/gsm-tools/show', [
@@ -154,6 +164,7 @@ class GsmToolController extends Controller
 
     public function cancel(Request $request, GsmOrder $gsmOrder): RedirectResponse
     {
+        $this->ensureEngineer($request);
         abort(403, 'Only an admin can cancel this GSM order.');
     }
 }

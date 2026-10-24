@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import {
     Heart,
     Laptop,
@@ -24,6 +24,7 @@ import type { LucideIcon } from 'lucide-react';
 
 import { applyFilters, ShopFilters } from '@/components/shop/product-filters';
 import { cn } from '@/lib/utils';
+import { SharedData } from '@/types';
 
 interface Category {
     id: number;
@@ -74,6 +75,7 @@ export default function HomeCategoryShortcuts({
     counts,
     hasSaleProducts = false,
 }: HomeCategoryShortcutsProps) {
+    const canUseGsmTools = usePage<SharedData>().props.canUseGsmTools === true;
     const quickLinks = [
         {
             key: 'wishlist',
@@ -117,7 +119,7 @@ export default function HomeCategoryShortcuts({
             active: Boolean(filters.free_ship),
             count: counts.free_ship,
         },
-    ];
+    ].filter((link) => link.key !== 'gsm-tools' || canUseGsmTools);
 
     const categoryLinks = categories
         .filter((cat) => cat.slug !== 'gsm-tools')

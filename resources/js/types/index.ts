@@ -30,6 +30,7 @@ export interface SharedData {
     auth: Auth;
     canShop?: boolean;
     livestreamEnabled?: boolean;
+    canUseGsmTools?: boolean;
     cartCount: number;
     wishlistProductIds: number[];
     wishlistCount: number;

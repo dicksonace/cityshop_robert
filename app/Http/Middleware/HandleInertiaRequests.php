@@ -71,6 +71,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'canShop' => $user ? ! $user->isSeller() : true,
             'livestreamEnabled' => \App\Services\LiveStreamService::enabled(),
+            'canUseGsmTools' => $user ? $user->canUseGsmTools() : false,
             'cartCount' => $cartCount,
             'wishlistProductIds' => $wishlistProductIds,
             'wishlistCount' => $wishlistCount,

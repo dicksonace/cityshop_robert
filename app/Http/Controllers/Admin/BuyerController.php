@@ -81,6 +81,7 @@ class BuyerController extends Controller
                 'orders_count' => (int) $buyer->orders_count,
                 'is_blocked' => $buyer->isBlocked(),
                 'china_rmb_enabled' => (bool) $buyer->china_rmb_enabled,
+                'gsm_tools_enabled' => (bool) $buyer->gsm_tools_enabled,
                 'withdrawal_restricted' => (bool) $buyer->withdrawal_restricted,
                 'withdrawal_restriction_note' => $buyer->withdrawal_restriction_note,
                 'block_reason' => $buyer->block_reason,
@@ -145,6 +146,22 @@ class BuyerController extends Controller
             $buyer->china_rmb_enabled
                 ? 'China / RMB enabled for this buyer.'
                 : 'China / RMB disabled for this buyer.',
+        );
+    }
+
+    public function setGsmTools(Request $request, User $buyer): RedirectResponse
+    {
+        abort_unless($buyer->isBuyer(), 404);
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        $buyer->setGsmToolsEnabled((bool) $validated['enabled']);
+
+        return back()->with(
+            'success',
+            $buyer->gsm_tools_enabled
+                ? 'GSM Tools enabled for this buyer.'
+                : 'GSM Tools disabled for this buyer.',
         );
     }
 

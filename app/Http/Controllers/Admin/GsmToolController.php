@@ -11,6 +11,7 @@ use App\Models\GsmServiceField;
 use App\Models\GsmServiceGroup;
 use App\Models\PlaceOrderSlide;
 use App\Services\GsmToolService;
+use App\Services\PlatformSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -45,7 +46,23 @@ class GsmToolController extends Controller
             'filters' => ['status' => $status, 'type' => $type],
             'serviceTypes' => GsmServiceType::options(),
             'pendingCount' => $this->gsm->pendingAdminCount(),
+            'gsmToolsGloballyEnabled' => PlatformSettings::gsmToolsGloballyEnabled(),
         ]);
+    }
+
+    public function setAccess(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+        PlatformSettings::setGsmToolsGloballyEnabled((bool) $validated['enabled']);
+
+        return back()->with(
+            'success',
+            $validated['enabled']
+                ? 'GSM Tools is on. Only enabled GSM engineers can see it.'
+                : 'GSM Tools is off for everyone.',
+        );
     }
 
     public function show(GsmOrder $gsmOrder): Response
