@@ -273,6 +273,7 @@ class WithdrawalPayoutService
 
         $withdrawals = Withdrawal::query()
             ->where('status', WithdrawalStatus::Pending)
+            ->where('manual_payout', false)
             ->whereNull('junipay_trans_id')
             ->whereNull('paystack_reference')
             ->when(! PlatformSettings::autoPayoutAllowedFor(true), fn ($query) => $query

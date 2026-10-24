@@ -485,6 +485,40 @@ class JunipayTest extends TestCase
         $this->assertSame('DIS701', $mtn->junipay_trans_id);
     }
 
+    public function test_a_manual_withdrawal_is_not_sent_automatically(): void
+    {
+        PlatformSettings::saveJunipaySettings([
+            'payouts_enabled' => true,
+            'auto_payout' => true,
+            'sandbox' => false,
+        ]);
+        Notification::fake();
+        Http::fake([
+            self::API.'/transfer' => Http::response(['code' => 200, 'info' => ['transID' => 'DIS702', 'status' => 'pending']], 200),
+            self::API.'/checktranstatus' => Http::response(['code' => 200, 'info' => 'Transaction not found'], 200),
+        ]);
+
+        $buyer = $this->verifiedBuyer();
+        WalletService::ensure($buyer)->update(['available_balance' => 500]);
+
+        $manual = app(WithdrawalRequestService::class)->submit($buyer, [
+            'amount' => 20,
+            'payout_type' => 'momo',
+            'momo_number' => '0248620718',
+            'account_name' => 'Robert Asare',
+            'network' => 'mtn',
+            'payout_mode' => 'manual',
+        ])['withdrawal'];
+
+        $this->assertTrue($manual->manual_payout);
+        $this->assertSame(WithdrawalStatus::Pending, $manual->status);
+        $this->assertNull($manual->junipay_trans_id);
+
+        app(WithdrawalPayoutService::class)->dispatchAutoJunipayPayouts();
+        $this->assertNull($manual->fresh()->junipay_trans_id);
+        Http::assertNothingSent();
+    }
+
     public function test_bank_withdrawal_is_sent_with_junipay_bank_code(): void
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);

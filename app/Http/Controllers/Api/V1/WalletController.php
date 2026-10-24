@@ -423,6 +423,7 @@ class WalletController extends Controller
                     : 'in:mtn,telecel,airteltigo',
             ],
             'payment_pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+            'payout_mode' => ['nullable', 'in:automatic,manual'],
         ], [
             'account_name.not_regex' => 'Enter the name registered on the account, not a number.',
         ]);
@@ -436,6 +437,7 @@ class WalletController extends Controller
                 'momo_number' => $validated['momo_number'],
                 'account_name' => $validated['account_name'],
                 'network' => $validated['network'],
+                'payout_mode' => $validated['payout_mode'] ?? 'automatic',
             ]);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['message' => $e->getMessage()], 422);

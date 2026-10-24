@@ -24,6 +24,7 @@ class Withdrawal extends Model
         'junipay_trans_id',
         'junipay_status',
         'payout_channel',
+        'manual_payout',
         'status',
         'rejection_reason',
         'failure_reason',
@@ -39,6 +40,7 @@ class Withdrawal extends Model
         return [
             'amount' => 'decimal:2',
             'fee' => 'decimal:2',
+            'manual_payout' => 'boolean',
             'status' => WithdrawalStatus::class,
             'processed_at' => 'datetime',
             'debit_notified_at' => 'datetime',

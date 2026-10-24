@@ -40,7 +40,8 @@ class WithdrawalRequestService
         $fee = PlatformSettings::feeForWithdrawal($amount, $payoutType);
         $totalDebit = round($amount + $fee, 2);
         $network = (string) ($data['network'] ?? '');
-        $autoAllowed = PlatformSettings::autoPayoutAllowedFor(
+        $manual = ($data['payout_mode'] ?? 'automatic') === 'manual';
+        $autoAllowed = ! $manual && PlatformSettings::autoPayoutAllowedFor(
             $payoutType === 'bank' || GhanaBanks::isBank($network),
             $network,
         );
@@ -51,7 +52,7 @@ class WithdrawalRequestService
             && PlatformSettings::autoPaystackWithdrawEnabled()
             && app(PaystackService::class)->isWithdrawalOffered());
 
-        $result = DB::transaction(function () use ($user, $data, $amount, $fee, $totalDebit, $payoutType) {
+        $result = DB::transaction(function () use ($user, $data, $amount, $fee, $totalDebit, $payoutType, $manual) {
             $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first()
                 ?? WalletService::ensure($user);
 
@@ -81,6 +82,7 @@ class WithdrawalRequestService
                 'account_name' => $data['account_name'],
                 'network' => $data['network'],
                 'payout_channel' => $payoutType,
+                'manual_payout' => $manual,
                 'status' => WithdrawalStatus::Pending,
             ]);
 
@@ -93,9 +95,11 @@ class WithdrawalRequestService
             ];
         });
 
-        $message = $auto
-            ? 'Withdrawal submitted. It is sent automatically and completes when the payment is confirmed. If it does not go through, it stays pending for review.'
-            : 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.';
+        $message = $manual
+            ? 'Withdrawal submitted. CityShop will pay this manually.'
+            : ($auto
+                ? 'Withdrawal submitted. It is sent automatically and completes when the payment is confirmed. If it does not go through, it stays pending for review.'
+                : 'Withdrawal request submitted. Usually processed within 15 minutes and sometimes instant.');
 
         if ($auto) {
             $this->payouts->notifyDebit($result['withdrawal']);
