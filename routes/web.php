@@ -365,6 +365,7 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/sellers/{seller}/block', [AdminSellerController::class, 'block'])->name('sellers.block');
     Route::post('/sellers/{seller}/unblock', [AdminSellerController::class, 'unblock'])->name('sellers.unblock');
     Route::post('/sellers/{seller}/china-rmb', [AdminSellerController::class, 'setChinaRmb'])->name('sellers.china-rmb');
+    Route::post('/sellers/{seller}/gsm-tools', [AdminSellerController::class, 'setGsmTools'])->name('sellers.gsm-tools');
     Route::post('/sellers/{seller}/withdrawal-restriction', [AdminSellerController::class, 'setWithdrawalRestriction'])->name('sellers.withdrawal-restriction');
     Route::delete('/sellers/{seller}', [AdminSellerController::class, 'destroy'])->name('sellers.destroy');
     Route::post('/sellers/{seller}/payment-methods/{method}/disable', [AdminSellerController::class, 'disablePaymentMethod'])->name('sellers.payment-methods.disable');
@@ -449,6 +450,7 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/china-transfer/fields/{field}/deactivate', [AdminChinaTransferSettingsController::class, 'destroyField'])->name('china-transfer.fields.destroy');
 
     Route::get('/gsm-tools', [AdminGsmToolController::class, 'index'])->name('gsm-tools.index');
+    Route::post('/gsm-tools/access', [AdminGsmToolController::class, 'setAccess'])->name('gsm-tools.access');
     Route::get('/gsm-tools/slides', [AdminGsmToolController::class, 'slides'])->name('gsm-tools.slides');
     Route::post('/gsm-tools/slides', [AdminGsmToolController::class, 'storeSlide'])->name('gsm-tools.slides.store');
     Route::post('/gsm-tools/slides/{placeOrderSlide}/active', [AdminGsmToolController::class, 'setSlideActive'])->name('gsm-tools.slides.active');
@@ -526,6 +528,7 @@ Route::prefix('admin24')->name('admin.')->middleware(['auth', 'role:admin'])->gr
     Route::post('/buyers/{buyer}/block', [AdminBuyerController::class, 'block'])->name('buyers.block');
     Route::post('/buyers/{buyer}/unblock', [AdminBuyerController::class, 'unblock'])->name('buyers.unblock');
     Route::post('/buyers/{buyer}/china-rmb', [AdminBuyerController::class, 'setChinaRmb'])->name('buyers.china-rmb');
+    Route::post('/buyers/{buyer}/gsm-tools', [AdminBuyerController::class, 'setGsmTools'])->name('buyers.gsm-tools');
     Route::post('/buyers/{buyer}/withdrawal-restriction', [AdminBuyerController::class, 'setWithdrawalRestriction'])->name('buyers.withdrawal-restriction');
     Route::delete('/buyers/{buyer}', [AdminBuyerController::class, 'destroy'])->name('buyers.destroy');
 

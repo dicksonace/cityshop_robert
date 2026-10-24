@@ -200,6 +200,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/sellers/{seller}/block', [AdminSellerController::class, 'block']);
             Route::post('/sellers/{seller}/unblock', [AdminSellerController::class, 'unblock']);
             Route::post('/sellers/{seller}/china-rmb', [AdminSellerController::class, 'setChinaRmb']);
+            Route::post('/sellers/{seller}/gsm-tools', [AdminSellerController::class, 'setGsmTools']);
             Route::post('/sellers/{seller}/withdrawal-restriction', [AdminSellerController::class, 'setWithdrawalRestriction']);
             Route::post('/sellers/{seller}/activation/prompt', [AdminSellerController::class, 'promptActivation']);
             Route::post('/sellers/{seller}/activation/waive', [AdminSellerController::class, 'waiveActivation']);
@@ -259,6 +260,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/buyers/{buyer}/block', [AdminBuyerController::class, 'block']);
             Route::post('/buyers/{buyer}/unblock', [AdminBuyerController::class, 'unblock']);
             Route::post('/buyers/{buyer}/china-rmb', [AdminBuyerController::class, 'setChinaRmb']);
+            Route::post('/buyers/{buyer}/gsm-tools', [AdminBuyerController::class, 'setGsmTools']);
             Route::post('/buyers/{buyer}/withdrawal-restriction', [AdminBuyerController::class, 'setWithdrawalRestriction']);
             Route::delete('/buyers/{buyer}', [AdminBuyerController::class, 'destroy']);
 
@@ -345,6 +347,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/china-transfers/{chinaTransfer}/note', [AdminChinaTransferController::class, 'note']);
 
             Route::get('/gsm-tools', [AdminGsmToolController::class, 'index']);
+            Route::post('/gsm-tools/access', [AdminGsmToolController::class, 'setAccess']);
             Route::get('/gsm-tools/services', [AdminGsmToolController::class, 'services']);
             Route::post('/gsm-tools/services', [AdminGsmToolController::class, 'storeService']);
             Route::post('/gsm-tools/services/{gsmService}', [AdminGsmToolController::class, 'updateService']);
