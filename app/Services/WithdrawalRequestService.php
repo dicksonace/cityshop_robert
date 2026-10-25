@@ -37,10 +37,12 @@ class WithdrawalRequestService
 
         $amount = round((float) $data['amount'], 2);
         $payoutType = ($data['payout_type'] ?? '') === 'bank' ? 'bank' : 'momo';
-        $fee = PlatformSettings::feeForWithdrawal($amount, $payoutType);
-        $totalDebit = round($amount + $fee, 2);
         $network = (string) ($data['network'] ?? '');
         $manual = ($data['payout_mode'] ?? 'automatic') === 'manual';
+        $fee = $manual && $payoutType === 'momo'
+            ? 0.0
+            : PlatformSettings::feeForWithdrawal($amount, $payoutType);
+        $totalDebit = round($amount + $fee, 2);
         $autoAllowed = ! $manual && PlatformSettings::autoPayoutAllowedFor(
             $payoutType === 'bank' || GhanaBanks::isBank($network),
             $network,

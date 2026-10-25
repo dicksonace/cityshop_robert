@@ -513,6 +513,8 @@ class JunipayTest extends TestCase
         $this->assertTrue($manual->manual_payout);
         $this->assertSame(WithdrawalStatus::Pending, $manual->status);
         $this->assertNull($manual->junipay_trans_id);
+        $this->assertEquals(0, (float) $manual->fee);
+        $this->assertEquals(480, (float) WalletService::ensure($buyer)->fresh()->available_balance);
 
         app(WithdrawalPayoutService::class)->dispatchAutoJunipayPayouts();
         $this->assertNull($manual->fresh()->junipay_trans_id);
