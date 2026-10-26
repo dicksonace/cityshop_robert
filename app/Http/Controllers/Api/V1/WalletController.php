@@ -68,6 +68,7 @@ class WalletController extends Controller
             'can_submit' => true,
         ]);
         $canUseRmb = $this->safe(fn () => $user->canUseRmbWallet(), false);
+        $canUseGsm = $this->safe(fn () => $user->canUseGsmTools(), false);
         $accounts = is_array($funding['accounts'] ?? null) ? $funding['accounts'] : [];
 
         return response()->json([
@@ -91,6 +92,7 @@ class WalletController extends Controller
                 'manual_top_up_enabled' => ($funding['enabled'] ?? false) && count($accounts) > 0,
                 'kyc' => $kyc,
                 'can_use_rmb_wallet' => $canUseRmb,
+                'can_use_gsm_tools' => $canUseGsm,
             ],
         ], 200, [], JSON_INVALID_UTF8_SUBSTITUTE);
     }
