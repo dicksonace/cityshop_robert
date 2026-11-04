@@ -7,4 +7,5 @@ enum ContentReportTarget: string
     case Product = 'product';
     case Message = 'message';
     case Status = 'status';
+    case User = 'user';
 }

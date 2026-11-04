@@ -21,15 +21,15 @@ export default function Privacy({ contact, updatedAt }: Props) {
         <ShopLayout>
             <SeoHead
                 title="Privacy Policy"
-                description="How CityShop collects, uses, and protects your personal data."
+                description="How CityUnlock collects, uses, and protects your personal data."
                 url="/privacy"
             />
             <div className="mx-auto max-w-3xl px-4 py-10">
                 <h1 className="text-3xl font-bold text-gray-900">Privacy Policy</h1>
                 <p className="mt-2 text-sm text-gray-500">Last updated: {updatedAt}</p>
                 <p className="mt-4 text-gray-600">
-                    CityShop (operated via cityunlock.net) respects your privacy. This policy explains what we collect
-                    and how we use it when you use our website and mobile apps.
+                    CityUnlock (cityunlock.net and the CityUnlock mobile apps) respects your privacy. This policy
+                    explains what we collect and how we use it when you use our website and apps.
                 </p>
 
                 <div className="prose prose-gray mt-8 max-w-none space-y-6 text-sm leading-relaxed text-gray-700">
@@ -60,10 +60,10 @@ export default function Privacy({ contact, updatedAt }: Props) {
                     <section>
                         <h2 className="text-lg font-semibold text-gray-900">3. Sharing</h2>
                         <p className="mt-2">
-                            We share information only as needed to run CityShop: with sellers for your orders, with
-                            payment providers (such as Paystack or Flutterwave) to process payments, with SMS/push
-                            providers for notifications, and with authorities if required by law. We do not sell your
-                            personal data.
+                            We share information only as needed to run CityUnlock: with sellers for your orders, with
+                            payment providers (such as Paystack, Flutterwave, or Junipay) to process payments, with
+                            SMS/push providers for notifications, and with authorities if required by law. We do not
+                            sell your personal data.
                         </p>
                     </section>
 
@@ -90,7 +90,10 @@ export default function Privacy({ contact, updatedAt }: Props) {
                         <ul className="mt-2 list-disc space-y-1 pl-5">
                             <li>Update profile and address details in the app or website</li>
                             <li>Delete your account in the app under Profile settings</li>
-                            <li>Report a listing, message, or status, and block the other person, from that item in the app</li>
+                            <li>
+                                Report a listing, message, status, or person, and block the other person, from that
+                                item or chat menu in the app. We review reports within 24 hours
+                            </li>
                             <li>Disable push notifications in device settings</li>
                         </ul>
                     </section>
@@ -98,7 +101,7 @@ export default function Privacy({ contact, updatedAt }: Props) {
                     <section>
                         <h2 className="text-lg font-semibold text-gray-900">7. Children</h2>
                         <p className="mt-2">
-                            CityShop is not directed at children under 13. If you believe a child provided personal
+                            CityUnlock is not directed at children under 13. If you believe a child provided personal
                             data, contact us and we will take appropriate action.
                         </p>
                     </section>

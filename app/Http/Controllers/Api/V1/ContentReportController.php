@@ -74,6 +74,7 @@ class ContentReportController extends Controller
             ContentReportTarget::Product => $this->intOrNull(Product::query()->whereKey($targetId)->value('seller_id')),
             ContentReportTarget::Status => $this->intOrNull(UserStatus::query()->whereKey($targetId)->value('user_id')),
             ContentReportTarget::Message => $this->messageOwnerId($reporter, $targetId),
+            ContentReportTarget::User => User::query()->whereKey($targetId)->exists() ? $targetId : null,
         };
     }
 
