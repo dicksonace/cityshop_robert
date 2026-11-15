@@ -724,7 +724,56 @@ class OrderService
         return $locked;
     }
 
-    public function payCheckoutWithWallet(Checkout $checkout, User $buyer): Checkout
+    /**
+     * Create checkout and debit wallet in one transaction.
+     * Insufficient balance must not leave an unpaid order (or clear the cart).
+     *
+     * @param  array<string, array{channel: string, method_id?: int|null}>  $sellerPayments
+     * @param  array<string, string>  $sellerCoupons
+     */
+    public function createAndPayCheckoutWithWallet(
+        User $buyer,
+        array $shipping,
+        array $sellerPayments = [],
+        array $sellerCoupons = [],
+    ): Checkout {
+        $paid = DB::transaction(function () use ($buyer, $shipping, $sellerPayments, $sellerCoupons) {
+            $marketplaceTotal = $this->marketplaceAmountFromCart($buyer, $sellerPayments, $sellerCoupons);
+
+            if ($marketplaceTotal <= 0) {
+                throw ValidationException::withMessages([
+                    'payment_method' => 'Wallet payment only applies to CityShop marketplace orders.',
+                ]);
+            }
+
+            $wallet = Wallet::where('user_id', $buyer->id)->lockForUpdate()->first()
+                ?? WalletService::ensure($buyer);
+
+            if ((float) $wallet->available_balance < $marketplaceTotal) {
+                throw ValidationException::withMessages([
+                    'payment_method' => 'Insufficient wallet balance. Add funds or choose another payment method.',
+                ]);
+            }
+
+            $checkout = $this->createCheckoutFromCart(
+                $buyer,
+                $shipping,
+                'wallet',
+                $sellerPayments,
+                $sellerCoupons,
+            );
+
+            return $this->payCheckoutWithWallet($checkout, $buyer, notify: false);
+        });
+
+        if ($paid->payment_status === PaymentStatus::Paid) {
+            $this->notifyPaidCheckout($paid->fresh(['buyer', 'orders.items.seller']) ?? $paid);
+        }
+
+        return $paid;
+    }
+
+    public function payCheckoutWithWallet(Checkout $checkout, User $buyer, bool $notify = true): Checkout
     {
         abort_unless($checkout->buyer_id === $buyer->id, 403);
 
@@ -772,7 +821,7 @@ class OrderService
             return $this->fulfillPaidCheckout($checkout, $reference, notify: false);
         });
 
-        if ($paid->payment_status === PaymentStatus::Paid) {
+        if ($notify && $paid->payment_status === PaymentStatus::Paid) {
             $this->notifyPaidCheckout($paid->fresh(['buyer', 'orders.items.seller']) ?? $paid);
         }
 

@@ -43,10 +43,12 @@ class WalletController extends Controller
 
         $transactions = WalletTransaction::where('user_id', $user->id)
             ->where('type', '!=', WalletTransactionType::WithdrawalCompleted)
-            ->with('withdrawal:id,status,momo_number,fee')
+            ->with('withdrawal:id,status,momo_number,fee,network,payout_channel,junipay_trans_id,junipay_reference,junipay_status,updated_at')
             ->latest()
             ->paginate(8, ['*'], 'transactions_page')
             ->withQueryString();
+
+        app(WithdrawalPayoutService::class)->refreshJunipayOnTransactions($transactions->getCollection());
 
         WalletTransactionService::attachRunningBalances(
             $user->id,

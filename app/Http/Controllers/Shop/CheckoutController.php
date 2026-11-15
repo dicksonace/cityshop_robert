@@ -202,6 +202,35 @@ class CheckoutController extends Controller
             return redirect()->route('checkout.paystack-draft');
         }
 
+        if ($paymentMethod === 'wallet') {
+            try {
+                $checkout = $this->orderService->createAndPayCheckoutWithWallet(
+                    $request->user(),
+                    $shipping,
+                    $sellerPayments,
+                    $sellerCoupons,
+                );
+            } catch (ValidationException $e) {
+                return back()->withErrors($e->errors())->withInput();
+            } catch (\RuntimeException $e) {
+                return back()->with('error', $e->getMessage());
+            }
+
+            DirectCheckoutDraft::clear($request);
+            PendingCheckoutDraft::clear($request);
+
+            $hasDirect = $checkout->fresh('orders')->orders
+                ->contains(fn ($order) => $order->payment_channel === PaymentChannel::Direct);
+
+            if ($hasDirect) {
+                return redirect()->route('checkout.payment', $checkout)
+                    ->with('success', 'Wallet payment applied. Complete direct seller payments below.');
+            }
+
+            return redirect()->route('checkouts.show', $checkout)
+                ->with('success', 'Order paid from your wallet.');
+        }
+
         try {
             $checkout = $this->orderService->createCheckoutFromCart(
                 $request->user(),
@@ -224,25 +253,6 @@ class CheckoutController extends Controller
 
             return redirect()->route('checkouts.show', $checkout)
                 ->with('success', 'Order placed! Pay on delivery.');
-        }
-
-        if ($paymentMethod === 'wallet') {
-            try {
-                $this->orderService->payCheckoutWithWallet($checkout, $request->user());
-            } catch (ValidationException $e) {
-                return back()->withErrors($e->errors())->withInput();
-            }
-
-            $hasDirect = $checkout->fresh('orders')->orders
-                ->contains(fn ($order) => $order->payment_channel === PaymentChannel::Direct);
-
-            if ($hasDirect) {
-                return redirect()->route('checkout.payment', $checkout)
-                    ->with('success', 'Wallet payment applied. Complete direct seller payments below.');
-            }
-
-            return redirect()->route('checkouts.show', $checkout)
-                ->with('success', 'Order paid from your wallet.');
         }
 
         return redirect()->route('checkout.payment', $checkout);

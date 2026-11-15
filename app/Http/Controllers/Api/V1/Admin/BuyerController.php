@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Services\BuyerAccountService;
 use App\Services\WalletService;
+use App\Services\WalletTransactionService;
+use App\Services\WithdrawalPayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -51,15 +53,20 @@ class BuyerController extends Controller
 
         $recentTransactions = WalletTransaction::query()
             ->where('user_id', $buyer->id)
+            ->with('withdrawal:id,status,momo_number,fee,network,payout_channel,junipay_trans_id,junipay_reference,junipay_status,updated_at')
             ->latest('id')
             ->limit(8)
-            ->get()
+            ->get();
+
+        app(WithdrawalPayoutService::class)->refreshJunipayOnTransactions($recentTransactions);
+
+        $recentTransactions = $recentTransactions
             ->map(fn (WalletTransaction $tx) => [
                 'id' => $tx->id,
                 'type' => $tx->type?->value,
-                'type_label' => $tx->type?->label(),
+                'type_label' => WalletTransactionService::displayTypeLabel($tx),
                 'amount' => (float) $tx->amount,
-                'description' => $tx->description,
+                'description' => WalletTransactionService::displayDescription($tx),
                 'reference' => $tx->reference,
                 'created_at' => $tx->created_at?->toIso8601String(),
             ])

@@ -263,6 +263,36 @@ class CheckoutController extends Controller
             ]);
         }
 
+        if ($method === 'wallet') {
+            try {
+                $checkout = $this->orderService->createAndPayCheckoutWithWallet(
+                    $request->user(),
+                    $shipping,
+                    $sellerPayments,
+                    $sellerCoupons,
+                );
+            } catch (ValidationException $e) {
+                throw $e;
+            } catch (\RuntimeException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            DirectCheckoutDraft::clearForUser($request->user());
+            PendingCheckoutDraft::clearForUser($request->user());
+
+            $checkout = $checkout->fresh(['orders.items']);
+            $hasDirect = $checkout->orders
+                ->contains(fn ($order) => $order->payment_channel === PaymentChannel::Direct);
+
+            return response()->json([
+                'message' => $hasDirect
+                    ? 'Wallet payment applied. Complete direct seller payments.'
+                    : 'Order paid from wallet.',
+                'checkout' => $this->checkoutPayload($checkout),
+                'next' => $hasDirect ? 'direct_payment' : 'orders',
+            ], 201);
+        }
+
         try {
             $checkout = $this->orderService->createCheckoutFromCart(
                 $request->user(),
@@ -287,26 +317,6 @@ class CheckoutController extends Controller
                 'message' => 'Order placed. Pay on delivery.',
                 'checkout' => $this->checkoutPayload($checkout->fresh(['orders.items'])),
                 'next' => 'orders',
-            ], 201);
-        }
-
-        if ($method === 'wallet') {
-            try {
-                $this->orderService->payCheckoutWithWallet($checkout, $request->user());
-            } catch (ValidationException $e) {
-                throw $e;
-            }
-
-            $checkout = $checkout->fresh(['orders.items']);
-            $hasDirect = $checkout->orders
-                ->contains(fn ($order) => $order->payment_channel === PaymentChannel::Direct);
-
-            return response()->json([
-                'message' => $hasDirect
-                    ? 'Wallet payment applied. Complete direct seller payments.'
-                    : 'Order paid from wallet.',
-                'checkout' => $this->checkoutPayload($checkout),
-                'next' => $hasDirect ? 'direct_payment' : 'orders',
             ], 201);
         }
 

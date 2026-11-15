@@ -147,6 +147,31 @@ class WithdrawalPayoutService
     }
 
     /**
+     * Refresh Junipay on any Processing withdrawals attached to wallet ledger rows.
+     * The Transactions screen used to keep "Withdrawal · Processing" after Junipay paid.
+     *
+     * @param  iterable<mixed>  $transactions
+     */
+    public function refreshJunipayOnTransactions(iterable $transactions): void
+    {
+        foreach ($transactions as $tx) {
+            if (! is_object($tx) || ! method_exists($tx, 'relationLoaded') || ! $tx->relationLoaded('withdrawal')) {
+                continue;
+            }
+            $withdrawal = $tx->withdrawal;
+            if (! $withdrawal instanceof Withdrawal) {
+                continue;
+            }
+            if ($withdrawal->status !== WithdrawalStatus::Processing
+                || $withdrawal->payout_channel !== 'junipay'
+                || ! filled($withdrawal->junipay_trans_id)) {
+                continue;
+            }
+            $tx->setRelation('withdrawal', $this->refreshJunipay($withdrawal));
+        }
+    }
+
+    /**
      * Ask Junipay about a payout that is still processing, at most once every 30 seconds per withdrawal.
      * MoMo payouts start as pending, so this completes them when someone looks instead of waiting for the callback.
      */

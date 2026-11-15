@@ -31,6 +31,8 @@ class WithdrawalController extends Controller
             ->paginate(15)
             ->withQueryString()
             ->through(function (Withdrawal $withdrawal) {
+                // Junipay can finish MoMo while CityShop still says Processing.
+                $withdrawal = $this->payouts->refreshJunipay($withdrawal);
                 $user = $withdrawal->user;
                 $profile = $user?->sellerProfile;
                 $wallet = $user?->wallet;

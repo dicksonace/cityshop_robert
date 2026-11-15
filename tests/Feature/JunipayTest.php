@@ -278,6 +278,69 @@ class JunipayTest extends TestCase
         $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
     }
 
+    public function test_wallet_transactions_list_completes_a_processing_junipay_payout(): void
+    {
+        Notification::fake();
+        Http::fake([
+            self::API.'/checktranstatus' => Http::response(['code' => 200, 'status' => 'success', 'info' => ['status' => 'success', 'transID' => 'DIS77']], 200),
+        ]);
+        $buyer = $this->verifiedBuyer();
+        WalletService::ensure($buyer)->update(['available_balance' => 100]);
+        $withdrawal = Withdrawal::create([
+            'user_id' => $buyer->id,
+            'amount' => 11,
+            'fee' => 0.19,
+            'momo_number' => '0507615124',
+            'account_name' => 'Robert Asare',
+            'network' => 'telecel',
+            'payout_channel' => 'junipay',
+            'status' => WithdrawalStatus::Processing,
+            'junipay_reference' => '9000000771234567',
+            'junipay_trans_id' => 'DIS77',
+            'junipay_status' => 'pending',
+        ]);
+        \App\Services\WalletTransactionService::recordWithdrawal($withdrawal);
+
+        Sanctum::actingAs($buyer);
+        $this->getJson('/api/v1/wallet/transactions')
+            ->assertOk()
+            ->assertJsonPath('data.0.type_label', 'Withdrawal · Completed');
+
+        $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
+    }
+
+    public function test_admin_transactions_show_completed_not_stuck_processing(): void
+    {
+        Notification::fake();
+        Http::fake([
+            self::API.'/checktranstatus' => Http::response(['code' => 200, 'status' => 'success', 'info' => ['status' => 'success', 'transID' => 'DIS75']], 200),
+        ]);
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $buyer = $this->verifiedBuyer();
+        WalletService::ensure($buyer)->update(['available_balance' => 100]);
+        $withdrawal = Withdrawal::create([
+            'user_id' => $buyer->id,
+            'amount' => 10,
+            'fee' => 0.17,
+            'momo_number' => '233591456140',
+            'account_name' => 'Robert Asare',
+            'network' => 'mtn',
+            'payout_channel' => 'junipay',
+            'status' => WithdrawalStatus::Processing,
+            'junipay_reference' => '9000000751234567',
+            'junipay_trans_id' => 'DIS75',
+            'junipay_status' => 'pending',
+        ]);
+        \App\Services\WalletTransactionService::recordWithdrawal($withdrawal);
+
+        Sanctum::actingAs($admin);
+        $this->getJson('/api/v1/admin/transactions')
+            ->assertOk()
+            ->assertJsonPath('data.0.type_label', 'Withdrawal · Completed');
+
+        $this->assertSame(WithdrawalStatus::Paid, $withdrawal->fresh()->status);
+    }
+
     public function test_momo_payout_completes_when_junipay_nests_success_under_a_pending_status(): void
     {
         Notification::fake();

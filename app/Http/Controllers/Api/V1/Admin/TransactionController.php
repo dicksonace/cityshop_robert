@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\WalletTransaction;
+use App\Services\WalletTransactionService;
+use App\Services\WithdrawalPayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,7 +17,10 @@ class TransactionController extends Controller
         $type = $request->string('type')->trim()->toString();
 
         $transactions = WalletTransaction::query()
-            ->with(['user:id,name,email,mobile,role'])
+            ->with([
+                'user:id,name,email,mobile,role',
+                'withdrawal:id,status,momo_number,fee,network,payout_channel,junipay_trans_id,junipay_reference,junipay_status,updated_at',
+            ])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->whereHas('user', function ($user) use ($search) {
@@ -30,13 +35,15 @@ class TransactionController extends Controller
             ->latest('id')
             ->paginate(min(max((int) $request->integer('per_page', 20), 1), 50));
 
+        app(WithdrawalPayoutService::class)->refreshJunipayOnTransactions($transactions->getCollection());
+
         return response()->json([
             'data' => $transactions->getCollection()->map(fn (WalletTransaction $tx) => [
                 'id' => $tx->id,
                 'type' => $tx->type?->value,
-                'type_label' => $tx->type?->label(),
+                'type_label' => WalletTransactionService::displayTypeLabel($tx),
                 'amount' => (float) $tx->amount,
-                'description' => $tx->description,
+                'description' => WalletTransactionService::displayDescription($tx),
                 'reference' => $tx->reference,
                 'created_at' => $tx->created_at?->toIso8601String(),
                 'user' => $tx->user ? [
