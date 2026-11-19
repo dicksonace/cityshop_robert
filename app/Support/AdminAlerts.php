@@ -2,11 +2,13 @@
 
 namespace App\Support;
 
+use App\Enums\SellerStatus;
 use App\Models\AppNotification;
 use App\Models\ChinaTransfer;
 use App\Models\Dispute;
 use App\Models\GsmOrder;
 use App\Models\KycVerification;
+use App\Models\SellerProfile;
 use App\Models\SellRmbTransfer;
 use App\Models\User;
 use App\Models\WalletTopUpRequest;
@@ -24,6 +26,7 @@ class AdminAlerts
     /** @var array<class-string<Model>, list<string>> statuses that still need an admin */
     private const OPEN = [
         KycVerification::class => ['pending'],
+        SellerProfile::class => ['pending'],
         Withdrawal::class => ['pending', 'processing'],
         WalletTopUpRequest::class => ['pending'],
         Dispute::class => ['open', 'under_review'],
@@ -62,6 +65,7 @@ class AdminAlerts
                 'title' => $alert->title,
                 'body' => $alert->body,
                 'created_at' => $alert->created_at?->toIso8601String(),
+                'href' => self::hrefFor($alert),
             ])
             ->values();
     }
@@ -84,7 +88,39 @@ class AdminAlerts
                 ->exists();
         }
 
+        // Older seller-application SMS alerts had no subject link, so they stacked forever.
+        if (preg_match('/applied to sell \(([^)]+)\)/', (string) $alert->body, $m)) {
+            $store = trim($m[1]);
+
+            return SellerProfile::query()
+                ->where('status', SellerStatus::Pending)
+                ->where(function ($q) use ($store) {
+                    $q->where('store_name', $store)
+                        ->orWhere('business_name', $store);
+                })
+                ->exists();
+        }
+
         return true;
+    }
+
+    private static function hrefFor(AppNotification $alert): ?string
+    {
+        $data = is_array($alert->data) ? $alert->data : [];
+        $type = $data['subject_type'] ?? null;
+
+        return match ($type) {
+            SellerProfile::class => '/sellers',
+            Withdrawal::class, WalletTopUpRequest::class => '/money',
+            ChinaTransfer::class => '/china-transfers',
+            SellRmbTransfer::class => '/sell-rmb',
+            GsmOrder::class => '/gsm-tools',
+            KycVerification::class => '/kyc',
+            Dispute::class => '/orders',
+            default => str_contains((string) $alert->body, 'applied to sell')
+                ? '/sellers'
+                : null,
+        };
     }
 
     private static function statusOf(Model $model): string

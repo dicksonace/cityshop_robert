@@ -329,7 +329,8 @@ class SellerRegisterController extends Controller
                 \App\Services\AdminNotifier::notify(new \App\Notifications\AdminSellerApplicationNotification(
                     $user,
                     (string) ($sellerProfile->store_name ?: $sellerProfile->business_name ?: $user->name),
-                ));
+                    $sellerProfile,
+                ), $sellerProfile);
             } catch (\Throwable $e) {
                 report($e);
             }

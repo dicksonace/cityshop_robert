@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Models\SellerProfile;
 use App\Models\User;
 use App\Services\AdminNotifier;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -12,6 +13,7 @@ class AdminSellerApplicationNotification extends Notification
     public function __construct(
         public User $applicant,
         public string $storeName,
+        public ?SellerProfile $sellerProfile = null,
     ) {}
 
     public function via(object $notifiable): array
