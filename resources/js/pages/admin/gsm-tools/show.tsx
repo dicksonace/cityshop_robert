@@ -62,10 +62,16 @@ function wordCount(text: string): number {
     return trimmed.split(/\s+/).length;
 }
 
+const GSM_REPLY_MAX_WORDS = 60;
+
 function WordCount({ text }: { text: string }) {
     const count = wordCount(text);
-    const over = count > 20;
-    return <p className={`text-xs font-bold ${over ? 'text-red-600' : 'text-gray-500'}`}>{count}/20 words</p>;
+    const over = count > GSM_REPLY_MAX_WORDS;
+    return (
+        <p className={`text-xs font-bold ${over ? 'text-red-600' : 'text-gray-500'}`}>
+            {count}/{GSM_REPLY_MAX_WORDS} words
+        </p>
+    );
 }
 
 function statusClass(status: string): string {
@@ -89,8 +95,11 @@ export default function AdminGsmToolShow({ order }: Props) {
 
     const sendReply: FormEventHandler = (e) => {
         e.preventDefault();
-        if (wordCount(replyForm.data.message) > 20) {
-            replyForm.setError('message', 'Keep the reply to 20 words or fewer so the SMS can be delivered.');
+        if (wordCount(replyForm.data.message) > GSM_REPLY_MAX_WORDS) {
+            replyForm.setError(
+                'message',
+                `Keep the reply to ${GSM_REPLY_MAX_WORDS} words or fewer so the SMS can be delivered.`,
+            );
             return;
         }
         replyForm.post(route('admin.gsm-tools.reply', order.id), {
@@ -101,8 +110,11 @@ export default function AdminGsmToolShow({ order }: Props) {
     const complete: FormEventHandler = (e) => {
         e.preventDefault();
         const note = completeForm.data.result_note.trim() || replyForm.data.message.trim();
-        if (wordCount(note) > 20) {
-            completeForm.setError('result_note', 'Keep the reply to 20 words or fewer so the SMS can be delivered.');
+        if (wordCount(note) > GSM_REPLY_MAX_WORDS) {
+            completeForm.setError(
+                'result_note',
+                `Keep the reply to ${GSM_REPLY_MAX_WORDS} words or fewer so the SMS can be delivered.`,
+            );
             return;
         }
         router.post(

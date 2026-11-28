@@ -973,13 +973,15 @@ class GsmToolService
         return array_values(array_filter(array_map('trim', $lines)));
     }
 
+    private const GSM_REPLY_MAX_WORDS = 60;
+
     private function assertGsmReplyWords(string $text, string $field): void
     {
         $words = preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY);
 
-        if (is_array($words) && count($words) > 20) {
+        if (is_array($words) && count($words) > self::GSM_REPLY_MAX_WORDS) {
             throw ValidationException::withMessages([
-                $field => 'Keep the reply to 20 words or fewer so the SMS can be delivered.',
+                $field => 'Keep the reply to '.self::GSM_REPLY_MAX_WORDS.' words or fewer so the SMS can be delivered.',
             ]);
         }
     }
