@@ -56,22 +56,14 @@ class WalletService
 
     /**
      * Manually remove funds from available balance (admin clawback / adjustment).
-     *
-     * @throws \RuntimeException when balance is insufficient
+     * May leave the wallet negative; the next deposit or credit pays the overdraft down.
+     * Buyer checkout / withdrawals still require a non-negative sufficient balance.
      */
     public static function adminDebit(User $target, float $amount, User $admin, ?string $note = null): WalletTransaction
     {
         return DB::transaction(function () use ($target, $amount, $admin, $note) {
             $wallet = Wallet::where('user_id', $target->id)->lockForUpdate()->first()
                 ?? static::ensure($target);
-
-            $available = (float) $wallet->available_balance;
-            if ($available + 0.0001 < $amount) {
-                throw new \RuntimeException(
-                    'Insufficient available balance. '.$target->name.' has GH₵'.number_format($available, 2)
-                    .' but this debit needs GH₵'.number_format($amount, 2).'.'
-                );
-            }
 
             $wallet->decrement('available_balance', $amount);
 

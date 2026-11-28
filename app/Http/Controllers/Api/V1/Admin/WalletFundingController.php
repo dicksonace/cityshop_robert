@@ -79,10 +79,15 @@ class WalletFundingController extends Controller
         }
 
         $wallet = WalletService::ensure($target->fresh());
+        $available = (float) $wallet->available_balance;
+
+        if ($currency !== 'RMB' && $validated['action'] === 'debit' && $available < 0) {
+            $message .= ' New balance GH₵'.number_format($available, 2).' (overdrawn — next deposit pays it down).';
+        }
 
         return response()->json([
             'message' => $message,
-            'available_balance' => (float) $wallet->available_balance,
+            'available_balance' => $available,
             'rmb_balance' => (float) $wallet->rmb_balance,
         ]);
     }

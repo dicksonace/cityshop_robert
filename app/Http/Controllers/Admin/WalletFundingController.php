@@ -139,10 +139,13 @@ class WalletFundingController extends Controller
                     $validated['note'] ?? null,
                 );
 
-                return back()->with(
-                    'success',
-                    'GH₵'.number_format($amount, 2).' removed from '.$target->name."'s wallet.",
-                );
+                $available = (float) WalletService::ensure($target->fresh())->available_balance;
+                $message = 'GH₵'.number_format($amount, 2).' removed from '.$target->name."'s wallet.";
+                if ($available < 0) {
+                    $message .= ' New balance GH₵'.number_format($available, 2).' (overdrawn — next deposit pays it down).';
+                }
+
+                return back()->with('success', $message);
             }
 
             WalletService::adminCredit(
