@@ -167,17 +167,19 @@ export function WithdrawalStatusView({ withdrawal, onRefresh, walletHref, histor
                             Payout account ({isBank ? 'Bank' : 'MoMo'})
                         </p>
                         <div className="space-y-2 text-sm">
-                            <div className="flex justify-between gap-2">
-                                <span className="text-gray-600">Network</span>
-                                <span className="font-semibold text-gray-900">{payout.network ?? '—'}</span>
+                            <div className="flex items-start justify-between gap-3">
+                                <span className="shrink-0 text-gray-600">Network</span>
+                                <span className="min-w-0 text-right font-semibold text-gray-900">{payout.network ?? '—'}</span>
                             </div>
-                            <div className="flex justify-between gap-2">
-                                <span className="text-gray-600">Number</span>
-                                <span className="font-semibold text-gray-900">{payout.number ?? '—'}</span>
+                            <div className="flex items-start justify-between gap-3">
+                                <span className="shrink-0 text-gray-600">Number</span>
+                                <span className="min-w-0 text-right font-semibold text-gray-900">{payout.number ?? '—'}</span>
                             </div>
-                            <div className="flex justify-between gap-2">
-                                <span className="text-gray-600">Account name</span>
-                                <span className="text-right font-semibold text-gray-900">{payout.account_name ?? '—'}</span>
+                            <div className="flex items-start justify-between gap-3">
+                                <span className="shrink-0 text-gray-600">Account name</span>
+                                <span className="min-w-0 text-right font-semibold leading-snug text-gray-900">
+                                    {payout.account_name ?? '—'}
+                                </span>
                             </div>
                         </div>
                     </div>
